@@ -216,7 +216,7 @@ export function RolesPanel({
                 <td style={cell}>{u.fullName ?? u.sub}</td>
                 <td style={cell}>{u.employeeCode}</td>
                 <td style={cell}>{u.email}</td>
-                <td style={cell}>{u.role}</td>
+                <td style={cell}>{t(`roles.roleName.${u.role}`)}</td>
                 <td style={cell}>
                   {u.role === 'member' && (
                     <input

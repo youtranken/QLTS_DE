@@ -39,6 +39,11 @@ export default {
     role: 'Role',
     longTerm: 'Long-term',
     recurring: 'Recurring',
+    roleName: {
+      member: 'Member',
+      admin: 'Admin',
+      sa: 'SA',
+    },
     makeAdmin: 'Make Admin',
     removeAdmin: 'Remove Admin',
     loadFailed: 'Could not load the list.',

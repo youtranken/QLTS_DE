@@ -39,6 +39,11 @@ export default {
     role: 'Vai',
     longTerm: 'Dài hạn',
     recurring: 'Định kỳ',
+    roleName: {
+      member: 'Thành viên',
+      admin: 'Admin',
+      sa: 'SA',
+    },
     makeAdmin: 'Bổ nhiệm Admin',
     removeAdmin: 'Miễn nhiệm',
     loadFailed: 'Không tải được danh sách.',

@@ -163,6 +163,18 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
+      {narrow && menuOpen && (
+        // Backdrop: bấm ngoài menu để đóng (nút hamburger bị nav che khi mở)
+        <div
+          onClick={() => setMenuOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.3)',
+            zIndex: 9,
+          }}
+        />
+      )}
       {showSidebar && (
         <nav
           style={{
