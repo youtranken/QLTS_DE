@@ -4,6 +4,22 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
-  }
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "isolatedModules": true,
+        "tsconfig": {
+          "module": "commonjs",
+          "moduleResolution": "node10",
+            "resolvePackageJsonExports": false,
+          "allowJs": true,
+          "esModuleInterop": true,
+          "emitDecoratorMetadata": true,
+          "experimentalDecorators": true,
+          "target": "ES2023"
+        }
+      }
+    ]
+  },
+  "transformIgnorePatterns": ["node_modules/(?!(jose|openid-client|oauth4webapi)/)"]
 }

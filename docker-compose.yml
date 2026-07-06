@@ -12,6 +12,12 @@ services:
       AUTH_DEV_MODE: ${AUTH_DEV_MODE:-false}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # PMH ID (story 1.2) — không default secret
+      PMH_ISSUER_URL: ${PMH_ISSUER_URL:-}
+      PMH_CLIENT_ID: ${PMH_CLIENT_ID:-}
+      PMH_CLIENT_SECRET: ${PMH_CLIENT_SECRET:-}
+      PMH_WEBHOOK_SECRET: ${PMH_WEBHOOK_SECRET:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
     depends_on:
       postgres:
         condition: service_healthy

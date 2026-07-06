@@ -1,10 +1,13 @@
 import { Controller, Get, INestApplication, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import request from 'supertest';
-import type { RequestIdentity } from '../src/modules/auth/dev-identity.guard';
+import type { RequestIdentity } from '../src/modules/auth/identity.guard';
+import { Public } from '../src/modules/auth/public.decorator';
 import { createTestApp } from './test-app.helper';
 
-/** Controller chỉ dùng trong test: soi identity guard đã gắn vào request. */
+/** Controller chỉ dùng trong test: soi identity guard đã gắn vào request.
+ *  @Public: từ 1.2 guard enforce 401 mặc định — assertion giữ nguyên (AC 9 story 1.2). */
+@Public()
 @Controller('test-whoami')
 class WhoAmIController {
   @Get()

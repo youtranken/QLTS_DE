@@ -21,6 +21,17 @@ describe('Skeleton api (AC 3, 7)', () => {
     expect(res.body).toEqual({ status: 'ok' });
   });
 
+  it('route cần đăng nhập không có identity → 401 UNAUTHENTICATED (default-secure, AC 9 story 1.2)', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .expect(401);
+    expect(res.body).toEqual({
+      statusCode: 401,
+      code: 'UNAUTHENTICATED',
+      message: expect.any(String),
+    });
+  });
+
   it('lỗi trả đúng shape { statusCode, code, message } (route không tồn tại)', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/khong-ton-tai')

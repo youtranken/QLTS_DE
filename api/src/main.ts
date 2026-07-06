@@ -41,7 +41,10 @@ async function bootstrap(): Promise<void> {
     await migrationPool.end();
   }
 
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    rawBody: true, // webhook PMH ID verify HMAC trên raw body
+  });
   app.useLogger(app.get(Logger));
   configureApp(app);
   app.enableShutdownHooks();

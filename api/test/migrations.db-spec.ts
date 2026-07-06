@@ -28,7 +28,9 @@ describe('Migrations + seed config (Postgres thật)', () => {
   beforeAll(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     // Đưa DB test về trạng thái chưa-migrate (extension giữ nguyên — CREATE IF NOT EXISTS idempotent)
-    await pool.query('DROP TABLE IF EXISTS config, _migrations CASCADE');
+    await pool.query(
+      'DROP TABLE IF EXISTS sessions, audit_log, users, config, _migrations CASCADE',
+    );
   });
 
   afterAll(async () => {
@@ -39,7 +41,13 @@ describe('Migrations + seed config (Postgres thật)', () => {
     const applied = await runMigrations(pool, migrationsDir, {
       log: () => undefined,
     });
-    expect(applied).toEqual(['0000_btree_gist.sql', '0001_config.sql']);
+    expect(applied).toEqual([
+      '0000_btree_gist.sql',
+      '0001_config.sql',
+      '0002_users.sql',
+      '0003_audit_log.sql',
+      '0004_sessions.sql',
+    ]);
   });
 
   it('extension btree_gist đã cài (AD-12)', async () => {
