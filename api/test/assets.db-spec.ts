@@ -249,6 +249,57 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .expect(201);
   });
 
+  it('tìm & lọc server-side: theo mã, theo tên người, kết hợp, count đúng, rỗng (story 2.2)', async () => {
+    // dữ liệu hiện có: DUP-01 (laptop), 3-AA-CT-0042 (laptop, Trần Thị Bình, tầng 3),
+    // PAGE-01..05 (monitor, tầng 5), CSRF-01 (laptop)
+    const get = (qs: string) =>
+      request(app.getHttpServer())
+        .get(`/api/admin/assets?${qs}`)
+        .set(asAdmin())
+        .expect(200);
+
+    // theo mã (một phần, không phân biệt hoa thường)
+    const byCode = await get('search=aa-ct');
+    expect(byCode.body.total).toBe(1);
+    expect(byCode.body.items[0].code).toBe('3-AA-CT-0042');
+
+    // theo tên người đứng tên
+    const byName = await get('search=Bình');
+    expect(byName.body.total).toBe(1);
+    expect(byName.body.items[0].code).toBe('3-AA-CT-0042');
+
+    // ký tự wildcard bị escape — '%' không khớp tất cả
+    const wildcard = await get('search=%25');
+    expect(wildcard.body.total).toBe(0);
+
+    // lọc kết hợp type + floor; count áp CÙNG bộ lọc (không phải tổng bảng)
+    const combo = await get('type=monitor&floor=5&pageSize=2');
+    expect(combo.body.total).toBe(5);
+    expect(combo.body.items).toHaveLength(2);
+
+    // search + lọc kết hợp
+    const searchCombo = await get('search=PAGE&type=monitor');
+    expect(searchCombo.body.total).toBe(5);
+
+    // không khớp → rỗng, không lỗi
+    const none = await get('search=khong-ton-tai-9999');
+    expect(none.body.total).toBe(0);
+    expect(none.body.items).toEqual([]);
+  });
+
+  it('meta trả distinct loại + tầng cho dropdown (story 2.2)', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/admin/assets/meta')
+      .set(asAdmin())
+      .expect(200);
+    expect(res.body.types).toEqual(
+      expect.arrayContaining(['laptop', 'monitor']),
+    );
+    expect(res.body.floors).toEqual(expect.arrayContaining(['3', '5']));
+    // không có null trong floors
+    expect(res.body.floors).not.toContain(null);
+  });
+
   it('CHECK constraint status: giá trị lạ bị DB từ chối (nền 2.6)', async () => {
     await expect(
       pool.query(

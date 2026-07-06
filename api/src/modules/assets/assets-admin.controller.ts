@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsIn,
   IsInt,
   IsISO8601,
   IsOptional,
@@ -122,6 +123,26 @@ class ListAssetsQueryDto {
   @Min(1)
   @Max(100)
   pageSize = 20;
+
+  /** Tìm mã tài sản HOẶC tên người đứng tên (story 2.2). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  type?: string;
+
+  @IsOptional()
+  @IsIn(['in_use', 'locked_repair', 'disposed'])
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  floor?: string;
 }
 
 function toInput(body: AssetBodyDto): AssetInput {
@@ -149,7 +170,20 @@ export class AssetsAdminController {
 
   @Get()
   list(@Query() query: ListAssetsQueryDto) {
-    return this.assets.list({ page: query.page, pageSize: query.pageSize });
+    return this.assets.list({
+      page: query.page,
+      pageSize: query.pageSize,
+      search: query.search,
+      type: query.type,
+      status: query.status,
+      floor: query.floor,
+    });
+  }
+
+  /** Dropdown lọc (2.2) — PHẢI đứng trước ':id' để 'meta' không rơi vào ParseUUIDPipe. */
+  @Get('meta')
+  filterMeta() {
+    return this.assets.filterMeta();
   }
 
   @Get(':id')

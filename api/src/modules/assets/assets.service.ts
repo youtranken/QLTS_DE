@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, ilike, isNotNull, or, sql } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
@@ -31,6 +31,11 @@ export interface AssetInput {
 export interface AssetListQuery {
   page: number;
   pageSize: number;
+  /** Tìm MỘT ô: khớp mã tài sản HOẶC tên người đứng tên (FR-36, story 2.2). */
+  search?: string;
+  type?: string;
+  status?: string;
+  floor?: string;
 }
 
 const EDITABLE_FIELDS = [
@@ -176,8 +181,23 @@ export class AssetsService {
     }
   }
 
-  /** Danh sách phân trang SERVER-side (NFR-5) — join users lấy tên người đứng tên. */
+  /**
+   * Danh sách phân trang SERVER-side (NFR-5) + tìm/lọc (FR-36, story 2.2) —
+   * join users lấy tên người đứng tên; count(*) áp CÙNG where + join với items.
+   */
   async list(query: AssetListQuery) {
+    const conditions = [
+      query.search
+        ? or(
+            ilike(assetsTable.code, `%${escapeLike(query.search)}%`),
+            ilike(usersTable.fullName, `%${escapeLike(query.search)}%`),
+          )
+        : undefined,
+      query.type ? eq(assetsTable.type, query.type) : undefined,
+      query.status ? eq(assetsTable.status, query.status) : undefined,
+      query.floor ? eq(assetsTable.floor, query.floor) : undefined,
+    ].filter((c) => c !== undefined);
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [items, totalRows] = await Promise.all([
       this.db
         .select({
@@ -192,16 +212,40 @@ export class AssetsService {
         })
         .from(assetsTable)
         .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
+        .where(where)
         .orderBy(assetsTable.code)
         .limit(query.pageSize)
         .offset((query.page - 1) * query.pageSize),
-      this.db.select({ n: sql<number>`count(*)::int` }).from(assetsTable),
+      this.db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(assetsTable)
+        .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
+        .where(where),
     ]);
     return {
       items,
       total: totalRows[0]?.n ?? 0,
       page: query.page,
       pageSize: query.pageSize,
+    };
+  }
+
+  /** Giá trị distinct cho dropdown lọc (story 2.2) — loại + tầng đang có trong sổ. */
+  async filterMeta() {
+    const [types, floors] = await Promise.all([
+      this.db
+        .selectDistinct({ v: assetsTable.type })
+        .from(assetsTable)
+        .orderBy(assetsTable.type),
+      this.db
+        .selectDistinct({ v: assetsTable.floor })
+        .from(assetsTable)
+        .where(isNotNull(assetsTable.floor))
+        .orderBy(assetsTable.floor),
+    ]);
+    return {
+      types: types.map((r) => r.v),
+      floors: floors.map((r) => r.v),
     };
   }
 
@@ -293,6 +337,11 @@ export function diffChanged(
     if (from !== to) changed[field] = { from, to };
   }
   return changed;
+}
+
+/** Escape ký tự đặc biệt của LIKE — search chứa % _ \ không thành wildcard (bài học 1.5). */
+function escapeLike(input: string): string {
+  return input.replace(/[\\%_]/g, '\\$&');
 }
 
 /** Chuẩn hóa để so sánh: old đã ::text từ SQL; phía input số→string, null/undefined→null. */

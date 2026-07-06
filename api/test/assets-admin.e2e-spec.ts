@@ -114,4 +114,15 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
       .set(asAdmin)
       .expect(400);
   });
+
+  it('lọc status ngoài enum → 400; member gọi meta → 403 (story 2.2)', async () => {
+    await request(app.getHttpServer())
+      .get('/api/admin/assets?status=dang_bay')
+      .set(asAdmin)
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/api/admin/assets/meta')
+      .set(asMember)
+      .expect(403);
+  });
 });

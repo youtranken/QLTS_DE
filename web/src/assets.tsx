@@ -73,15 +73,56 @@ export function AssetsPage({ me }: { me: Me }) {
   const [total, setTotal] = useState(0);
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Tìm/lọc server-side (2.2): searchInput gõ tự do → search sau debounce 300ms
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [type, setType] = useState('');
+  const [status, setStatus] = useState('');
+  const [floor, setFloor] = useState('');
+  const [meta, setMeta] = useState<{ types: string[]; floors: string[] }>({
+    types: [],
+    floors: [],
+  });
+  const hasFilter = search !== '' || type !== '' || status !== '' || floor !== '';
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const loadMeta = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/assets/meta');
+      if (!res.ok) return;
+      const body = (await res.json()) as { types?: string[]; floors?: string[] };
+      setMeta({ types: body.types ?? [], floors: body.floors ?? [] });
+    } catch {
+      // dropdown thiếu lựa chọn không chặn màn hình — danh sách vẫn dùng được
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadMeta();
+  }, [loadMeta]);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setError(null);
       try {
-        const res = await fetch(
-          `/api/admin/assets?page=${page}&pageSize=${PAGE_SIZE}`,
-          { signal },
-        );
+        const params = new URLSearchParams({
+          page: String(page),
+          pageSize: String(PAGE_SIZE),
+        });
+        if (search) params.set('search', search);
+        if (type) params.set('type', type);
+        if (status) params.set('status', status);
+        if (floor) params.set('floor', floor);
+        const res = await fetch(`/api/admin/assets?${params.toString()}`, {
+          signal,
+        });
         if (res.status === 401) {
           window.location.href = '/';
           return;
@@ -103,7 +144,7 @@ export function AssetsPage({ me }: { me: Me }) {
         }
       }
     },
-    [page, t],
+    [page, search, type, status, floor, t],
   );
 
   useEffect(() => {
@@ -143,7 +184,10 @@ export function AssetsPage({ me }: { me: Me }) {
           initial={form}
           onDone={(saved) => {
             setForm(null);
-            if (saved) void load();
+            if (saved) {
+              void load();
+              void loadMeta();
+            }
           }}
         />
       ) : (
@@ -151,6 +195,78 @@ export function AssetsPage({ me }: { me: Me }) {
           <button type="button" onClick={() => setForm(EMPTY_FORM)}>
             {t('assets.addAsset')}
           </button>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '0.5rem',
+              marginTop: '0.75rem',
+            }}
+          >
+            <input
+              placeholder={t('assets.searchPlaceholder')}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              style={{ padding: '0.3rem 0.5rem', minWidth: 220 }}
+            />
+            <select
+              value={type}
+              onChange={(e) => {
+                setType(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">{t('assets.filterType')}</option>
+              {meta.types.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+            <select
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">{t('assets.filterStatus')}</option>
+              {['in_use', 'locked_repair', 'disposed'].map((v) => (
+                <option key={v} value={v}>
+                  {t(`assets.status.${v}`)}
+                </option>
+              ))}
+            </select>
+            <select
+              value={floor}
+              onChange={(e) => {
+                setFloor(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">{t('assets.filterFloor')}</option>
+              {meta.floors.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+            {hasFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchInput('');
+                  setSearch('');
+                  setType('');
+                  setStatus('');
+                  setFloor('');
+                  setPage(1);
+                }}
+              >
+                {t('assets.clearFilters')}
+              </button>
+            )}
+          </div>
           <div style={{ overflowX: 'auto', marginTop: '0.75rem' }}>
             <table style={{ borderCollapse: 'collapse' }}>
               <thead>
@@ -166,7 +282,12 @@ export function AssetsPage({ me }: { me: Me }) {
               </thead>
               <tbody>
                 {items.map((a) => (
-                  <tr key={a.id}>
+                  // click dòng → xem chi tiết (AC 1; trang 3 tab là 2.7 — tạm mở form đủ trường)
+                  <tr
+                    key={a.id}
+                    onClick={() => void openEdit(a.id)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <td style={cell}>{a.code}</td>
                     <td style={cell}>{a.type}</td>
                     <td style={cell}>
@@ -176,7 +297,13 @@ export function AssetsPage({ me }: { me: Me }) {
                     <td style={cell}>{t(`assets.status.${a.status}`)}</td>
                     <td style={cell}>{a.isPool ? '✓' : ''}</td>
                     <td style={cell}>
-                      <button type="button" onClick={() => void openEdit(a.id)}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation(); // tr đã có onClick — không mở 2 lần
+                          void openEdit(a.id);
+                        }}
+                      >
                         {t('assets.edit')}
                       </button>
                     </td>
@@ -185,7 +312,9 @@ export function AssetsPage({ me }: { me: Me }) {
               </tbody>
             </table>
           </div>
-          {items.length === 0 && <p>{t('assets.empty')}</p>}
+          {items.length === 0 && (
+            <p>{hasFilter ? t('assets.noMatch') : t('assets.empty')}</p>
+          )}
           <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
             <button
               type="button"
