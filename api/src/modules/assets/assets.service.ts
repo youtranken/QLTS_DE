@@ -28,6 +28,9 @@ export interface AssetInput {
   brand: string | null;
   model: string | null;
   assignedUserSub: string | null;
+  /** Software (2.4): term|perpetual; non-software phải null. */
+  licenseType: string | null;
+  licenseName: string | null;
 }
 
 export interface AssetListQuery {
@@ -53,6 +56,8 @@ const EDITABLE_FIELDS = [
   'brand',
   'model',
   'assigned_user_sub',
+  'license_type',
+  'license_name',
 ] as const;
 
 interface PgError {
@@ -72,9 +77,24 @@ export class AssetsService {
    * Mutation + audit trong MỘT transaction (review 2.1): ghi vết thất bại →
    * rollback cả tạo (FR-35 — sổ tài sản không được "đổi mà mất vết").
    */
-  async create(input: AssetInput, actorSub: string) {
+  async create(
+    input: AssetInput,
+    actorSub: string,
+    /** Chỉ set khi TẠO (2.4, AC 3) — đổi/gỡ là thao tác "chuyển" ở 2.5. */
+    installedOnAssetId: string | null = null,
+  ) {
+    validateSoftwareInput(input);
+    if (installedOnAssetId && input.type !== 'software') {
+      throw new BadRequestException({
+        code: 'SOFTWARE_FIELDS_ONLY',
+        message: 'Chỉ phần mềm mới gắn được vào máy.',
+      });
+    }
     try {
       return await this.db.transaction(async (tx) => {
+        if (installedOnAssetId) {
+          await this.assertInstallTarget(tx, installedOnAssetId);
+        }
         const rows = await tx
           .insert(assetsTable)
           .values({
@@ -90,6 +110,9 @@ export class AssetsService {
             brand: input.brand,
             model: input.model,
             assignedUserSub: input.assignedUserSub,
+            licenseType: input.licenseType,
+            licenseName: input.licenseName,
+            installedOnAssetId,
           })
           .returning();
         const asset = rows[0];
@@ -134,9 +157,27 @@ export class AssetsService {
     /** Ghi chú cấp phát — chỉ dùng khi assigned_user_sub ĐỔI (2.3). */
     allocationNote: string | null = null,
   ) {
+    validateSoftwareInput(input);
     try {
       // Mutation + audit MỘT transaction (review 2.1) — mất vết = rollback cả sửa
       return await this.db.transaction(async (tx) => {
+        // Software-ness bất biến (2.4, AC 3): đổi type qua/lại 'software' làm bản ghi
+        // đổi bản chất (license/installed_on mồ côi) — chặn hẳn. SELECT không cần
+        // lock: chính invariant này bảo đảm software-ness không đổi dưới chân ta.
+        const current = await tx
+          .select({ type: assetsTable.type })
+          .from(assetsTable)
+          .where(eq(assetsTable.id, id));
+        if (
+          current.length > 0 &&
+          (current[0].type === 'software') !== (input.type === 'software')
+        ) {
+          throw new BadRequestException({
+            code: 'TYPE_SOFTWARE_IMMUTABLE',
+            message:
+              'Không thể đổi bản ghi giữa thiết bị và phần mềm — tạo bản ghi mới.',
+          });
+        }
         const result = await tx.execute<Record<string, unknown>>(sql`
           UPDATE assets AS a
           SET code = ${input.code},
@@ -151,6 +192,8 @@ export class AssetsService {
               brand = ${input.brand},
               model = ${input.model},
               assigned_user_sub = ${input.assignedUserSub},
+              license_type = ${input.licenseType},
+              license_name = ${input.licenseName},
               version = a.version + 1,
               updated_at = now()
           FROM (SELECT * FROM assets WHERE id = ${id} FOR UPDATE) AS old
@@ -254,6 +297,51 @@ export class AssetsService {
     };
   }
 
+  /** Máy đích để cài software (2.4): tồn tại, KHÔNG phải software, KHÔNG thanh lý. */
+  private async assertInstallTarget(
+    tx: Pick<Database, 'select'>,
+    targetId: string,
+  ): Promise<void> {
+    const rows = await tx
+      .select({ type: assetsTable.type, status: assetsTable.status })
+      .from(assetsTable)
+      .where(eq(assetsTable.id, targetId));
+    if (rows.length === 0) {
+      throw new BadRequestException({
+        code: 'INSTALL_TARGET_NOT_FOUND',
+        message: 'Máy để cài phần mềm không tồn tại.',
+      });
+    }
+    if (rows[0].type === 'software') {
+      throw new BadRequestException({
+        code: 'INSTALL_ON_SOFTWARE',
+        message: 'Phần mềm chỉ cài được trên máy, không cài lên phần mềm khác.',
+      });
+    }
+    if (rows[0].status === 'disposed') {
+      throw new ConflictException({
+        code: 'INSTALL_TARGET_DISPOSED',
+        message: 'Máy đã thanh lý — không gắn phần mềm vào được.',
+      });
+    }
+  }
+
+  /** Software đang cài trên một máy (2.4, AC 2) — 2.7 và Epic 3 dùng lại. */
+  async listInstalledSoftware(assetId: string) {
+    return this.db
+      .select({
+        id: assetsTable.id,
+        code: assetsTable.code,
+        licenseType: assetsTable.licenseType,
+        licenseName: assetsTable.licenseName,
+        endDate: assetsTable.endDate,
+        status: assetsTable.status,
+      })
+      .from(assetsTable)
+      .where(eq(assetsTable.installedOnAssetId, assetId))
+      .orderBy(assetsTable.code);
+  }
+
   /**
    * Lịch sử cấp phát một máy (2.3, AC 3) — thời gian GIẢM dần, chỉ đọc
    * (không có endpoint sửa/xóa). Join users 3 lần lấy tên from/to/actor.
@@ -303,6 +391,7 @@ export class AssetsService {
   }
 
   async getById(id: string) {
+    const host = alias(assetsTable, 'host');
     const rows = await this.db
       .select({
         id: assetsTable.id,
@@ -320,11 +409,16 @@ export class AssetsService {
         model: assetsTable.model,
         assignedUserSub: assetsTable.assignedUserSub,
         assignedUserName: usersTable.fullName,
+        licenseType: assetsTable.licenseType,
+        licenseName: assetsTable.licenseName,
+        installedOnAssetId: assetsTable.installedOnAssetId,
+        installedOnCode: host.code,
         isPool: assetsTable.isPool,
         version: assetsTable.version,
       })
       .from(assetsTable)
       .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
+      .leftJoin(host, eq(assetsTable.installedOnAssetId, host.id))
       .where(eq(assetsTable.id, id));
     if (!rows[0]) {
       throw new NotFoundException({
@@ -349,9 +443,22 @@ export class AssetsService {
       });
     }
     if (pg?.code === '23503') {
+      if (pg.constraint === 'assets_installed_on_asset_id_fkey') {
+        return new BadRequestException({
+          code: 'INSTALL_TARGET_NOT_FOUND',
+          message: 'Máy để cài phần mềm không tồn tại.',
+        });
+      }
       return new BadRequestException({
         code: 'ASSIGNEE_NOT_FOUND',
         message: 'Người đứng tên không tồn tại trong hệ thống.',
+      });
+    }
+    if (pg?.code === '23514') {
+      // CHECK 0012 là chốt cuối — app validate đã trả message đẹp trước đó
+      return new BadRequestException({
+        code: 'CONSTRAINT_VIOLATION',
+        message: 'Dữ liệu vi phạm ràng buộc phần mềm/license.',
       });
     }
     if (pg?.code === '22007' || pg?.code === '22008') {
@@ -382,6 +489,8 @@ export function diffChanged(
     brand: input.brand,
     model: input.model,
     assigned_user_sub: input.assignedUserSub,
+    license_type: input.licenseType,
+    license_name: input.licenseName,
   };
   const changed: Record<string, { from: unknown; to: unknown }> = {};
   for (const field of EDITABLE_FIELDS) {
@@ -390,6 +499,46 @@ export function diffChanged(
     if (from !== to) changed[field] = { from, to };
   }
   return changed;
+}
+
+/**
+ * Ràng buộc software/license (2.4, FR-38) — validate app trả message rõ,
+ * CHECK 0012 là chốt cuối ở tầng DB.
+ */
+export function validateSoftwareInput(input: AssetInput): void {
+  const bad = (code: string, message: string) => {
+    throw new BadRequestException({ code, message });
+  };
+  if (input.type === 'software') {
+    if (input.licenseType !== 'term' && input.licenseType !== 'perpetual') {
+      bad(
+        'LICENSE_TYPE_REQUIRED',
+        'Phần mềm phải chọn loại license: có thời hạn hoặc vĩnh viễn.',
+      );
+    }
+    if (input.licenseType === 'term' && !input.endDate) {
+      bad(
+        'LICENSE_END_DATE_REQUIRED',
+        'License có thời hạn phải có ngày hết hạn.',
+      );
+    }
+    if (input.licenseType === 'perpetual') {
+      if (!input.licenseName) {
+        bad('LICENSE_NAME_REQUIRED', 'License vĩnh viễn phải có tên license.');
+      }
+      if (input.endDate) {
+        bad(
+          'LICENSE_PERPETUAL_NO_END',
+          'License vĩnh viễn không có ngày hết hạn.',
+        );
+      }
+    }
+  } else if (input.licenseType || input.licenseName) {
+    bad(
+      'SOFTWARE_FIELDS_ONLY',
+      'Trường license chỉ dành cho bản ghi phần mềm.',
+    );
+  }
 }
 
 /** Escape ký tự đặc biệt của LIKE — search chứa % _ \ không thành wildcard (bài học 1.5). */

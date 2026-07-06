@@ -26,6 +26,10 @@ export const assetsTable = pgTable('assets', {
   brand: text('brand'),
   model: text('model'),
   assignedUserSub: text('assigned_user_sub'),
+  /** Software (2.4): term|perpetual — CHECK ở migration 0012. */
+  licenseType: text('license_type'),
+  licenseName: text('license_name'),
+  installedOnAssetId: uuid('installed_on_asset_id'),
   isPool: boolean('is_pool').notNull().default(false),
   version: integer('version').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true })

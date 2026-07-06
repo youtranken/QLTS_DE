@@ -22,6 +22,10 @@ interface AssetDetail extends AssetRow {
   serial: string | null;
   brand: string | null;
   model: string | null;
+  licenseType: string | null;
+  licenseName: string | null;
+  installedOnAssetId: string | null;
+  installedOnCode: string | null;
   version: number;
 }
 
@@ -42,6 +46,12 @@ interface FormState {
   model: string;
   assignedUserSub: string;
   assignedUserName: string;
+  // Software (2.4): isSoftware quyết định type='software' cứng + các trường license
+  isSoftware: boolean;
+  licenseType: string;
+  licenseName: string;
+  installedOnAssetId: string;
+  installedOnCode: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -61,6 +71,11 @@ const EMPTY_FORM: FormState = {
   model: '',
   assignedUserSub: '',
   assignedUserName: '',
+  isSoftware: false,
+  licenseType: '',
+  licenseName: '',
+  installedOnAssetId: '',
+  installedOnCode: '',
 };
 
 const PAGE_SIZE = 20;
@@ -227,7 +242,7 @@ export function AssetsPage({ me }: { me: Me }) {
               <option value="">{t('assets.filterType')}</option>
               {meta.types.map((v) => (
                 <option key={v} value={v}>
-                  {v}
+                  {v === 'software' ? t('assets.kindSoftware') : v}
                 </option>
               ))}
             </select>
@@ -301,7 +316,9 @@ export function AssetsPage({ me }: { me: Me }) {
                     style={{ cursor: 'pointer' }}
                   >
                     <td style={cell}>{a.code}</td>
-                    <td style={cell}>{a.type}</td>
+                    <td style={cell}>
+                      {a.type === 'software' ? t('assets.kindSoftware') : a.type}
+                    </td>
                     <td style={cell}>
                       {a.assignedUserName ?? a.assignedUserSub ?? ''}
                     </td>
@@ -382,6 +399,11 @@ function detailToForm(a: AssetDetail): FormState {
     model: a.model ?? '',
     assignedUserSub: a.assignedUserSub ?? '',
     assignedUserName: a.assignedUserName ?? '',
+    isSoftware: a.type === 'software',
+    licenseType: a.licenseType ?? '',
+    licenseName: a.licenseName ?? '',
+    installedOnAssetId: a.installedOnAssetId ?? '',
+    installedOnCode: a.installedOnCode ?? '',
   };
 }
 
@@ -411,6 +433,64 @@ function AssetForm({
   // 2.3: ghi chú cấp phát (chỉ dùng khi đổi người) + lịch sử A→B chỉ đọc
   const [allocationNote, setAllocationNote] = useState('');
   const [allocations, setAllocations] = useState<AllocationRow[]>([]);
+  // 2.4: picker máy cài (chỉ khi TẠO software) + software đã cài (khi sửa máy)
+  const [hostQuery, setHostQuery] = useState('');
+  const [hostOptions, setHostOptions] = useState<AssetRow[]>([]);
+  const [installedSoftware, setInstalledSoftware] = useState<
+    Array<{
+      id: string;
+      code: string;
+      licenseType: string | null;
+      licenseName: string | null;
+      endDate: string | null;
+    }>
+  >([]);
+
+  useEffect(() => {
+    if (!hostQuery) {
+      setHostOptions([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(
+        `/api/admin/assets?search=${encodeURIComponent(hostQuery)}&page=1&pageSize=20`,
+        { signal: controller.signal },
+      )
+        .then(async (res) => {
+          if (!res.ok) return;
+          const body = (await res.json()) as { items?: AssetRow[] };
+          // chỉ máy: không phải software, không thanh lý (server chặn lại lần cuối)
+          setHostOptions(
+            (body.items ?? []).filter(
+              (a) => a.type !== 'software' && a.status !== 'disposed',
+            ),
+          );
+        })
+        .catch(() => undefined);
+    }, 300);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [hostQuery]);
+
+  useEffect(() => {
+    if (!form.id || form.isSoftware) return;
+    const controller = new AbortController();
+    fetch(`/api/admin/assets/${encodeURIComponent(form.id)}/software`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          setInstalledSoftware(
+            (await res.json()) as typeof installedSoftware,
+          );
+        }
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [form.id, form.isSoftware]);
 
   useEffect(() => {
     if (!form.id) return;
@@ -472,21 +552,33 @@ function AssetForm({
     setBusy(true);
     const payload: Record<string, unknown> = {
       code: form.code,
-      type: form.type,
+      type: form.isSoftware ? 'software' : form.type,
       configuration: form.configuration || null,
       cost: form.cost === '' ? null : Number(form.cost),
       startDate: form.startDate || null,
-      endDate: form.endDate || null,
+      // perpetual không có hạn — không gửi endDate còn sót lại trong state
+      endDate:
+        form.isSoftware && form.licenseType === 'perpetual'
+          ? null
+          : form.endDate || null,
       floor: form.floor || null,
       note: form.note || null,
       serial: form.serial || null,
       brand: form.brand || null,
       model: form.model || null,
       assignedUserSub: form.assignedUserSub || null,
+      licenseType: form.isSoftware ? form.licenseType || null : null,
+      licenseName:
+        form.isSoftware && form.licenseType === 'perpetual'
+          ? form.licenseName || null
+          : null,
     };
     if (form.id) {
       payload.version = form.version;
       if (allocationNote.trim()) payload.allocationNote = allocationNote.trim();
+    } else if (form.isSoftware && form.installedOnAssetId) {
+      // gắn máy CHỈ khi tạo (AC 3) — đổi/gỡ là chức năng chuyển license (2.5)
+      payload.installedOnAssetId = form.installedOnAssetId;
     }
     try {
       const res = await fetch(
@@ -555,6 +647,38 @@ function AssetForm({
           void submit();
         }}
       >
+        {!form.id && (
+          // chọn bản chất bản ghi khi TẠO — sửa không đổi được (TYPE_SOFTWARE_IMMUTABLE)
+          <div style={{ marginBottom: '0.75rem', display: 'flex', gap: '1rem' }}>
+            <label>
+              <input
+                type="radio"
+                name="kind"
+                checked={!form.isSoftware}
+                onChange={() =>
+                  setForm((f) => ({
+                    ...f,
+                    isSoftware: false,
+                    licenseType: '',
+                    licenseName: '',
+                    installedOnAssetId: '',
+                    installedOnCode: '',
+                  }))
+                }
+              />{' '}
+              {t('assets.kindDevice')}
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="kind"
+                checked={form.isSoftware}
+                onChange={() => setForm((f) => ({ ...f, isSoftware: true }))}
+              />{' '}
+              {t('assets.kindSoftware')}
+            </label>
+          </div>
+        )}
         <div style={grid}>
           <label style={field}>
             {t('assets.code')} *
@@ -565,15 +689,42 @@ function AssetForm({
               onChange={(e) => set('code')(e.target.value)}
             />
           </label>
-          <label style={field}>
-            {t('assets.type')} *
-            <input
-              required
-              maxLength={100}
-              value={form.type}
-              onChange={(e) => set('type')(e.target.value)}
-            />
-          </label>
+          {!form.isSoftware && (
+            <label style={field}>
+              {t('assets.type')} *
+              <input
+                required
+                maxLength={100}
+                value={form.type}
+                onChange={(e) => set('type')(e.target.value)}
+              />
+            </label>
+          )}
+          {form.isSoftware && (
+            <label style={field}>
+              {t('assets.licenseType')} *
+              <select
+                required
+                value={form.licenseType}
+                onChange={(e) => set('licenseType')(e.target.value)}
+              >
+                <option value="">—</option>
+                <option value="term">{t('assets.licenseTerm')}</option>
+                <option value="perpetual">{t('assets.licensePerpetual')}</option>
+              </select>
+            </label>
+          )}
+          {form.isSoftware && form.licenseType === 'perpetual' && (
+            <label style={field}>
+              {t('assets.licenseName')} *
+              <input
+                required
+                maxLength={200}
+                value={form.licenseName}
+                onChange={(e) => set('licenseName')(e.target.value)}
+              />
+            </label>
+          )}
           <label style={field}>
             {t('assets.configuration')}
             <input
@@ -600,14 +751,18 @@ function AssetForm({
               onChange={(e) => set('startDate')(e.target.value)}
             />
           </label>
-          <label style={field}>
-            {t('assets.endDate')}
-            <input
-              type="date"
-              value={form.endDate}
-              onChange={(e) => set('endDate')(e.target.value)}
-            />
-          </label>
+          {!(form.isSoftware && form.licenseType === 'perpetual') && (
+            <label style={field}>
+              {t('assets.endDate')}
+              {form.isSoftware && form.licenseType === 'term' && ' *'}
+              <input
+                type="date"
+                required={form.isSoftware && form.licenseType === 'term'}
+                value={form.endDate}
+                onChange={(e) => set('endDate')(e.target.value)}
+              />
+            </label>
+          )}
           <label style={field}>
             {t('assets.floor')}
             <input
@@ -703,6 +858,71 @@ function AssetForm({
               ))}
             </ul>
           )}
+          {form.isSoftware && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <p style={{ margin: '0 0 0.25rem' }}>
+                {t('assets.installedOn')}:{' '}
+                <strong>
+                  {form.installedOnAssetId
+                    ? form.installedOnCode || form.installedOnAssetId
+                    : t('assets.installedNone')}
+                </strong>
+                {!form.id && form.installedOnAssetId && (
+                  <button
+                    type="button"
+                    style={{ marginLeft: '0.5rem' }}
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        installedOnAssetId: '',
+                        installedOnCode: '',
+                      }))
+                    }
+                  >
+                    ✕
+                  </button>
+                )}
+              </p>
+              {!form.id ? (
+                <>
+                  <input
+                    placeholder={t('assets.installedOnSearch')}
+                    value={hostQuery}
+                    onChange={(e) => setHostQuery(e.target.value)}
+                  />
+                  {hostOptions.length > 0 && (
+                    <ul
+                      style={{ listStyle: 'none', padding: 0, margin: '0.25rem 0' }}
+                    >
+                      {hostOptions.map((a) => (
+                        <li key={a.id}>
+                          <button
+                            type="button"
+                            style={{ margin: '0.1rem 0' }}
+                            onClick={() => {
+                              setForm((f) => ({
+                                ...f,
+                                installedOnAssetId: a.id,
+                                installedOnCode: a.code,
+                              }));
+                              setHostQuery('');
+                              setHostOptions([]);
+                            }}
+                          >
+                            {a.code} — {a.type}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <p style={{ fontSize: '0.85rem', color: '#555' }}>
+                  {t('assets.transferHint')}
+                </p>
+              )}
+            </div>
+          )}
           {form.id && (
             <label
               style={{
@@ -731,6 +951,25 @@ function AssetForm({
           </button>
         </div>
       </form>
+      {form.id && !form.isSoftware && installedSoftware.length > 0 && (
+        <div style={{ marginTop: '1.5rem' }}>
+          <h3 style={{ fontSize: '0.95rem' }}>
+            {t('assets.installedSoftware')}
+          </h3>
+          <ul style={{ margin: '0.25rem 0', paddingLeft: '1.25rem' }}>
+            {installedSoftware.map((s) => (
+              <li key={s.id}>
+                {s.code}
+                {s.licenseType === 'perpetual'
+                  ? ` — ${s.licenseName ?? ''} (${t('assets.licensePerpetual')})`
+                  : s.endDate
+                    ? ` — ${t('assets.endDate')}: ${s.endDate}`
+                    : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {form.id && allocations.length > 0 && (
         <div style={{ marginTop: '1.5rem' }}>
           <h3 style={{ fontSize: '0.95rem' }}>{t('assets.allocationHistory')}</h3>

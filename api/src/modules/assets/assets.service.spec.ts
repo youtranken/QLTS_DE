@@ -4,7 +4,11 @@ import {
   HttpException,
   NotFoundException,
 } from '@nestjs/common';
-import { AssetsService, diffChanged } from './assets.service';
+import {
+  AssetsService,
+  diffChanged,
+  validateSoftwareInput,
+} from './assets.service';
 import type { AssetInput } from './assets.service';
 import type { Database } from '../../database/database.module';
 import type { AuditWriterService } from '../audit/audit-writer.service';
@@ -22,6 +26,8 @@ const baseInput: AssetInput = {
   brand: null,
   model: null,
   assignedUserSub: null,
+  licenseType: null,
+  licenseName: null,
 };
 
 function pgError(code: string, constraint?: string): Error {
@@ -154,6 +160,9 @@ describe('AssetsService (story 2.1)', () => {
     const db = {
       execute: () => Promise.resolve({ rows: [oldRow] }),
       insert: () => ({ values: historyValues }),
+      select: () => ({
+        from: () => ({ where: () => Promise.resolve([{ type: 'laptop' }]) }),
+      }),
     };
     const { svc, audit } = makeService(db);
     const res = await svc.update(
@@ -201,6 +210,9 @@ describe('AssetsService (story 2.1)', () => {
     const db = {
       execute: () => Promise.resolve({ rows: [oldRow] }),
       insert: () => ({ values: historyValues }),
+      select: () => ({
+        from: () => ({ where: () => Promise.resolve([{ type: 'laptop' }]) }),
+      }),
     };
     const { svc } = makeService(db);
     await svc.update(
@@ -211,6 +223,21 @@ describe('AssetsService (story 2.1)', () => {
       'note này phải bị bỏ qua',
     );
     expect(historyValues).not.toHaveBeenCalled();
+  });
+
+  it('update: đổi type qua/lại software → 400 TYPE_SOFTWARE_IMMUTABLE (2.4)', async () => {
+    const db = {
+      select: () => ({
+        from: () => ({ where: () => Promise.resolve([{ type: 'software' }]) }),
+      }),
+    };
+    const { svc } = makeService(db);
+    const err = await catchHttp(
+      svc.update('uuid-1', { ...baseInput, type: 'laptop' }, 1, 'admin-1'),
+    );
+    expect(err.getResponse()).toMatchObject({
+      code: 'TYPE_SOFTWARE_IMMUTABLE',
+    });
   });
 
   it('create: có người đứng tên → seed allocation_history from NULL (2.3)', async () => {
@@ -239,6 +266,77 @@ describe('AssetsService (story 2.1)', () => {
       note: null,
       actor: 'admin-1',
     });
+  });
+});
+
+describe('validateSoftwareInput (2.4, FR-38)', () => {
+  const sw = { ...baseInput, type: 'software' };
+
+  it('software thiếu licenseType → LICENSE_TYPE_REQUIRED', () => {
+    expect(() => validateSoftwareInput(sw)).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({ code: 'LICENSE_TYPE_REQUIRED' }),
+      }),
+    );
+  });
+
+  it('term thiếu endDate → LICENSE_END_DATE_REQUIRED', () => {
+    expect(() =>
+      validateSoftwareInput({ ...sw, licenseType: 'term', endDate: null }),
+    ).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({
+          code: 'LICENSE_END_DATE_REQUIRED',
+        }),
+      }),
+    );
+  });
+
+  it('perpetual thiếu tên / có endDate → bị chặn; hợp lệ thì qua', () => {
+    expect(() =>
+      validateSoftwareInput({ ...sw, licenseType: 'perpetual' }),
+    ).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({ code: 'LICENSE_NAME_REQUIRED' }),
+      }),
+    );
+    expect(() =>
+      validateSoftwareInput({
+        ...sw,
+        licenseType: 'perpetual',
+        licenseName: 'Windows 11 Pro',
+        endDate: '2030-01-01',
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({ code: 'LICENSE_PERPETUAL_NO_END' }),
+      }),
+    );
+    expect(() =>
+      validateSoftwareInput({
+        ...sw,
+        licenseType: 'perpetual',
+        licenseName: 'Windows 11 Pro',
+        endDate: null,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateSoftwareInput({
+        ...sw,
+        licenseType: 'term',
+        endDate: '2027-01-01',
+      }),
+    ).not.toThrow();
+  });
+
+  it('non-software mang trường license → SOFTWARE_FIELDS_ONLY', () => {
+    expect(() =>
+      validateSoftwareInput({ ...baseInput, licenseType: 'term' }),
+    ).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({ code: 'SOFTWARE_FIELDS_ONLY' }),
+      }),
+    );
   });
 });
 

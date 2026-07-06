@@ -132,6 +132,29 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
       .expect(400);
   });
 
+  it('software (2.4): licenseType ngoài enum / installedOnAssetId không uuid → 400; member 403 GET :id/software', async () => {
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin)
+      .send({ code: 'SW-1', type: 'software', licenseType: 'mua-dut' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin)
+      .send({
+        code: 'SW-1',
+        type: 'software',
+        licenseType: 'term',
+        endDate: '2027-01-01',
+        installedOnAssetId: 'khong-uuid',
+      })
+      .expect(400);
+    await request(app.getHttpServer())
+      .get(`/api/admin/assets/${UUID}/software`)
+      .set(asMember)
+      .expect(403);
+  });
+
   it('lọc status ngoài enum → 400; member gọi meta → 403 (story 2.2)', async () => {
     await request(app.getHttpServer())
       .get('/api/admin/assets?status=dang_bay')

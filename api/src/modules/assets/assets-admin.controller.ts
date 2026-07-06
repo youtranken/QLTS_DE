@@ -17,6 +17,7 @@ import {
   IsISO8601,
   IsOptional,
   IsString,
+  IsUUID,
   Length,
   Matches,
   Max,
@@ -100,6 +101,23 @@ class AssetBodyDto {
   @IsString()
   @MaxLength(255)
   assignedUserSub?: string | null;
+
+  /** Software (2.4) — chỉ hợp lệ khi type='software' (service validate). */
+  @IsOptional()
+  @IsIn(['term', 'perpetual'])
+  licenseType?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  licenseName?: string | null;
+}
+
+class CreateAssetDto extends AssetBodyDto {
+  /** Gắn máy CHỈ khi tạo (2.4, AC 3) — đổi/gỡ là "chuyển" ở 2.5. */
+  @IsOptional()
+  @IsUUID()
+  installedOnAssetId?: string | null;
 }
 
 class UpdateAssetDto extends AssetBodyDto {
@@ -167,6 +185,8 @@ function toInput(body: AssetBodyDto): AssetInput {
     model: body.model ?? null,
     // trim + '' → null: nhất quán code/type/floor; '  ' = thu hồi chứ không phải 400 khó hiểu
     assignedUserSub: body.assignedUserSub?.trim() || null,
+    licenseType: body.licenseType ?? null,
+    licenseName: body.licenseName?.trim() || null,
   };
 }
 
@@ -205,9 +225,19 @@ export class AssetsAdminController {
     return this.assets.listAllocations(id);
   }
 
+  /** Software đã cài trên máy (2.4, AC 2) — 2.7/Epic 3 dùng lại. */
+  @Get(':id/software')
+  listInstalledSoftware(@Param('id', ParseUUIDPipe) id: string) {
+    return this.assets.listInstalledSoftware(id);
+  }
+
   @Post()
-  create(@Body() body: AssetBodyDto, @Req() req: AuthedRequest) {
-    return this.assets.create(toInput(body), requireSub(req));
+  create(@Body() body: CreateAssetDto, @Req() req: AuthedRequest) {
+    return this.assets.create(
+      toInput(body),
+      requireSub(req),
+      body.installedOnAssetId ?? null,
+    );
   }
 
   @Put(':id')

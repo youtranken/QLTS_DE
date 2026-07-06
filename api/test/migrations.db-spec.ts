@@ -54,6 +54,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0009_assets.sql',
       '0010_allocation_history.sql',
       '0011_allocation_history_append_only.sql',
+      '0012_assets_software.sql',
     ]);
   });
 

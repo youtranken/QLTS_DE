@@ -412,6 +412,127 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     expect(row.rows[0]).toEqual({ assigned_user_sub: 'sub-u1', is_pool: true });
   });
 
+  it('software (2.4): validate license, gắn máy khi tạo, GET :id/software', async () => {
+    const machine = await pool.query(
+      "SELECT id FROM assets WHERE code = 'DUP-01'",
+    );
+    const machineId = machine.rows[0].id as string;
+
+    // term thiếu hạn → 400
+    const noEnd = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'SW-01', type: 'software', licenseType: 'term' })
+      .expect(400);
+    expect(noEnd.body.code).toBe('LICENSE_END_DATE_REQUIRED');
+
+    // perpetual thiếu tên → 400
+    const noName = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'SW-01', type: 'software', licenseType: 'perpetual' })
+      .expect(400);
+    expect(noName.body.code).toBe('LICENSE_NAME_REQUIRED');
+
+    // hợp lệ: term + hạn, gắn máy DUP-01 khi tạo
+    const sw = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        code: 'SW-01',
+        type: 'software',
+        licenseType: 'term',
+        endDate: '2027-06-30',
+        installedOnAssetId: machineId,
+      })
+      .expect(201);
+    expect(sw.body).toMatchObject({
+      type: 'software',
+      licenseType: 'term',
+      installedOnAssetId: machineId,
+      isPool: false,
+    });
+
+    // gắn software vào software → 400
+    const onSw = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        code: 'SW-02',
+        type: 'software',
+        licenseType: 'perpetual',
+        licenseName: 'Office LTSC',
+        installedOnAssetId: sw.body.id,
+      })
+      .expect(400);
+    expect(onSw.body.code).toBe('INSTALL_ON_SOFTWARE');
+
+    // gắn vào máy thanh lý → 409
+    await pool.query(
+      "INSERT INTO assets (code, type, status) VALUES ('DEAD-01', 'desktop', 'disposed')",
+    );
+    const dead = await pool.query(
+      "SELECT id FROM assets WHERE code = 'DEAD-01'",
+    );
+    const onDead = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        code: 'SW-02',
+        type: 'software',
+        licenseType: 'perpetual',
+        licenseName: 'Office LTSC',
+        installedOnAssetId: dead.rows[0].id,
+      })
+      .expect(409);
+    expect(onDead.body.code).toBe('INSTALL_TARGET_DISPOSED');
+
+    // GET :id/software liệt kê đúng bản ghi đang trỏ vào máy (AC 2)
+    const list = await request(app.getHttpServer())
+      .get(`/api/admin/assets/${machineId}/software`)
+      .set(asAdmin())
+      .expect(200);
+    expect(list.body).toHaveLength(1);
+    expect(list.body[0]).toMatchObject({
+      code: 'SW-01',
+      licenseType: 'term',
+      endDate: '2027-06-30',
+    });
+
+    // đổi type software → laptop qua form sửa → 400 (AC 3, software-ness bất biến)
+    const flip = await request(app.getHttpServer())
+      .put(`/api/admin/assets/${sw.body.id}`)
+      .set(asAdmin())
+      .send({ code: 'SW-01', type: 'laptop', version: 1 })
+      .expect(400);
+    expect(flip.body.code).toBe('TYPE_SOFTWARE_IMMUTABLE');
+  });
+
+  it('software (2.4): CHECK tầng DB chặn mọi đường vòng (pool, license fields lạc chỗ)', async () => {
+    // software bật pool → 23514
+    await expect(
+      pool.query(
+        "INSERT INTO assets (code, type, license_type, end_date, is_pool) VALUES ('SW-P', 'software', 'term', '2027-01-01', true)",
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+    // non-software mang license_type → 23514
+    await expect(
+      pool.query(
+        "INSERT INTO assets (code, type, license_type) VALUES ('LT-X', 'laptop', 'term')",
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+    // software không có license_type → 23514
+    await expect(
+      pool.query("INSERT INTO assets (code, type) VALUES ('SW-X', 'software')"),
+    ).rejects.toMatchObject({ code: '23514' });
+    // perpetual có end_date → 23514
+    await expect(
+      pool.query(
+        "INSERT INTO assets (code, type, license_type, license_name, end_date) VALUES ('SW-Y', 'software', 'perpetual', 'X', '2027-01-01')",
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+  });
+
   it('CHECK constraint status: giá trị lạ bị DB từ chối (nền 2.6)', async () => {
     await expect(
       pool.query(
