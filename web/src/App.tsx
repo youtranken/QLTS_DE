@@ -1,25 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-
-/**
- * FE tối thiểu cho story 1.2 — khung UI song ngữ + sidebar theo vai là story 1.7.
- * CHỈ 401 mới nghĩa là chưa đăng nhập; lỗi khác (5xx/mất mạng) hiện thông báo
- * thay vì lừa user có phiên hợp lệ rằng họ đã bị đăng xuất.
- */
-interface Me {
-  sub: string;
-  fullName?: string;
-  email?: string;
-  role: string;
-  devMode?: boolean;
-  csrfToken: string | null;
-}
-
-interface SyncResult {
-  total: number;
-  created: number;
-  updated: number;
-  groups: Array<{ id: string; name: string }>;
-}
+import { useTranslation } from 'react-i18next';
+import {
+  BrowserRouter,
+  NavLink,
+  Navigate,
+  Route,
+  Routes,
+} from 'react-router-dom';
+import { savedLanguage, setLanguage } from './i18n';
+import { DirectorySyncPanel, RolesPanel } from './panels';
+import type { Me } from './panels';
 
 type AuthState =
   | { kind: 'loading' }
@@ -27,18 +17,23 @@ type AuthState =
   | { kind: 'authenticated'; me: Me }
   | { kind: 'error' };
 
-const centerStyle: React.CSSProperties = {
-  minHeight: '100vh',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '0.75rem',
-};
+const BREAKPOINT = 768;
+
+function useIsNarrow(): boolean {
+  const [narrow, setNarrow] = useState(window.innerWidth < BREAKPOINT);
+  useEffect(() => {
+    const onResize = () => setNarrow(window.innerWidth < BREAKPOINT);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return narrow;
+}
 
 function App() {
+  const { t } = useTranslation();
   const [auth, setAuth] = useState<AuthState>({ kind: 'loading' });
-  const loginFailed = new URLSearchParams(window.location.search).get('login') === 'failed';
+  const loginFailed =
+    new URLSearchParams(window.location.search).get('login') === 'failed';
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -72,297 +67,237 @@ function App() {
     window.location.href = '/';
   }, [auth]);
 
+  if (auth.kind === 'loading') {
+    return (
+      <Center>
+        <p>{t('app.checkingSession')}</p>
+      </Center>
+    );
+  }
+  if (auth.kind === 'error') {
+    return (
+      <Center>
+        <p>{t('app.systemError')}</p>
+        <button type="button" onClick={() => window.location.reload()}>
+          {t('app.retry')}
+        </button>
+      </Center>
+    );
+  }
+  if (auth.kind === 'anonymous') {
+    return (
+      <Center>
+        <h1>{t('app.title')}</h1>
+        <LanguageSwitch />
+        {loginFailed && (
+          <p style={{ color: '#c0392b' }}>{t('app.loginFailed')}</p>
+        )}
+        <p>{t('app.loginPrompt')}</p>
+        <a href="/api/auth/login">
+          <button type="button">{t('app.login')}</button>
+        </a>
+      </Center>
+    );
+  }
+
   return (
-    <main style={centerStyle}>
-      <h1>QLTS — Hệ thống Quản Lý Tài Sản</h1>
-      {auth.kind === 'loading' && <p>Đang kiểm tra phiên đăng nhập…</p>}
-      {auth.kind === 'error' && (
-        <>
-          <p>Hệ thống đang gặp sự cố — vui lòng thử lại.</p>
-          <button type="button" onClick={() => window.location.reload()}>
-            Thử lại
-          </button>
-        </>
-      )}
-      {auth.kind === 'anonymous' && (
-        <>
-          {loginFailed && (
-            <p style={{ color: '#c0392b' }}>
-              Đăng nhập không thành công — vui lòng thử lại.
-            </p>
-          )}
-          <p>Đăng nhập bằng tài khoản PMH ID của công ty.</p>
-          <a href="/api/auth/login">
-            <button type="button">Đăng nhập</button>
-          </a>
-        </>
-      )}
-      {auth.kind === 'authenticated' && (
-        <>
-          <p>
-            Xin chào <strong>{auth.me.fullName ?? auth.me.sub}</strong>
-            {auth.me.email ? ` (${auth.me.email})` : ''}
-          </p>
-          <button type="button" onClick={() => void logout()}>
-            Đăng xuất
-          </button>
-          {(auth.me.role === 'sa' || auth.me.devMode) && (
-            <DirectorySyncPanel csrfToken={auth.me.csrfToken} />
-          )}
-          {(auth.me.role === 'sa' || auth.me.role === 'admin' || auth.me.devMode) && (
-            <RolesPanel
-              csrfToken={auth.me.csrfToken}
-              mySub={auth.me.sub}
-              viewerRole={auth.me.role}
-            />
-          )}
-        </>
-      )}
+    <BrowserRouter>
+      <Shell me={auth.me} onLogout={() => void logout()} />
+    </BrowserRouter>
+  );
+}
+
+function Center({ children }: { children: React.ReactNode }) {
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '0.75rem',
+      }}
+    >
+      {children}
     </main>
   );
 }
 
-/** Khối tạm cho SA (story 1.3) — màn Quản trị đầy đủ thuộc story 1.5/1.7. */
-function DirectorySyncPanel({ csrfToken }: { csrfToken: string | null }) {
-  const [result, setResult] = useState<SyncResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const runSync = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/admin/directory-sync', {
-        method: 'POST',
-        headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
-      });
-      if (res.status === 401) {
-        // Phiên hết hạn giữa chừng — reload để phản ánh trạng thái thật
-        window.location.href = '/';
-        return;
-      }
-      const body = (await res.json()) as SyncResult & { message?: string };
-      if (res.ok && Array.isArray(body.groups)) {
-        setResult(body);
-      } else {
-        setError(body.message ?? 'Đồng bộ thất bại — thử lại sau.');
-      }
-    } catch {
-      setError('Không gọi được máy chủ — thử lại sau.');
-    } finally {
-      setBusy(false);
-    }
-  }, [csrfToken]);
-
+function LanguageSwitch() {
+  const [lang, setLang] = useState(savedLanguage());
+  const toggle = () => {
+    const next = lang === 'vi' ? 'en' : 'vi';
+    setLanguage(next);
+    setLang(next);
+  };
   return (
-    <section style={{ marginTop: '2rem', textAlign: 'center' }}>
-      <h2 style={{ fontSize: '1rem' }}>Quản trị — Đồng bộ danh bạ PMH ID</h2>
-      <button type="button" disabled={busy} onClick={() => void runSync()}>
-        {busy ? 'Đang đồng bộ…' : 'Đồng bộ ngay'}
-      </button>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
-      {result && (
-        <>
-          <p>
-            {result.total} user, {result.created} mới, {result.updated} cập nhật
-          </p>
-          <p style={{ fontSize: '0.85rem', color: '#555' }}>
-            Group client đang thấy: {result.groups.map((g) => g.name).join(', ') || '(chưa được gán group nào)'}
-          </p>
-        </>
-      )}
-    </section>
+    <button type="button" onClick={toggle} style={{ fontSize: '0.85rem' }}>
+      {lang === 'vi' ? 'EN' : 'VI'}
+    </button>
   );
 }
 
-interface UserRow {
-  sub: string;
-  email: string | null;
-  employeeCode: string | null;
-  fullName: string | null;
-  role: string;
-  status: string;
-  canLongTerm: boolean;
-  canRecurring: boolean;
+/** Sidebar theo vai (NFR-2): [Xử lý mượn] và [Quản lý tài sản] TÁCH BIỆT — không gộp. */
+function navItems(role: string): Array<{ to: string; key: string }> {
+  const items = [{ to: '/', key: 'nav.booking' }];
+  if (role === 'admin' || role === 'sa') {
+    items.push(
+      { to: '/xu-ly-muon', key: 'nav.lending' },
+      { to: '/tai-san', key: 'nav.assets' },
+      { to: '/bao-cao', key: 'nav.reports' },
+    );
+  }
+  if (role === 'sa' || role === 'admin') {
+    // Quản trị: SA đầy đủ; Admin chỉ phần quyền per-user (server enforce từng API)
+    items.push({ to: '/quan-tri', key: 'nav.admin' });
+  }
+  return items;
 }
 
-/** Màn Vai trò tạm (story 1.5/1.6) — UI đầy đủ thuộc 1.7. Admin thấy toggle quyền; nút đổi vai chỉ SA. */
-function RolesPanel({
-  csrfToken,
-  mySub,
-  viewerRole,
-}: {
-  csrfToken: string | null;
-  mySub: string;
-  viewerRole: string;
-}) {
-  const [search, setSearch] = useState('');
-  const [rows, setRows] = useState<UserRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const canChangeRole = viewerRole === 'sa';
-
-  const load = useCallback(
-    async (signal?: AbortSignal) => {
-      setError(null);
-      try {
-        const res = await fetch(
-          `/api/admin/users?search=${encodeURIComponent(search)}&page=1&pageSize=20`,
-          { signal },
-        );
-        if (res.status === 401) {
-          window.location.href = '/';
-          return;
-        }
-        const body = (await res.json()) as { items?: UserRow[]; message?: string };
-        if (res.ok && Array.isArray(body.items)) {
-          setRows(body.items);
-        } else {
-          setError(body.message ?? 'Không tải được danh sách.');
-        }
-      } catch (e) {
-        if ((e as Error).name !== 'AbortError') {
-          setError('Không gọi được máy chủ.');
-        }
-      }
-    },
-    [search],
-  );
-
-  useEffect(() => {
-    // Abort request cũ khi gõ tiếp — response chậm không ghi đè kết quả mới
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
-
-  const setPermission = useCallback(
-    async (sub: string, patch: { canLongTerm?: boolean; canRecurring?: boolean }) => {
-      setError(null);
-      setBusy(true);
-      try {
-        const res = await fetch(
-          `/api/admin/users/${encodeURIComponent(sub)}/permissions`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-            },
-            body: JSON.stringify(patch),
-          },
-        );
-        if (res.ok) {
-          await load();
-        } else {
-          const body = (await res.json()) as { message?: string };
-          setError(body.message ?? 'Đổi quyền thất bại.');
-        }
-      } catch {
-        setError('Không gọi được máy chủ.');
-      } finally {
-        setBusy(false);
-      }
-    },
-    [csrfToken, load],
-  );
-
-  const setRole = useCallback(
-    async (sub: string, role: 'admin' | 'member') => {
-      setError(null);
-      try {
-        const res = await fetch(`/api/admin/users/${encodeURIComponent(sub)}/role`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
-          },
-          body: JSON.stringify({ role }),
-        });
-        if (res.ok) {
-          await load();
-        } else {
-          const body = (await res.json()) as { message?: string };
-          setError(body.message ?? 'Đổi vai thất bại.');
-        }
-      } catch {
-        setError('Không gọi được máy chủ.');
-      }
-    },
-    [csrfToken, load],
-  );
+function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
+  const { t } = useTranslation();
+  const narrow = useIsNarrow();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const showSidebar = !narrow || menuOpen;
 
   return (
-    <section style={{ marginTop: '2rem', textAlign: 'center', maxWidth: 720 }}>
-      <h2 style={{ fontSize: '1rem' }}>Quản trị — Vai trò</h2>
-      <input
-        placeholder="Tìm theo tên/email…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ padding: '0.3rem 0.5rem', marginBottom: '0.5rem' }}
-      />
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
-      <table style={{ margin: '0 auto', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ padding: '0.25rem 0.75rem' }}>Tên</th>
-            <th style={{ padding: '0.25rem 0.75rem' }}>Mã NV</th>
-            <th style={{ padding: '0.25rem 0.75rem' }}>Email</th>
-            <th style={{ padding: '0.25rem 0.75rem' }}>Vai</th>
-            <th style={{ padding: '0.25rem 0.75rem' }}>Dài hạn</th>
-            <th style={{ padding: '0.25rem 0.75rem' }}>Định kỳ</th>
-            <th style={{ padding: '0.25rem 0.75rem' }}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((u) => (
-            <tr key={u.sub}>
-              <td style={{ padding: '0.25rem 0.75rem' }}>{u.fullName ?? u.sub}</td>
-              <td style={{ padding: '0.25rem 0.75rem' }}>{u.employeeCode}</td>
-              <td style={{ padding: '0.25rem 0.75rem' }}>{u.email}</td>
-              <td style={{ padding: '0.25rem 0.75rem' }}>{u.role}</td>
-              <td style={{ padding: '0.25rem 0.75rem' }}>
-                {u.role === 'member' && (
-                  <input
-                    type="checkbox"
-                    checked={u.canLongTerm}
-                    disabled={busy}
-                    onChange={(e) =>
-                      void setPermission(u.sub, { canLongTerm: e.target.checked })
-                    }
-                  />
-                )}
-              </td>
-              <td style={{ padding: '0.25rem 0.75rem' }}>
-                {u.role === 'member' && (
-                  <input
-                    type="checkbox"
-                    checked={u.canRecurring}
-                    disabled={busy}
-                    onChange={(e) =>
-                      void setPermission(u.sub, { canRecurring: e.target.checked })
-                    }
-                  />
-                )}
-              </td>
-              <td style={{ padding: '0.25rem 0.75rem' }}>
-                {/* role 'sa' (từ env): không hiện nút; đổi vai chỉ SA (server cũng chặn) */}
-                {canChangeRole && u.sub !== mySub && u.role === 'member' && (
-                  <button type="button" onClick={() => void setRole(u.sub, 'admin')}>
-                    Bổ nhiệm Admin
-                  </button>
-                )}
-                {canChangeRole && u.sub !== mySub && u.role === 'admin' && (
-                  <button type="button" onClick={() => void setRole(u.sub, 'member')}>
-                    Miễn nhiệm
-                  </button>
-                )}
-              </td>
-            </tr>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      {showSidebar && (
+        <nav
+          style={{
+            width: 220,
+            flexShrink: 0,
+            borderRight: '1px solid #ddd',
+            padding: '1rem',
+            background: '#fff',
+            ...(narrow
+              ? { position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 10 }
+              : {}),
+          }}
+        >
+          <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>QLTS</h2>
+          {navItems(me.role).map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={() => setMenuOpen(false)}
+              style={({ isActive }) => ({
+                display: 'block',
+                padding: '0.4rem 0.5rem',
+                textDecoration: 'none',
+                color: isActive ? '#0b5ed7' : '#1a1a2e',
+                fontWeight: isActive ? 700 : 400,
+              })}
+            >
+              {t(item.key)}
+            </NavLink>
           ))}
-        </tbody>
-      </table>
-    </section>
+        </nav>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <header
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.5rem 1rem',
+            borderBottom: '1px solid #ddd',
+          }}
+        >
+          {narrow && (
+            <button type="button" onClick={() => setMenuOpen((v) => !v)}>
+              ☰ {t('nav.menu')}
+            </button>
+          )}
+          <span style={{ flex: 1 }}>
+            {t('app.hello')} <strong>{me.fullName ?? me.sub}</strong>
+          </span>
+          <LanguageSwitch />
+          <button type="button" onClick={onLogout}>
+            {t('app.logout')}
+          </button>
+        </header>
+        <main style={{ padding: '1rem' }}>
+          <Routes>
+            <Route path="/" element={<Placeholder titleKey="nav.booking" />} />
+            <Route
+              path="/xu-ly-muon"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <Placeholder titleKey="nav.lending" />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/tai-san"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <Placeholder titleKey="nav.assets" />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/bao-cao"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <Placeholder titleKey="nav.reports" />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/quan-tri"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <AdminPage me={me} />
+                </RequireRole>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+/** FE guard (NFR-7): ẩn menu KHÔNG phải là phân quyền — server luôn 403 độc lập. */
+function RequireRole({
+  me,
+  roles,
+  children,
+}: {
+  me: Me;
+  roles: string[];
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  if (!roles.includes(me.role) && !me.devMode) {
+    return <p>{t('app.noPermission')}</p>;
+  }
+  return <>{children}</>;
+}
+
+function Placeholder({ titleKey }: { titleKey: string }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <h1 style={{ fontSize: '1.2rem' }}>{t(titleKey)}</h1>
+      <p>{t('app.underConstruction')}</p>
+    </>
+  );
+}
+
+function AdminPage({ me }: { me: Me }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <h1 style={{ fontSize: '1.2rem' }}>{t('nav.admin')}</h1>
+      {(me.role === 'sa' || me.devMode) && (
+        <DirectorySyncPanel csrfToken={me.csrfToken} />
+      )}
+      <RolesPanel csrfToken={me.csrfToken} mySub={me.sub} viewerRole={me.role} />
+    </>
   );
 }
 
