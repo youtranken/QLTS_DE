@@ -107,7 +107,10 @@ function App() {
             Đăng xuất
           </button>
           {(auth.me.role === 'sa' || auth.me.devMode) && (
-            <DirectorySyncPanel csrfToken={auth.me.csrfToken} />
+            <>
+              <DirectorySyncPanel csrfToken={auth.me.csrfToken} />
+              <RolesPanel csrfToken={auth.me.csrfToken} mySub={auth.me.sub} />
+            </>
           )}
         </>
       )}
@@ -164,6 +167,116 @@ function DirectorySyncPanel({ csrfToken }: { csrfToken: string | null }) {
           </p>
         </>
       )}
+    </section>
+  );
+}
+
+interface UserRow {
+  sub: string;
+  email: string | null;
+  employeeCode: string | null;
+  fullName: string | null;
+  role: string;
+  status: string;
+}
+
+/** Màn Vai trò tạm (story 1.5) — UI đầy đủ thuộc 1.7. */
+function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: string }) {
+  const [search, setSearch] = useState('');
+  const [rows, setRows] = useState<UserRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/users?search=${encodeURIComponent(search)}&page=1&pageSize=20`,
+      );
+      if (res.status === 401) {
+        window.location.href = '/';
+        return;
+      }
+      const body = (await res.json()) as { items?: UserRow[]; message?: string };
+      if (res.ok && Array.isArray(body.items)) {
+        setRows(body.items);
+      } else {
+        setError(body.message ?? 'Không tải được danh sách.');
+      }
+    } catch {
+      setError('Không gọi được máy chủ.');
+    }
+  }, [search]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const setRole = useCallback(
+    async (sub: string, role: 'admin' | 'member') => {
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/users/${encodeURIComponent(sub)}/role`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+          },
+          body: JSON.stringify({ role }),
+        });
+        if (res.ok) {
+          await load();
+        } else {
+          const body = (await res.json()) as { message?: string };
+          setError(body.message ?? 'Đổi vai thất bại.');
+        }
+      } catch {
+        setError('Không gọi được máy chủ.');
+      }
+    },
+    [csrfToken, load],
+  );
+
+  return (
+    <section style={{ marginTop: '2rem', textAlign: 'center', maxWidth: 720 }}>
+      <h2 style={{ fontSize: '1rem' }}>Quản trị — Vai trò</h2>
+      <input
+        placeholder="Tìm theo tên/email…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ padding: '0.3rem 0.5rem', marginBottom: '0.5rem' }}
+      />
+      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      <table style={{ margin: '0 auto', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={{ padding: '0.25rem 0.75rem' }}>Tên</th>
+            <th style={{ padding: '0.25rem 0.75rem' }}>Email</th>
+            <th style={{ padding: '0.25rem 0.75rem' }}>Vai</th>
+            <th style={{ padding: '0.25rem 0.75rem' }}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((u) => (
+            <tr key={u.sub}>
+              <td style={{ padding: '0.25rem 0.75rem' }}>{u.fullName ?? u.sub}</td>
+              <td style={{ padding: '0.25rem 0.75rem' }}>{u.email}</td>
+              <td style={{ padding: '0.25rem 0.75rem' }}>{u.role}</td>
+              <td style={{ padding: '0.25rem 0.75rem' }}>
+                {u.sub !== mySub && u.role === 'member' && (
+                  <button type="button" onClick={() => void setRole(u.sub, 'admin')}>
+                    Bổ nhiệm Admin
+                  </button>
+                )}
+                {u.sub !== mySub && u.role === 'admin' && (
+                  <button type="button" onClick={() => void setRole(u.sub, 'member')}>
+                    Miễn nhiệm
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   );
 }

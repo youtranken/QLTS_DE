@@ -1,0 +1,83 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Put,
+  Query,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { Roles } from '../auth/roles.decorator';
+import type { AuthedRequest } from '../auth/identity.guard';
+import { UsersService } from './users.service';
+
+class ListUsersQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize = 20;
+}
+
+class UpdateRoleDto {
+  /** CHỈ admin|member — 'sa' không bao giờ qua API (SA chỉ từ env, AC 2). */
+  @IsIn(['admin', 'member'])
+  role!: 'admin' | 'member';
+}
+
+@Controller('admin/users')
+export class UsersAdminController {
+  constructor(private readonly users: UsersService) {}
+
+  /** Màn Vai trò (1.5) + màn gán quyền (1.6): SA và Admin xem được danh sách. */
+  @Get()
+  @Roles('sa', 'admin')
+  list(@Query() query: ListUsersQueryDto) {
+    return this.users.list({
+      search: query.search,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+  }
+
+  /** Bổ nhiệm/miễn nhiệm Admin — CHỈ SA (AC 4). Audit chi tiết from→to trong service. */
+  @Put(':sub/role')
+  @Roles('sa')
+  async updateRole(
+    @Param('sub') sub: string,
+    @Body() body: UpdateRoleDto,
+    @Req() req: AuthedRequest,
+  ): Promise<{ ok: boolean }> {
+    if (!req.user) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Chưa đăng nhập.',
+      });
+    }
+    await this.users.updateRole(sub, body.role, req.user.sub);
+    return { ok: true };
+  }
+}

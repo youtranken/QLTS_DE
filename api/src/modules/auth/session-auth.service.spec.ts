@@ -38,13 +38,15 @@ function makeService(opts: {
         .mockResolvedValue({ accessToken: 'jwt-moi', refreshToken: 'rt-2' }),
   };
   const audit = { append: jest.fn().mockResolvedValue(undefined) };
+  const users = { findBySub: jest.fn().mockResolvedValue({ role: 'member' }) };
   const service = new SessionAuthService(
     sessions as never,
     jwtVerifier as never,
     oidc as never,
     audit as never,
+    users as never,
   );
-  return { service, sessions, oidc, audit };
+  return { service, sessions, oidc, audit, users };
 }
 
 describe('SessionAuthService — refresh ngầm (review fixes)', () => {

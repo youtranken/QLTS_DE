@@ -1,7 +1,15 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { eq, sql } from 'drizzle-orm';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { eq, ilike, or, sql } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
+import { AuditWriterService } from '../audit/audit-writer.service';
+import { parseSaSubs } from '../auth/sa-subs';
 import { usersTable } from './users.schema';
 
 /** Claims tối thiểu từ PMH ID (hợp đồng ver:1 — docs integration). */
@@ -13,11 +21,113 @@ export interface PmhIdClaims {
   groups?: string[];
 }
 
+export interface UserListQuery {
+  search?: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface UserListItem {
+  sub: string;
+  email: string | null;
+  employeeCode: string | null;
+  fullName: string | null;
+  status: string;
+  role: string;
+}
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
+  private readonly saSubs = parseSaSubs(process.env);
 
-  constructor(@Inject(DRIZZLE_DB) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE_DB) private readonly db: Database,
+    private readonly audit: AuditWriterService,
+  ) {}
+
+  /** Màn Vai trò (1.5): tìm theo tên/email, phân trang SERVER-side (NFR-5). */
+  async list(query: UserListQuery): Promise<{
+    items: UserListItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const where = query.search
+      ? or(
+          ilike(usersTable.fullName, `%${escapeLike(query.search)}%`),
+          ilike(usersTable.email, `%${escapeLike(query.search)}%`),
+        )
+      : undefined;
+    const [items, totalRows] = await Promise.all([
+      this.db
+        .select({
+          sub: usersTable.sub,
+          email: usersTable.email,
+          employeeCode: usersTable.employeeCode,
+          fullName: usersTable.fullName,
+          status: usersTable.status,
+          role: usersTable.role,
+        })
+        .from(usersTable)
+        .where(where)
+        .orderBy(usersTable.fullName)
+        .limit(query.pageSize)
+        .offset((query.page - 1) * query.pageSize),
+      this.db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(usersTable)
+        .where(where),
+    ]);
+    return {
+      items,
+      total: totalRows[0]?.n ?? 0,
+      page: query.page,
+      pageSize: query.pageSize,
+    };
+  }
+
+  /**
+   * Bổ nhiệm/miễn nhiệm Admin (1.5, CHỈ SA gọi qua controller). Chặn:
+   * tự đổi vai mình, đổi vai SA-từ-env; giá trị 'sa' bị DTO chặn từ ngoài.
+   */
+  async updateRole(
+    targetSub: string,
+    role: 'admin' | 'member',
+    actorSub: string,
+  ): Promise<void> {
+    if (targetSub === actorSub) {
+      throw new ForbiddenException({
+        code: 'SELF_ROLE_CHANGE',
+        message: 'Không thể tự đổi vai của chính mình.',
+      });
+    }
+    if (this.saSubs.has(targetSub)) {
+      throw new ForbiddenException({
+        code: 'SA_ROLE_IMMUTABLE',
+        message:
+          'Không thể đổi vai của SA (SA chỉ định qua cấu hình hệ thống).',
+      });
+    }
+    const current = await this.findBySub(targetSub);
+    if (!current) {
+      throw new NotFoundException({
+        code: 'USER_NOT_FOUND',
+        message: 'Không tìm thấy user này trong hệ thống.',
+      });
+    }
+    await this.db
+      .update(usersTable)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(usersTable.sub, targetSub));
+    await this.audit.append({
+      actor: actorSub,
+      action: 'users.role_change',
+      objectType: 'user',
+      objectId: targetSub,
+      detail: { from: current.role, to: role },
+    });
+  }
 
   /** Upsert theo `sub` — email đổi KHÔNG tạo user mới (AD-8). */
   async upsertFromClaims(claims: PmhIdClaims): Promise<void> {
@@ -69,4 +179,9 @@ export class UsersService {
       );
     }
   }
+}
+
+/** Escape ký tự đặc biệt của LIKE — search chứa % _ \ không thành wildcard. */
+function escapeLike(input: string): string {
+  return input.replace(/[\\%_]/g, '\\$&');
 }

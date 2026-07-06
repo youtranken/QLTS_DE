@@ -5,7 +5,9 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { AuditWriterService } from '../audit/audit-writer.service';
+import { UsersService } from '../users/users.service';
 import { JwtVerifierService } from './jwt-verifier.service';
+import { parseSaSubs } from './sa-subs';
 import { OIDC_PROVIDER } from './oidc-provider';
 import type { OidcProvider } from './oidc-provider';
 import { SessionService } from './session.service';
@@ -31,11 +33,14 @@ export class SessionAuthService {
     Promise<RequestIdentity | null>
   >();
 
+  private readonly saSubs = parseSaSubs(process.env);
+
   constructor(
     private readonly sessions: SessionService,
     private readonly jwtVerifier: JwtVerifierService,
     @Inject(OIDC_PROVIDER) private readonly oidc: OidcProvider,
     private readonly audit: AuditWriterService,
+    private readonly users: UsersService,
   ) {}
 
   resolve(sessionId: string): Promise<RequestIdentity | null> {
@@ -125,10 +130,25 @@ export class SessionAuthService {
     );
   }
 
-  private toIdentity(sessionId: string, claims: PmhIdClaims): RequestIdentity {
+  /**
+   * Vai (story 1.5): sub ∈ SA_SUBS → 'sa' (override bảng — CẤM nâng SA ngầm);
+   * ngược lại đọc users.role MỖI REQUEST — bổ nhiệm hiệu lực ngay, không cần
+   * đăng nhập lại (AC 1).
+   */
+  private async toIdentity(
+    sessionId: string,
+    claims: PmhIdClaims,
+  ): Promise<RequestIdentity> {
+    let role = 'member';
+    if (this.saSubs.has(claims.sub)) {
+      role = 'sa';
+    } else {
+      const user = await this.users.findBySub(claims.sub);
+      role = user?.role ?? 'member';
+    }
     return {
       sub: claims.sub,
-      role: 'member', // vai thật đọc từ users ở story 1.5 (RolesGuard)
+      role,
       devMode: false,
       sessionId,
       fullName: claims.full_name,

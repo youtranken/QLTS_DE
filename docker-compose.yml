@@ -20,6 +20,8 @@ services:
       PMH_CLIENT_SECRET: ${PMH_CLIENT_SECRET:-}
       PMH_WEBHOOK_SECRET: ${PMH_WEBHOOK_SECRET:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
+      # SA chỉ từ env (story 1.5) — trống là api từ chối khởi động
+      SA_SUBS: ${SA_SUBS:?SA_SUBS bắt buộc trong .env (danh sách sub PMH ID)}
     depends_on:
       postgres:
         condition: service_healthy
