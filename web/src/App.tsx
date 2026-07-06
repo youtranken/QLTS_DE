@@ -7,7 +7,7 @@ import {
   Route,
   Routes,
 } from 'react-router-dom';
-import { AssetsPage } from './assets';
+import { AssetDetailPage, AssetsPage } from './assets';
 import { savedLanguage, setLanguage } from './i18n';
 import { DirectorySyncPanel, RolesPanel } from './panels';
 import type { Me } from './panels';
@@ -247,6 +247,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
                   <AssetsPage me={me} />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/tai-san/:id"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <AssetDetailPage me={me} />
                 </RequireRole>
               }
             />

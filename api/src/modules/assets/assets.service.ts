@@ -723,6 +723,26 @@ export class AssetsService {
       .limit(200);
   }
 
+  /** Note tình trạng máy (2.7, FR-34) — lý do khóa/ETA (2.6) + giao-nhận (Epic 3), desc. */
+  async listNotes(assetId: string) {
+    const actorU = alias(usersTable, 'actor_u');
+    return this.db
+      .select({
+        id: assetNoteTable.id,
+        kind: assetNoteTable.kind,
+        note: assetNoteTable.note,
+        eta: assetNoteTable.eta,
+        actor: assetNoteTable.actor,
+        actorName: actorU.fullName,
+        createdAt: assetNoteTable.createdAt,
+      })
+      .from(assetNoteTable)
+      .leftJoin(actorU, eq(assetNoteTable.actor, actorU.sub))
+      .where(eq(assetNoteTable.assetId, assetId))
+      .orderBy(desc(assetNoteTable.createdAt))
+      .limit(200);
+  }
+
   /** Giá trị distinct cho dropdown lọc (story 2.2) — loại + tầng đang có trong sổ. */
   async filterMeta() {
     const [types, floors] = await Promise.all([

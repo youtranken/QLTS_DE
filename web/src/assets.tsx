@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Me } from './panels';
 
 interface AssetRow {
@@ -87,6 +88,7 @@ const PAGE_SIZE = 20;
 /** Sổ tài sản (story 2.1) — danh sách phân trang + form thêm/sửa. Admin/SA. */
 export function AssetsPage({ me }: { me: Me }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<AssetRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -313,9 +315,10 @@ export function AssetsPage({ me }: { me: Me }) {
                   <tr
                     key={a.id}
                     onClick={() => {
-                      // đang bôi đen copy mã → không phải ý định mở form (review 2.2)
+                      // đang bôi đen copy mã → không phải ý định mở trang (review 2.2)
                       if (window.getSelection()?.toString()) return;
-                      void openEdit(a.id);
+                      // 2.7: click dòng → trang chi tiết 3 tab (trỏ lại như hẹn ở 2.2)
+                      navigate(`/tai-san/${a.id}`);
                     }}
                     title={
                       a.licenseWarning ? t('assets.licenseWarningHint') : undefined
@@ -1292,5 +1295,311 @@ function AssetForm({
         </div>
       )}
     </section>
+  );
+}
+
+interface NoteRow {
+  id: string;
+  kind: string;
+  note: string | null;
+  eta: string | null;
+  actor: string;
+  actorName: string | null;
+  createdAt: string;
+}
+
+const cellStyle: React.CSSProperties = { padding: '0.25rem 0.75rem' };
+
+/** Trang chi tiết máy 3 tab (story 2.7, UJ-3) — route /tai-san/:id. */
+export function AssetDetailPage({ me }: { me: Me }) {
+  const { t, i18n } = useTranslation();
+  const { id } = useParams<{ id: string }>();
+  const [detail, setDetail] = useState<AssetDetail | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState<'alloc' | 'loan' | 'notes'>('alloc');
+  const [allocations, setAllocations] = useState<AllocationRow[]>([]);
+  const [notes, setNotes] = useState<NoteRow[]>([]);
+  const [software, setSoftware] = useState<
+    Array<{
+      id: string;
+      code: string;
+      licenseType: string | null;
+      licenseName: string | null;
+      endDate: string | null;
+    }>
+  >([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadAll = useCallback(async () => {
+    if (!id) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/assets/${encodeURIComponent(id)}`);
+      if (res.status === 401) {
+        window.location.href = '/';
+        return;
+      }
+      if (res.status === 404 || res.status === 400) {
+        // 400 = id không phải uuid (deep-link gõ tay) — cùng một thông báo
+        setNotFound(true);
+        return;
+      }
+      if (!res.ok) {
+        setError(t('assets.loadFailed'));
+        return;
+      }
+      const a = (await res.json()) as AssetDetail;
+      setDetail(a);
+      const [allocRes, noteRes, swRes] = await Promise.all([
+        fetch(`/api/admin/assets/${encodeURIComponent(id)}/allocations`),
+        fetch(`/api/admin/assets/${encodeURIComponent(id)}/notes`),
+        a.type !== 'software'
+          ? fetch(`/api/admin/assets/${encodeURIComponent(id)}/software`)
+          : Promise.resolve(null),
+      ]);
+      if (allocRes.ok) {
+        setAllocations((await allocRes.json()) as AllocationRow[]);
+      }
+      if (noteRes.ok) setNotes((await noteRes.json()) as NoteRow[]);
+      if (swRes?.ok) setSoftware((await swRes.json()) as typeof software);
+    } catch {
+      setError(t('app.serverUnreachable'));
+    }
+  }, [id, t]);
+
+  useEffect(() => {
+    void loadAll();
+  }, [loadAll]);
+
+  const fmtDateTime = (v: string) =>
+    new Date(v).toLocaleString(i18n.language === 'en' ? 'en-GB' : 'vi-VN');
+
+  if (notFound) {
+    return (
+      <>
+        <p>{t('assets.notFound')}</p>
+        <Link to="/tai-san">{t('assets.backToList')}</Link>
+      </>
+    );
+  }
+  if (!detail) {
+    return <p>{error ?? t('app.checkingSession')}</p>;
+  }
+  if (editing) {
+    return (
+      <AssetForm
+        me={me}
+        initial={detailToForm(detail)}
+        onDone={() => {
+          setEditing(false);
+          void loadAll(); // defer 2.3: chi tiết luôn refetch sau khi đóng form
+        }}
+      />
+    );
+  }
+
+  const info: Array<[string, React.ReactNode]> = [
+    [t('assets.code'), detail.code],
+    [
+      t('assets.type'),
+      detail.type === 'software' ? t('assets.kindSoftware') : detail.type,
+    ],
+    [t('assets.statusLabel'), t(`assets.status.${detail.status}`)],
+    [t('assets.configuration'), detail.configuration],
+    [
+      t('assets.cost'),
+      detail.cost == null ? null : detail.cost.toLocaleString('vi-VN'),
+    ],
+    [t('assets.startDate'), detail.startDate],
+    [t('assets.endDate'), detail.endDate],
+    [t('assets.floor'), detail.floor],
+    [t('assets.serial'), detail.serial],
+    [t('assets.brand'), detail.brand],
+    [t('assets.model'), detail.model],
+    [
+      t('assets.assignee'),
+      detail.assignedUserSub
+        ? (detail.assignedUserName ?? detail.assignedUserSub)
+        : t('assets.assigneeEmpty'),
+    ],
+    [t('assets.pool'), detail.isPool ? '✓' : '—'],
+    [t('assets.note'), detail.note],
+  ];
+  if (detail.type === 'software') {
+    info.push(
+      [
+        t('assets.licenseType'),
+        detail.licenseType === 'term'
+          ? t('assets.licenseTerm')
+          : detail.licenseType === 'perpetual'
+            ? t('assets.licensePerpetual')
+            : null,
+      ],
+      [t('assets.licenseName'), detail.licenseName],
+      [
+        t('assets.installedOn'),
+        detail.installedOnAssetId
+          ? (detail.installedOnCode ?? detail.installedOnAssetId)
+          : t('assets.installedNone'),
+      ],
+    );
+  }
+
+  const tabButton = (key: typeof tab, label: string) => (
+    <button
+      type="button"
+      onClick={() => setTab(key)}
+      style={{
+        padding: '0.35rem 0.8rem',
+        fontWeight: tab === key ? 700 : 400,
+        borderBottom:
+          tab === key ? '2px solid #0b5ed7' : '2px solid transparent',
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <>
+      <p style={{ marginBottom: '0.5rem' }}>
+        <Link to="/tai-san">‹ {t('assets.backToList')}</Link>
+      </p>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          flexWrap: 'wrap',
+        }}
+      >
+        <h1 style={{ fontSize: '1.2rem', margin: 0 }}>{detail.code}</h1>
+        <button type="button" onClick={() => setEditing(true)}>
+          {t('assets.edit')}
+        </button>
+      </div>
+      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      <dl
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+          gap: '0.5rem 1.5rem',
+          maxWidth: 960,
+          margin: '0.75rem 0',
+        }}
+      >
+        {info
+          .filter(([, v]) => v != null && v !== '')
+          .map(([label, value]) => (
+            <div key={label}>
+              <dt style={{ fontSize: '0.8rem', color: '#555' }}>{label}</dt>
+              <dd style={{ margin: 0 }}>{value}</dd>
+            </div>
+          ))}
+      </dl>
+      {detail.type !== 'software' && (
+        <div style={{ margin: '0.75rem 0' }}>
+          <h3 style={{ fontSize: '0.95rem', margin: '0 0 0.25rem' }}>
+            {t('assets.installedSoftware')}
+          </h3>
+          {software.length === 0 ? (
+            <p style={{ color: '#555', fontSize: '0.85rem' }}>
+              {t('assets.noInstalledSoftware')}
+            </p>
+          ) : (
+            <ul style={{ margin: '0.25rem 0', paddingLeft: '1.25rem' }}>
+              {software.map((s) => (
+                <li key={s.id}>
+                  {s.code}
+                  {s.licenseType === 'perpetual'
+                    ? ` — ${s.licenseName ?? ''} (${t('assets.licensePerpetual')})`
+                    : s.endDate
+                      ? ` — ${t('assets.endDate')}: ${s.endDate}`
+                      : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.25rem',
+          borderBottom: '1px solid #ddd',
+          marginTop: '1rem',
+        }}
+      >
+        {tabButton('alloc', t('assets.allocationHistory'))}
+        {tabButton('loan', t('assets.loanTab'))}
+        {tabButton('notes', t('assets.notesTab'))}
+      </div>
+      <div style={{ marginTop: '0.75rem', overflowX: 'auto' }}>
+        {tab === 'alloc' &&
+          (allocations.length === 0 ? (
+            <p>{t('assets.noAllocations')}</p>
+          ) : (
+            <table style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={cellStyle}>{t('assets.allocDate')}</th>
+                  <th style={cellStyle}>{t('assets.allocFrom')}</th>
+                  <th style={cellStyle}>{t('assets.allocTo')}</th>
+                  <th style={cellStyle}>{t('assets.allocActor')}</th>
+                  <th style={cellStyle}>{t('assets.note')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allocations.map((h) => (
+                  <tr key={h.id}>
+                    <td style={cellStyle}>{fmtDateTime(h.createdAt)}</td>
+                    <td style={cellStyle}>
+                      {h.fromUserSub
+                        ? (h.fromUserName ?? h.fromUserSub)
+                        : t('assets.stock')}
+                    </td>
+                    <td style={cellStyle}>
+                      {h.toUserSub
+                        ? (h.toUserName ?? h.toUserSub)
+                        : t('assets.stock')}
+                    </td>
+                    <td style={cellStyle}>{h.actorName ?? h.actor}</td>
+                    <td style={cellStyle}>{h.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
+        {tab === 'loan' && <p>{t('assets.loanTabEmpty')}</p>}
+        {tab === 'notes' &&
+          (notes.length === 0 ? (
+            <p>{t('assets.noNotes')}</p>
+          ) : (
+            <table style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={cellStyle}>{t('assets.allocDate')}</th>
+                  <th style={cellStyle}>{t('assets.noteKind')}</th>
+                  <th style={cellStyle}>{t('assets.note')}</th>
+                  <th style={cellStyle}>{t('assets.lockEta')}</th>
+                  <th style={cellStyle}>{t('assets.allocActor')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {notes.map((n) => (
+                  <tr key={n.id}>
+                    <td style={cellStyle}>{fmtDateTime(n.createdAt)}</td>
+                    <td style={cellStyle}>{t(`assets.noteKinds.${n.kind}`)}</td>
+                    <td style={cellStyle}>{n.note}</td>
+                    <td style={cellStyle}>{n.eta}</td>
+                    <td style={cellStyle}>{n.actorName ?? n.actor}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
+      </div>
+    </>
   );
 }

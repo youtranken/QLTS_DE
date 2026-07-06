@@ -120,6 +120,11 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
       .get(`/api/admin/assets/${UUID}/allocations`)
       .set(asMember)
       .expect(403);
+    // 2.7: tab note tình trạng cũng là API quản trị — member 403
+    await request(app.getHttpServer())
+      .get(`/api/admin/assets/${UUID}/notes`)
+      .set(asMember)
+      .expect(403);
     await request(app.getHttpServer())
       .put(`/api/admin/assets/${UUID}`)
       .set(asAdmin)

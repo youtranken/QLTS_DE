@@ -264,6 +264,12 @@ export class AssetsAdminController {
     return this.assets.listAllocations(id);
   }
 
+  /** Note tình trạng (2.7, FR-34) — tab thứ 3 trang chi tiết. */
+  @Get(':id/notes')
+  listNotes(@Param('id', ParseUUIDPipe) id: string) {
+    return this.assets.listNotes(id);
+  }
+
   /** Software đã cài trên máy (2.4, AC 2) — 2.7/Epic 3 dùng lại. */
   @Get(':id/software')
   listInstalledSoftware(@Param('id', ParseUUIDPipe) id: string) {

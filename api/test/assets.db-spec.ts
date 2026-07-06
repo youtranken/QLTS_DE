@@ -955,6 +955,25 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     expect(still.rows[0].installed_on_asset_id).toBeNull();
   });
 
+  it('GET :id/notes (2.7): lịch sử note desc + tên người ghi (lý do khóa + ETA từ 2.6)', async () => {
+    const may = (
+      await pool.query("SELECT id FROM assets WHERE code = 'PAGE-02'")
+    ).rows[0].id as string;
+    const res = await request(app.getHttpServer())
+      .get(`/api/admin/assets/${may}/notes`)
+      .set(asAdmin())
+      .expect(200);
+    // PAGE-02 đã qua chu kỳ khóa → mở khóa (test 2.6): unlock mới nhất đứng trước
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0]).toMatchObject({ kind: 'unlock', note: null });
+    expect(res.body[1]).toMatchObject({
+      kind: 'lock',
+      note: 'Hỏng màn hình',
+      eta: '2026-08-01',
+      actor: 'admin-t',
+    });
+  });
+
   it('CHECK constraint status: giá trị lạ bị DB từ chối (nền 2.6)', async () => {
     await expect(
       pool.query(
