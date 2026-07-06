@@ -51,7 +51,9 @@ export class OpenidClientProvider implements OidcProvider {
       const config = await lib.discovery(
         new URL(process.env.PMH_ISSUER_URL as string),
         process.env.PMH_CLIENT_ID as string,
-        process.env.PMH_CLIENT_SECRET,
+        undefined,
+        // PMH ID nhận client_secret_basic (v6 mặc định là _post → token endpoint từ chối)
+        lib.ClientSecretBasic(process.env.PMH_CLIENT_SECRET),
       );
       this.lib = lib;
       this.config = config;
