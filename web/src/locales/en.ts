@@ -60,6 +60,7 @@ export default {
     saveFailed: 'Save failed.',
     codeTaken: 'Asset code already exists — codes must be unique.',
     staleVersion: 'The record has changed — reload and edit again.',
+    reload: 'Reload',
     status: {
       in_use: 'In use',
       locked_repair: 'Locked (repair)',

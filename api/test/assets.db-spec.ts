@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { Pool } from 'pg';
 import request from 'supertest';
@@ -220,6 +221,32 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       assignedUserName: 'Trần Thị Bình',
       version: 2,
     });
+  });
+
+  it('CSRF phiên thật: POST assets bằng cookie thiếu X-CSRF-Token → 403 (review 2.1)', async () => {
+    // admin qua phiên OIDC thật (không phải dev-header — CsrfGuard chỉ chạy nhánh này)
+    await pool.query(
+      "INSERT INTO users (sub, email, full_name, role) VALUES ('sub-adm-csrf', 'adm@pmh.com.vn', 'Admin CSRF', 'admin')",
+    );
+    const sid = randomUUID();
+    await pool.query(
+      `INSERT INTO sessions (id, user_sub, refresh_token, access_token_exp, claims, csrf_token)
+       VALUES ($1, 'sub-adm-csrf', 'rt-x', now() + interval '5 minutes', $2, 'csrf-dung')`,
+      [sid, JSON.stringify({ sub: 'sub-adm-csrf' })],
+    );
+    const res = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set('Cookie', `qlts_sid=${sid}`)
+      .send({ code: 'CSRF-01', type: 'laptop' })
+      .expect(403);
+    expect(res.body.code).toBe('CSRF_TOKEN_INVALID');
+    // kèm token đúng → đi qua CSRF, tạo thành công
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set('Cookie', `qlts_sid=${sid}`)
+      .set('X-CSRF-Token', 'csrf-dung')
+      .send({ code: 'CSRF-01', type: 'laptop' })
+      .expect(201);
   });
 
   it('CHECK constraint status: giá trị lạ bị DB từ chối (nền 2.6)', async () => {

@@ -60,39 +60,45 @@ export class AssetsService {
     private readonly audit: AuditWriterService,
   ) {}
 
-  /** Tạo tài sản — mặc định status in_use, pool TẮT (AC 1); mã trùng → 409 CODE_TAKEN. */
+  /**
+   * Tạo tài sản — mặc định status in_use, pool TẮT (AC 1); mã trùng → 409 CODE_TAKEN.
+   * Mutation + audit trong MỘT transaction (review 2.1): ghi vết thất bại →
+   * rollback cả tạo (FR-35 — sổ tài sản không được "đổi mà mất vết").
+   */
   async create(input: AssetInput, actorSub: string) {
     try {
-      const rows = await this.db
-        .insert(assetsTable)
-        .values({
-          code: input.code,
-          type: input.type,
-          configuration: input.configuration,
-          cost: input.cost,
-          startDate: input.startDate,
-          endDate: input.endDate,
-          floor: input.floor,
-          note: input.note,
-          serial: input.serial,
-          brand: input.brand,
-          model: input.model,
-          assignedUserSub: input.assignedUserSub,
-        })
-        .returning();
-      const asset = rows[0];
-      await this.audit.append({
-        actor: actorSub,
-        action: 'assets.create',
-        objectType: 'asset',
-        objectId: asset.id,
-        detail: {
-          code: asset.code,
-          type: asset.type,
-          assignedUserSub: asset.assignedUserSub,
-        },
+      return await this.db.transaction(async (tx) => {
+        const rows = await tx
+          .insert(assetsTable)
+          .values({
+            code: input.code,
+            type: input.type,
+            configuration: input.configuration,
+            cost: input.cost,
+            startDate: input.startDate,
+            endDate: input.endDate,
+            floor: input.floor,
+            note: input.note,
+            serial: input.serial,
+            brand: input.brand,
+            model: input.model,
+            assignedUserSub: input.assignedUserSub,
+          })
+          .returning();
+        const asset = rows[0];
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'assets.create',
+          objectType: 'asset',
+          objectId: asset.id,
+          detail: {
+            code: asset.code,
+            type: asset.type,
+            assignedUserSub: asset.assignedUserSub,
+          },
+        });
+        return asset;
       });
-      return asset;
     } catch (error) {
       throw this.mapPgError(error);
     }
@@ -109,61 +115,65 @@ export class AssetsService {
     version: number,
     actorSub: string,
   ) {
-    let result;
     try {
-      result = await this.db.execute<Record<string, unknown>>(sql`
-        UPDATE assets AS a
-        SET code = ${input.code},
-            type = ${input.type},
-            configuration = ${input.configuration},
-            cost = ${input.cost},
-            start_date = ${input.startDate},
-            end_date = ${input.endDate},
-            floor = ${input.floor},
-            note = ${input.note},
-            serial = ${input.serial},
-            brand = ${input.brand},
-            model = ${input.model},
-            assigned_user_sub = ${input.assignedUserSub},
-            version = a.version + 1,
-            updated_at = now()
-        FROM (SELECT * FROM assets WHERE id = ${id} FOR UPDATE) AS old
-        WHERE a.id = old.id AND old.version = ${version}
-        RETURNING a.version AS new_version,
-          ${sql.raw(
-            // ::text để so diff không lệ thuộc parser pg (date→Date local-time, bigint→string)
-            EDITABLE_FIELDS.map((f) => `old.${f}::text AS old_${f}`).join(', '),
-          )}
-      `);
+      // Mutation + audit MỘT transaction (review 2.1) — mất vết = rollback cả sửa
+      return await this.db.transaction(async (tx) => {
+        const result = await tx.execute<Record<string, unknown>>(sql`
+          UPDATE assets AS a
+          SET code = ${input.code},
+              type = ${input.type},
+              configuration = ${input.configuration},
+              cost = ${input.cost},
+              start_date = ${input.startDate},
+              end_date = ${input.endDate},
+              floor = ${input.floor},
+              note = ${input.note},
+              serial = ${input.serial},
+              brand = ${input.brand},
+              model = ${input.model},
+              assigned_user_sub = ${input.assignedUserSub},
+              version = a.version + 1,
+              updated_at = now()
+          FROM (SELECT * FROM assets WHERE id = ${id} FOR UPDATE) AS old
+          WHERE a.id = old.id AND old.version = ${version}
+          RETURNING a.version AS new_version,
+            ${sql.raw(
+              // ::text để so diff không lệ thuộc parser pg (date→Date local-time, bigint→string)
+              EDITABLE_FIELDS.map((f) => `old.${f}::text AS old_${f}`).join(
+                ', ',
+              ),
+            )}
+        `);
+        const row = result.rows[0];
+        if (!row) {
+          const exists = await tx
+            .select({ id: assetsTable.id })
+            .from(assetsTable)
+            .where(eq(assetsTable.id, id));
+          if (exists.length === 0) {
+            throw new NotFoundException({
+              code: 'ASSET_NOT_FOUND',
+              message: 'Không tìm thấy tài sản này.',
+            });
+          }
+          throw new ConflictException({
+            code: 'STALE_VERSION',
+            message: 'Trạng thái đã thay đổi, tải lại.',
+          });
+        }
+        const changed = diffChanged(row, input);
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'assets.update',
+          objectType: 'asset',
+          objectId: id,
+          detail: { changed },
+        });
+        return { ok: true, version: row.new_version as number };
+      });
     } catch (error) {
       throw this.mapPgError(error);
     }
-    const row = result.rows[0];
-    if (!row) {
-      const exists = await this.db
-        .select({ id: assetsTable.id })
-        .from(assetsTable)
-        .where(eq(assetsTable.id, id));
-      if (exists.length === 0) {
-        throw new NotFoundException({
-          code: 'ASSET_NOT_FOUND',
-          message: 'Không tìm thấy tài sản này.',
-        });
-      }
-      throw new ConflictException({
-        code: 'STALE_VERSION',
-        message: 'Trạng thái đã thay đổi, tải lại.',
-      });
-    }
-    const changed = diffChanged(row, input);
-    await this.audit.append({
-      actor: actorSub,
-      action: 'assets.update',
-      objectType: 'asset',
-      objectId: id,
-      detail: { changed },
-    });
-    return { ok: true, version: row.new_version as number };
   }
 
   /** Danh sách phân trang SERVER-side (NFR-5) — join users lấy tên người đứng tên. */

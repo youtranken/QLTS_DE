@@ -10,7 +10,7 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsInt,
   IsISO8601,
@@ -31,11 +31,18 @@ import type { AssetInput } from './assets.service';
  * DTO form tài sản (FR-30). status/isPool KHÔNG nhận từ client:
  * tạo mới luôn in_use + pool TẮT; đổi trạng thái/pool là nghiệp vụ riêng 2.6.
  */
+/** Trim TRƯỚC validate (review 2.1) — '   ' không được lọt Length(1) rồi thành ''. */
+const trim = Transform(({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value,
+);
+
 class AssetBodyDto {
+  @trim
   @IsString()
   @Length(1, 100)
   code!: string;
 
+  @trim
   @IsString()
   @Length(1, 100)
   type!: string;
@@ -49,6 +56,8 @@ class AssetBodyDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  // review 2.1: > 2^53 mất chính xác từ tầng JSON, > bigint max → 500; chặn 400 sạch
+  @Max(Number.MAX_SAFE_INTEGER)
   cost?: number | null;
 
   @IsOptional()

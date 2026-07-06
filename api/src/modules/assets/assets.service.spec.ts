@@ -28,8 +28,16 @@ function pgError(code: string, constraint?: string): Error {
   return Object.assign(new Error('pg error'), { code, constraint });
 }
 
-function makeService(db: Partial<Record<string, unknown>>) {
-  const audit = { append: jest.fn().mockResolvedValue(undefined) };
+/** Mock db mà create/update chạy trong transaction: db.transaction(cb) → cb(tx). */
+function makeService(tx: Partial<Record<string, unknown>>) {
+  const audit = {
+    append: jest.fn().mockResolvedValue(undefined),
+    appendWithin: jest.fn().mockResolvedValue(undefined),
+  };
+  const db = {
+    ...tx,
+    transaction: (cb: (t: unknown) => Promise<unknown>) => cb(tx),
+  };
   const svc = new AssetsService(
     db as unknown as Database,
     audit as unknown as AuditWriterService,
@@ -61,7 +69,7 @@ describe('AssetsService (story 2.1)', () => {
     const err = await catchHttp(svc.create(baseInput, 'admin-1'));
     expect(err).toBeInstanceOf(ConflictException);
     expect(err.getResponse()).toMatchObject({ code: 'CODE_TAKEN' });
-    expect(audit.append).not.toHaveBeenCalled();
+    expect(audit.appendWithin).not.toHaveBeenCalled();
   });
 
   it('create: người đứng tên không tồn tại (23503) → 400 ASSIGNEE_NOT_FOUND', async () => {
@@ -89,7 +97,8 @@ describe('AssetsService (story 2.1)', () => {
     };
     const { svc, audit } = makeService(db);
     await svc.create(baseInput, 'admin-1');
-    expect(audit.append).toHaveBeenCalledWith(
+    expect(audit.appendWithin).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
         actor: 'admin-1',
         action: 'assets.create',
@@ -109,7 +118,7 @@ describe('AssetsService (story 2.1)', () => {
     const err = await catchHttp(svc.update('uuid-1', baseInput, 1, 'admin-1'));
     expect(err).toBeInstanceOf(ConflictException);
     expect(err.getResponse()).toMatchObject({ code: 'STALE_VERSION' });
-    expect(audit.append).not.toHaveBeenCalled();
+    expect(audit.appendWithin).not.toHaveBeenCalled();
   });
 
   it('update: asset không tồn tại → 404 ASSET_NOT_FOUND', async () => {
@@ -150,7 +159,7 @@ describe('AssetsService (story 2.1)', () => {
       'admin-1',
     );
     expect(res).toEqual({ ok: true, version: 2 });
-    const call = audit.append.mock.calls[0][0] as {
+    const call = audit.appendWithin.mock.calls[0][1] as {
       detail: { changed: Record<string, unknown> };
     };
     expect(call.detail.changed).toEqual({

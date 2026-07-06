@@ -24,13 +24,7 @@ export class AuditWriterService {
 
   async append(entry: AuditEntry): Promise<void> {
     try {
-      await this.db.insert(auditLogTable).values({
-        actor: entry.actor,
-        action: entry.action,
-        objectType: entry.objectType ?? null,
-        objectId: entry.objectId ?? null,
-        detail: entry.detail ?? null,
-      });
+      await this.db.insert(auditLogTable).values(toRow(entry));
     } catch (error) {
       // Ghi audit lỗi không được làm gãy nghiệp vụ auth — log để giám sát
       this.logger.error(
@@ -38,4 +32,25 @@ export class AuditWriterService {
       );
     }
   }
+
+  /**
+   * Ghi audit TRONG transaction nghiệp vụ (review 2.1) — lỗi NÉM RA để rollback
+   * cả mutation: với sổ tài sản, "đổi được nhưng mất vết" tệ hơn "đổi thất bại".
+   */
+  async appendWithin(
+    tx: Pick<Database, 'insert'>,
+    entry: AuditEntry,
+  ): Promise<void> {
+    await tx.insert(auditLogTable).values(toRow(entry));
+  }
+}
+
+function toRow(entry: AuditEntry) {
+  return {
+    actor: entry.actor,
+    action: entry.action,
+    objectType: entry.objectType ?? null,
+    objectId: entry.objectId ?? null,
+    detail: entry.detail ?? null,
+  };
 }

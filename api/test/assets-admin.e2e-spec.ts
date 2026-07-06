@@ -23,9 +23,13 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
     delete process.env.AUTH_DEV_MODE;
   });
 
-  it('member gọi list/tạo/sửa → 403 (AC 1, NFR-7)', async () => {
+  it('member gọi list/chi tiết/tạo/sửa → 403 (AC 1, NFR-7)', async () => {
     await request(app.getHttpServer())
       .get('/api/admin/assets')
+      .set(asMember)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(`/api/admin/assets/${UUID}`)
       .set(asMember)
       .expect(403);
     await request(app.getHttpServer())
@@ -54,6 +58,27 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
       .post('/api/admin/assets')
       .set(asAdmin)
       .send({ code: 'A-1' })
+      .expect(400);
+  });
+
+  it('code/type toàn khoảng trắng → 400 (trim trước validate, review 2.1)', async () => {
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin)
+      .send({ code: '   ', type: 'laptop' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin)
+      .send({ code: 'A-1', type: '  ' })
+      .expect(400);
+  });
+
+  it('cost vượt Number.MAX_SAFE_INTEGER → 400 (không lọt 500 bigint, review 2.1)', async () => {
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin)
+      .send({ code: 'A-1', type: 'laptop', cost: 10000000000000000000 })
       .expect(400);
   });
 

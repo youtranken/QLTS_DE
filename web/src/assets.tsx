@@ -28,6 +28,7 @@ interface AssetDetail extends AssetRow {
 interface FormState {
   id: string | null; // null = tạo mới
   version: number;
+  status: string; // chỉ hiển thị (AC 1) — đổi trạng thái là nghiệp vụ 2.6
   code: string;
   type: string;
   configuration: string;
@@ -46,6 +47,7 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   id: null,
   version: 1,
+  status: 'in_use',
   code: '',
   type: '',
   configuration: '',
@@ -120,23 +122,7 @@ export function AssetsPage({ me }: { me: Me }) {
           return;
         }
         const a = (await res.json()) as AssetDetail;
-        setForm({
-          id: a.id,
-          version: a.version,
-          code: a.code,
-          type: a.type,
-          configuration: a.configuration ?? '',
-          cost: a.cost == null ? '' : String(a.cost),
-          startDate: a.startDate ?? '',
-          endDate: a.endDate ?? '',
-          floor: a.floor ?? '',
-          note: a.note ?? '',
-          serial: a.serial ?? '',
-          brand: a.brand ?? '',
-          model: a.model ?? '',
-          assignedUserSub: a.assignedUserSub ?? '',
-          assignedUserName: a.assignedUserName ?? '',
-        });
+        setForm(detailToForm(a));
       } catch {
         setError(t('app.serverUnreachable'));
       }
@@ -225,6 +211,27 @@ export function AssetsPage({ me }: { me: Me }) {
   );
 }
 
+function detailToForm(a: AssetDetail): FormState {
+  return {
+    id: a.id,
+    version: a.version,
+    status: a.status,
+    code: a.code,
+    type: a.type,
+    configuration: a.configuration ?? '',
+    cost: a.cost == null ? '' : String(a.cost),
+    startDate: a.startDate ?? '',
+    endDate: a.endDate ?? '',
+    floor: a.floor ?? '',
+    note: a.note ?? '',
+    serial: a.serial ?? '',
+    brand: a.brand ?? '',
+    model: a.model ?? '',
+    assignedUserSub: a.assignedUserSub ?? '',
+    assignedUserName: a.assignedUserName ?? '',
+  };
+}
+
 interface UserOption {
   sub: string;
   fullName: string | null;
@@ -246,7 +253,22 @@ function AssetForm({
   const [userQuery, setUserQuery] = useState('');
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // STALE_VERSION: nạp lại bản mới nhất (version mới) ngay tại form — không mất chỗ đứng
+  const reload = useCallback(async () => {
+    if (!form.id) return;
+    try {
+      const res = await fetch(`/api/admin/assets/${encodeURIComponent(form.id)}`);
+      if (!res.ok) return;
+      setForm(detailToForm((await res.json()) as AssetDetail));
+      setError(null);
+      setStale(false);
+    } catch {
+      setError(t('app.serverUnreachable'));
+    }
+  }, [form.id, t]);
 
   // tìm người đứng tên server-side (users có thể ~3.000 — không tải hết)
   useEffect(() => {
@@ -315,6 +337,7 @@ function AssetForm({
       const body = (await res.json()) as { code?: string; message?: string };
       if (body.code === 'STALE_VERSION') {
         setError(t('assets.staleVersion'));
+        setStale(true);
       } else if (body.code === 'CODE_TAKEN') {
         setError(t('assets.codeTaken'));
       } else {
@@ -344,7 +367,16 @@ function AssetForm({
       <h2 style={{ fontSize: '1rem' }}>
         {form.id ? t('assets.editTitle', { code: initial.code }) : t('assets.addAsset')}
       </h2>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      {error && (
+        <p style={{ color: '#c0392b' }}>
+          {error}{' '}
+          {stale && (
+            <button type="button" onClick={() => void reload()}>
+              {t('assets.reload')}
+            </button>
+          )}
+        </p>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -411,6 +443,11 @@ function AssetForm({
               value={form.floor}
               onChange={(e) => set('floor')(e.target.value)}
             />
+          </label>
+          <label style={field}>
+            {t('assets.statusLabel')}
+            {/* Chỉ hiển thị (AC 1) — khóa/gỡ pool/thanh lý là nghiệp vụ 2.6 */}
+            <input disabled value={t(`assets.status.${form.status}`)} />
           </label>
           <label style={field}>
             {t('assets.serial')}

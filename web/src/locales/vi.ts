@@ -60,6 +60,7 @@ export default {
     saveFailed: 'Lưu không thành công.',
     codeTaken: 'Mã tài sản đã tồn tại — mã phải duy nhất.',
     staleVersion: 'Trạng thái đã thay đổi, tải lại rồi sửa tiếp.',
+    reload: 'Tải lại',
     status: {
       in_use: 'Đang dùng',
       locked_repair: 'Khóa sửa chữa',
