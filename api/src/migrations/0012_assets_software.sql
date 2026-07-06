@@ -5,6 +5,12 @@ ALTER TABLE assets
   ADD COLUMN IF NOT EXISTS license_name text,
   ADD COLUMN IF NOT EXISTS installed_on_asset_id uuid REFERENCES assets(id);
 
+-- Cách ly dữ liệu legacy (review 2.4): row 'software' gõ tay từ 2.1-2.3 không có
+-- license sẽ làm ADD CONSTRAINT fail toàn bộ → API không boot. Đổi nhãn để Admin
+-- rà lại bằng filter loại 'software-legacy' rồi tạo bản ghi software chuẩn.
+UPDATE assets SET type = 'software-legacy'
+WHERE type = 'software' AND license_type IS NULL;
+
 ALTER TABLE assets
   ADD CONSTRAINT assets_license_type_check
     CHECK (license_type IN ('term', 'perpetual')),

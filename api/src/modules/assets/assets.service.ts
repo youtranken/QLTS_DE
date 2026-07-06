@@ -135,6 +135,9 @@ export class AssetsService {
             code: asset.code,
             type: asset.type,
             assignedUserSub: asset.assignedUserSub,
+            // create là điểm DUY NHẤT set installed_on (2.5 mới có "chuyển") — phải có vết
+            installedOnAssetId: asset.installedOnAssetId,
+            licenseType: asset.licenseType,
           },
         });
         return asset;
@@ -305,7 +308,10 @@ export class AssetsService {
     const rows = await tx
       .select({ type: assetsTable.type, status: assetsTable.status })
       .from(assetsTable)
-      .where(eq(assetsTable.id, targetId));
+      .where(eq(assetsTable.id, targetId))
+      // giữ target đến hết tx create — chặn race dispose xen giữa (review 2.4);
+      // 2.6: tx dispose cũng phải FOR UPDATE row máy + tự xử software đang cài
+      .for('update');
     if (rows.length === 0) {
       throw new BadRequestException({
         code: 'INSTALL_TARGET_NOT_FOUND',

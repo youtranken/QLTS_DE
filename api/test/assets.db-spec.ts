@@ -487,6 +487,19 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .expect(409);
     expect(onDead.body.code).toBe('INSTALL_TARGET_DISPOSED');
 
+    // "chưa gắn máy" là trạng thái HỢP LỆ (FR-37) — tạo đứng một mình thành công
+    const detached = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        code: 'SW-02',
+        type: 'software',
+        licenseType: 'perpetual',
+        licenseName: 'Office LTSC',
+      })
+      .expect(201);
+    expect(detached.body.installedOnAssetId).toBeNull();
+
     // GET :id/software liệt kê đúng bản ghi đang trỏ vào máy (AC 2)
     const list = await request(app.getHttpServer())
       .get(`/api/admin/assets/${machineId}/software`)

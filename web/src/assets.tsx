@@ -568,10 +568,8 @@ function AssetForm({
       model: form.model || null,
       assignedUserSub: form.assignedUserSub || null,
       licenseType: form.isSoftware ? form.licenseType || null : null,
-      licenseName:
-        form.isSoftware && form.licenseType === 'perpetual'
-          ? form.licenseName || null
-          : null,
+      // term cũng được có tên license — không xóa ngầm khi sửa (review 2.4)
+      licenseName: form.isSoftware ? form.licenseName || null : null,
     };
     if (form.id) {
       payload.version = form.version;
@@ -714,11 +712,12 @@ function AssetForm({
               </select>
             </label>
           )}
-          {form.isSoftware && form.licenseType === 'perpetual' && (
+          {form.isSoftware && form.licenseType && (
             <label style={field}>
-              {t('assets.licenseName')} *
+              {t('assets.licenseName')}
+              {form.licenseType === 'perpetual' && ' *'}
               <input
-                required
+                required={form.licenseType === 'perpetual'}
                 maxLength={200}
                 value={form.licenseName}
                 onChange={(e) => set('licenseName')(e.target.value)}
