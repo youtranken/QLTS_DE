@@ -4,18 +4,24 @@ import { runMigrations } from '../src/database/migration-runner';
 
 /**
  * Integration test DB THẬT (AC 4, 8) — KHÔNG mock.
- * Cần DATABASE_URL trỏ tới Postgres 18 test (xem README).
+ * Cần DATABASE_URL trỏ tới Postgres 18 TEST (tên DB phải chứa "test" — có DROP TABLE).
  * Chạy: npm run test:db
  */
-const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
-
 if (!process.env.DATABASE_URL) {
-  console.warn(
-    '[migrations.db-spec] Bỏ qua: DATABASE_URL chưa đặt — cần Postgres thật để chạy.',
+  // Fail-fast: không skip im lặng — CI quên set biến sẽ thấy đỏ, không "xanh giả"
+  throw new Error(
+    '[migrations.db-spec] DATABASE_URL chưa đặt — test DB bắt buộc Postgres thật (xem README).',
   );
 }
 
-describeDb('Migrations + seed config (Postgres thật)', () => {
+const dbName = new URL(process.env.DATABASE_URL).pathname.replace(/^\//, '');
+if (!/test/i.test(dbName)) {
+  throw new Error(
+    `[migrations.db-spec] Từ chối chạy: DB '${dbName}' không chứa 'test' — test này DROP TABLE config/_migrations.`,
+  );
+}
+
+describe('Migrations + seed config (Postgres thật)', () => {
   const migrationsDir = join(__dirname, '..', 'src', 'migrations');
   let pool: Pool;
 
@@ -41,6 +47,13 @@ describeDb('Migrations + seed config (Postgres thật)', () => {
       "SELECT extname FROM pg_extension WHERE extname = 'btree_gist'",
     );
     expect(res.rowCount).toBe(1);
+  });
+
+  it('journal ghi checksum cho mọi migration đã apply', async () => {
+    const res = await pool.query(
+      'SELECT count(*)::int AS n FROM _migrations WHERE checksum IS NULL',
+    );
+    expect(res.rows[0].n).toBe(0);
   });
 
   it('bảng config seed đủ 7 tham số FR-44 đúng giá trị mặc định', async () => {
@@ -72,5 +85,14 @@ describeDb('Migrations + seed config (Postgres thật)', () => {
     expect(appliedAgain).toEqual([]);
     const res = await pool.query('SELECT count(*)::int AS n FROM config');
     expect(res.rows[0].n).toBe(7);
+  });
+
+  it('migration đã apply bị sửa nội dung (checksum lệch) → fail to, không im lặng', async () => {
+    await pool.query(
+      "UPDATE _migrations SET checksum = 'gia-mao' WHERE name = '0001_config.sql'",
+    );
+    await expect(
+      runMigrations(pool, migrationsDir, { log: () => undefined }),
+    ).rejects.toThrow(/checksum lệch/);
   });
 });

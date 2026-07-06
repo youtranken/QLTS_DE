@@ -12,8 +12,15 @@ export type Database = NodePgDatabase;
   providers: [
     {
       provide: PG_POOL,
-      useFactory: (): Pool =>
-        new Pool({ connectionString: process.env.DATABASE_URL }),
+      useFactory: (): Pool => {
+        const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+        // pg Pool emit 'error' khi client idle rớt kết nối (Postgres restart/OOM);
+        // không có listener → uncaught exception giết cả process.
+        pool.on('error', (error) => {
+          console.error('[pg-pool] lỗi kết nối idle:', error);
+        });
+        return pool;
+      },
     },
     {
       provide: DRIZZLE_DB,

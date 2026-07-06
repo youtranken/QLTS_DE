@@ -1,9 +1,9 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
-import { GlobalExceptionFilter } from '../src/common/global-exception.filter';
+import { configureApp } from '../src/app.setup';
 
-/** Dựng app e2e giống hệt cấu hình main.ts (prefix, pipe, filter). */
+/** Dựng app e2e đúng cấu hình production — dùng chung configureApp với main.ts. */
 export async function createTestApp(
   extraControllers: Array<new (...args: never[]) => unknown> = [],
 ): Promise<INestApplication> {
@@ -13,9 +13,7 @@ export async function createTestApp(
   }).compile();
 
   const app = moduleRef.createNestApplication({ logger: false });
-  app.setGlobalPrefix('api');
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  configureApp(app);
   await app.init();
   return app;
 }

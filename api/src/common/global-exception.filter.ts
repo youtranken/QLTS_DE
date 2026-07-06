@@ -32,6 +32,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           : String(exception),
       );
     }
+    // Response đã gửi (stream/write dở) → không thể đổi status; chỉ log, tránh
+    // ERR_HTTP_HEADERS_SENT thứ cấp nuốt mất lỗi gốc.
+    if (response.headersSent) {
+      this.logger.error(
+        `Exception sau khi headers đã gửi (status ${body.statusCode}): ${body.message}`,
+      );
+      return;
+    }
     response.status(body.statusCode).json(body);
   }
 
@@ -41,6 +49,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const raw = exception.getResponse();
       if (typeof raw === 'string') {
         return { statusCode, code: this.defaultCode(statusCode), message: raw };
+      }
+      if (raw === null || typeof raw !== 'object') {
+        // HttpException(null, ...) / payload số — không để filter tự ném TypeError
+        return {
+          statusCode,
+          code: this.defaultCode(statusCode),
+          message: exception.message,
+        };
       }
       const obj = raw as Record<string, unknown>;
       const message = Array.isArray(obj.message)
