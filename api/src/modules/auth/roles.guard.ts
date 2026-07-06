@@ -23,8 +23,15 @@ export class RolesGuard implements CanActivate {
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
     );
-    if (!required || required.length === 0) {
-      return true;
+    if (!required) {
+      return true; // không có @Roles → chỉ cần đăng nhập (IdentityGuard lo)
+    }
+    if (required.length === 0) {
+      // @Roles() rỗng là lỗi khai báo — fail-closed thay vì âm thầm mở cho mọi người
+      throw new ForbiddenException({
+        code: 'FORBIDDEN_ROLE',
+        message: 'Route khai báo @Roles() rỗng — bị chặn mặc định.',
+      });
     }
     const request = context.switchToHttp().getRequest<AuthedRequest>();
     const role = request.user?.role;

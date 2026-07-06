@@ -102,12 +102,28 @@ export class OpenidClientProvider implements OidcProvider {
   }
 
   private m2mToken: { value: string; expiresAt: number } | null = null;
+  private m2mInflight: Promise<string> | null = null;
 
-  async clientCredentialsToken(): Promise<string> {
+  async clientCredentialsToken(forceRefresh = false): Promise<string> {
+    if (forceRefresh) {
+      // Token bị PMH ID từ chối sớm hơn hạn (revoke/đổi quyền) — bỏ cache
+      this.m2mToken = null;
+    }
     // Cache đến trước hạn 30s (expires_in ~300s) — không xin token mỗi call
     if (this.m2mToken && this.m2mToken.expiresAt > Date.now() + 30_000) {
       return this.m2mToken.value;
     }
+    // Single-flight: nhiều call song song (fetchUsers + fetchGroups) = 1 grant
+    if (this.m2mInflight) {
+      return this.m2mInflight;
+    }
+    this.m2mInflight = this.requestM2mToken().finally(() => {
+      this.m2mInflight = null;
+    });
+    return this.m2mInflight;
+  }
+
+  private async requestM2mToken(): Promise<string> {
     const { lib, config } = await this.getConfig();
     const tokens = await lib.clientCredentialsGrant(config, {});
     this.m2mToken = {

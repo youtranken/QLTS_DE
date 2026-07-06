@@ -31,6 +31,7 @@ export interface OidcProvider {
   refresh(refreshToken: string): Promise<OidcTokens>;
   /** null nếu provider không có end-session endpoint. */
   buildLogoutUrl(postLogoutRedirectUri: string): Promise<string | null>;
-  /** Token M2M (client_credentials) cho Directory API — cache đến gần hết hạn. */
-  clientCredentialsToken(): Promise<string>;
+  /** Token M2M (client_credentials) cho Directory API — cache đến gần hết hạn.
+   *  forceRefresh: bỏ cache (dùng khi token bị từ chối sớm hơn hạn). */
+  clientCredentialsToken(forceRefresh?: boolean): Promise<string>;
 }

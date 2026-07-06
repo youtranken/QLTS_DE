@@ -129,8 +129,13 @@ function DirectorySyncPanel({ csrfToken }: { csrfToken: string | null }) {
         method: 'POST',
         headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
       });
+      if (res.status === 401) {
+        // Phiên hết hạn giữa chừng — reload để phản ánh trạng thái thật
+        window.location.href = '/';
+        return;
+      }
       const body = (await res.json()) as SyncResult & { message?: string };
-      if (res.ok) {
+      if (res.ok && Array.isArray(body.groups)) {
         setResult(body);
       } else {
         setError(body.message ?? 'Đồng bộ thất bại — thử lại sau.');

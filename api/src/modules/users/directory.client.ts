@@ -30,6 +30,10 @@ export interface DirectoryClientApi {
   fetchGroups(): Promise<DirectoryGroup[]>;
 }
 
+/** Chặn vòng phân trang vô hạn nếu API bỏ qua param `page` (trả mãi cùng dữ liệu). */
+const MAX_PAGES = 50;
+const FETCH_TIMEOUT_MS = 15_000;
+
 /** PMH_API_BASE suy từ PMH_ISSUER_URL bỏ path /oidc — không thêm env mới. */
 function apiBase(): string {
   const issuer = new URL(process.env.PMH_ISSUER_URL as string);
@@ -45,20 +49,20 @@ export class DirectoryClient implements DirectoryClientApi {
   async fetchUsers(): Promise<DirectoryUser[]> {
     // include_deleted=true: đối soát offboarding (AC 1)
     const all: DirectoryUser[] = [];
-    let page = 1;
-    for (;;) {
+    const seen = new Set<string>();
+    for (let page = 1; page <= MAX_PAGES; page += 1) {
       const body = await this.get(
         `/api/v1/users?include_deleted=true&page=${page}`,
       );
       const items = this.extractItems<DirectoryUser>(body);
-      all.push(...items);
-      // Hiện tại API trả mảng phẳng (đã test sống) → một vòng là đủ;
-      // phòng thủ cho tương lai có phân trang: lặp tới trang rỗng
-      if (!Array.isArray(body) && items.length > 0) {
-        page += 1;
-        continue;
+      // API bỏ qua param page → trang sau trả lại đúng dữ liệu cũ → dừng
+      const fresh = items.filter((u) => !seen.has(u.id));
+      fresh.forEach((u) => seen.add(u.id));
+      all.push(...fresh);
+      // API hiện trả mảng phẳng (đã test sống) → một vòng là đủ
+      if (Array.isArray(body) || items.length === 0 || fresh.length === 0) {
+        break;
       }
-      break;
     }
     return all;
   }
@@ -72,38 +76,16 @@ export class DirectoryClient implements DirectoryClientApi {
     if (Array.isArray(body)) {
       return body as T[];
     }
-    const obj = body as { data?: T[]; items?: T[] } | null;
-    return obj?.data ?? obj?.items ?? [];
+    const obj = body as { data?: unknown; items?: unknown } | null;
+    const arr = obj?.data ?? obj?.items;
+    return Array.isArray(arr) ? (arr as T[]) : [];
   }
 
   private async get(path: string): Promise<unknown> {
-    let token: string;
-    try {
-      token = await this.oidc.clientCredentialsToken();
-    } catch (error) {
-      if (error instanceof ServiceUnavailableException) {
-        throw error;
-      }
-      this.logger.error(`Lấy token M2M thất bại: ${(error as Error).message}`);
-      throw new BadGatewayException({
-        code: 'DIRECTORY_AUTH_FAILED',
-        message:
-          'Không xác thực được với PMH ID (kiểm tra client_id/secret) — đồng bộ bị hủy.',
-      });
-    }
-    let response: Response;
-    try {
-      response = await fetch(`${apiBase()}${path}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch (error) {
-      this.logger.error(
-        `Directory API không liên lạc được: ${(error as Error).message}`,
-      );
-      throw new ServiceUnavailableException({
-        code: 'DIRECTORY_UNAVAILABLE',
-        message: 'Không liên lạc được Directory API PMH ID — thử lại sau.',
-      });
+    let response = await this.doFetch(path, false);
+    if (response.status === 401 || response.status === 403) {
+      // Token cache có thể đã bị PMH ID thu hồi sớm — thử lại MỘT lần với token mới
+      response = await this.doFetch(path, true);
     }
     if (response.status === 401 || response.status === 403) {
       throw new BadGatewayException({
@@ -117,6 +99,44 @@ export class DirectoryClient implements DirectoryClientApi {
         message: `Directory API lỗi (HTTP ${response.status}) — thử lại sau.`,
       });
     }
-    return response.json();
+    try {
+      return await response.json();
+    } catch {
+      throw new ServiceUnavailableException({
+        code: 'DIRECTORY_UNAVAILABLE',
+        message: 'Directory API trả dữ liệu không hợp lệ — thử lại sau.',
+      });
+    }
+  }
+
+  private async doFetch(path: string, forceToken: boolean): Promise<Response> {
+    let token: string;
+    try {
+      token = await this.oidc.clientCredentialsToken(forceToken);
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) {
+        throw error;
+      }
+      this.logger.error(`Lấy token M2M thất bại: ${(error as Error).message}`);
+      throw new BadGatewayException({
+        code: 'DIRECTORY_AUTH_FAILED',
+        message:
+          'Không xác thực được với PMH ID (kiểm tra client_id/secret) — đồng bộ bị hủy.',
+      });
+    }
+    try {
+      return await fetch(`${apiBase()}${path}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Directory API không liên lạc được: ${(error as Error).message}`,
+      );
+      throw new ServiceUnavailableException({
+        code: 'DIRECTORY_UNAVAILABLE',
+        message: 'Không liên lạc được Directory API PMH ID — thử lại sau.',
+      });
+    }
   }
 }

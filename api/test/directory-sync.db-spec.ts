@@ -93,9 +93,14 @@ describe('Đồng bộ danh bạ trên DB thật (story 1.3)', () => {
     expect(rows.rows[0].first_login_at).toBeNull();
   });
 
-  it('sync lần 2: idempotent — toàn updated, không tạo trùng (AC 2)', async () => {
+  it('sync lần 2: idempotent — không đổi gì thì unchanged, không tạo trùng, không bump updated_at (AC 2)', async () => {
     const res = await syncAsSa().expect(200);
-    expect(res.body).toMatchObject({ total: 2, created: 0, updated: 2 });
+    expect(res.body).toMatchObject({
+      total: 2,
+      created: 0,
+      updated: 0,
+      unchanged: 2,
+    });
     const count = await pool.query('SELECT count(*)::int AS n FROM users');
     expect(count.rows[0].n).toBe(2);
   });
@@ -117,8 +122,7 @@ describe('Đồng bộ danh bạ trên DB thật (story 1.3)', () => {
     expect(row.rows[0].first_login_at).not.toBeNull();
   });
 
-  it('lỗi giữa chừng → rollback toàn bộ, không ghi dở dang (AC 4)', async () => {
-    const before = await pool.query('SELECT count(*)::int AS n FROM users');
+  it('record hỏng (thiếu id) → skipped, record hợp lệ VẪN ghi được (sanitize sau review)', async () => {
     directoryUsers = [
       {
         id: 'sub-c',
@@ -127,12 +131,25 @@ describe('Đồng bộ danh bạ trên DB thật (story 1.3)', () => {
         status: 'active',
         groups: [],
       },
-      // id null → INSERT vi phạm PK NOT NULL → transaction rollback
+      // id null → bị filter, không phá cả đợt sync (khác trước review: rollback cả đợt)
       { id: null as unknown as string, status: 'active', groups: [] },
     ];
-    await syncAsSa().expect(500);
-    const after = await pool.query('SELECT count(*)::int AS n FROM users');
-    expect(after.rows[0].n).toBe(before.rows[0].n); // sub-c KHÔNG được ghi
+    const res = await syncAsSa().expect(200);
+    expect(res.body).toMatchObject({ created: 1, skipped: 1 });
+    const row = await pool.query("SELECT sub FROM users WHERE sub = 'sub-c'");
+    expect(row.rowCount).toBe(1);
+  });
+
+  it('2 sync đồng thời → không PK violation (ON CONFLICT), user mới chỉ một bản ghi', async () => {
+    directoryUsers = [
+      { id: 'sub-race', email: 'r@pmh.com.vn', status: 'active', groups: [] },
+    ];
+    const [r1, r2] = await Promise.all([syncAsSa(), syncAsSa()]);
+    expect([r1.status, r2.status]).toEqual([200, 200]);
+    const count = await pool.query(
+      "SELECT count(*)::int AS n FROM users WHERE sub = 'sub-race'",
+    );
+    expect(count.rows[0].n).toBe(1);
   });
 
   it('audit ghi users.directory_sync với actor + kết quả (AC 6)', async () => {
@@ -141,6 +158,6 @@ describe('Đồng bộ danh bạ trên DB thật (story 1.3)', () => {
     );
     expect(audit.rowCount).toBe(1);
     expect(audit.rows[0].actor).toBe('sa-test');
-    expect(audit.rows[0].detail).toMatchObject({ total: 2 });
+    expect(audit.rows[0].detail).toMatchObject({ total: 1 });
   });
 });
