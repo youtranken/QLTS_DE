@@ -5,6 +5,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { OidcModule } from './modules/auth/oidc.module';
 import { SystemConfigModule } from './modules/config/config.module';
 
 @Module({
@@ -33,6 +34,7 @@ import { SystemConfigModule } from './modules/config/config.module';
     }),
     DatabaseModule,
     AuditModule,
+    OidcModule,
     AuthModule,
     SystemConfigModule,
   ],

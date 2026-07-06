@@ -101,6 +101,22 @@ export class OpenidClientProvider implements OidcProvider {
     };
   }
 
+  private m2mToken: { value: string; expiresAt: number } | null = null;
+
+  async clientCredentialsToken(): Promise<string> {
+    // Cache đến trước hạn 30s (expires_in ~300s) — không xin token mỗi call
+    if (this.m2mToken && this.m2mToken.expiresAt > Date.now() + 30_000) {
+      return this.m2mToken.value;
+    }
+    const { lib, config } = await this.getConfig();
+    const tokens = await lib.clientCredentialsGrant(config, {});
+    this.m2mToken = {
+      value: tokens.access_token,
+      expiresAt: Date.now() + (tokens.expiresIn() ?? 300) * 1000,
+    };
+    return this.m2mToken.value;
+  }
+
   async buildLogoutUrl(postLogoutRedirectUri: string): Promise<string | null> {
     try {
       const { lib, config } = await this.getConfig();

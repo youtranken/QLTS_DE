@@ -10,7 +10,15 @@ interface Me {
   fullName?: string;
   email?: string;
   role: string;
+  devMode?: boolean;
   csrfToken: string | null;
+}
+
+interface SyncResult {
+  total: number;
+  created: number;
+  updated: number;
+  groups: Array<{ id: string; name: string }>;
 }
 
 type AuthState =
@@ -98,9 +106,60 @@ function App() {
           <button type="button" onClick={() => void logout()}>
             Đăng xuất
           </button>
+          {(auth.me.role === 'sa' || auth.me.devMode) && (
+            <DirectorySyncPanel csrfToken={auth.me.csrfToken} />
+          )}
         </>
       )}
     </main>
+  );
+}
+
+/** Khối tạm cho SA (story 1.3) — màn Quản trị đầy đủ thuộc story 1.5/1.7. */
+function DirectorySyncPanel({ csrfToken }: { csrfToken: string | null }) {
+  const [result, setResult] = useState<SyncResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const runSync = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/directory-sync', {
+        method: 'POST',
+        headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
+      });
+      const body = (await res.json()) as SyncResult & { message?: string };
+      if (res.ok) {
+        setResult(body);
+      } else {
+        setError(body.message ?? 'Đồng bộ thất bại — thử lại sau.');
+      }
+    } catch {
+      setError('Không gọi được máy chủ — thử lại sau.');
+    } finally {
+      setBusy(false);
+    }
+  }, [csrfToken]);
+
+  return (
+    <section style={{ marginTop: '2rem', textAlign: 'center' }}>
+      <h2 style={{ fontSize: '1rem' }}>Quản trị — Đồng bộ danh bạ PMH ID</h2>
+      <button type="button" disabled={busy} onClick={() => void runSync()}>
+        {busy ? 'Đang đồng bộ…' : 'Đồng bộ ngay'}
+      </button>
+      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      {result && (
+        <>
+          <p>
+            {result.total} user, {result.created} mới, {result.updated} cập nhật
+          </p>
+          <p style={{ fontSize: '0.85rem', color: '#555' }}>
+            Group client đang thấy: {result.groups.map((g) => g.name).join(', ') || '(chưa được gán group nào)'}
+          </p>
+        </>
+      )}
+    </section>
   );
 }
 

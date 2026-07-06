@@ -75,6 +75,7 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
       return { accessToken: await signAccessToken(), refreshToken: 'rt-2' };
     },
     buildLogoutUrl: () => Promise.resolve('https://id.test/oidc/logout?post=1'),
+    clientCredentialsToken: () => Promise.resolve('m2m-token-test'),
   };
 
   /** Đăng nhập hoàn chỉnh, trả cookie phiên + csrf token. */

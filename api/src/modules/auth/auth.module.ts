@@ -4,9 +4,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { CsrfGuard } from './csrf.guard';
 import { IdentityGuard } from './identity.guard';
-import { JwtVerifierService } from './jwt-verifier.service';
-import { OIDC_PROVIDER } from './oidc-provider';
-import { OpenidClientProvider } from './openid-client.provider';
+import { RolesGuard } from './roles.guard';
 import { SessionAuthService } from './session-auth.service';
 import { SessionService } from './session.service';
 import { WebhookController } from './webhook.controller';
@@ -17,12 +15,11 @@ import { WebhookController } from './webhook.controller';
   providers: [
     SessionService,
     SessionAuthService,
-    JwtVerifierService,
-    { provide: OIDC_PROVIDER, useClass: OpenidClientProvider },
-    // Thứ tự guard toàn cục: Identity trước, CSRF sau (CSRF cần req.user.sessionId)
+    // Thứ tự guard toàn cục: Identity → CSRF → Roles (Roles cần req.user)
     { provide: APP_GUARD, useClass: IdentityGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
-  exports: [SessionService, JwtVerifierService],
+  exports: [SessionService],
 })
 export class AuthModule {}
