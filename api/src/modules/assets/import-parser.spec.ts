@@ -85,12 +85,40 @@ describe('parseDateCell / parseCostCell', () => {
 });
 
 describe('assertZipSafe — chống zip-bomb (AC 1)', () => {
+  /** Dựng zip giả chỉ gồm central directory + EOCD — đủ cho guard đọc. */
+  function fakeZip(entryCount: number, uncompressedSizeEach: number): Buffer {
+    const cdCount = Math.min(entryCount, 3);
+    const cds: Buffer[] = [];
+    for (let i = 0; i < cdCount; i++) {
+      const cd = Buffer.alloc(46);
+      cd.writeUInt32LE(0x02014b50, 0);
+      cd.writeUInt32LE(uncompressedSizeEach, 24);
+      cds.push(cd);
+    }
+    const eocd = Buffer.alloc(22);
+    eocd.writeUInt32LE(0x06054b50, 0);
+    eocd.writeUInt16LE(entryCount, 10);
+    eocd.writeUInt32LE(0, 16); // central directory bắt đầu tại offset 0
+    return Buffer.concat([...cds, eocd]);
+  }
+
   it('xlsx thật đi qua; buffer rác → UNSUPPORTED_FILE', async () => {
     const buf = await buildXlsx([[1, 'A', 'X-1', 'laptop']]);
     expect(() => assertZipSafe(buf)).not.toThrow();
     expect(() =>
       assertZipSafe(Buffer.from('PK\x03\x04khong phai zip that')),
     ).toThrow(/zip/);
+  });
+
+  it('khai báo giải nén vượt 15MB → ZIP_BOMB (fail đóng)', () => {
+    expect(() => assertZipSafe(fakeZip(3, 6 * 1024 * 1024))).toThrow(
+      /vượt trần/,
+    );
+  });
+
+  it('quá 200 entries → ZIP_TOO_COMPLEX; entryCount 0xFFFF (ZIP64) cũng bị chặn', () => {
+    expect(() => assertZipSafe(fakeZip(201, 100))).toThrow(/entry/);
+    expect(() => assertZipSafe(fakeZip(0xffff, 100))).toThrow(/entry/);
   });
 });
 

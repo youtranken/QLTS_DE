@@ -31,6 +31,8 @@ export function ImportPage({ me }: { me: Me }) {
   const [rematchMsg, setRematchMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // đổi key để reset <input type=file> sau khi import thành công (review 2.9)
+  const [inputKey, setInputKey] = useState(0);
 
   const post = useCallback(
     async (path: string, withFile: boolean) => {
@@ -88,6 +90,7 @@ export function ImportPage({ me }: { me: Me }) {
         );
         setPreview(null);
         setFile(null);
+        setInputKey((k) => k + 1);
       } else {
         setError(
           body.rowNumber != null
@@ -163,6 +166,7 @@ export function ImportPage({ me }: { me: Me }) {
         }}
       >
         <input
+          key={inputKey}
           type="file"
           accept=".xlsx"
           disabled={busy}

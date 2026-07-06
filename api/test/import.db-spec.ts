@@ -304,5 +304,70 @@ describe('Import Excel go-live trên DB thật (story 2.9)', () => {
       )
     ).rows[0];
     expect(m3.needs_user_match).toBe(true);
+    // FR-49 (review 2.9): rematch bump version — form admin đang mở sẽ 409
+    const m2v = (
+      await pool.query("SELECT version FROM assets WHERE code = 'IM-M2'")
+    ).rows[0];
+    expect(m2v.version).toBe(2);
+  });
+
+  it('review 2.9: user NHIỀU máy → software chưa gắn; disposed KHÔNG hồi sinh; không đè xử lý tay', async () => {
+    // 'Nguyễn Văn A' đã có IM-M1 trong DB; file thêm 1 máy + 1 software của A
+    // → 2 candidates → software phải CHƯA gắn + cần map tay
+    const buf = await buildXlsx([
+      [1, 'Nguyễn Văn A', 'IM-M5', 'laptop', '', '', '', '', '', '', ''],
+      [2, 'Nguyễn Văn A', 'IM-SW3', 'software', '', '', '', '', '', '', ''],
+      [3, 'Bí Ẩn', 'IM-SWD', 'software', '', '', '', '', '', 'Thanh lý', ''],
+    ]);
+    await request(app.getHttpServer())
+      .post('/api/admin/assets-import/commit')
+      .set(asAdmin())
+      .attach('file', buf, 'v2.xlsx')
+      .expect(200);
+    const sw3 = (
+      await pool.query(
+        "SELECT id, installed_on_asset_id, needs_user_match FROM assets WHERE code = 'IM-SW3'",
+      )
+    ).rows[0];
+    expect(sw3).toMatchObject({
+      installed_on_asset_id: null,
+      needs_user_match: true,
+    });
+
+    // Admin xử tay IM-SW3 (gắn vào IM-M5) — rematch KHÔNG được ghi đè, chỉ gỡ cờ
+    const m5 = (await pool.query("SELECT id FROM assets WHERE code = 'IM-M5'"))
+      .rows[0];
+    await pool.query(
+      'UPDATE assets SET installed_on_asset_id = $1 WHERE id = $2',
+      [m5.id, sw3.id],
+    );
+    // user 'Bí Ẩn' xuất hiện — nhưng IM-SWD disposed thì KHÔNG bao giờ gắn lại
+    await pool.query(
+      "INSERT INTO users (sub, full_name) VALUES ('sub-ba', 'Bí Ẩn')",
+    );
+    await request(app.getHttpServer())
+      .post('/api/admin/assets-import/rematch')
+      .set(asAdmin())
+      .expect(200);
+    const sw3After = (
+      await pool.query(
+        'SELECT installed_on_asset_id, needs_user_match FROM assets WHERE id = $1',
+        [sw3.id],
+      )
+    ).rows[0];
+    expect(sw3After).toMatchObject({
+      installed_on_asset_id: m5.id, // giữ quyết định tay
+      needs_user_match: false, // cờ được gỡ
+    });
+    const swd = (
+      await pool.query(
+        "SELECT installed_on_asset_id, needs_user_match, status FROM assets WHERE code = 'IM-SWD'",
+      )
+    ).rows[0];
+    expect(swd).toMatchObject({
+      status: 'disposed',
+      installed_on_asset_id: null, // TERMINAL 2.6 — không hồi sinh
+      needs_user_match: false, // gỡ cờ (không thể map được nữa)
+    });
   });
 });

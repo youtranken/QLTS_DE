@@ -4,7 +4,7 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
@@ -201,6 +201,8 @@ export class ImportService {
         type: assetsTable.type,
         status: assetsTable.status,
         importedUserText: assetsTable.importedUserText,
+        assignedUserSub: assetsTable.assignedUserSub,
+        installedOnAssetId: assetsTable.installedOnAssetId,
       })
       .from(assetsTable)
       .where(eq(assetsTable.needsUserMatch, true));
@@ -209,8 +211,33 @@ export class ImportService {
       pending.map((p) => p.importedUserText).filter((u): u is string => !!u),
     );
     let matched = 0;
+    let resolvedManually = 0;
     await this.db.transaction(async (tx) => {
       for (const row of pending) {
+        // Admin đã xử tay (gán người/gắn máy qua form hoặc transfer 2.5) →
+        // KHÔNG ghi đè quyết định tay; chỉ gỡ cờ (review 2.9)
+        const manuallyResolved =
+          row.type === 'software'
+            ? row.installedOnAssetId !== null
+            : row.assignedUserSub !== null;
+        if (manuallyResolved) {
+          await tx
+            .update(assetsTable)
+            .set({ needsUserMatch: false, updatedAt: new Date() })
+            .where(eq(assetsTable.id, row.id));
+          resolvedManually++;
+          continue;
+        }
+        // TERMINAL 2.6: software disposed KHÔNG bao giờ gắn lại máy — gỡ cờ luôn
+        // (không thể map được nữa, để treo là nhiễu vĩnh viễn)
+        if (row.type === 'software' && row.status === 'disposed') {
+          await tx
+            .update(assetsTable)
+            .set({ needsUserMatch: false, updatedAt: new Date() })
+            .where(eq(assetsTable.id, row.id));
+          resolvedManually++;
+          continue;
+        }
         const match = row.importedUserText
           ? matches.get(normalize(row.importedUserText))
           : undefined;
@@ -222,6 +249,8 @@ export class ImportService {
             .set({
               installedOnAssetId: match.machineIds[0],
               needsUserMatch: false,
+              // bump version (FR-49) — form admin đang mở sẽ 409 thay vì ghi đè
+              version: sql`${assetsTable.version} + 1`,
               updatedAt: new Date(),
             })
             .where(eq(assetsTable.id, row.id));
@@ -231,6 +260,7 @@ export class ImportService {
             .set({
               assignedUserSub: match.sub,
               needsUserMatch: false,
+              version: sql`${assetsTable.version} + 1`,
               updatedAt: new Date(),
             })
             .where(eq(assetsTable.id, row.id));
@@ -244,16 +274,23 @@ export class ImportService {
         }
         matched++;
       }
-      if (matched > 0) {
+      if (matched > 0 || resolvedManually > 0) {
         await this.audit.appendWithin(tx, {
           actor: actorSub,
           action: 'assets.import_rematch',
           objectType: 'assets_import',
-          detail: { matched, remaining: pending.length - matched },
+          detail: {
+            matched,
+            resolvedManually,
+            remaining: pending.length - matched - resolvedManually,
+          },
         });
       }
     });
-    return { matched, remaining: pending.length - matched };
+    return {
+      matched,
+      remaining: pending.length - matched - resolvedManually,
+    };
   }
 
   /**
@@ -320,8 +357,8 @@ export class ImportService {
         : error
     ) as { code?: string; constraint?: string; detail?: string };
     if (pg?.code === '23505' && pg.constraint === 'assets_code_key') {
-      // pg detail: Key (code)=(X) already exists.
-      const m = /\(code\)=\((.+?)\)/.exec(pg.detail ?? '');
+      // pg detail: Key (code)=(X) already exists. — greedy: mã chứa ')' vẫn bắt đủ
+      const m = /\(code\)=\((.+)\)/.exec(pg.detail ?? '');
       const dupCode = m?.[1];
       const row = rows.find((r) => r.code === dupCode);
       return new ConflictException({

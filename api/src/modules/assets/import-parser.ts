@@ -7,8 +7,12 @@ import * as ExcelJS from 'exceljs';
  */
 
 export const MAX_ROWS = 5000;
-/** Chống zip-bomb (party phiên 7): tổng kích thước GIẢI NÉN + số entry trong zip. */
-export const MAX_UNCOMPRESSED = 50 * 1024 * 1024;
+/**
+ * Chống zip-bomb (party phiên 7): tổng kích thước GIẢI NÉN + số entry trong zip.
+ * 15MB đủ dư cho 5000 dòng (~10-15MB); 50MB làm exceljs spike ~300MB RSS →
+ * OOM với mem_limit 384m (repro review 2.9).
+ */
+export const MAX_UNCOMPRESSED = 15 * 1024 * 1024;
 export const MAX_ZIP_ENTRIES = 200;
 
 export interface ImportRow {
@@ -161,10 +165,12 @@ export function parseCostCell(value: unknown): number | null | undefined {
     return Number.isFinite(value) && value >= 0 ? Math.round(value) : undefined;
   }
   if (typeof value !== 'string') return undefined;
-  const s = value.trim().replace(/[,. ]/g, '');
+  const s = value.trim();
   if (s === '') return null;
-  if (!/^\d+$/.test(s)) return undefined;
-  const n = Number(s);
+  // CHỈ nhận số nguyên hoặc ngăn-nghìn đúng nhóm 3 ('25,000,000') —
+  // '25.5' KHÔNG được lặng lẽ thành 255 (review 2.9)
+  if (!/^\d+$/.test(s) && !/^\d{1,3}([,. ]\d{3})+$/.test(s)) return undefined;
+  const n = Number(s.replace(/[,. ]/g, ''));
   return Number.isSafeInteger(n) ? n : undefined;
 }
 
