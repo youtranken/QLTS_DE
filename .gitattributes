@@ -1,0 +1,5 @@
+# Dev trên Windows + chạy trong container Linux: giữ LF cho mọi file text
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

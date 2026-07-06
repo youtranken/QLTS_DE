@@ -1,0 +1,11 @@
+# secrets (NFR-12)
+.env
+
+# deps & build
+node_modules/
+dist/
+coverage/
+
+# misc
+*.log
+.DS_Store
