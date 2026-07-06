@@ -12,6 +12,7 @@ import {
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { Transform, Type } from 'class-transformer';
 import {
@@ -257,6 +258,8 @@ export class AssetsAdminController {
 
   /** Export Excel theo bộ lọc (2.10, FR-41) — đứng trước ':id' như 'meta'. */
   @Get('export')
+  // dựng workbook 10k dòng RAM — siết 20 req/phút/user (epic review)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   async exportExcel(
     @Query() query: ListAssetsQueryDto,
     @Req() req: AuthedRequest,

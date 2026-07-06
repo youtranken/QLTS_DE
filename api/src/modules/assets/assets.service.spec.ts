@@ -97,6 +97,19 @@ describe('AssetsService (story 2.1)', () => {
     expect(err.getResponse()).toMatchObject({ code: 'ASSIGNEE_NOT_FOUND' });
   });
 
+  it('create: ngày không hợp lệ lọt tới DB (22007) → 400 BAD_DATE', async () => {
+    const db = {
+      insert: () => ({
+        values: () => ({
+          returning: () => Promise.reject(pgError('22007')),
+        }),
+      }),
+    };
+    const { svc } = makeService(db);
+    const err = await catchHttp(svc.create(baseInput, 'admin-1'));
+    expect(err.getResponse()).toMatchObject({ code: 'BAD_DATE' });
+  });
+
   it('create: thành công → audit assets.create với actor/objectId', async () => {
     const created = { id: 'uuid-1', code: baseInput.code, type: 'laptop' };
     const db = {
@@ -359,6 +372,19 @@ describe('lifecycle (2.6, FR-33/32)', () => {
     );
     const err = await catchHttp(svc.unlock('u1', 1, 'adm'));
     expect(err.getResponse()).toMatchObject({ code: 'STALE_VERSION' });
+  });
+
+  it('unlock software → 400 NOT_MACHINE (đóng ma trận guard)', async () => {
+    const { svc } = makeService(
+      lockRow({
+        type: 'software',
+        status: 'locked_repair',
+        isPool: false,
+        version: 1,
+      }),
+    );
+    const err = await catchHttp(svc.unlock('u1', 1, 'adm'));
+    expect(err.getResponse()).toMatchObject({ code: 'NOT_MACHINE' });
   });
 
   it('setPool cùng giá trị → no-op: không audit, version giữ nguyên', async () => {

@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { eq, ilike, or, sql } from 'drizzle-orm';
+import { escapeLike } from '../../common/sql';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
@@ -277,9 +278,4 @@ export class UsersService {
       );
     }
   }
-}
-
-/** Escape ký tự đặc biệt của LIKE — search chứa % _ \ không thành wildcard. */
-function escapeLike(input: string): string {
-  return input.replace(/[\\%_]/g, '\\$&');
 }

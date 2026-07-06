@@ -199,6 +199,21 @@ describe('Module file + kiểm kê trên DB thật (story 2.8)', () => {
     void r2025;
   });
 
+  it('epic review: row có nhưng file mất trên đĩa → 500, không treo response', async () => {
+    // upload file riêng để không phá fixture download của test trước
+    const res = await request(app.getHttpServer())
+      .post('/api/admin/files')
+      .set(asAdmin())
+      .field('kind', 'document')
+      .attach('file', PDF, 'se-bi-xoa.pdf')
+      .expect(201);
+    rmSync(join(storageDir, res.body.id as string));
+    await request(app.getHttpServer())
+      .get(`/api/admin/files/${res.body.id}/download`)
+      .set(asAdmin())
+      .expect(500);
+  });
+
   it('KHÔNG có chức năng xóa: DELETE đợt/file → 404 (AC 3)', async () => {
     const list = await request(app.getHttpServer())
       .get('/api/admin/inventory-rounds')

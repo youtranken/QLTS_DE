@@ -10,6 +10,9 @@ export const SIZE_LIMITS: Record<FileKind, number> = {
   document: 20 * 1024 * 1024,
 };
 
+/** Trần multer chung mọi endpoint upload = trần lớn nhất — một nguồn (epic review). */
+export const MULTER_LIMIT = { fileSize: SIZE_LIMITS.document };
+
 interface DetectedType {
   mime: string;
   kind: FileKind;

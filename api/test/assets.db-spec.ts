@@ -19,6 +19,12 @@ if (!/test/i.test(dbName)) {
   throw new Error(`[assets.db-spec] Từ chối chạy trên DB '${dbName}'.`);
 }
 
+/**
+ * ⚠️ FILE NÀY LÀ CHUỖI TRẠNG THÁI (test sau dựa dữ liệu test trước — có chủ đích
+ * để test cascade xuyên story). QUY ƯỚC: test mới CHỈ APPEND CUỐI FILE, dùng
+ * prefix code riêng, KHÔNG đụng fixture chung (DUP-01/PAGE-0x/SW-01/3-AA-CT-0042).
+ * Epic 3 mở file db-spec MỚI, không chèn vào đây.
+ */
 describe('Sổ tài sản trên DB thật (story 2.1)', () => {
   let app: INestApplication;
   let pool: Pool;
@@ -87,8 +93,10 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       isPool: false,
       version: 1,
     });
+    // scope theo object_id — miễn nhiễm test mới thêm asset (epic review)
     const audit = await pool.query(
-      "SELECT actor, object_id FROM audit_log WHERE action = 'assets.create'",
+      "SELECT actor FROM audit_log WHERE action = 'assets.create' AND object_id = $1",
+      [res.body.id],
     );
     expect(audit.rowCount).toBe(1);
     expect(audit.rows[0].actor).toBe('admin-t');
@@ -1047,5 +1055,70 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
         "INSERT INTO assets (code, type, status) VALUES ('BAD-ST', 'laptop', 'dang_bay')",
       ),
     ).rejects.toMatchObject({ code: '23514' });
+  });
+
+  it('epic review F2: PUT trên tài sản đã thanh lý → 409 DISPOSED_TERMINAL, không sửa được gì', async () => {
+    const m = (
+      await pool.query(
+        "SELECT id, version, assigned_user_sub FROM assets WHERE code = 'M-DISP'",
+      )
+    ).rows[0];
+    const res = await request(app.getHttpServer())
+      .put(`/api/admin/assets/${m.id}`)
+      .set(asAdmin())
+      .send({
+        code: 'M-DISP',
+        type: 'desktop',
+        assignedUserSub: 'sub-u1', // cố viết lại "ai cầm lúc thanh lý"
+        version: m.version,
+      })
+      .expect(409);
+    expect(res.body.code).toBe('DISPOSED_TERMINAL');
+    const after = await pool.query(
+      'SELECT assigned_user_sub, version FROM assets WHERE id = $1',
+      [m.id],
+    );
+    expect(after.rows[0]).toEqual({
+      assigned_user_sub: m.assigned_user_sub,
+      version: m.version,
+    });
+  });
+
+  it('epic review: PUT software perpetual → term (đổi loại license hợp lệ) đi qua cả validate lẫn CHECK', async () => {
+    const sw = (
+      await pool.query("SELECT id, version FROM assets WHERE code = 'SW-02'")
+    ).rows[0];
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${sw.id}`)
+      .set(asAdmin())
+      .send({
+        code: 'SW-02',
+        type: 'software',
+        licenseType: 'term',
+        endDate: '2028-01-31',
+        version: sw.version,
+      })
+      .expect(200);
+    const after = await pool.query(
+      'SELECT license_type, license_name, end_date::text AS end_date FROM assets WHERE id = $1',
+      [sw.id],
+    );
+    expect(after.rows[0]).toEqual({
+      license_type: 'term',
+      license_name: null, // PUT full-set: không gửi licenseName → null (term không bắt buộc tên)
+      end_date: '2028-01-31',
+    });
+  });
+
+  it('export quá 10000 dòng → 400 EXPORT_TOO_LARGE (2.10)', async () => {
+    await pool.query(`
+      INSERT INTO assets (code, type)
+      SELECT 'BULK-' || g, 'bulk' FROM generate_series(1, 10001) g
+    `);
+    const res = await request(app.getHttpServer())
+      .get('/api/admin/assets/export?type=bulk')
+      .set(asAdmin())
+      .expect(400);
+    expect(res.body.code).toBe('EXPORT_TOO_LARGE');
   });
 });

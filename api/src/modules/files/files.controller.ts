@@ -13,6 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { Type } from 'class-transformer';
 import {
   IsIn,
@@ -27,6 +28,7 @@ import type { Response } from 'express';
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
 import { FilesService } from './files.service';
+import { MULTER_LIMIT } from './file-validation';
 import type { FileKind } from './file-validation';
 
 class UploadFileDto {
@@ -46,9 +48,6 @@ class CreateRoundDto {
   @MaxLength(2000)
   note?: string | null;
 }
-
-/** Trần multer đặt bằng trần lớn nhất (20MB) — trần theo loại check trong service. */
-const MULTER_LIMIT = { fileSize: 20 * 1024 * 1024 };
 
 function requireSub(req: AuthedRequest): string {
   if (!req.user) {
@@ -95,6 +94,8 @@ export class FilesController {
   constructor(private readonly files: FilesService) {}
 
   @Post()
+  // upload 20MB buffer RAM — siết 20 req/phút/user (epic review)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor('file', { limits: MULTER_LIMIT }))
   upload(
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -126,10 +127,20 @@ export class FilesController {
     res.setHeader('Content-Disposition', contentDisposition(meta.originalName));
     // belt-and-suspenders chống MIME-sniff (review 2.8) — attachment đã là chốt chính
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    // file mất trên đĩa (row có, đĩa không) → 500 từ stream error, không treo response
+    // file mất trên đĩa (row có, đĩa không) → 500 JSON sạch; PHẢI gỡ Content-Length
+    // đã set (body rỗng + length cũ làm client chờ/abort — epic review test bắt được)
     stream.on('error', () => {
-      if (!res.headersSent) res.status(500);
-      res.end();
+      if (!res.headersSent) {
+        res.removeHeader('Content-Length');
+        res.removeHeader('Content-Disposition');
+        res.status(500).json({
+          statusCode: 500,
+          code: 'FILE_MISSING',
+          message: 'File không còn trên ổ lưu trữ — báo quản trị hệ thống.',
+        });
+      } else {
+        res.destroy();
+      }
     });
     stream.pipe(res);
   }
@@ -157,6 +168,7 @@ export class InventoryController {
 
   /** Upload biên bản vào đợt — nhận pdf/xlsx lẫn ảnh chụp biên bản giấy. */
   @Post(':id/files')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor('file', { limits: MULTER_LIMIT }))
   addFile(
     @Param('id', ParseUUIDPipe) id: string,

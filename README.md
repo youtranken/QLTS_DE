@@ -53,3 +53,10 @@ docker rm -f qlts-test-pg
 
 `AUTH_DEV_MODE=true` cho phép giả định danh qua header `x-dev-user-sub` + `x-dev-role` (`member|admin|sa`).
 Chỉ hoạt động khi `NODE_ENV ∈ {development, test}` — bật ở môi trường khác thì app **từ chối khởi động**.
+
+## Convention migration (AD-12)
+
+- File `api/src/migrations/NNNN_<mô-tả>.sql` (zero-pad 4 số), chạy theo thứ tự tên, mỗi file MỘT transaction, journal + checksum ở bảng `_migrations` — file đã áp mà bị sửa nội dung là boot fail (chống schema drift).
+- **CẤM** `BEGIN`/`COMMIT` nội bộ trong file SQL (phá transaction wrapper của runner).
+- Bất biến nghiệp vụ enforce ở TẦNG DB: `UNIQUE`/`CHECK` (0009/0012/0015), bảng sổ-vết dùng trigger append-only theo mẫu 0005 (`audit_log` → 0011 `allocation_history` → 0014 `asset_note`).
+- Migration cần `CREATE INDEX CONCURRENTLY` (không chạy được trong transaction) hiện CHƯA hỗ trợ — cần marker opt-out trước story 3.1a (xem deferred-work).

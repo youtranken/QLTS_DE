@@ -133,11 +133,17 @@ export class ImportService {
           const match = row.user ? matches.get(normalize(row.user)) : undefined;
           let installedOn: string | null = null;
           if (match && row.status !== 'disposed') {
-            const candidates = [
-              ...match.machineIds,
-              ...(machineIdByUserSub.get(match.sub) ?? []),
-            ];
-            if (candidates.length === 1) installedOn = candidates[0];
+            const sameFile = machineIdByUserSub.get(match.sub) ?? [];
+            const candidates = [...match.machineIds, ...sameFile];
+            if (candidates.length === 1) {
+              installedOn = candidates[0];
+              // F4 (epic review): máy CÓ SẴN có thể bị dispose xen giữa matchUsers
+              // (ngoài tx) và đây — lock + re-check; máy cùng file thì miễn
+              if (!sameFile.includes(installedOn)) {
+                const ok = await this.lockLiveMachine(tx, installedOn);
+                if (!ok) installedOn = null;
+              }
+            }
           }
           // sổ cũ không có cột license: END DATE có → term; không → perpetual
           // (tên license bắt buộc NOT NULL — fallback CONFIGURATION rồi CODE)
@@ -146,7 +152,11 @@ export class ImportService {
             licenseType === 'perpetual'
               ? (row.configuration ?? row.code!)
               : row.configuration;
-          const needsMap = !!row.user && (!match || installedOn === null);
+          // F5: software disposed không bao giờ gắn được — đừng cắm cờ treo vô nghĩa
+          const needsMap =
+            row.status !== 'disposed' &&
+            !!row.user &&
+            (!match || installedOn === null);
           await tx.insert(assetsTable).values({
             code: row.code!,
             type: 'software',
@@ -214,28 +224,26 @@ export class ImportService {
     let resolvedManually = 0;
     await this.db.transaction(async (tx) => {
       for (const row of pending) {
+        // F1 (epic review): snapshot `pending` đọc NGOÀI tx — mọi UPDATE dưới đây
+        // đều mang PREDICATE tự vệ (WHERE needs_user_match AND cột đích còn trống);
+        // writer khác xen giữa → rowCount 0 → bỏ qua, không bao giờ 2 writer cùng thắng.
+
         // Admin đã xử tay (gán người/gắn máy qua form hoặc transfer 2.5) →
         // KHÔNG ghi đè quyết định tay; chỉ gỡ cờ (review 2.9)
         const manuallyResolved =
           row.type === 'software'
             ? row.installedOnAssetId !== null
             : row.assignedUserSub !== null;
-        if (manuallyResolved) {
-          await tx
-            .update(assetsTable)
-            .set({ needsUserMatch: false, updatedAt: new Date() })
-            .where(eq(assetsTable.id, row.id));
-          resolvedManually++;
-          continue;
-        }
         // TERMINAL 2.6: software disposed KHÔNG bao giờ gắn lại máy — gỡ cờ luôn
-        // (không thể map được nữa, để treo là nhiễu vĩnh viễn)
-        if (row.type === 'software' && row.status === 'disposed') {
-          await tx
-            .update(assetsTable)
-            .set({ needsUserMatch: false, updatedAt: new Date() })
-            .where(eq(assetsTable.id, row.id));
-          resolvedManually++;
+        const deadSoftware =
+          row.type === 'software' && row.status === 'disposed';
+        if (manuallyResolved || deadSoftware) {
+          const cleared = await tx.execute<{ id: string }>(sql`
+            UPDATE assets SET needs_user_match = false, updated_at = now()
+            WHERE id = ${row.id} AND needs_user_match
+            RETURNING id
+          `);
+          if (cleared.rows.length === 1) resolvedManually++;
           continue;
         }
         const match = row.importedUserText
@@ -244,26 +252,27 @@ export class ImportService {
         if (!match) continue;
         if (row.type === 'software') {
           if (match.machineIds.length !== 1) continue; // vẫn cần map tay
-          await tx
-            .update(assetsTable)
-            .set({
-              installedOnAssetId: match.machineIds[0],
-              needsUserMatch: false,
-              // bump version (FR-49) — form admin đang mở sẽ 409 thay vì ghi đè
-              version: sql`${assetsTable.version} + 1`,
-              updatedAt: new Date(),
-            })
-            .where(eq(assetsTable.id, row.id));
+          const targetId = match.machineIds[0];
+          // F4: máy đích có thể bị dispose sau matchUsers — lock + re-check
+          const ok = await this.lockLiveMachine(tx, targetId);
+          if (!ok) continue;
+          const updated = await tx.execute<{ id: string }>(sql`
+            UPDATE assets SET installed_on_asset_id = ${targetId},
+              needs_user_match = false, version = version + 1, updated_at = now()
+            WHERE id = ${row.id} AND needs_user_match
+              AND installed_on_asset_id IS NULL AND status <> 'disposed'
+            RETURNING id
+          `);
+          if (updated.rows.length !== 1) continue;
         } else {
-          await tx
-            .update(assetsTable)
-            .set({
-              assignedUserSub: match.sub,
-              needsUserMatch: false,
-              version: sql`${assetsTable.version} + 1`,
-              updatedAt: new Date(),
-            })
-            .where(eq(assetsTable.id, row.id));
+          const updated = await tx.execute<{ id: string }>(sql`
+            UPDATE assets SET assigned_user_sub = ${match.sub},
+              needs_user_match = false, version = version + 1, updated_at = now()
+            WHERE id = ${row.id} AND needs_user_match
+              AND assigned_user_sub IS NULL
+            RETURNING id
+          `);
+          if (updated.rows.length !== 1) continue;
           await tx.insert(allocationHistoryTable).values({
             assetId: row.id,
             fromUserSub: null,
@@ -291,6 +300,23 @@ export class ImportService {
       matched,
       remaining: pending.length - matched - resolvedManually,
     };
+  }
+
+  /**
+   * Lock máy đích (FOR UPDATE, giữ đến hết tx) + xác nhận còn sống, không phải
+   * software (F4 — cùng hợp đồng với assertInstallTarget của 2.4/2.5).
+   */
+  private async lockLiveMachine(
+    tx: Pick<Database, 'execute'>,
+    machineId: string,
+  ): Promise<boolean> {
+    const rows = await tx.execute<{ type: string; status: string }>(sql`
+      SELECT type, status FROM assets WHERE id = ${machineId} FOR UPDATE
+    `);
+    const target = rows.rows[0];
+    return (
+      !!target && target.type !== 'software' && target.status !== 'disposed'
+    );
   }
 
   /**

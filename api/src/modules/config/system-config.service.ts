@@ -16,11 +16,26 @@ export interface WorkingHours {
  * NGUỒN DUY NHẤT đọc tham số hệ thống FR-44 (AD-1: module khác inject service
  * này, không SELECT thẳng bảng config). Tên class tránh đụng @nestjs/config.
  */
+/** TTL cache — hot path booking Epic 3 đọc quota/window mỗi request (defer 1.1, đến hạn). */
+const CACHE_TTL_MS = 30_000;
+
 @Injectable()
 export class SystemConfigService {
+  private readonly cache = new Map<
+    string,
+    { value: unknown; expires: number }
+  >();
+
   constructor(@Inject(DRIZZLE_DB) private readonly db: Database) {}
 
+  /** 6.3 (SA sửa config) PHẢI gọi sau khi ghi — hiệu lực ngay thay vì chờ TTL. */
+  clearCache(): void {
+    this.cache.clear();
+  }
+
   private async get<T>(key: string): Promise<T> {
+    const hit = this.cache.get(key);
+    if (hit && hit.expires > Date.now()) return hit.value as T;
     const rows = await this.db
       .select({ value: configTable.value })
       .from(configTable)
@@ -30,34 +45,54 @@ export class SystemConfigService {
         `Thiếu tham số cấu hình '${key}' — kiểm tra seed migration 0001_config.sql`,
       );
     }
+    this.cache.set(key, {
+      value: rows[0].value,
+      expires: Date.now() + CACHE_TTL_MS,
+    });
     return rows[0].value as T;
   }
 
+  /** Validate tại nguồn đọc (defer 1.1): jsonb không đảm bảo kiểu — số hỏng phải nổ RÕ. */
+  private async getInt(key: string): Promise<number> {
+    const raw = await this.get<unknown>(key);
+    const n = Number(raw);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+      throw new Error(
+        `Tham số cấu hình '${key}' phải là số nguyên ≥ 0 (đang là ${JSON.stringify(raw)}).`,
+      );
+    }
+    return n;
+  }
+
   getBookingWindowDays(): Promise<number> {
-    return this.get<number>('booking_window_days');
+    return this.getInt('booking_window_days');
   }
 
   getActiveTicketQuota(): Promise<number> {
-    return this.get<number>('active_ticket_quota');
+    return this.getInt('active_ticket_quota');
   }
 
   getExtensionDaysPerGrant(): Promise<number> {
-    return this.get<number>('extension_days_per_grant');
+    return this.getInt('extension_days_per_grant');
   }
 
   getExtensionMaxGrants(): Promise<number> {
-    return this.get<number>('extension_max_grants');
+    return this.getInt('extension_max_grants');
   }
 
   getLicenseWarningDays(): Promise<number> {
-    return this.get<number>('license_warning_days');
+    return this.getInt('license_warning_days');
   }
 
-  getWorkingHours(): Promise<WorkingHours> {
-    return this.get<WorkingHours>('working_hours');
+  async getWorkingHours(): Promise<WorkingHours> {
+    const raw = await this.get<WorkingHours>('working_hours');
+    if (!raw || typeof raw.tz !== 'string' || !Array.isArray(raw.days)) {
+      throw new Error(`Tham số cấu hình 'working_hours' sai cấu trúc.`);
+    }
+    return raw;
   }
 
   getApprovalReminderWorkingHours(): Promise<number> {
-    return this.get<number>('approval_reminder_working_hours');
+    return this.getInt('approval_reminder_working_hours');
   }
 }

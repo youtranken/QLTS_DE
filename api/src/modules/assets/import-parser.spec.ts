@@ -177,6 +177,23 @@ describe('parseWorkbook — end-to-end trên buffer thật', () => {
     expect(rows[4].display.note).toBe("'=cmd");
   });
 
+  it('software STATUS khóa sửa chữa → dòng lỗi (F3 — kẹt vĩnh viễn với lifecycle 2.6)', async () => {
+    const buf = await buildXlsx([
+      [1, '', 'SW-L', 'software', '', '', '', '31/12/2026', '', 'Hỏng', ''],
+    ]);
+    const rows = await parseWorkbook(buf);
+    expect(rows[0].errors.join(' ')).toContain('khóa sửa chữa');
+  });
+
+  it('quá 5000 dòng dữ liệu → TOO_MANY_ROWS', async () => {
+    const many: unknown[][] = [];
+    for (let i = 1; i <= 5011; i++) {
+      many.push([i, '', `R-${i}`, 'laptop', '', '', '', '', '', '', '']);
+    }
+    const buf = await buildXlsx(many);
+    await expect(parseWorkbook(buf)).rejects.toThrow(/5000/);
+  }, 30_000);
+
   it('không có header CODE/USER → HEADER_NOT_FOUND', async () => {
     const wb = new ExcelJS.Workbook();
     wb.addWorksheet('x').addRow(['cot', 'la', 'lam']);

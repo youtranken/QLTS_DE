@@ -299,6 +299,13 @@ export async function parseWorkbook(buf: Buffer): Promise<ImportRow[]> {
       errors.push(`STATUS không nhận diện: "${raw.status}".`);
     }
     const isSoftware = (type ?? '').trim().toLowerCase() === 'software';
+    // F3 (epic review): lock/unlock chỉ dành cho MÁY (2.6) — software import vào
+    // locked_repair sẽ kẹt vĩnh viễn (unlock trả NOT_MACHINE)
+    if (isSoftware && status === 'locked_repair') {
+      errors.push(
+        'Software không có trạng thái "khóa sửa chữa" — chỉ nhận đang dùng hoặc thanh lý.',
+      );
+    }
 
     const display: Record<string, string> = {};
     for (const [k, v] of Object.entries(raw)) {

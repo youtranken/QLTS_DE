@@ -1224,7 +1224,11 @@ function AssetForm({
           )}
         </div>
         <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-          <button type="submit" disabled={busy}>
+          {/* disposed = hồ sơ đã chốt (F2) — server cũng chặn 409 DISPOSED_TERMINAL */}
+          <button
+            type="submit"
+            disabled={busy || (!!form.id && form.status === 'disposed')}
+          >
             {t('assets.save')}
           </button>
           <button

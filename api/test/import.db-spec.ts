@@ -96,6 +96,41 @@ describe('Import Excel go-live trên DB thật (story 2.9)', () => {
     expect(await assetCount()).toBe(before); // dry-run thật
   });
 
+  it('epic review: file rỗng → 400 EMPTY_IMPORT; software STATUS "Sửa chữa" → dòng lỗi (F3)', async () => {
+    const empty = await buildXlsx([]);
+    const res = await request(app.getHttpServer())
+      .post('/api/admin/assets-import/commit')
+      .set(asAdmin())
+      .attach('file', empty, 'rong.xlsx')
+      .expect(400);
+    expect(res.body.code).toBe('EMPTY_IMPORT');
+    // software vào locked_repair sẽ kẹt vĩnh viễn (unlock = NOT_MACHINE) — chặn từ preview
+    const locked = await buildXlsx([
+      [
+        1,
+        '',
+        'SW-LCK',
+        'software',
+        '',
+        '',
+        '',
+        '31/12/2026',
+        '',
+        'Sửa chữa',
+        '',
+      ],
+    ]);
+    const prev = await request(app.getHttpServer())
+      .post('/api/admin/assets-import/preview')
+      .set(asAdmin())
+      .attach('file', locked, 'sw-khoa.xlsx')
+      .expect(200);
+    expect(prev.body.invalid).toBe(1);
+    expect(
+      (prev.body.rows as Array<{ errors: string[] }>)[0].errors.join(' '),
+    ).toContain('khóa sửa chữa');
+  });
+
   it('commit khi còn dòng lỗi → 400 IMPORT_HAS_ERRORS, không ghi', async () => {
     const before = await assetCount();
     const buf = await buildXlsx([

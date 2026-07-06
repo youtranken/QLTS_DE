@@ -16,6 +16,7 @@ import { usersTable } from '../users/users.schema';
 import { allocationHistoryTable } from './allocation-history.schema';
 import { assetNoteTable } from './asset-note.schema';
 import { assetsTable } from './assets.schema';
+import { escapeLike } from '../../common/sql';
 import { escapeCellDisplay } from './import-parser';
 
 /** Trường Admin nhập được từ form (FR-30). status/is_pool KHÔNG ở đây — nghiệp vụ 2.6. */
@@ -216,6 +217,7 @@ export class AssetsService {
               updated_at = now()
           FROM (SELECT * FROM assets WHERE id = ${id} FOR UPDATE) AS old
           WHERE a.id = old.id AND old.version = ${version}
+            AND old.status <> 'disposed'
           RETURNING a.version AS new_version,
             ${sql.raw(
               // ::text để so diff không lệ thuộc parser pg (date→Date local-time, bigint→string)
@@ -227,13 +229,21 @@ export class AssetsService {
         const row = result.rows[0];
         if (!row) {
           const exists = await tx
-            .select({ id: assetsTable.id })
+            .select({ id: assetsTable.id, status: assetsTable.status })
             .from(assetsTable)
             .where(eq(assetsTable.id, id));
           if (exists.length === 0) {
             throw new NotFoundException({
               code: 'ASSET_NOT_FOUND',
               message: 'Không tìm thấy tài sản này.',
+            });
+          }
+          // TERMINAL kín mọi đường ghi (epic review F2): thanh lý = hồ sơ đã chốt,
+          // PUT không được viết lại (kể cả người đứng tên — history append-only)
+          if (exists[0].status === 'disposed') {
+            throw new ConflictException({
+              code: 'DISPOSED_TERMINAL',
+              message: 'Tài sản đã thanh lý — hồ sơ đã chốt, không sửa được.',
             });
           }
           throw new ConflictException({
@@ -290,11 +300,10 @@ export class AssetsService {
   }
 
   async list(query: AssetListQuery) {
-    // FR-44: mốc cảnh báo đọc từ Config (AD-1) — SA chỉnh ở 6.3, hiệu lực ngay.
-    // Phòng thủ giá trị xấu (jsonb chưa validate — hợp đồng 6.3 phải validate int khi ghi):
-    // NaN/lẻ không được làm 500 cả danh sách tài sản.
-    const warningDays =
-      Math.trunc(Number(await this.config.getLicenseWarningDays())) || 30;
+    // FR-44: mốc cảnh báo đọc từ Config (AD-1) — SA chỉnh ở 6.3, hiệu lực ≤30s (TTL).
+    // SystemConfigService.getInt đã validate int ≥ 0 tại nguồn (epic review) —
+    // không cần fallback ở đây (||30 sẽ nuốt mất giá trị 0 = tắt cảnh báo).
+    const warningDays = await this.config.getLicenseWarningDays();
     const host = alias(assetsTable, 'host');
     const where = this.buildListConditions(query);
     const [items, totalRows] = await Promise.all([
@@ -1029,11 +1038,6 @@ export function validateSoftwareInput(input: AssetInput): void {
       'Trường license chỉ dành cho bản ghi phần mềm.',
     );
   }
-}
-
-/** Escape ký tự đặc biệt của LIKE — search chứa % _ \ không thành wildcard (bài học 1.5). */
-function escapeLike(input: string): string {
-  return input.replace(/[\\%_]/g, '\\$&');
 }
 
 /** Chuẩn hóa để so sánh: old đã ::text từ SQL; phía input số→string, null/undefined→null. */

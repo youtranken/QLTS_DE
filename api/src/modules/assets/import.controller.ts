@@ -9,13 +9,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
-import { detectFileType } from '../files/file-validation';
+import { detectFileType, MULTER_LIMIT } from '../files/file-validation';
 import { ImportService } from './import.service';
-
-/** Trần file import = trần biên bản 2.8 (20MB); zip-bomb guard nằm trong parser. */
-const MULTER_LIMIT = { fileSize: 20 * 1024 * 1024 };
 
 function requireSub(req: AuthedRequest): string {
   if (!req.user) {
@@ -53,6 +51,8 @@ function requireXlsx(file: Express.Multer.File | undefined): Buffer {
 /** Import Excel go-live (2.9, FR-40) — CHỈ Admin/SA. */
 @Controller('admin/assets-import')
 @Roles('sa', 'admin')
+// parse exceljs tốn RAM — siết 20 req/phút/user (chống OOM-DoS, epic review)
+@Throttle({ default: { limit: 20, ttl: 60_000 } })
 export class ImportController {
   constructor(private readonly importService: ImportService) {}
 
