@@ -58,6 +58,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0013_asset_note.sql',
       '0014_asset_note_append_only.sql',
       '0015_files_inventory.sql',
+      '0016_assets_import.sql',
     ]);
   });
 

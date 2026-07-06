@@ -30,6 +30,9 @@ export const assetsTable = pgTable('assets', {
   licenseType: text('license_type'),
   licenseName: text('license_name'),
   installedOnAssetId: uuid('installed_on_asset_id'),
+  /** Import 2.9: USER gốc từ Excel (vĩnh viễn) + cờ cần đối chiếu. */
+  importedUserText: text('imported_user_text'),
+  needsUserMatch: boolean('needs_user_match').notNull().default(false),
   isPool: boolean('is_pool').notNull().default(false),
   version: integer('version').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true })

@@ -12,6 +12,8 @@ export interface ErrorBody {
   statusCode: number;
   code: string;
   message: string;
+  /** Field nghiệp vụ bổ sung (vd rowNumber/rows của import 2.9) — pass-through. */
+  [extra: string]: unknown;
 }
 
 /**
@@ -66,7 +68,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           : exception.message;
       const code =
         typeof obj.code === 'string' ? obj.code : this.defaultCode(statusCode);
-      return { statusCode, code, message };
+      // field nghiệp vụ bổ sung (rowNumber, rows… — import 2.9) đi kèm body,
+      // KHÔNG ghi đè 3 field chuẩn
+      const extras: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (!['statusCode', 'code', 'message', 'error'].includes(k)) {
+          extras[k] = v;
+        }
+      }
+      return { ...extras, statusCode, code, message };
     }
     // Lỗi không đoán trước: không lộ chi tiết nội bộ ra body.
     return {

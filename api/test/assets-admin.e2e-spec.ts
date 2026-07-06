@@ -214,6 +214,21 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
       .expect(400);
   });
 
+  it('import (2.9): member 403 cả 3 endpoint; file không phải xlsx → 400', async () => {
+    for (const path of ['preview', 'commit', 'rematch']) {
+      await request(app.getHttpServer())
+        .post(`/api/admin/assets-import/${path}`)
+        .set(asMember)
+        .expect(403);
+    }
+    const res = await request(app.getHttpServer())
+      .post('/api/admin/assets-import/preview')
+      .set(asAdmin)
+      .attach('file', Buffer.from('%PDF-1.7 gia xlsx'), 'gia.xlsx')
+      .expect(400);
+    expect(res.body.code).toBe('UNSUPPORTED_FILE');
+  });
+
   it('lọc status ngoài enum → 400; member gọi meta → 403 (story 2.2)', async () => {
     await request(app.getHttpServer())
       .get('/api/admin/assets?status=dang_bay')

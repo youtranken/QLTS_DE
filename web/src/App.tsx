@@ -8,6 +8,7 @@ import {
   Routes,
 } from 'react-router-dom';
 import { AssetDetailPage, AssetsPage } from './assets';
+import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
 import { DirectorySyncPanel, RolesPanel } from './panels';
@@ -248,6 +249,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
                   <AssetsPage me={me} />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/tai-san/import"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <ImportPage me={me} />
                 </RequireRole>
               }
             />

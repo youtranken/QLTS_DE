@@ -226,6 +226,7 @@ export function AssetsPage({ me }: { me: Me }) {
               {t('assets.addAsset')}
             </button>
             <Link to="/tai-san/kiem-ke">{t('inventory.link')}</Link>
+            <Link to="/tai-san/import">{t('importx.link')}</Link>
           </div>
           <div
             style={{
