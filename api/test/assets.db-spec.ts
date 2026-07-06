@@ -29,7 +29,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     process.env.AUTH_DEV_MODE = 'true';
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query(
-      'DROP TABLE IF EXISTS assets, sessions, audit_log, users, config, _migrations CASCADE',
+      'DROP TABLE IF EXISTS allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
     );
     await runMigrations(pool, join(__dirname, '..', 'src', 'migrations'), {
       log: () => undefined,
@@ -308,6 +308,93 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     expect(res.body.floors).toEqual(expect.arrayContaining(['3', '5']));
     // không có null trong floors
     expect(res.body.floors).not.toContain(null);
+  });
+
+  it('lịch sử cấp phát (2.3): seed khi tạo → đổi người → thu hồi; không đổi → không thêm row', async () => {
+    const { rows } = await pool.query(
+      "SELECT id, version FROM assets WHERE code = '3-AA-CT-0042'",
+    );
+    const id = rows[0].id as string;
+    const version = rows[0].version as number;
+
+    // seed từ create (from NULL → sub-u1); update trước đó KHÔNG đổi người → vẫn 1 row
+    const seed = await pool.query(
+      'SELECT from_user_sub, to_user_sub, actor FROM allocation_history WHERE asset_id = $1 ORDER BY created_at',
+      [id],
+    );
+    expect(seed.rowCount).toBe(1);
+    expect(seed.rows[0]).toEqual({
+      from_user_sub: null,
+      to_user_sub: 'sub-u1',
+      actor: 'admin-t',
+    });
+
+    await pool.query(
+      "INSERT INTO users (sub, full_name) VALUES ('sub-u2', 'Lê Văn Cường')",
+    );
+    const form = {
+      code: '3-AA-CT-0042',
+      type: 'laptop',
+      configuration: 'i7/16GB/512GB',
+      cost: 25000000,
+      startDate: '2026-01-15',
+      floor: '3',
+      serial: 'SN-XYZ',
+      brand: 'Dell',
+      model: 'Latitude 5440',
+      note: 'người A sửa',
+    };
+    // đổi sub-u1 → sub-u2 kèm ghi chú cấp phát
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${id}`)
+      .set(asAdmin())
+      .send({
+        ...form,
+        assignedUserSub: 'sub-u2',
+        allocationNote: 'bàn giao kèm sạc',
+        version,
+      })
+      .expect(200);
+    // thu hồi về kho (bỏ trống)
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${id}`)
+      .set(asAdmin())
+      .send({ ...form, version: version + 1 })
+      .expect(200);
+
+    // API trả GIẢM dần theo thời gian, join đủ tên from/to/actor
+    const res = await request(app.getHttpServer())
+      .get(`/api/admin/assets/${id}/allocations`)
+      .set(asAdmin())
+      .expect(200);
+    expect(res.body).toHaveLength(3);
+    expect(res.body[0]).toMatchObject({
+      fromUserSub: 'sub-u2',
+      fromUserName: 'Lê Văn Cường',
+      toUserSub: null,
+      note: null,
+    });
+    expect(res.body[1]).toMatchObject({
+      fromUserSub: 'sub-u1',
+      fromUserName: 'Trần Thị Bình',
+      toUserSub: 'sub-u2',
+      toUserName: 'Lê Văn Cường',
+      note: 'bàn giao kèm sạc',
+    });
+    expect(res.body[2]).toMatchObject({
+      fromUserSub: null,
+      toUserSub: 'sub-u1',
+    });
+  });
+
+  it('FR-31: máy đang cấp phát vẫn bật cờ pool được — tầng DB không chặn (2.3)', async () => {
+    await pool.query(
+      "UPDATE assets SET assigned_user_sub = 'sub-u1', is_pool = true WHERE code = 'DUP-01'",
+    );
+    const row = await pool.query(
+      "SELECT assigned_user_sub, is_pool FROM assets WHERE code = 'DUP-01'",
+    );
+    expect(row.rows[0]).toEqual({ assigned_user_sub: 'sub-u1', is_pool: true });
   });
 
   it('CHECK constraint status: giá trị lạ bị DB từ chối (nền 2.6)', async () => {

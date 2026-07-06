@@ -108,6 +108,12 @@ class UpdateAssetDto extends AssetBodyDto {
   @IsInt()
   @Min(1)
   version!: number;
+
+  /** Ghi chú cấp phát (2.3) — chỉ được dùng khi đổi người đứng tên. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  allocationNote?: string | null;
 }
 
 class ListAssetsQueryDto {
@@ -192,6 +198,12 @@ export class AssetsAdminController {
     return this.assets.getById(id);
   }
 
+  /** Lịch sử cấp phát (2.3) — chỉ đọc, giảm dần theo thời gian. */
+  @Get(':id/allocations')
+  listAllocations(@Param('id', ParseUUIDPipe) id: string) {
+    return this.assets.listAllocations(id);
+  }
+
   @Post()
   create(@Body() body: AssetBodyDto, @Req() req: AuthedRequest) {
     return this.assets.create(toInput(body), requireSub(req));
@@ -203,7 +215,13 @@ export class AssetsAdminController {
     @Body() body: UpdateAssetDto,
     @Req() req: AuthedRequest,
   ) {
-    return this.assets.update(id, toInput(body), body.version, requireSub(req));
+    return this.assets.update(
+      id,
+      toInput(body),
+      body.version,
+      requireSub(req),
+      body.allocationNote?.trim() || null,
+    );
   }
 }
 

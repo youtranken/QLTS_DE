@@ -5,11 +5,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, eq, ilike, isNotNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, isNotNull, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
 import { usersTable } from '../users/users.schema';
+import { allocationHistoryTable } from './allocation-history.schema';
 import { assetsTable } from './assets.schema';
 
 /** Trường Admin nhập được từ form (FR-30). status/is_pool KHÔNG ở đây — nghiệp vụ 2.6. */
@@ -91,6 +93,16 @@ export class AssetsService {
           })
           .returning();
         const asset = rows[0];
+        // tạo mới CÓ người đứng tên → seed bản ghi cấp phát đầu tiên (2.3, AC 1)
+        if (asset.assignedUserSub) {
+          await tx.insert(allocationHistoryTable).values({
+            assetId: asset.id,
+            fromUserSub: null,
+            toUserSub: asset.assignedUserSub,
+            note: null,
+            actor: actorSub,
+          });
+        }
         await this.audit.appendWithin(tx, {
           actor: actorSub,
           action: 'assets.create',
@@ -119,6 +131,8 @@ export class AssetsService {
     input: AssetInput,
     version: number,
     actorSub: string,
+    /** Ghi chú cấp phát — chỉ dùng khi assigned_user_sub ĐỔI (2.3). */
+    allocationNote: string | null = null,
   ) {
     try {
       // Mutation + audit MỘT transaction (review 2.1) — mất vết = rollback cả sửa
@@ -167,6 +181,16 @@ export class AssetsService {
           });
         }
         const changed = diffChanged(row, input);
+        // đổi người đứng tên (kể cả thu hồi → NULL) → bản ghi cấp phát A→B (2.3, AC 1)
+        if ('assigned_user_sub' in changed) {
+          await tx.insert(allocationHistoryTable).values({
+            assetId: id,
+            fromUserSub: (row.old_assigned_user_sub as string | null) ?? null,
+            toUserSub: input.assignedUserSub,
+            note: allocationNote,
+            actor: actorSub,
+          });
+        }
         await this.audit.appendWithin(tx, {
           actor: actorSub,
           action: 'assets.update',
@@ -228,6 +252,35 @@ export class AssetsService {
       page: query.page,
       pageSize: query.pageSize,
     };
+  }
+
+  /**
+   * Lịch sử cấp phát một máy (2.3, AC 3) — thời gian GIẢM dần, chỉ đọc
+   * (không có endpoint sửa/xóa). Join users 3 lần lấy tên from/to/actor.
+   */
+  async listAllocations(assetId: string) {
+    const fromU = alias(usersTable, 'from_u');
+    const toU = alias(usersTable, 'to_u');
+    const actorU = alias(usersTable, 'actor_u');
+    return this.db
+      .select({
+        id: allocationHistoryTable.id,
+        fromUserSub: allocationHistoryTable.fromUserSub,
+        fromUserName: fromU.fullName,
+        toUserSub: allocationHistoryTable.toUserSub,
+        toUserName: toU.fullName,
+        note: allocationHistoryTable.note,
+        actor: allocationHistoryTable.actor,
+        actorName: actorU.fullName,
+        createdAt: allocationHistoryTable.createdAt,
+      })
+      .from(allocationHistoryTable)
+      .leftJoin(fromU, eq(allocationHistoryTable.fromUserSub, fromU.sub))
+      .leftJoin(toU, eq(allocationHistoryTable.toUserSub, toU.sub))
+      .leftJoin(actorU, eq(allocationHistoryTable.actor, actorU.sub))
+      .where(eq(allocationHistoryTable.assetId, assetId))
+      .orderBy(desc(allocationHistoryTable.createdAt))
+      .limit(200);
   }
 
   /** Giá trị distinct cho dropdown lọc (story 2.2) — loại + tầng đang có trong sổ. */

@@ -29,7 +29,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     // Đưa DB test về trạng thái chưa-migrate (extension giữ nguyên — CREATE IF NOT EXISTS idempotent)
     await pool.query(
-      'DROP TABLE IF EXISTS sessions, audit_log, users, config, _migrations CASCADE',
+      'DROP TABLE IF EXISTS allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
     );
   });
 
@@ -52,6 +52,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0007_users_role_check.sql',
       '0008_user_permissions.sql',
       '0009_assets.sql',
+      '0010_allocation_history.sql',
     ]);
   });
 

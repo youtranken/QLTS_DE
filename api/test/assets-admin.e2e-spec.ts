@@ -115,6 +115,23 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
       .expect(400);
   });
 
+  it('lịch sử cấp phát (2.3): member → 403; allocationNote quá 500 ký tự → 400', async () => {
+    await request(app.getHttpServer())
+      .get(`/api/admin/assets/${UUID}/allocations`)
+      .set(asMember)
+      .expect(403);
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${UUID}`)
+      .set(asAdmin)
+      .send({
+        code: 'A-1',
+        type: 'laptop',
+        version: 1,
+        allocationNote: 'x'.repeat(501),
+      })
+      .expect(400);
+  });
+
   it('lọc status ngoài enum → 400; member gọi meta → 403 (story 2.2)', async () => {
     await request(app.getHttpServer())
       .get('/api/admin/assets?status=dang_bay')

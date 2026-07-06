@@ -352,6 +352,18 @@ export function AssetsPage({ me }: { me: Me }) {
   );
 }
 
+interface AllocationRow {
+  id: string;
+  fromUserSub: string | null;
+  fromUserName: string | null;
+  toUserSub: string | null;
+  toUserName: string | null;
+  note: string | null;
+  actor: string;
+  actorName: string | null;
+  createdAt: string;
+}
+
 function detailToForm(a: AssetDetail): FormState {
   return {
     id: a.id,
@@ -396,6 +408,22 @@ function AssetForm({
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState(false);
+  // 2.3: ghi chú cấp phát (chỉ dùng khi đổi người) + lịch sử A→B chỉ đọc
+  const [allocationNote, setAllocationNote] = useState('');
+  const [allocations, setAllocations] = useState<AllocationRow[]>([]);
+
+  useEffect(() => {
+    if (!form.id) return;
+    const controller = new AbortController();
+    fetch(`/api/admin/assets/${encodeURIComponent(form.id)}/allocations`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (res.ok) setAllocations((await res.json()) as AllocationRow[]);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [form.id]);
 
   // STALE_VERSION: nạp lại bản mới nhất (version mới) ngay tại form — không mất chỗ đứng
   const reload = useCallback(async () => {
@@ -456,7 +484,10 @@ function AssetForm({
       model: form.model || null,
       assignedUserSub: form.assignedUserSub || null,
     };
-    if (form.id) payload.version = form.version;
+    if (form.id) {
+      payload.version = form.version;
+      if (allocationNote.trim()) payload.allocationNote = allocationNote.trim();
+    }
     try {
       const res = await fetch(
         form.id
@@ -489,7 +520,7 @@ function AssetForm({
     } finally {
       setBusy(false);
     }
-  }, [form, me.csrfToken, onDone, t]);
+  }, [form, allocationNote, me.csrfToken, onDone, t]);
 
   const field: React.CSSProperties = {
     display: 'flex',
@@ -672,6 +703,24 @@ function AssetForm({
               ))}
             </ul>
           )}
+          {form.id && (
+            <label
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.15rem',
+                marginTop: '0.5rem',
+              }}
+            >
+              {t('assets.allocationNote')}
+              <input
+                maxLength={500}
+                placeholder={t('assets.allocationNotePlaceholder')}
+                value={allocationNote}
+                onChange={(e) => setAllocationNote(e.target.value)}
+              />
+            </label>
+          )}
         </div>
         <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
           <button type="submit" disabled={busy}>
@@ -682,6 +731,57 @@ function AssetForm({
           </button>
         </div>
       </form>
+      {form.id && allocations.length > 0 && (
+        <div style={{ marginTop: '1.5rem' }}>
+          <h3 style={{ fontSize: '0.95rem' }}>{t('assets.allocationHistory')}</h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '0.25rem 0.75rem' }}>
+                    {t('assets.allocDate')}
+                  </th>
+                  <th style={{ padding: '0.25rem 0.75rem' }}>
+                    {t('assets.allocFrom')}
+                  </th>
+                  <th style={{ padding: '0.25rem 0.75rem' }}>
+                    {t('assets.allocTo')}
+                  </th>
+                  <th style={{ padding: '0.25rem 0.75rem' }}>
+                    {t('assets.allocActor')}
+                  </th>
+                  <th style={{ padding: '0.25rem 0.75rem' }}>
+                    {t('assets.note')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {allocations.map((h) => (
+                  <tr key={h.id}>
+                    <td style={{ padding: '0.25rem 0.75rem' }}>
+                      {new Date(h.createdAt).toLocaleString()}
+                    </td>
+                    <td style={{ padding: '0.25rem 0.75rem' }}>
+                      {h.fromUserSub
+                        ? (h.fromUserName ?? h.fromUserSub)
+                        : t('assets.stock')}
+                    </td>
+                    <td style={{ padding: '0.25rem 0.75rem' }}>
+                      {h.toUserSub
+                        ? (h.toUserName ?? h.toUserSub)
+                        : t('assets.stock')}
+                    </td>
+                    <td style={{ padding: '0.25rem 0.75rem' }}>
+                      {h.actorName ?? h.actor}
+                    </td>
+                    <td style={{ padding: '0.25rem 0.75rem' }}>{h.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -150,13 +150,18 @@ describe('AssetsService (story 2.1)', () => {
       old_model: null,
       old_assigned_user_sub: null,
     };
-    const db = { execute: () => Promise.resolve({ rows: [oldRow] }) };
+    const historyValues = jest.fn().mockResolvedValue(undefined);
+    const db = {
+      execute: () => Promise.resolve({ rows: [oldRow] }),
+      insert: () => ({ values: historyValues }),
+    };
     const { svc, audit } = makeService(db);
     const res = await svc.update(
       'uuid-1',
       { ...baseInput, cost: 20000000, assignedUserSub: 'sub-m1' },
       1,
       'admin-1',
+      'bàn giao kèm sạc',
     );
     expect(res).toEqual({ ok: true, version: 2 });
     const call = audit.appendWithin.mock.calls[0][1] as {
@@ -165,6 +170,74 @@ describe('AssetsService (story 2.1)', () => {
     expect(call.detail.changed).toEqual({
       cost: { from: '15000000', to: '20000000' },
       assigned_user_sub: { from: null, to: 'sub-m1' },
+    });
+    // 2.3: đổi người → allocation_history from→to + note
+    expect(historyValues).toHaveBeenCalledWith({
+      assetId: 'uuid-1',
+      fromUserSub: null,
+      toUserSub: 'sub-m1',
+      note: 'bàn giao kèm sạc',
+      actor: 'admin-1',
+    });
+  });
+
+  it('update: KHÔNG đổi người đứng tên → KHÔNG ghi allocation_history (2.3)', async () => {
+    const oldRow = {
+      new_version: 2,
+      old_code: baseInput.code,
+      old_type: 'laptop',
+      old_configuration: null,
+      old_cost: '15000000',
+      old_start_date: '2026-01-15',
+      old_end_date: null,
+      old_floor: '3',
+      old_note: null,
+      old_serial: null,
+      old_brand: null,
+      old_model: null,
+      old_assigned_user_sub: 'sub-m1',
+    };
+    const historyValues = jest.fn().mockResolvedValue(undefined);
+    const db = {
+      execute: () => Promise.resolve({ rows: [oldRow] }),
+      insert: () => ({ values: historyValues }),
+    };
+    const { svc } = makeService(db);
+    await svc.update(
+      'uuid-1',
+      { ...baseInput, note: 'chỉ sửa ghi chú', assignedUserSub: 'sub-m1' },
+      1,
+      'admin-1',
+      'note này phải bị bỏ qua',
+    );
+    expect(historyValues).not.toHaveBeenCalled();
+  });
+
+  it('create: có người đứng tên → seed allocation_history from NULL (2.3)', async () => {
+    const created = {
+      id: 'uuid-1',
+      code: baseInput.code,
+      type: 'laptop',
+      assignedUserSub: 'sub-m1',
+    };
+    const historyValues = jest.fn().mockResolvedValue(undefined);
+    const db = {
+      insert: jest
+        .fn()
+        // lần 1: insert assets; lần 2: insert allocation_history
+        .mockReturnValueOnce({
+          values: () => ({ returning: () => Promise.resolve([created]) }),
+        })
+        .mockReturnValueOnce({ values: historyValues }),
+    };
+    const { svc } = makeService(db);
+    await svc.create({ ...baseInput, assignedUserSub: 'sub-m1' }, 'admin-1');
+    expect(historyValues).toHaveBeenCalledWith({
+      assetId: 'uuid-1',
+      fromUserSub: null,
+      toUserSub: 'sub-m1',
+      note: null,
+      actor: 'admin-1',
     });
   });
 });
