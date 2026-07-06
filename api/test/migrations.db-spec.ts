@@ -48,6 +48,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0003_audit_log.sql',
       '0004_sessions.sql',
       '0005_audit_append_only.sql',
+      '0006_audit_no_truncate.sql',
     ]);
   });
 

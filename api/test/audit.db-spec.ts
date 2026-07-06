@@ -83,12 +83,17 @@ describe('Nền audit append-only (story 1.4)', () => {
     ).resolves.toBeDefined();
   });
 
+  it('trigger DB chặn TRUNCATE trên audit_log (review 1.4)', async () => {
+    await expect(pool.query('TRUNCATE audit_log')).rejects.toThrow(
+      /append-only/,
+    );
+  });
+
   it('@Audited: handler thành công → 1 dòng audit đúng action/objectId, actor system khi không đăng nhập (AC 3)', async () => {
+    // interceptor AWAIT ghi xong mới trả response — không cần sleep
     await request(app.getHttpServer())
       .get('/api/test-audited/vat-123')
       .expect(200);
-    // interceptor ghi async (void promise) — chờ ngắn
-    await new Promise((r) => setTimeout(r, 300));
     const rows = await pool.query(
       "SELECT actor, object_type, object_id, detail FROM audit_log WHERE action = 'test.action'",
     );
@@ -105,7 +110,7 @@ describe('Nền audit append-only (story 1.4)', () => {
     await request(app.getHttpServer())
       .get('/api/test-audited/fail/always')
       .expect(400);
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 200)); // negative case: chờ ngắn cho chắc
     const rows = await pool.query(
       "SELECT 1 FROM audit_log WHERE action = 'test.should_not_log'",
     );
@@ -121,7 +126,12 @@ describe('Nền audit append-only (story 1.4)', () => {
           walk(p);
         } else if (p.endsWith('.ts') && !p.endsWith('.spec.ts')) {
           const src = readFileSync(p, 'utf8');
-          if (/\.(update|delete)\(\s*auditLogTable\s*\)/.test(src)) {
+          if (
+            /\.(update|delete)\(\s*auditLogTable\s*\)/.test(src) ||
+            /UPDATE\s+audit_log|DELETE\s+FROM\s+audit_log|TRUNCATE\s+audit_log/i.test(
+              src,
+            )
+          ) {
             offenders.push(p);
           }
         }
