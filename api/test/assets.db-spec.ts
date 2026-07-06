@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { Pool } from 'pg';
 import request from 'supertest';
 import { runMigrations } from '../src/database/migration-runner';
+import { DRIZZLE_DB } from '../src/database/database.module';
+import type { Database } from '../src/database/database.module';
+import { AssetsService } from '../src/modules/assets/assets.service';
 import { createTestApp } from './test-app.helper';
 
 if (!process.env.DATABASE_URL) {
@@ -544,6 +547,169 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
         "INSERT INTO assets (code, type, license_type, license_name, end_date) VALUES ('SW-Y', 'software', 'perpetual', 'X', '2027-01-01')",
       ),
     ).rejects.toMatchObject({ code: '23514' });
+  });
+
+  it('chuyển license (2.5): A→B đổi FK + audit + GET software 2 máy; gỡ về null; các nhánh lỗi', async () => {
+    const sw = await pool.query(
+      "SELECT id, version FROM assets WHERE code = 'SW-01'",
+    );
+    const swId = sw.rows[0].id as string;
+    let version = sw.rows[0].version as number;
+    const mayA = (
+      await pool.query("SELECT id FROM assets WHERE code = 'DUP-01'")
+    ).rows[0].id as string;
+    const mayB = (
+      await pool.query("SELECT id FROM assets WHERE code = 'PAGE-01'")
+    ).rows[0].id as string;
+    const dead = (
+      await pool.query("SELECT id FROM assets WHERE code = 'DEAD-01'")
+    ).rows[0].id as string;
+
+    // A→B: FK đổi, audit from→to, GET software phản ánh cả 2 máy
+    const moved = await request(app.getHttpServer())
+      .put(`/api/admin/assets/${swId}/transfer`)
+      .set(asAdmin())
+      .send({ targetAssetId: mayB, version })
+      .expect(200);
+    version = moved.body.version as number;
+    const listA = await request(app.getHttpServer())
+      .get(`/api/admin/assets/${mayA}/software`)
+      .set(asAdmin())
+      .expect(200);
+    expect(listA.body).toHaveLength(0);
+    const listB = await request(app.getHttpServer())
+      .get(`/api/admin/assets/${mayB}/software`)
+      .set(asAdmin())
+      .expect(200);
+    const listBItems = listB.body as Array<{ code: string }>;
+    expect(listBItems.map((s) => s.code)).toEqual(['SW-01']);
+    const audit = await pool.query(
+      "SELECT detail FROM audit_log WHERE action = 'assets.license_transfer' ORDER BY created_at DESC LIMIT 1",
+    );
+    expect(audit.rows[0].detail).toEqual({ from: mayA, to: mayB });
+
+    // đích thanh lý → 409, FK giữ nguyên
+    const toDead = await request(app.getHttpServer())
+      .put(`/api/admin/assets/${swId}/transfer`)
+      .set(asAdmin())
+      .send({ targetAssetId: dead, version })
+      .expect(409);
+    expect(toDead.body.code).toBe('INSTALL_TARGET_DISPOSED');
+
+    // version cũ → 409 STALE
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${swId}/transfer`)
+      .set(asAdmin())
+      .send({ version: version - 1 })
+      .expect(409);
+
+    // nguồn không phải software → 400 NOT_SOFTWARE
+    const notSw = await request(app.getHttpServer())
+      .put(`/api/admin/assets/${mayA}/transfer`)
+      .set(asAdmin())
+      .send({ version: 1 })
+      .expect(400);
+    expect(notSw.body.code).toBe('NOT_SOFTWARE');
+
+    // gỡ về "chưa gắn máy"
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${swId}/transfer`)
+      .set(asAdmin())
+      .send({ version })
+      .expect(200);
+    const detached = await pool.query(
+      'SELECT installed_on_asset_id FROM assets WHERE id = $1',
+      [swId],
+    );
+    expect(detached.rows[0].installed_on_asset_id).toBeNull();
+  });
+
+  it('cảnh báo đỏ (2.5): đủ 4 nhánh + đổi hạn là hết đỏ ngay (FR-29/38)', async () => {
+    const mayB = (
+      await pool.query("SELECT id FROM assets WHERE code = 'PAGE-01'")
+    ).rows[0].id as string;
+    // license term còn 10 ngày, gắn máy sống → ĐỎ
+    await pool.query(
+      `INSERT INTO assets (code, type, license_type, end_date, installed_on_asset_id)
+       VALUES ('SW-RED', 'software', 'term', CURRENT_DATE + 10, $1)`,
+      [mayB],
+    );
+    // term còn 10 ngày nhưng CHƯA gắn máy → không đỏ
+    await pool.query(
+      `INSERT INTO assets (code, type, license_type, end_date)
+       VALUES ('SW-FLOAT', 'software', 'term', CURRENT_DATE + 10)`,
+    );
+    // term còn 10 ngày gắn máy THANH LÝ → không đỏ
+    const dead = (
+      await pool.query("SELECT id FROM assets WHERE code = 'DEAD-01'")
+    ).rows[0].id as string;
+    await pool.query(
+      `INSERT INTO assets (code, type, license_type, end_date, installed_on_asset_id)
+       VALUES ('SW-DEADHOST', 'software', 'term', CURRENT_DATE + 10, $1)`,
+      [dead],
+    );
+    // term còn XA (100 ngày) gắn máy sống → không đỏ
+    await pool.query(
+      `INSERT INTO assets (code, type, license_type, end_date, installed_on_asset_id)
+       VALUES ('SW-FAR', 'software', 'term', CURRENT_DATE + 100, $1)`,
+      [mayB],
+    );
+    const res = await request(app.getHttpServer())
+      .get('/api/admin/assets?search=SW-&pageSize=50')
+      .set(asAdmin())
+      .expect(200);
+    const byCode = new Map(
+      (res.body.items as Array<{ code: string; licenseWarning: boolean }>).map(
+        (a) => [a.code, a.licenseWarning],
+      ),
+    );
+    expect(byCode.get('SW-RED')).toBe(true);
+    expect(byCode.get('SW-FLOAT')).toBe(false);
+    expect(byCode.get('SW-DEADHOST')).toBe(false);
+    expect(byCode.get('SW-FAR')).toBe(false);
+    // máy thường không bao giờ đỏ dù end_date gần (cột dùng chung — defer 2.4)
+    const machines = await request(app.getHttpServer())
+      .get('/api/admin/assets?search=DUP-01')
+      .set(asAdmin())
+      .expect(200);
+    expect(machines.body.items[0].licenseWarning).toBe(false);
+
+    // FR-29: cập nhật hạn mới → hết cảnh báo NGAY
+    await pool.query(
+      "UPDATE assets SET end_date = CURRENT_DATE + 365 WHERE code = 'SW-RED'",
+    );
+    const after = await request(app.getHttpServer())
+      .get('/api/admin/assets?search=SW-RED')
+      .set(asAdmin())
+      .expect(200);
+    expect(after.body.items[0].licenseWarning).toBe(false);
+  });
+
+  it('detachAllFrom (2.5→2.6): gỡ mọi license khỏi máy + 1 audit danh sách mã', async () => {
+    const mayB = (
+      await pool.query("SELECT id FROM assets WHERE code = 'PAGE-01'")
+    ).rows[0].id as string;
+    // SW-RED + SW-FAR đang gắn PAGE-01 (test trước)
+    const svc = app.get(AssetsService);
+    const codes = await svc.detachAllFrom(
+      app.get<Database>(DRIZZLE_DB),
+      mayB,
+      'sa-t',
+    );
+    expect(codes.sort()).toEqual(['SW-FAR', 'SW-RED']);
+    const left = await pool.query(
+      'SELECT count(*)::int AS n FROM assets WHERE installed_on_asset_id = $1',
+      [mayB],
+    );
+    expect(left.rows[0].n).toBe(0);
+    const audit = await pool.query(
+      "SELECT detail FROM audit_log WHERE action = 'assets.license_detach_all'",
+    );
+    expect(audit.rowCount).toBe(1);
+    expect((audit.rows[0].detail.detached as string[]).sort()).toEqual([
+      'SW-FAR',
+      'SW-RED',
+    ]);
   });
 
   it('CHECK constraint status: giá trị lạ bị DB từ chối (nền 2.6)', async () => {

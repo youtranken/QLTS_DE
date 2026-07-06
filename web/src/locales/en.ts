@@ -84,7 +84,9 @@ export default {
     installedOn: 'Installed on',
     installedOnSearch: 'Search machines by code…',
     installedNone: '(not installed)',
-    transferHint: 'Use the license transfer function to move or detach.',
+    detach: 'Detach from machine',
+    transferToSearch: 'Transfer to machine (search by code)…',
+    transferFailed: 'License transfer failed.',
     installedSoftware: 'Installed software',
     status: {
       in_use: 'In use',

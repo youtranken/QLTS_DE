@@ -12,6 +12,7 @@ import {
 import type { AssetInput } from './assets.service';
 import type { Database } from '../../database/database.module';
 import type { AuditWriterService } from '../audit/audit-writer.service';
+import type { SystemConfigService } from '../config/system-config.service';
 
 const baseInput: AssetInput = {
   code: '3-AA-CT-0042',
@@ -44,9 +45,11 @@ function makeService(tx: Partial<Record<string, unknown>>) {
     ...tx,
     transaction: (cb: (t: unknown) => Promise<unknown>) => cb(tx),
   };
+  const config = { getLicenseWarningDays: jest.fn().mockResolvedValue(30) };
   const svc = new AssetsService(
     db as unknown as Database,
     audit as unknown as AuditWriterService,
+    config as unknown as SystemConfigService,
   );
   return { svc, audit };
 }
@@ -266,6 +269,50 @@ describe('AssetsService (story 2.1)', () => {
       note: null,
       actor: 'admin-1',
     });
+  });
+});
+
+describe('transferLicense (2.5, FR-50)', () => {
+  it('nguồn không phải software → 400 NOT_SOFTWARE, không audit', async () => {
+    const db = {
+      execute: () => Promise.resolve({ rows: [] }),
+      select: () => ({
+        from: () => ({ where: () => Promise.resolve([{ type: 'laptop' }]) }),
+      }),
+    };
+    const { svc, audit } = makeService(db);
+    const err = await catchHttp(svc.transferLicense('uuid-1', null, 1, 'adm'));
+    expect(err.getResponse()).toMatchObject({ code: 'NOT_SOFTWARE' });
+    expect(audit.appendWithin).not.toHaveBeenCalled();
+  });
+
+  it('version lệch → 409 STALE_VERSION', async () => {
+    const db = {
+      execute: () => Promise.resolve({ rows: [] }),
+      select: () => ({
+        from: () => ({ where: () => Promise.resolve([{ type: 'software' }]) }),
+      }),
+    };
+    const { svc } = makeService(db);
+    const err = await catchHttp(svc.transferLicense('uuid-1', null, 1, 'adm'));
+    expect(err.getResponse()).toMatchObject({ code: 'STALE_VERSION' });
+  });
+
+  it('gỡ về "chưa gắn máy" → audit from→to null', async () => {
+    const db = {
+      execute: () =>
+        Promise.resolve({ rows: [{ new_version: 2, old_target: 'may-a' }] }),
+    };
+    const { svc, audit } = makeService(db);
+    const res = await svc.transferLicense('uuid-1', null, 1, 'adm');
+    expect(res).toEqual({ ok: true, version: 2 });
+    expect(audit.appendWithin).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: 'assets.license_transfer',
+        detail: { from: 'may-a', to: null },
+      }),
+    );
   });
 });
 

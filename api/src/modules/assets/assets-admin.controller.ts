@@ -134,6 +134,18 @@ class UpdateAssetDto extends AssetBodyDto {
   allocationNote?: string | null;
 }
 
+class TransferLicenseDto {
+  /** Bỏ trống = gỡ về "chưa gắn máy" (2.5). */
+  @IsOptional()
+  @IsUUID()
+  targetAssetId?: string | null;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  version!: number;
+}
+
 class ListAssetsQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -229,6 +241,21 @@ export class AssetsAdminController {
   @Get(':id/software')
   listInstalledSoftware(@Param('id', ParseUUIDPipe) id: string) {
     return this.assets.listInstalledSoftware(id);
+  }
+
+  /** Chuyển license giữa máy / gỡ về "chưa gắn máy" (2.5, FR-50). */
+  @Put(':id/transfer')
+  transferLicense(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: TransferLicenseDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.assets.transferLicense(
+      id,
+      body.targetAssetId ?? null,
+      body.version,
+      requireSub(req),
+    );
   }
 
   @Post()

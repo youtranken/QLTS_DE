@@ -84,7 +84,9 @@ export default {
     installedOn: 'Cài trên máy',
     installedOnSearch: 'Tìm máy theo mã…',
     installedNone: '(chưa gắn máy)',
-    transferHint: 'Đổi/gỡ máy dùng chức năng chuyển license.',
+    detach: 'Gỡ khỏi máy',
+    transferToSearch: 'Chuyển sang máy (tìm theo mã)…',
+    transferFailed: 'Chuyển license thất bại.',
     installedSoftware: 'Software đã cài',
     status: {
       in_use: 'Đang dùng',

@@ -11,6 +11,8 @@ interface AssetRow {
   isPool: boolean;
   assignedUserSub: string | null;
   assignedUserName: string | null;
+  /** 2.5: license term sắp hết hạn đang gắn máy không-thanh-lý → dòng đỏ. */
+  licenseWarning?: boolean;
 }
 
 interface AssetDetail extends AssetRow {
@@ -313,7 +315,12 @@ export function AssetsPage({ me }: { me: Me }) {
                       if (window.getSelection()?.toString()) return;
                       void openEdit(a.id);
                     }}
-                    style={{ cursor: 'pointer' }}
+                    style={{
+                      cursor: 'pointer',
+                      // FR-38: license sắp hết hạn — dòng đỏ
+                      color: a.licenseWarning ? '#c0392b' : undefined,
+                      fontWeight: a.licenseWarning ? 600 : undefined,
+                    }}
                   >
                     <td style={cell}>{a.code}</td>
                     <td style={cell}>
@@ -612,6 +619,49 @@ function AssetForm({
     }
   }, [form, allocationNote, me.csrfToken, onDone, t]);
 
+  // 2.5: chuyển license sang máy khác / gỡ về "chưa gắn máy" — endpoint riêng
+  const transfer = useCallback(
+    async (targetAssetId: string | null) => {
+      if (!form.id) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/admin/assets/${encodeURIComponent(form.id)}/transfer`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+            },
+            body: JSON.stringify({
+              ...(targetAssetId ? { targetAssetId } : {}),
+              version: form.version,
+            }),
+          },
+        );
+        if (res.ok) {
+          setHostQuery('');
+          setHostOptions([]);
+          await reload(); // nạp version + máy mới vào form
+          return;
+        }
+        const body = (await res.json()) as { code?: string; message?: string };
+        if (body.code === 'STALE_VERSION') {
+          setError(t('assets.staleVersion'));
+          setStale(true);
+        } else {
+          setError(body.message ?? t('assets.transferFailed'));
+        }
+      } catch {
+        setError(t('app.serverUnreachable'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [form.id, form.version, me.csrfToken, reload, t],
+  );
+
   const field: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
@@ -882,43 +932,56 @@ function AssetForm({
                   </button>
                 )}
               </p>
-              {!form.id ? (
-                <>
-                  <input
-                    placeholder={t('assets.installedOnSearch')}
-                    value={hostQuery}
-                    onChange={(e) => setHostQuery(e.target.value)}
-                  />
-                  {hostOptions.length > 0 && (
-                    <ul
-                      style={{ listStyle: 'none', padding: 0, margin: '0.25rem 0' }}
-                    >
-                      {hostOptions.map((a) => (
-                        <li key={a.id}>
-                          <button
-                            type="button"
-                            style={{ margin: '0.1rem 0' }}
-                            onClick={() => {
-                              setForm((f) => ({
-                                ...f,
-                                installedOnAssetId: a.id,
-                                installedOnCode: a.code,
-                              }));
-                              setHostQuery('');
-                              setHostOptions([]);
-                            }}
-                          >
-                            {a.code} — {a.type}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              ) : (
-                <p style={{ fontSize: '0.85rem', color: '#555' }}>
-                  {t('assets.transferHint')}
-                </p>
+              {form.id && form.installedOnAssetId && (
+                // 2.5: gỡ về "chưa gắn máy" — thao tác thật, có audit
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={{ marginBottom: '0.25rem' }}
+                  onClick={() => void transfer(null)}
+                >
+                  {t('assets.detach')}
+                </button>
+              )}
+              <input
+                placeholder={
+                  form.id
+                    ? t('assets.transferToSearch')
+                    : t('assets.installedOnSearch')
+                }
+                value={hostQuery}
+                onChange={(e) => setHostQuery(e.target.value)}
+              />
+              {hostOptions.length > 0 && (
+                <ul
+                  style={{ listStyle: 'none', padding: 0, margin: '0.25rem 0' }}
+                >
+                  {hostOptions.map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        style={{ margin: '0.1rem 0' }}
+                        onClick={() => {
+                          if (form.id) {
+                            // sửa: chuyển NGAY qua endpoint transfer (2.5)
+                            void transfer(a.id);
+                            return;
+                          }
+                          setForm((f) => ({
+                            ...f,
+                            installedOnAssetId: a.id,
+                            installedOnCode: a.code,
+                          }));
+                          setHostQuery('');
+                          setHostOptions([]);
+                        }}
+                      >
+                        {a.code} — {a.type}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           )}

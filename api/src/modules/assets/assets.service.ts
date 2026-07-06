@@ -10,6 +10,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
+import { SystemConfigService } from '../config/system-config.service';
 import { usersTable } from '../users/users.schema';
 import { allocationHistoryTable } from './allocation-history.schema';
 import { assetsTable } from './assets.schema';
@@ -70,6 +71,7 @@ export class AssetsService {
   constructor(
     @Inject(DRIZZLE_DB) private readonly db: Database,
     private readonly audit: AuditWriterService,
+    private readonly config: SystemConfigService,
   ) {}
 
   /**
@@ -256,6 +258,9 @@ export class AssetsService {
    * join users lấy tên người đứng tên; count(*) áp CÙNG where + join với items.
    */
   async list(query: AssetListQuery) {
+    // FR-44: mốc cảnh báo đọc từ Config (AD-1) — SA chỉnh ở 6.3, hiệu lực ngay
+    const warningDays = await this.config.getLicenseWarningDays();
+    const host = alias(assetsTable, 'host');
     const conditions = [
       query.search
         ? or(
@@ -279,9 +284,19 @@ export class AssetsService {
           isPool: assetsTable.isPool,
           assignedUserSub: assetsTable.assignedUserSub,
           assignedUserName: usersTable.fullName,
+          // Đỏ (2.5, FR-38): term + đang gắn máy KHÔNG thanh lý + hạn ≤ hôm nay+N
+          // (bao gồm đã quá hạn); computed mỗi query → đổi hạn là hết đỏ ngay (FR-29)
+          licenseWarning: sql<boolean>`COALESCE((
+            ${assetsTable.type} = 'software'
+            AND ${assetsTable.licenseType} = 'term'
+            AND ${assetsTable.installedOnAssetId} IS NOT NULL
+            AND ${host.status} <> 'disposed'
+            AND ${assetsTable.endDate} <= CURRENT_DATE + ${warningDays}::int
+          ), false)`,
         })
         .from(assetsTable)
         .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
+        .leftJoin(host, eq(assetsTable.installedOnAssetId, host.id))
         .where(where)
         .orderBy(assetsTable.code)
         .limit(query.pageSize)
@@ -298,6 +313,99 @@ export class AssetsService {
       page: query.page,
       pageSize: query.pageSize,
     };
+  }
+
+  /**
+   * Chuyển license giữa máy hoặc gỡ về "chưa gắn máy" (2.5, FR-50) — endpoint
+   * RIÊNG, không đi qua PUT sửa (AC 3 của 2.4). Optimistic lock như update.
+   */
+  async transferLicense(
+    id: string,
+    targetAssetId: string | null,
+    version: number,
+    actorSub: string,
+  ) {
+    try {
+      return await this.db.transaction(async (tx) => {
+        if (targetAssetId) {
+          await this.assertInstallTarget(tx, targetAssetId);
+        }
+        const result = await tx.execute<Record<string, unknown>>(sql`
+          UPDATE assets AS a
+          SET installed_on_asset_id = ${targetAssetId},
+              version = a.version + 1,
+              updated_at = now()
+          FROM (SELECT * FROM assets WHERE id = ${id} FOR UPDATE) AS old
+          WHERE a.id = old.id AND old.version = ${version} AND old.type = 'software'
+          RETURNING a.version AS new_version,
+            old.installed_on_asset_id::text AS old_target
+        `);
+        const row = result.rows[0];
+        if (!row) {
+          const existing = await tx
+            .select({ type: assetsTable.type })
+            .from(assetsTable)
+            .where(eq(assetsTable.id, id));
+          if (existing.length === 0) {
+            throw new NotFoundException({
+              code: 'ASSET_NOT_FOUND',
+              message: 'Không tìm thấy tài sản này.',
+            });
+          }
+          if (existing[0].type !== 'software') {
+            throw new BadRequestException({
+              code: 'NOT_SOFTWARE',
+              message: 'Chỉ phần mềm mới chuyển được giữa máy.',
+            });
+          }
+          throw new ConflictException({
+            code: 'STALE_VERSION',
+            message: 'Trạng thái đã thay đổi, tải lại.',
+          });
+        }
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'assets.license_transfer',
+          objectType: 'asset',
+          objectId: id,
+          detail: {
+            from: row.old_target ?? null,
+            to: targetAssetId,
+          },
+        });
+        return { ok: true, version: row.new_version as number };
+      });
+    } catch (error) {
+      throw this.mapPgError(error);
+    }
+  }
+
+  /**
+   * Gỡ MỌI license khỏi máy (2.5, FR-50) — 2.6 gọi TRONG tx thanh lý
+   * (tx đó phải FOR UPDATE row máy trước — hợp đồng review 2.4).
+   */
+  async detachAllFrom(
+    tx: Pick<Database, 'execute' | 'insert'>,
+    machineId: string,
+    actorSub: string,
+  ): Promise<string[]> {
+    const result = await tx.execute<{ code: string }>(sql`
+      UPDATE assets
+      SET installed_on_asset_id = NULL, version = version + 1, updated_at = now()
+      WHERE installed_on_asset_id = ${machineId}
+      RETURNING code
+    `);
+    const codes = result.rows.map((r) => r.code);
+    if (codes.length > 0) {
+      await this.audit.appendWithin(tx, {
+        actor: actorSub,
+        action: 'assets.license_detach_all',
+        objectType: 'asset',
+        objectId: machineId,
+        detail: { detached: codes },
+      });
+    }
+    return codes;
   }
 
   /** Máy đích để cài software (2.4): tồn tại, KHÔNG phải software, KHÔNG thanh lý. */

@@ -155,6 +155,24 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
       .expect(403);
   });
 
+  it('chuyển license (2.5): member 403; targetAssetId không uuid / thiếu version → 400', async () => {
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${UUID}/transfer`)
+      .set(asMember)
+      .send({ version: 1 })
+      .expect(403);
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${UUID}/transfer`)
+      .set(asAdmin)
+      .send({ targetAssetId: 'khong-uuid', version: 1 })
+      .expect(400);
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${UUID}/transfer`)
+      .set(asAdmin)
+      .send({})
+      .expect(400);
+  });
+
   it('lọc status ngoài enum → 400; member gọi meta → 403 (story 2.2)', async () => {
     await request(app.getHttpServer())
       .get('/api/admin/assets?status=dang_bay')
