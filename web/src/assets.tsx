@@ -315,6 +315,9 @@ export function AssetsPage({ me }: { me: Me }) {
                       if (window.getSelection()?.toString()) return;
                       void openEdit(a.id);
                     }}
+                    title={
+                      a.licenseWarning ? t('assets.licenseWarningHint') : undefined
+                    }
                     style={{
                       cursor: 'pointer',
                       // FR-38: license sắp hết hạn — dòng đỏ
@@ -437,6 +440,8 @@ function AssetForm({
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState(false);
+  // 2.5: đã transfer/gỡ trong phiên form này → Hủy vẫn phải refresh danh sách
+  const [transferred, setTransferred] = useState(false);
   // 2.3: ghi chú cấp phát (chỉ dùng khi đổi người) + lịch sử A→B chỉ đọc
   const [allocationNote, setAllocationNote] = useState('');
   const [allocations, setAllocations] = useState<AllocationRow[]>([]);
@@ -467,10 +472,14 @@ function AssetForm({
         .then(async (res) => {
           if (!res.ok) return;
           const body = (await res.json()) as { items?: AssetRow[] };
-          // chỉ máy: không phải software, không thanh lý (server chặn lại lần cuối)
+          // chỉ máy: không phải software, không thanh lý (server chặn lại lần cuối);
+          // loại máy ĐANG gắn — transfer vào chính nó là no-op nhiễu audit (review 2.5)
           setHostOptions(
             (body.items ?? []).filter(
-              (a) => a.type !== 'software' && a.status !== 'disposed',
+              (a) =>
+                a.type !== 'software' &&
+                a.status !== 'disposed' &&
+                a.id !== form.installedOnAssetId,
             ),
           );
         })
@@ -480,7 +489,7 @@ function AssetForm({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [hostQuery]);
+  }, [hostQuery, form.installedOnAssetId]);
 
   useEffect(() => {
     if (!form.id || form.isSoftware) return;
@@ -621,7 +630,7 @@ function AssetForm({
 
   // 2.5: chuyển license sang máy khác / gỡ về "chưa gắn máy" — endpoint riêng
   const transfer = useCallback(
-    async (targetAssetId: string | null) => {
+    async (target: { id: string; code: string } | null) => {
       if (!form.id) return;
       setBusy(true);
       setError(null);
@@ -635,15 +644,23 @@ function AssetForm({
               ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
             },
             body: JSON.stringify({
-              ...(targetAssetId ? { targetAssetId } : {}),
+              ...(target ? { targetAssetId: target.id } : {}),
               version: form.version,
             }),
           },
         );
         if (res.ok) {
+          const body = (await res.json()) as { version: number };
           setHostQuery('');
           setHostOptions([]);
-          await reload(); // nạp version + máy mới vào form
+          setTransferred(true);
+          // chỉ cập nhật version + máy — KHÔNG reload cả form (mất dữ liệu đang gõ, review 2.5)
+          setForm((f) => ({
+            ...f,
+            version: body.version,
+            installedOnAssetId: target?.id ?? '',
+            installedOnCode: target?.code ?? '',
+          }));
           return;
         }
         const body = (await res.json()) as { code?: string; message?: string };
@@ -659,7 +676,7 @@ function AssetForm({
         setBusy(false);
       }
     },
-    [form.id, form.version, me.csrfToken, reload, t],
+    [form.id, form.version, me.csrfToken, t],
   );
 
   const field: React.CSSProperties = {
@@ -965,7 +982,7 @@ function AssetForm({
                         onClick={() => {
                           if (form.id) {
                             // sửa: chuyển NGAY qua endpoint transfer (2.5)
-                            void transfer(a.id);
+                            void transfer({ id: a.id, code: a.code });
                             return;
                           }
                           setForm((f) => ({
@@ -1008,7 +1025,11 @@ function AssetForm({
           <button type="submit" disabled={busy}>
             {t('assets.save')}
           </button>
-          <button type="button" disabled={busy} onClick={() => onDone(false)}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onDone(transferred)}
+          >
             {t('assets.cancel')}
           </button>
         </div>

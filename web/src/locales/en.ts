@@ -87,6 +87,7 @@ export default {
     detach: 'Detach from machine',
     transferToSearch: 'Transfer to machine (search by code)…',
     transferFailed: 'License transfer failed.',
+    licenseWarningHint: 'License expiring soon',
     installedSoftware: 'Installed software',
     status: {
       in_use: 'In use',

@@ -255,11 +255,15 @@ export class AssetsService {
 
   /**
    * Danh sách phân trang SERVER-side (NFR-5) + tìm/lọc (FR-36, story 2.2) —
-   * join users lấy tên người đứng tên; count(*) áp CÙNG where + join với items.
+   * join users lấy tên người đứng tên; count(*) áp CÙNG where (join users cho
+   * search; KHÔNG cần join host — WHERE không đụng host, join PK không nhân dòng).
    */
   async list(query: AssetListQuery) {
-    // FR-44: mốc cảnh báo đọc từ Config (AD-1) — SA chỉnh ở 6.3, hiệu lực ngay
-    const warningDays = await this.config.getLicenseWarningDays();
+    // FR-44: mốc cảnh báo đọc từ Config (AD-1) — SA chỉnh ở 6.3, hiệu lực ngay.
+    // Phòng thủ giá trị xấu (jsonb chưa validate — hợp đồng 6.3 phải validate int khi ghi):
+    // NaN/lẻ không được làm 500 cả danh sách tài sản.
+    const warningDays =
+      Math.trunc(Number(await this.config.getLicenseWarningDays())) || 30;
     const host = alias(assetsTable, 'host');
     const conditions = [
       query.search
@@ -286,12 +290,14 @@ export class AssetsService {
           assignedUserName: usersTable.fullName,
           // Đỏ (2.5, FR-38): term + đang gắn máy KHÔNG thanh lý + hạn ≤ hôm nay+N
           // (bao gồm đã quá hạn); computed mỗi query → đổi hạn là hết đỏ ngay (FR-29)
+          // "hôm nay" theo TZ nghiệp vụ VN (convention từ working_hours 0001) —
+          // CURRENT_DATE của pg là UTC, đỏ trễ tối đa 7h lúc 00:00-07:00 VN (review 2.5)
           licenseWarning: sql<boolean>`COALESCE((
             ${assetsTable.type} = 'software'
             AND ${assetsTable.licenseType} = 'term'
             AND ${assetsTable.installedOnAssetId} IS NOT NULL
             AND ${host.status} <> 'disposed'
-            AND ${assetsTable.endDate} <= CURRENT_DATE + ${warningDays}::int
+            AND ${assetsTable.endDate} <= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + ${warningDays}::int
           ), false)`,
         })
         .from(assetsTable)

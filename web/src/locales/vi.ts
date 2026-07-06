@@ -87,6 +87,7 @@ export default {
     detach: 'Gỡ khỏi máy',
     transferToSearch: 'Chuyển sang máy (tìm theo mã)…',
     transferFailed: 'Chuyển license thất bại.',
+    licenseWarningHint: 'License sắp hết hạn',
     installedSoftware: 'Software đã cài',
     status: {
       in_use: 'Đang dùng',

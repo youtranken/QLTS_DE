@@ -654,6 +654,12 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
        VALUES ('SW-FAR', 'software', 'term', CURRENT_DATE + 100, $1)`,
       [mayB],
     );
+    // ĐÃ hết hạn (quá 5 ngày) gắn máy sống → vẫn đỏ ("còn ≤N ngày" bao gồm quá hạn)
+    await pool.query(
+      `INSERT INTO assets (code, type, license_type, end_date, installed_on_asset_id)
+       VALUES ('SW-EXPIRED', 'software', 'term', CURRENT_DATE - 5, $1)`,
+      [mayB],
+    );
     const res = await request(app.getHttpServer())
       .get('/api/admin/assets?search=SW-&pageSize=50')
       .set(asAdmin())
@@ -664,6 +670,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       ),
     );
     expect(byCode.get('SW-RED')).toBe(true);
+    expect(byCode.get('SW-EXPIRED')).toBe(true);
     expect(byCode.get('SW-FLOAT')).toBe(false);
     expect(byCode.get('SW-DEADHOST')).toBe(false);
     expect(byCode.get('SW-FAR')).toBe(false);
@@ -689,14 +696,14 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     const mayB = (
       await pool.query("SELECT id FROM assets WHERE code = 'PAGE-01'")
     ).rows[0].id as string;
-    // SW-RED + SW-FAR đang gắn PAGE-01 (test trước)
+    // SW-RED + SW-FAR + SW-EXPIRED đang gắn PAGE-01 (test trước)
     const svc = app.get(AssetsService);
     const codes = await svc.detachAllFrom(
       app.get<Database>(DRIZZLE_DB),
       mayB,
       'sa-t',
     );
-    expect(codes.sort()).toEqual(['SW-FAR', 'SW-RED']);
+    expect(codes.sort()).toEqual(['SW-EXPIRED', 'SW-FAR', 'SW-RED']);
     const left = await pool.query(
       'SELECT count(*)::int AS n FROM assets WHERE installed_on_asset_id = $1',
       [mayB],
@@ -707,6 +714,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     );
     expect(audit.rowCount).toBe(1);
     expect((audit.rows[0].detail.detached as string[]).sort()).toEqual([
+      'SW-EXPIRED',
       'SW-FAR',
       'SW-RED',
     ]);
