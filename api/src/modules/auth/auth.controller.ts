@@ -35,6 +35,20 @@ function pkceChallenge(verifier: string): string {
   return createHash('sha256').update(verifier).digest('base64url');
 }
 
+/**
+ * Cờ Secure theo môi trường thật: https luôn bật; http chỉ localhost (browser
+ * coi localhost là trustworthy). Deploy http trên LAN mà hardcode Secure →
+ * browser drop cookie → login loop không lời giải thích.
+ */
+function cookieSecure(): boolean {
+  const url = new URL(appBaseUrl());
+  return (
+    url.protocol === 'https:' ||
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1'
+  );
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -58,7 +72,7 @@ export class AuthController {
     // Giao dịch OIDC tạm (10') — httpOnly, không chứa gì nhạy cảm ngoài verifier một lần
     res.cookie(OIDC_TX_COOKIE, JSON.stringify({ codeVerifier, state }), {
       httpOnly: true,
-      secure: true,
+      secure: cookieSecure(),
       sameSite: 'lax', // callback là redirect cross-site từ PMH ID — Strict sẽ làm rơi cookie
       maxAge: 10 * 60 * 1000,
       path: '/api/auth',
@@ -101,9 +115,10 @@ export class AuthController {
       });
       res.cookie(SESSION_COOKIE, session.id, {
         httpOnly: true,
-        secure: true,
+        secure: cookieSecure(),
         sameSite: 'strict',
         path: '/',
+        maxAge: 30 * 24 * 60 * 60 * 1000, // đồng bộ mốc GC phiên 30 ngày
       });
       await this.audit.append({
         actor: verified.claims.sub,
@@ -118,11 +133,9 @@ export class AuthController {
         action: 'auth.login_failed',
         detail: { message: (error as Error).message },
       });
-      res.status(401).json({
-        statusCode: 401,
-        code: 'LOGIN_FAILED',
-        message: 'Đăng nhập không thành công — vui lòng thử lại.',
-      });
+      // Callback là navigation của browser — trả JSON thô làm user kẹt trên
+      // trang lỗi không đường về; redirect để FE hiện thông báo
+      res.redirect('/?login=failed');
     }
   }
 

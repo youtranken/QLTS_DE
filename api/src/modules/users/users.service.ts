@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
@@ -15,6 +15,8 @@ export interface PmhIdClaims {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(@Inject(DRIZZLE_DB) private readonly db: Database) {}
 
   /** Upsert theo `sub` — email đổi KHÔNG tạo user mới (AD-8). */
@@ -55,9 +57,16 @@ export class UsersService {
   }
 
   async updateGroups(sub: string, groups: string[]): Promise<void> {
-    await this.db
+    const rows = await this.db
       .update(usersTable)
       .set({ groups, updatedAt: new Date() })
-      .where(eq(usersTable.sub, sub));
+      .where(eq(usersTable.sub, sub))
+      .returning({ sub: usersTable.sub });
+    if (rows.length === 0) {
+      // User chưa từng đăng nhập/sync — groups sẽ đúng lại ở lần login kế; không nuốt im lặng
+      this.logger.warn(
+        `groups_changed cho user chưa có trong DB (sub=${sub}) — bỏ qua, chờ login/sync`,
+      );
+    }
   }
 }

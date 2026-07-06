@@ -7,9 +7,8 @@ services:
     build: ./api
     restart: unless-stopped
     mem_limit: ${API_MEM_LIMIT:-384m}
-    # PMH ID dev chạy trên HOST (hosts trỏ 127.0.0.1) — trong container phải đi qua host-gateway
-    extra_hosts:
-      - 'id.pmh.com.vn:host-gateway'
+    # extra_hosts cho PMH ID dev nằm ở docker-compose.override.yml (CHỈ dev —
+    # prod chạy `docker compose -f docker-compose.yml up` để không ghi đè DNS thật)
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       AUTH_DEV_MODE: ${AUTH_DEV_MODE:-false}

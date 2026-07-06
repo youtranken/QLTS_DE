@@ -1,0 +1,9 @@
+# DEV-ONLY — compose tự nạp file này cùng docker-compose.yml.
+# PMH ID dev chạy trên HOST (hosts trỏ 127.0.0.1) — container phải đi qua host-gateway.
+# PROD: chạy `docker compose -f docker-compose.yml up -d` để KHÔNG áp file này
+# (id.pmh.com.vn prod phân giải DNS thật, không được ghi đè).
+
+services:
+  api:
+    extra_hosts:
+      - 'id.pmh.com.vn:host-gateway'

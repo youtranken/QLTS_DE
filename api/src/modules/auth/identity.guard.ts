@@ -16,6 +16,9 @@ export const DEV_ROLE_HEADER = 'x-dev-role';
 export const SESSION_COOKIE = 'qlts_sid';
 
 const DEV_ROLES = ['member', 'admin', 'sa'] as const;
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type DevRole = (typeof DEV_ROLES)[number];
 
 export interface RequestIdentity {
@@ -72,10 +75,16 @@ export class IdentityGuard implements CanActivate {
       }
     }
 
-    // (2) Phiên OIDC
-    const sessionId = (request.cookies as Record<string, string> | undefined)?.[
-      SESSION_COOKIE
-    ];
+    // (2) Phiên OIDC — validate uuid TRƯỚC khi chạm DB (cookie rác 'abc' sẽ làm
+    // Postgres ném 22P02 trên cột uuid → 500 lặp vô hạn, user kẹt tới khi tự xóa cookie)
+    const rawSessionId = (
+      request.cookies as Record<string, string> | undefined
+    )?.[SESSION_COOKIE];
+    const sessionId =
+      rawSessionId && UUID_PATTERN.test(rawSessionId) ? rawSessionId : null;
+    if (rawSessionId && !sessionId) {
+      response.clearCookie(SESSION_COOKIE);
+    }
     if (sessionId) {
       const identity = await this.sessionAuth.resolve(sessionId);
       if (identity) {

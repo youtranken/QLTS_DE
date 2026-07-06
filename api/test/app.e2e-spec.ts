@@ -32,6 +32,16 @@ describe('Skeleton api (AC 3, 7)', () => {
     });
   });
 
+  it('cookie qlts_sid rác (không phải uuid) → 401 sạch + xóa cookie, KHÔNG 500', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', 'qlts_sid=khong-phai-uuid')
+      .expect(401);
+    expect(res.body.code).toBe('UNAUTHENTICATED');
+    const cleared = (res.headers['set-cookie'] as unknown as string[]) ?? [];
+    expect(cleared.some((c) => c.startsWith('qlts_sid=;'))).toBe(true);
+  });
+
   it('lỗi trả đúng shape { statusCode, code, message } (route không tồn tại)', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/khong-ton-tai')

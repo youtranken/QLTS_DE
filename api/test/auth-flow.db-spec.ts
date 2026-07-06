@@ -182,11 +182,15 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
     expect(users.rows[0].n).toBe(1);
   });
 
-  it('callback thiếu cookie giao dịch → 401 LOGIN_FAILED + audit', async () => {
+  it('callback thiếu cookie giao dịch → redirect /?login=failed + audit (không kẹt trang JSON)', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/auth/callback?code=fake')
-      .expect(401);
-    expect(res.body.code).toBe('LOGIN_FAILED');
+      .expect(302);
+    expect(res.headers.location).toBe('/?login=failed');
+    const audit = await pool.query(
+      "SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.login_failed'",
+    );
+    expect(audit.rows[0].n).toBeGreaterThanOrEqual(1);
   });
 
   it('access token hết hạn → refresh ngầm, user không nhận ra', async () => {

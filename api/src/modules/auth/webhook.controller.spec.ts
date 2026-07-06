@@ -82,6 +82,25 @@ describe('WebhookController — HMAC + đá phiên (AC 6)', () => {
     ).rejects.toThrow(UnauthorizedException);
   });
 
+  it('chữ ký ĐÚNG nhưng payload hỏng → 400 (không 500 để PMH ID retry mãi)', async () => {
+    const { controller } = makeController();
+    for (const bad of [
+      'null',
+      '"chuoi"',
+      '{"type":123}',
+      '{"type":"user.locked"}',
+      'not-json',
+    ]) {
+      const rawBody = Buffer.from(bad);
+      const signature = createHmac('sha256', SECRET)
+        .update(rawBody)
+        .digest('hex');
+      await expect(
+        controller.handle({ rawBody } as never, signature),
+      ).rejects.toMatchObject({ status: 400 });
+    }
+  });
+
   it('thiếu chữ ký / thiếu rawBody → 401', async () => {
     const { controller } = makeController();
     const { rawBody } = signedReq({ type: 'user.locked', user_id: 'usr_1' });

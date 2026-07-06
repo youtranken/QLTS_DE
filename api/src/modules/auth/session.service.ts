@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID, randomBytes } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, lt, sql } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import type { PmhIdClaims } from '../users/users.service';
@@ -25,6 +25,10 @@ export class SessionService {
     accessTokenExp: Date | null;
     claims: PmhIdClaims;
   }): Promise<SessionRecord> {
+    // GC opportunistic: dọn phiên mồ côi (user bỏ đi không logout) — chặn bảng phình vô hạn
+    await this.db
+      .delete(sessionsTable)
+      .where(lt(sessionsTable.lastSeenAt, sql`now() - interval '30 days'`));
     const record = {
       id: randomUUID(),
       userSub: params.userSub,
@@ -56,7 +60,7 @@ export class SessionService {
     };
   }
 
-  /** Sau khi refresh thành công: token + claims mới. */
+  /** Sau khi refresh thành công: token + claims mới. Trả false nếu phiên đã bị xóa (webhook đá giữa chừng). */
   async updateTokens(
     id: string,
     params: {
@@ -64,8 +68,8 @@ export class SessionService {
       accessTokenExp: Date | null;
       claims: PmhIdClaims;
     },
-  ): Promise<void> {
-    await this.db
+  ): Promise<boolean> {
+    const rows = await this.db
       .update(sessionsTable)
       .set({
         refreshToken: params.refreshToken,
@@ -73,7 +77,9 @@ export class SessionService {
         claims: params.claims,
         lastSeenAt: new Date(),
       })
-      .where(eq(sessionsTable.id, id));
+      .where(eq(sessionsTable.id, id))
+      .returning({ id: sessionsTable.id });
+    return rows.length > 0;
   }
 
   async destroy(id: string): Promise<void> {

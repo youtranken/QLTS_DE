@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
+import { timingSafeEqual } from 'node:crypto';
 import { Reflector } from '@nestjs/core';
 import { SessionService } from './session.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
@@ -45,7 +46,7 @@ export class CsrfGuard implements CanActivate {
     const token = request.headers['x-csrf-token'];
     if (typeof token === 'string' && token.length > 0) {
       const session = await this.sessions.find(sessionId);
-      if (session && session.csrfToken === token) {
+      if (session && this.tokensMatch(session.csrfToken, token)) {
         return true;
       }
     }
@@ -53,5 +54,11 @@ export class CsrfGuard implements CanActivate {
       code: 'CSRF_TOKEN_INVALID',
       message: 'Thiếu hoặc sai CSRF token — tải lại trang rồi thử lại.',
     });
+  }
+
+  private tokensMatch(expected: string, provided: string): boolean {
+    const a = Buffer.from(expected);
+    const b = Buffer.from(provided);
+    return a.length === b.length && timingSafeEqual(a, b);
   }
 }

@@ -1,20 +1,35 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { AuditWriterService } from '../audit/audit-writer.service';
 import { JwtVerifierService } from './jwt-verifier.service';
 import { OIDC_PROVIDER } from './oidc-provider';
 import type { OidcProvider } from './oidc-provider';
 import { SessionService } from './session.service';
+import type { SessionRecord } from './session.service';
 import type { RequestIdentity } from './identity.guard';
+import type { PmhIdClaims } from '../users/users.service';
 
 /**
  * Phân giải phiên → identity, kèm refresh ngầm (AC 4):
  * - access token còn hạn (đọc `exp` đã lưu) → dùng claims trong session
  * - hết hạn → refresh qua PMH ID, verify token mới offline, cập nhật session
- * - refresh THẤT BẠI (revoke/idle) → hủy phiên + audit → trả null (guard sẽ 401)
+ * - refresh bị TỪ CHỐI (invalid_grant — revoke/idle) → hủy phiên + audit → null (guard 401)
+ * - PMH ID SẬP/không phân loại được → GIỮ NGUYÊN phiên, ném 503 (user thử lại sau —
+ *   không biến outage tạm thời thành logout vĩnh viễn)
+ * - SINGLE-FLIGHT theo session: N request song song (nhiều tab) chỉ refresh MỘT lần —
+ *   tránh đốt refresh token xoay vòng single-use rồi logout oan
  */
 @Injectable()
 export class SessionAuthService {
   private readonly logger = new Logger(SessionAuthService.name);
+  private readonly inflight = new Map<
+    string,
+    Promise<RequestIdentity | null>
+  >();
 
   constructor(
     private readonly sessions: SessionService,
@@ -23,7 +38,20 @@ export class SessionAuthService {
     private readonly audit: AuditWriterService,
   ) {}
 
-  async resolve(sessionId: string): Promise<RequestIdentity | null> {
+  resolve(sessionId: string): Promise<RequestIdentity | null> {
+    const existing = this.inflight.get(sessionId);
+    if (existing) {
+      return existing;
+    }
+    // Đặt vào map ĐỒNG BỘ trước mọi await — đóng cửa sổ race giữa get và set
+    const promise = this.doResolve(sessionId).finally(() =>
+      this.inflight.delete(sessionId),
+    );
+    this.inflight.set(sessionId, promise);
+    return promise;
+  }
+
+  private async doResolve(sessionId: string): Promise<RequestIdentity | null> {
     const session = await this.sessions.find(sessionId);
     if (!session || !session.claims) {
       return null;
@@ -33,37 +61,78 @@ export class SessionAuthService {
       session.accessTokenExp !== null &&
       session.accessTokenExp.getTime() > Date.now();
 
-    if (!stillValid) {
-      if (!session.refreshToken) {
-        await this.expire(sessionId, session.userSub, 'no_refresh_token');
+    if (stillValid) {
+      return this.toIdentity(sessionId, session.claims);
+    }
+    return this.refreshSession(sessionId, session);
+  }
+
+  private async refreshSession(
+    sessionId: string,
+    session: SessionRecord,
+  ): Promise<RequestIdentity | null> {
+    if (!session.refreshToken) {
+      await this.expire(sessionId, session.userSub, 'no_refresh_token');
+      return null;
+    }
+    try {
+      const tokens = await this.oidc.refresh(session.refreshToken);
+      const verified = await this.jwtVerifier.verify(tokens.accessToken);
+      const updated = await this.sessions.updateTokens(sessionId, {
+        refreshToken: tokens.refreshToken,
+        accessTokenExp: verified.expiresAt,
+        claims: verified.claims,
+      });
+      if (!updated) {
+        // Phiên bị xóa giữa chừng (webhook đá) — không xác thực bằng dữ liệu đã chết
         return null;
       }
-      try {
-        const tokens = await this.oidc.refresh(session.refreshToken);
-        const verified = await this.jwtVerifier.verify(tokens.accessToken);
-        await this.sessions.updateTokens(sessionId, {
-          refreshToken: tokens.refreshToken,
-          accessTokenExp: verified.expiresAt,
-          claims: verified.claims,
-        });
-        session.claims = verified.claims;
-      } catch (error) {
-        // Refresh fail = tín hiệu revoke/phiên PMH ID hết idle → đăng xuất (NFR-11)
+      return this.toIdentity(sessionId, verified.claims);
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) {
+        // SSO_NOT_CONFIGURED / SSO_UNAVAILABLE từ provider — GIỮ phiên
+        throw error;
+      }
+      if (this.isRevocation(error)) {
+        // Refresh bị PMH ID TỪ CHỐI = revoke/hết idle → đăng xuất (NFR-11)
         this.logger.log(
-          `Refresh thất bại cho phiên ${sessionId}: ${(error as Error).message}`,
+          `Refresh bị từ chối cho phiên ${sessionId}: ${(error as Error).message}`,
         );
         await this.expire(sessionId, session.userSub, 'refresh_failed');
         return null;
       }
+      // Lỗi mạng/không phân loại được — coi như PMH ID sập: giữ phiên, 503
+      this.logger.warn(
+        `Refresh lỗi không phân loại (giữ phiên ${sessionId}): ${(error as Error).message}`,
+      );
+      throw new ServiceUnavailableException({
+        code: 'SSO_UNAVAILABLE',
+        message: 'Không liên lạc được PMH ID — vui lòng thử lại sau.',
+      });
     }
+  }
 
+  /** openid-client ném ResponseBodyError có `error` OAuth; fallback theo message. */
+  private isRevocation(error: unknown): boolean {
+    const oauthCode = (error as { error?: unknown }).error;
+    if (typeof oauthCode === 'string') {
+      return ['invalid_grant', 'invalid_token', 'unauthorized_client'].includes(
+        oauthCode,
+      );
+    }
+    return /invalid_grant|invalid_token|revoked|expired/i.test(
+      (error as Error).message ?? '',
+    );
+  }
+
+  private toIdentity(sessionId: string, claims: PmhIdClaims): RequestIdentity {
     return {
-      sub: session.claims.sub,
+      sub: claims.sub,
       role: 'member', // vai thật đọc từ users ở story 1.5 (RolesGuard)
       devMode: false,
       sessionId,
-      fullName: session.claims.full_name,
-      email: session.claims.email,
+      fullName: claims.full_name,
+      email: claims.email,
     };
   }
 

@@ -79,6 +79,26 @@ describe('JwtVerifierService — verify offline RS256 (AC 3)', () => {
     await expect(verifier.verify(token)).resolves.toBeDefined();
   });
 
+  it('token thiếu claim exp → fail (không được refresh-mỗi-request)', async () => {
+    const token = await new jose.SignJWT({})
+      .setProtectedHeader({ alg: 'RS256' })
+      .setSubject('usr_test_01')
+      .setIssuer(ISSUER)
+      .setAudience(CLIENT_ID)
+      .sign(privateKey); // không setExpirationTime
+    await expect(verifier.verify(token)).rejects.toThrow(/exp/);
+  });
+
+  it('token thiếu claim sub → fail (không cho identity undefined)', async () => {
+    const token = await new jose.SignJWT({})
+      .setProtectedHeader({ alg: 'RS256' })
+      .setIssuer(ISSUER)
+      .setAudience(CLIENT_ID)
+      .setExpirationTime('5m')
+      .sign(privateKey); // không setSubject
+    await expect(verifier.verify(token)).rejects.toThrow(/sub/);
+  });
+
   it('token ký bằng khóa khác → fail', async () => {
     const otherPair = await jose.generateKeyPair('RS256');
     const forged = await new jose.SignJWT({})

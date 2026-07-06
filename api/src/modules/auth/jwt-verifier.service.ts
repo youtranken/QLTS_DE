@@ -50,9 +50,17 @@ export class JwtVerifierService {
       audience: process.env.PMH_CLIENT_ID,
       clockTolerance: 60, // ±60s chống 401 chập chờn do lệch đồng hồ (party phiên 7)
     });
+    // Hợp đồng ver:1 bắt buộc sub + exp — token thiếu là token hỏng, reject từ gốc
+    // (thiếu sub → identity undefined; thiếu exp → refresh mỗi request)
+    if (!payload.sub || typeof payload.sub !== 'string') {
+      throw new Error('Access token thiếu claim `sub`');
+    }
+    if (!payload.exp) {
+      throw new Error('Access token thiếu claim `exp`');
+    }
     return {
       claims: this.toClaims(payload),
-      expiresAt: payload.exp ? new Date(payload.exp * 1000) : null,
+      expiresAt: new Date(payload.exp * 1000),
     };
   }
 

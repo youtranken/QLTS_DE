@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Headers,
   HttpCode,
@@ -62,7 +63,9 @@ export class WebhookController {
       });
     }
 
-    const event = JSON.parse(rawBody.toString('utf8')) as PmhWebhookEvent;
+    // Chữ ký đúng nhưng payload hỏng → 400 (không 500 — PMH ID sẽ retry giãn dần
+    // vào cùng payload hỏng mãi mãi)
+    const event = this.parseEvent(rawBody);
     if (KICK_EVENTS.has(event.type)) {
       const killed = await this.sessions.destroyAllForUser(event.user_id);
       await this.audit.append({
@@ -78,6 +81,29 @@ export class WebhookController {
       this.logger.log(`Webhook event bỏ qua: ${event.type}`);
     }
     return { ok: true };
+  }
+
+  private parseEvent(rawBody: Buffer): PmhWebhookEvent {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawBody.toString('utf8'));
+    } catch {
+      parsed = null;
+    }
+    const event = parsed as PmhWebhookEvent | null;
+    if (
+      !event ||
+      typeof event !== 'object' ||
+      typeof event.type !== 'string' ||
+      typeof event.user_id !== 'string' ||
+      (event.groups !== undefined && !Array.isArray(event.groups))
+    ) {
+      throw new BadRequestException({
+        code: 'WEBHOOK_PAYLOAD_INVALID',
+        message: 'Payload webhook không đúng định dạng.',
+      });
+    }
+    return event;
   }
 
   private verifySignature(
