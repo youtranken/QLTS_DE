@@ -1334,6 +1334,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
   const loadAll = useCallback(async () => {
     if (!id) return;
     setError(null);
+    setNotFound(false); // id đổi qua history không remount — không kẹt notFound cũ
     try {
       const res = await fetch(`/api/admin/assets/${encodeURIComponent(id)}`);
       if (res.status === 401) {
@@ -1358,11 +1359,24 @@ export function AssetDetailPage({ me }: { me: Me }) {
           ? fetch(`/api/admin/assets/${encodeURIComponent(id)}/software`)
           : Promise.resolve(null),
       ]);
+      // fetch phụ lỗi phải HIỆN lỗi — "chưa có dữ liệu" khác "không tải được" (UJ-3)
       if (allocRes.ok) {
         setAllocations((await allocRes.json()) as AllocationRow[]);
+      } else {
+        setError(t('assets.loadFailed'));
       }
-      if (noteRes.ok) setNotes((await noteRes.json()) as NoteRow[]);
-      if (swRes?.ok) setSoftware((await swRes.json()) as typeof software);
+      if (noteRes.ok) {
+        setNotes((await noteRes.json()) as NoteRow[]);
+      } else {
+        setError(t('assets.loadFailed'));
+      }
+      if (swRes) {
+        if (swRes.ok) {
+          setSoftware((await swRes.json()) as typeof software);
+        } else {
+          setError(t('assets.loadFailed'));
+        }
+      }
     } catch {
       setError(t('app.serverUnreachable'));
     }
@@ -1409,7 +1423,11 @@ export function AssetDetailPage({ me }: { me: Me }) {
     [t('assets.configuration'), detail.configuration],
     [
       t('assets.cost'),
-      detail.cost == null ? null : detail.cost.toLocaleString('vi-VN'),
+      detail.cost == null
+        ? null
+        : detail.cost.toLocaleString(
+            i18n.language === 'en' ? 'en-GB' : 'vi-VN',
+          ),
     ],
     [t('assets.startDate'), detail.startDate],
     [t('assets.endDate'), detail.endDate],
