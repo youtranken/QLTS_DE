@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { LoggerModule } from 'nestjs-pino';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
+import { AssetsModule } from './modules/assets/assets.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OidcModule } from './modules/auth/oidc.module';
@@ -33,6 +34,7 @@ import { SystemConfigModule } from './modules/config/config.module';
       },
     }),
     DatabaseModule,
+    AssetsModule,
     AuditModule,
     OidcModule,
     AuthModule,
