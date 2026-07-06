@@ -47,6 +47,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0002_users.sql',
       '0003_audit_log.sql',
       '0004_sessions.sql',
+      '0005_audit_append_only.sql',
     ]);
   });
 
