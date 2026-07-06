@@ -22,6 +22,10 @@ services:
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
       # SA chỉ từ env (story 1.5) — trống là api từ chối khởi động
       SA_SUBS: ${SA_SUBS:?SA_SUBS bắt buộc trong .env (danh sách sub PMH ID)}
+      # Module file (story 2.8, AD-6) — file lưu volume, tên uuid
+      FILE_STORAGE_DIR: /data/files
+    volumes:
+      - filesdata:/data/files
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,3 +96,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  filesdata:

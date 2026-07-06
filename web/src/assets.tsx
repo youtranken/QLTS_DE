@@ -221,9 +221,12 @@ export function AssetsPage({ me }: { me: Me }) {
         />
       ) : (
         <>
-          <button type="button" onClick={() => setForm(EMPTY_FORM)}>
-            {t('assets.addAsset')}
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button type="button" onClick={() => setForm(EMPTY_FORM)}>
+              {t('assets.addAsset')}
+            </button>
+            <Link to="/tai-san/kiem-ke">{t('inventory.link')}</Link>
+          </div>
           <div
             style={{
               display: 'flex',

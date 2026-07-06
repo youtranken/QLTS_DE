@@ -5,6 +5,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { AssetsModule } from './modules/assets/assets.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { FilesModule } from './modules/files/files.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OidcModule } from './modules/auth/oidc.module';
 import { SystemConfigModule } from './modules/config/config.module';
@@ -36,6 +37,7 @@ import { SystemConfigModule } from './modules/config/config.module';
     DatabaseModule,
     AssetsModule,
     AuditModule,
+    FilesModule,
     OidcModule,
     AuthModule,
     SystemConfigModule,
