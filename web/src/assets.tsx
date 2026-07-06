@@ -970,7 +970,9 @@ function AssetForm({
                     {t('assets.unlockAction')}
                   </button>
                 )}
-                {!form.isSoftware && (
+                {!form.isSoftware && form.status === 'in_use' && (
+                  // pool toggle CHỈ khi in_use — đụng pool lúc đang khóa phá
+                  // invariant "mở khóa → pool như trước" (review 2.6)
                   <button
                     type="button"
                     disabled={busy}
@@ -1105,7 +1107,8 @@ function AssetForm({
               ))}
             </ul>
           )}
-          {form.isSoftware && (
+          {/* software disposed: TERMINAL — không gắn/chuyển được nữa (review 2.6) */}
+          {form.isSoftware && form.status !== 'disposed' && (
             <div style={{ marginTop: '0.75rem' }}>
               <p style={{ margin: '0 0 0.25rem' }}>
                 {t('assets.installedOn')}:{' '}

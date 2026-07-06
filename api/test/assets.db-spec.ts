@@ -814,6 +814,24 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .send({ isPool: true, version: sw.version })
       .expect(400);
     expect(poolSw.body.code).toBe('NOT_MACHINE');
+
+    // AC 4: audit đủ CẢ 4 thao tác — unlock + pool_change (review 2.6)
+    const auditPool = await pool.query(
+      "SELECT detail FROM audit_log WHERE action = 'assets.pool_change'",
+    );
+    expect(auditPool.rows[0].detail).toMatchObject({ from: false, to: true });
+    const auditUnlock = await pool.query(
+      "SELECT count(*)::int AS n FROM audit_log WHERE action = 'assets.unlock'",
+    );
+    expect(auditUnlock.rows[0].n).toBe(1);
+
+    // asset_note append-only tầng DB (0014, tiền lệ AD-10)
+    await expect(
+      pool.query("UPDATE asset_note SET note = 'sua vet'"),
+    ).rejects.toThrow(/append-only/);
+    await expect(pool.query('DELETE FROM asset_note')).rejects.toThrow(
+      /append-only/,
+    );
   });
 
   it('thanh lý (2.6): cascade license hết đỏ end-to-end, TERMINAL, vẫn trong danh sách', async () => {
@@ -885,6 +903,12 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       expect(res.body.code).toBe('INVALID_STATE');
     }
 
+    // dispose máy pool → cờ pool được GỠ (không kẹt vĩnh viễn — review 2.6)
+    const disposedPool = await pool.query(
+      "SELECT is_pool FROM assets WHERE code = 'M-DISP'",
+    );
+    expect(disposedPool.rows[0].is_pool).toBe(false);
+
     // thanh lý SOFTWARE đang gắn máy → tự gỡ + disposed
     const sw2 = await request(app.getHttpServer())
       .post('/api/admin/assets')
@@ -905,12 +929,30 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .send({ version: 1 })
       .expect(200);
     const sw2After = await pool.query(
-      "SELECT status, installed_on_asset_id FROM assets WHERE code = 'SW-DISP2'",
+      "SELECT status, installed_on_asset_id, version FROM assets WHERE code = 'SW-DISP2'",
     );
-    expect(sw2After.rows[0]).toEqual({
+    expect(sw2After.rows[0]).toMatchObject({
       status: 'disposed',
       installed_on_asset_id: null,
     });
+
+    // TERMINAL kín (review 2.6 HIGH): software disposed KHÔNG "hồi sinh" qua transfer
+    const mayLive = (
+      await pool.query("SELECT id FROM assets WHERE code = 'PAGE-04'")
+    ).rows[0].id as string;
+    const resurrect = await request(app.getHttpServer())
+      .put(`/api/admin/assets/${sw2.body.id}/transfer`)
+      .set(asAdmin())
+      .send({
+        targetAssetId: mayLive,
+        version: sw2After.rows[0].version as number,
+      })
+      .expect(409);
+    expect(resurrect.body.code).toBe('INVALID_STATE');
+    const still = await pool.query(
+      "SELECT installed_on_asset_id FROM assets WHERE code = 'SW-DISP2'",
+    );
+    expect(still.rows[0].installed_on_asset_id).toBeNull();
   });
 
   it('CHECK constraint status: giá trị lạ bị DB từ chối (nền 2.6)', async () => {

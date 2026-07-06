@@ -305,6 +305,7 @@ export class AssetsService {
           // CURRENT_DATE của pg là UTC, đỏ trễ tối đa 7h lúc 00:00-07:00 VN (review 2.5)
           licenseWarning: sql<boolean>`COALESCE((
             ${assetsTable.type} = 'software'
+            AND ${assetsTable.status} <> 'disposed'
             AND ${assetsTable.licenseType} = 'term'
             AND ${assetsTable.installedOnAssetId} IS NOT NULL
             AND ${host.status} <> 'disposed'
@@ -353,14 +354,15 @@ export class AssetsService {
               version = a.version + 1,
               updated_at = now()
           FROM (SELECT * FROM assets WHERE id = ${id} FOR UPDATE) AS old
-          WHERE a.id = old.id AND old.version = ${version} AND old.type = 'software'
+          WHERE a.id = old.id AND old.version = ${version}
+            AND old.type = 'software' AND old.status <> 'disposed'
           RETURNING a.version AS new_version,
             old.installed_on_asset_id::text AS old_target
         `);
         const row = result.rows[0];
         if (!row) {
           const existing = await tx
-            .select({ type: assetsTable.type })
+            .select({ type: assetsTable.type, status: assetsTable.status })
             .from(assetsTable)
             .where(eq(assetsTable.id, id));
           if (existing.length === 0) {
@@ -373,6 +375,13 @@ export class AssetsService {
             throw new BadRequestException({
               code: 'NOT_SOFTWARE',
               message: 'Chỉ phần mềm mới chuyển được giữa máy.',
+            });
+          }
+          // TERMINAL (review 2.6): software thanh lý không được "hồi sinh" qua transfer
+          if (existing[0].status === 'disposed') {
+            throw new ConflictException({
+              code: 'INVALID_STATE',
+              message: 'Phần mềm đã thanh lý — không chuyển được nữa.',
             });
           }
           throw new ConflictException({
@@ -508,6 +517,9 @@ export class AssetsService {
           .update(assetsTable)
           .set({
             status: 'disposed',
+            // cờ pool không được KẸT vĩnh viễn trên máy thanh lý (review 2.6) —
+            // setPool đã chặn disposed nên đây là đường gỡ cuối cùng
+            isPool: false,
             version: row.version + 1,
             updatedAt: new Date(),
             // software thanh lý không được tiếp tục "cài" trên máy nào
@@ -526,7 +538,7 @@ export class AssetsService {
           actor: actorSub,
         });
         // TODO(3.10): orchestrator trong Tickets hủy booking tương lai của máy thanh lý
-        return { detached };
+        return { detached, pool_cleared: row.isPool };
       },
     });
   }
