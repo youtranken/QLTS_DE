@@ -62,6 +62,7 @@ export default {
     filterFloor: 'Floor — all',
     clearFilters: 'Clear filters',
     noMatch: 'No assets match the filters.',
+    exportExcel: 'Export Excel',
     loadFailed: 'Could not load the asset list.',
     saveFailed: 'Save failed.',
     codeTaken: 'Asset code already exists — codes must be unique.',

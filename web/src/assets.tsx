@@ -227,6 +227,17 @@ export function AssetsPage({ me }: { me: Me }) {
             </button>
             <Link to="/tai-san/kiem-ke">{t('inventory.link')}</Link>
             <Link to="/tai-san/import">{t('importx.link')}</Link>
+            {/* 2.10: export theo bộ lọc ĐANG áp — <a> điều hướng thật, cookie đi kèm */}
+            <a
+              href={`/api/admin/assets/export?${new URLSearchParams({
+                ...(search ? { search } : {}),
+                ...(type ? { type } : {}),
+                ...(status ? { status } : {}),
+                ...(floor ? { floor } : {}),
+              }).toString()}`}
+            >
+              {t('assets.exportExcel')}
+            </a>
           </div>
           <div
             style={{

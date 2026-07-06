@@ -229,6 +229,16 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
     expect(res.body.code).toBe('UNSUPPORTED_FILE');
   });
 
+  it('export (2.10): member → 403; anonymous → 401 (FR-43 kênh exfil có quyền)', async () => {
+    await request(app.getHttpServer())
+      .get('/api/admin/assets/export')
+      .set(asMember)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/admin/assets/export')
+      .expect(401);
+  });
+
   it('lọc status ngoài enum → 400; member gọi meta → 403 (story 2.2)', async () => {
     await request(app.getHttpServer())
       .get('/api/admin/assets?status=dang_bay')

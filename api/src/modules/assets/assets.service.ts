@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { and, desc, eq, ilike, isNotNull, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+import * as ExcelJS from 'exceljs';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
@@ -15,6 +16,7 @@ import { usersTable } from '../users/users.schema';
 import { allocationHistoryTable } from './allocation-history.schema';
 import { assetNoteTable } from './asset-note.schema';
 import { assetsTable } from './assets.schema';
+import { escapeCellDisplay } from './import-parser';
 
 /** Trường Admin nhập được từ form (FR-30). status/is_pool KHÔNG ở đây — nghiệp vụ 2.6. */
 export interface AssetInput {
@@ -269,13 +271,10 @@ export class AssetsService {
    * join users lấy tên người đứng tên; count(*) áp CÙNG where (join users cho
    * search; KHÔNG cần join host — WHERE không đụng host, join PK không nhân dòng).
    */
-  async list(query: AssetListQuery) {
-    // FR-44: mốc cảnh báo đọc từ Config (AD-1) — SA chỉnh ở 6.3, hiệu lực ngay.
-    // Phòng thủ giá trị xấu (jsonb chưa validate — hợp đồng 6.3 phải validate int khi ghi):
-    // NaN/lẻ không được làm 500 cả danh sách tài sản.
-    const warningDays =
-      Math.trunc(Number(await this.config.getLicenseWarningDays())) || 30;
-    const host = alias(assetsTable, 'host');
+  /** Điều kiện tìm/lọc dùng chung list (2.2) + export (2.10) — MỘT nguồn sự thật. */
+  private buildListConditions(
+    query: Pick<AssetListQuery, 'search' | 'type' | 'status' | 'floor'>,
+  ) {
     const conditions = [
       query.search
         ? or(
@@ -287,7 +286,17 @@ export class AssetsService {
       query.status ? eq(assetsTable.status, query.status) : undefined,
       query.floor ? eq(assetsTable.floor, query.floor) : undefined,
     ].filter((c) => c !== undefined);
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    return conditions.length > 0 ? and(...conditions) : undefined;
+  }
+
+  async list(query: AssetListQuery) {
+    // FR-44: mốc cảnh báo đọc từ Config (AD-1) — SA chỉnh ở 6.3, hiệu lực ngay.
+    // Phòng thủ giá trị xấu (jsonb chưa validate — hợp đồng 6.3 phải validate int khi ghi):
+    // NaN/lẻ không được làm 500 cả danh sách tài sản.
+    const warningDays =
+      Math.trunc(Number(await this.config.getLicenseWarningDays())) || 30;
+    const host = alias(assetsTable, 'host');
+    const where = this.buildListConditions(query);
     const [items, totalRows] = await Promise.all([
       this.db
         .select({
@@ -741,6 +750,114 @@ export class AssetsService {
       .where(eq(assetNoteTable.assetId, assetId))
       .orderBy(desc(assetNoteTable.createdAt))
       .limit(200);
+  }
+
+  /**
+   * Export Excel theo bộ lọc hiện tại (2.10, FR-41) — KHÔNG phân trang, trần
+   * 10000 dòng; escape NFR-10 mọi cell chuỗi (dữ liệu lưu raw — defer 2.9).
+   */
+  async exportExcel(
+    query: Pick<AssetListQuery, 'search' | 'type' | 'status' | 'floor'>,
+    actorSub: string,
+  ) {
+    const host = alias(assetsTable, 'host');
+    const rows = await this.db
+      .select({
+        code: assetsTable.code,
+        type: assetsTable.type,
+        assignedUserSub: assetsTable.assignedUserSub,
+        assignedUserName: usersTable.fullName,
+        configuration: assetsTable.configuration,
+        cost: assetsTable.cost,
+        startDate: assetsTable.startDate,
+        endDate: assetsTable.endDate,
+        floor: assetsTable.floor,
+        status: assetsTable.status,
+        isPool: assetsTable.isPool,
+        serial: assetsTable.serial,
+        brand: assetsTable.brand,
+        model: assetsTable.model,
+        note: assetsTable.note,
+        licenseType: assetsTable.licenseType,
+        licenseName: assetsTable.licenseName,
+        installedOnCode: host.code,
+      })
+      .from(assetsTable)
+      .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
+      .leftJoin(host, eq(assetsTable.installedOnAssetId, host.id))
+      .where(this.buildListConditions(query))
+      .orderBy(assetsTable.code)
+      .limit(10_001);
+    if (rows.length > 10_000) {
+      throw new BadRequestException({
+        code: 'EXPORT_TOO_LARGE',
+        message: 'Quá 10.000 dòng — thu hẹp bộ lọc rồi export lại.',
+      });
+    }
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Tai san');
+    sheet.addRow([
+      'CODE',
+      'TYPE',
+      'USER',
+      'CONFIGURATION',
+      'COST',
+      'START DATE',
+      'END DATE',
+      'PLACE',
+      'STATUS',
+      'POOL',
+      'SERIAL',
+      'BRAND',
+      'MODEL',
+      'NOTE',
+      'LICENSE TYPE',
+      'LICENSE NAME',
+      'INSTALLED ON',
+    ]);
+    // NFR-10: escape mọi cell CHUỖI — số/ngày giữ kiểu, không thực thi được
+    const esc = (v: string | null) => (v == null ? '' : escapeCellDisplay(v));
+    for (const r of rows) {
+      sheet.addRow([
+        esc(r.code),
+        esc(r.type),
+        esc(r.assignedUserName ?? r.assignedUserSub),
+        esc(r.configuration),
+        r.cost ?? '',
+        r.startDate ?? '',
+        r.endDate ?? '',
+        esc(r.floor),
+        r.status,
+        r.isPool ? 'x' : '',
+        esc(r.serial),
+        esc(r.brand),
+        esc(r.model),
+        esc(r.note),
+        r.licenseType ?? '',
+        esc(r.licenseName),
+        esc(r.installedOnCode),
+      ]);
+    }
+    // FR-43: kênh exfil phải có vết — ghi TRƯỚC khi trả file (best-effort,
+    // nhất quán quyết định 2.8 download — PO confirm chung)
+    await this.audit.append({
+      actor: actorSub,
+      action: 'assets.export',
+      objectType: 'assets_export',
+      detail: {
+        filters: {
+          search: query.search ?? null,
+          type: query.type ?? null,
+          status: query.status ?? null,
+          floor: query.floor ?? null,
+        },
+        rowCount: rows.length,
+      },
+    });
+    return {
+      buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
+      rowCount: rows.length,
+    };
   }
 
   /** Giá trị distinct cho dropdown lọc (story 2.2) — loại + tầng đang có trong sổ. */

@@ -983,6 +983,64 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     });
   });
 
+  it('export Excel (2.10): đúng dòng theo bộ lọc + escape NFR-10 + audit đủ filters/rowCount', async () => {
+    // ô bắt đầu '=' phải được escape khi export (dữ liệu lưu raw — defer 2.9)
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        code: '=2+5',
+        type: 'monitor',
+        floor: '5',
+        note: '=HYPERLINK("x")',
+      })
+      .expect(201);
+    const res = await request(app.getHttpServer())
+      .get('/api/admin/assets/export?type=monitor&floor=5')
+      .set(asAdmin())
+      .expect(200)
+      .buffer()
+      .parse((r, cb) => {
+        const chunks: Buffer[] = [];
+        r.on('data', (c: Buffer) => chunks.push(c));
+        r.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
+    expect(res.headers['content-disposition']).toContain('attachment');
+    expect(res.headers['content-disposition']).toContain('.xlsx');
+    // parse lại buffer — nội dung là nguồn sự thật
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(res.body as Buffer);
+    const sheet = wb.worksheets[0];
+    const codes: string[] = [];
+    let evilRow: string[] | null = null;
+    sheet.eachRow((row, n) => {
+      if (n === 1) return; // header
+      const values = (row.values as unknown[])
+        .slice(1)
+        .map((v) =>
+          typeof v === 'string' || typeof v === 'number' ? String(v) : '',
+        );
+      codes.push(values[0]);
+      if (values[0] === "'=2+5") evilRow = values;
+    });
+    // đúng các dòng theo bộ lọc type=monitor&floor=5: PAGE-01..05 + máy mới
+    expect(codes).toHaveLength(6);
+    expect(codes).not.toContain('3-AA-CT-0042'); // laptop tầng 3 — ngoài bộ lọc
+    // escape NFR-10: cả code lẫn note
+    expect(evilRow).not.toBeNull();
+    expect(evilRow![13]).toBe(`'=HYPERLINK("x")`);
+    // audit FR-43: ai, bộ lọc gì, bao nhiêu dòng
+    const audit = await pool.query(
+      "SELECT actor, detail FROM audit_log WHERE action = 'assets.export' ORDER BY created_at DESC LIMIT 1",
+    );
+    expect(audit.rows[0].actor).toBe('admin-t');
+    expect(audit.rows[0].detail).toMatchObject({
+      rowCount: 6,
+      filters: { type: 'monitor', floor: '5', search: null, status: null },
+    });
+  });
+
   it('CHECK constraint status: giá trị lạ bị DB từ chối (nền 2.6)', async () => {
     await expect(
       pool.query(

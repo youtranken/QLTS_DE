@@ -62,6 +62,7 @@ export default {
     filterFloor: 'Tầng — tất cả',
     clearFilters: 'Xóa lọc',
     noMatch: 'Không có tài sản nào khớp bộ lọc.',
+    exportExcel: 'Export Excel',
     loadFailed: 'Không tải được danh sách tài sản.',
     saveFailed: 'Lưu không thành công.',
     codeTaken: 'Mã tài sản đã tồn tại — mã phải duy nhất.',

@@ -9,8 +9,10 @@ import {
   Put,
   Query,
   Req,
+  Res,
   UnauthorizedException,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -251,6 +253,33 @@ export class AssetsAdminController {
   @Get('meta')
   filterMeta() {
     return this.assets.filterMeta();
+  }
+
+  /** Export Excel theo bộ lọc (2.10, FR-41) — đứng trước ':id' như 'meta'. */
+  @Get('export')
+  async exportExcel(
+    @Query() query: ListAssetsQueryDto,
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+  ) {
+    const { buffer } = await this.assets.exportExcel(
+      {
+        search: query.search,
+        type: query.type,
+        status: query.status,
+        floor: query.floor,
+      },
+      requireSub(req),
+    );
+    const today = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Length', String(buffer.length));
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="tai-san-${today}.xlsx"`,
+    );
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.end(buffer);
   }
 
   @Get(':id')
