@@ -111,7 +111,22 @@ describe('Module file + kiểm kê trên DB thật (story 2.8)', () => {
     expect(readdirSync(storageDir)).toHaveLength(1);
   });
 
-  it('download: đúng bytes + attachment + octet-stream + audit files.download (AC 2, FR-43)', async () => {
+  it('biên bản vượt trần multer 20MB → 413 (không lọt 500)', async () => {
+    const huge = Buffer.concat([
+      Buffer.from('%PDF-1.7\n'),
+      Buffer.alloc(20 * 1024 * 1024),
+    ]);
+    await request(app.getHttpServer())
+      .post('/api/admin/files')
+      .set(asAdmin())
+      .field('kind', 'document')
+      .attach('file', huge, 'qua-to.pdf')
+      .expect(413);
+    // không để lại file mồ côi
+    expect(readdirSync(storageDir)).toHaveLength(1);
+  });
+
+  it('download: đúng bytes + attachment + octet-stream + nosniff + audit files.download (AC 2, FR-43)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/api/admin/files/${fileId}/download`)
       .set(asAdmin())
@@ -123,6 +138,7 @@ describe('Module file + kiểm kê trên DB thật (story 2.8)', () => {
         r.on('end', () => cb(null, Buffer.concat(chunks)));
       });
     expect(res.headers['content-type']).toContain('application/octet-stream');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['content-disposition']).toContain('attachment');
     expect(res.headers['content-disposition']).toContain(
       encodeURIComponent('bien-ban chụp.png'),

@@ -41,6 +41,15 @@ describe('detectFileType (2.8, NFR-9) — magic-byte, KHÔNG tin đuôi/Content-
     expect(detectFileType(exe, 'virus.png')).toBeNull();
   });
 
+  it('RIFF nhưng KHÔNG phải WEBP (WAVE/AVI đội lốt .webp) → null', () => {
+    const wav = Buffer.concat([
+      Buffer.from('RIFF'),
+      Buffer.alloc(4),
+      Buffer.from('WAVE'),
+    ]);
+    expect(detectFileType(wav, 'x.webp')).toBeNull();
+  });
+
   it('magic đúng nhưng đuôi sai cho xlsx (zip thuần/docx) → null', () => {
     expect(detectFileType(zip, 'archive.zip')).toBeNull();
     expect(detectFileType(zip, 'baocao.docx')).toBeNull();

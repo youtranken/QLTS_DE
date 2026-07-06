@@ -124,6 +124,8 @@ export class FilesController {
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Length', String(meta.sizeBytes));
     res.setHeader('Content-Disposition', contentDisposition(meta.originalName));
+    // belt-and-suspenders chống MIME-sniff (review 2.8) — attachment đã là chốt chính
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     // file mất trên đĩa (row có, đĩa không) → 500 từ stream error, không treo response
     stream.on('error', () => {
       if (!res.headersSent) res.status(500);
