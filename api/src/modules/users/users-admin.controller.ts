@@ -107,7 +107,8 @@ export class UsersAdminController {
         message: 'Chưa đăng nhập.',
       });
     }
-    if (body.canLongTerm === undefined && body.canRecurring === undefined) {
+    // == null bắt cả null lẫn undefined (IsOptional bỏ qua validate cho null)
+    if (body.canLongTerm == null && body.canRecurring == null) {
       throw new BadRequestException({
         code: 'BAD_REQUEST',
         message: 'Phải có ít nhất một cờ quyền (canLongTerm/canRecurring).',

@@ -118,10 +118,12 @@ export class UsersService {
       });
     }
     // NGUYÊN TỬ: đọc role cũ + ghi role mới trong MỘT câu lệnh (khóa hàng) —
-    // 2 SA đổi vai đồng thời không tạo audit `from` sai (TOCTOU, review 1.5)
+    // 2 SA đổi vai đồng thời không tạo audit `from` sai (TOCTOU, review 1.5).
+    // Đổi vai RESET 2 cờ quyền (FR-3 "mặc định TẮT, duyệt trước" — quyền không
+    // "hồi sinh" khi member→admin→member; review 1.6).
     const result = await this.db.execute<{ old_role: string }>(sql`
       UPDATE users AS u
-      SET role = ${role}, updated_at = now()
+      SET role = ${role}, can_long_term = false, can_recurring = false, updated_at = now()
       FROM (SELECT sub, role FROM users WHERE sub = ${targetSub} FOR UPDATE) AS old
       WHERE u.sub = old.sub
       RETURNING old.role AS old_role
@@ -138,11 +140,15 @@ export class UsersService {
       action: 'users.role_change',
       objectType: 'user',
       objectId: targetSub,
-      detail: { from: oldRole, to: role },
+      detail: { from: oldRole, to: role, permissions_reset: true },
     });
   }
 
-  /** 2 cờ quyền per-user (FR-3/FR-8) — Epic 3/4 check server-side qua đây. */
+  /**
+   * 2 cờ quyền per-user (FR-3/FR-8) — Epic 3/4 check server-side qua đây.
+   * CHỈ member có quyền (điều kiện role nằm trong query — một nguồn sự thật,
+   * khớp /api/auth/me; admin/sa/không tồn tại → false/false).
+   */
   async getPermissions(
     sub: string,
   ): Promise<{ canLongTerm: boolean; canRecurring: boolean }> {
@@ -152,7 +158,7 @@ export class UsersService {
         canRecurring: usersTable.canRecurring,
       })
       .from(usersTable)
-      .where(eq(usersTable.sub, sub));
+      .where(sql`${usersTable.sub} = ${sub} AND ${usersTable.role} = 'member'`);
     return rows[0] ?? { canLongTerm: false, canRecurring: false };
   }
 

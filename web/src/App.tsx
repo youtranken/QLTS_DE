@@ -107,10 +107,14 @@ function App() {
             Đăng xuất
           </button>
           {(auth.me.role === 'sa' || auth.me.devMode) && (
-            <>
-              <DirectorySyncPanel csrfToken={auth.me.csrfToken} />
-              <RolesPanel csrfToken={auth.me.csrfToken} mySub={auth.me.sub} />
-            </>
+            <DirectorySyncPanel csrfToken={auth.me.csrfToken} />
+          )}
+          {(auth.me.role === 'sa' || auth.me.role === 'admin' || auth.me.devMode) && (
+            <RolesPanel
+              csrfToken={auth.me.csrfToken}
+              mySub={auth.me.sub}
+              viewerRole={auth.me.role}
+            />
           )}
         </>
       )}
@@ -182,11 +186,21 @@ interface UserRow {
   canRecurring: boolean;
 }
 
-/** Màn Vai trò tạm (story 1.5) — UI đầy đủ thuộc 1.7. */
-function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: string }) {
+/** Màn Vai trò tạm (story 1.5/1.6) — UI đầy đủ thuộc 1.7. Admin thấy toggle quyền; nút đổi vai chỉ SA. */
+function RolesPanel({
+  csrfToken,
+  mySub,
+  viewerRole,
+}: {
+  csrfToken: string | null;
+  mySub: string;
+  viewerRole: string;
+}) {
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<UserRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const canChangeRole = viewerRole === 'sa';
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -225,6 +239,7 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
   const setPermission = useCallback(
     async (sub: string, patch: { canLongTerm?: boolean; canRecurring?: boolean }) => {
       setError(null);
+      setBusy(true);
       try {
         const res = await fetch(
           `/api/admin/users/${encodeURIComponent(sub)}/permissions`,
@@ -245,6 +260,8 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
         }
       } catch {
         setError('Không gọi được máy chủ.');
+      } finally {
+        setBusy(false);
       }
     },
     [csrfToken, load],
@@ -309,6 +326,7 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
                   <input
                     type="checkbox"
                     checked={u.canLongTerm}
+                    disabled={busy}
                     onChange={(e) =>
                       void setPermission(u.sub, { canLongTerm: e.target.checked })
                     }
@@ -320,6 +338,7 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
                   <input
                     type="checkbox"
                     checked={u.canRecurring}
+                    disabled={busy}
                     onChange={(e) =>
                       void setPermission(u.sub, { canRecurring: e.target.checked })
                     }
@@ -327,13 +346,13 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
                 )}
               </td>
               <td style={{ padding: '0.25rem 0.75rem' }}>
-                {/* role 'sa' (từ env): không hiện nút — thao tác bị server cấm */}
-                {u.sub !== mySub && u.role === 'member' && (
+                {/* role 'sa' (từ env): không hiện nút; đổi vai chỉ SA (server cũng chặn) */}
+                {canChangeRole && u.sub !== mySub && u.role === 'member' && (
                   <button type="button" onClick={() => void setRole(u.sub, 'admin')}>
                     Bổ nhiệm Admin
                   </button>
                 )}
-                {u.sub !== mySub && u.role === 'admin' && (
+                {canChangeRole && u.sub !== mySub && u.role === 'admin' && (
                   <button type="button" onClick={() => void setRole(u.sub, 'member')}>
                     Miễn nhiệm
                   </button>

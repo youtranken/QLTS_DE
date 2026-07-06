@@ -74,7 +74,7 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
       actor: 'sa-test',
       object_id: 'sub-m1',
     });
-    expect(audit.rows[0].detail).toEqual({ from: 'member', to: 'admin' });
+    expect(audit.rows[0].detail).toMatchObject({ from: 'member', to: 'admin' });
   });
 
   it('vai mới hiệu lực NGAY với phiên OIDC đang sống — không cần đăng nhập lại (AC 1)', async () => {
@@ -193,6 +193,35 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
     expect(me.body.permissions).toEqual({
       canLongTerm: false,
       canRecurring: false,
+    });
+  });
+
+  it('đổi vai qua API → RESET 2 cờ quyền (không "hồi sinh" khi member→admin→member; review 1.6)', async () => {
+    // m1 đang member + canLongTerm=true (test trước)
+    await request(app.getHttpServer())
+      .put('/api/admin/users/sub-m1/role')
+      .set(asSa())
+      .send({ role: 'admin' })
+      .expect(200);
+    let flags = await pool.query(
+      "SELECT can_long_term, can_recurring FROM users WHERE sub = 'sub-m1'",
+    );
+    expect(flags.rows[0]).toEqual({
+      can_long_term: false,
+      can_recurring: false,
+    });
+    // miễn nhiệm về member → cờ vẫn TẮT (phải gán lại, có audit mới)
+    await request(app.getHttpServer())
+      .put('/api/admin/users/sub-m1/role')
+      .set(asSa())
+      .send({ role: 'member' })
+      .expect(200);
+    flags = await pool.query(
+      "SELECT can_long_term, can_recurring FROM users WHERE sub = 'sub-m1'",
+    );
+    expect(flags.rows[0]).toEqual({
+      can_long_term: false,
+      can_recurring: false,
     });
   });
 
