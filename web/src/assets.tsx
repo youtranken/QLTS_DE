@@ -401,7 +401,7 @@ function AssetForm({
   initial: FormState;
   onDone: (saved: boolean) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [form, setForm] = useState(initial);
   const [userQuery, setUserQuery] = useState('');
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
@@ -759,7 +759,10 @@ function AssetForm({
                 {allocations.map((h) => (
                   <tr key={h.id}>
                     <td style={{ padding: '0.25rem 0.75rem' }}>
-                      {new Date(h.createdAt).toLocaleString()}
+                      {/* theo ngôn ngữ UI đang chọn, không phải locale browser (review 2.3) */}
+                      {new Date(h.createdAt).toLocaleString(
+                        i18n.language === 'en' ? 'en-GB' : 'vi-VN',
+                      )}
                     </td>
                     <td style={{ padding: '0.25rem 0.75rem' }}>
                       {h.fromUserSub

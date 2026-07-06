@@ -165,7 +165,8 @@ function toInput(body: AssetBodyDto): AssetInput {
     serial: body.serial ?? null,
     brand: body.brand ?? null,
     model: body.model ?? null,
-    assignedUserSub: body.assignedUserSub ?? null,
+    // trim + '' → null: nhất quán code/type/floor; '  ' = thu hồi chứ không phải 400 khó hiểu
+    assignedUserSub: body.assignedUserSub?.trim() || null,
   };
 }
 

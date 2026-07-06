@@ -387,6 +387,21 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     });
   });
 
+  it('allocation_history: FK chặn asset ma; UPDATE/DELETE bị trigger DB từ chối (2.3)', async () => {
+    await expect(
+      pool.query(
+        "INSERT INTO allocation_history (asset_id, actor) VALUES (gen_random_uuid(), 'x')",
+      ),
+    ).rejects.toMatchObject({ code: '23503' });
+    // append-only tầng DB (tiền lệ AD-10) — không tin logic app
+    await expect(
+      pool.query("UPDATE allocation_history SET note = 'sua vet'"),
+    ).rejects.toThrow(/append-only/);
+    await expect(pool.query('DELETE FROM allocation_history')).rejects.toThrow(
+      /append-only/,
+    );
+  });
+
   it('FR-31: máy đang cấp phát vẫn bật cờ pool được — tầng DB không chặn (2.3)', async () => {
     await pool.query(
       "UPDATE assets SET assigned_user_sub = 'sub-u1', is_pool = true WHERE code = 'DUP-01'",
