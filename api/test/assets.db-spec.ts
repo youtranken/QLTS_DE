@@ -272,10 +272,20 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     const wildcard = await get('search=%25');
     expect(wildcard.body.total).toBe(0);
 
+    // '_' phải là literal, không phải khớp-1-ký-tự (DUP_0 KHÔNG khớp DUP-0x)
+    const underscore = await get('search=DUP_0');
+    expect(underscore.body.total).toBe(0);
+
     // lọc kết hợp type + floor; count áp CÙNG bộ lọc (không phải tổng bảng)
     const combo = await get('type=monitor&floor=5&pageSize=2');
     expect(combo.body.total).toBe(5);
     expect(combo.body.items).toHaveLength(2);
+
+    // status kết hợp: lọc đúng (PAGE-* default in_use) và loại trừ đúng
+    const withStatus = await get('type=monitor&floor=5&status=in_use');
+    expect(withStatus.body.total).toBe(5);
+    const excluded = await get('type=monitor&floor=5&status=locked_repair');
+    expect(excluded.body.total).toBe(0);
 
     // search + lọc kết hợp
     const searchCombo = await get('search=PAGE&type=monitor');

@@ -86,19 +86,27 @@ export function AssetsPage({ me }: { me: Me }) {
   const hasFilter = search !== '' || type !== '' || status !== '' || floor !== '';
 
   useEffect(() => {
+    const value = searchInput.trim();
+    if (value === search) return; // gõ rồi xóa trong 300ms — không reset trang vô cớ
     const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
+      setSearch(value);
       setPage(1);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, search]);
 
   const loadMeta = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/assets/meta');
       if (!res.ok) return;
       const body = (await res.json()) as { types?: string[]; floors?: string[] };
-      setMeta({ types: body.types ?? [], floors: body.floors ?? [] });
+      const types = body.types ?? [];
+      const floors = body.floors ?? [];
+      setMeta({ types, floors });
+      // filter mồ côi (giá trị vừa biến mất khỏi sổ) → reset, tránh dropdown
+      // trông như "tất cả" nhưng danh sách vẫn bị lọc (review 2.2)
+      setType((v) => (v && !types.includes(v) ? '' : v));
+      setFloor((v) => (v && !floors.includes(v) ? '' : v));
     } catch {
       // dropdown thiếu lựa chọn không chặn màn hình — danh sách vẫn dùng được
     }
@@ -285,7 +293,11 @@ export function AssetsPage({ me }: { me: Me }) {
                   // click dòng → xem chi tiết (AC 1; trang 3 tab là 2.7 — tạm mở form đủ trường)
                   <tr
                     key={a.id}
-                    onClick={() => void openEdit(a.id)}
+                    onClick={() => {
+                      // đang bôi đen copy mã → không phải ý định mở form (review 2.2)
+                      if (window.getSelection()?.toString()) return;
+                      void openEdit(a.id);
+                    }}
                     style={{ cursor: 'pointer' }}
                   >
                     <td style={cell}>{a.code}</td>

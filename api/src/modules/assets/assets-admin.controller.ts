@@ -153,7 +153,8 @@ function toInput(body: AssetBodyDto): AssetInput {
     cost: body.cost ?? null,
     startDate: body.startDate ?? null,
     endDate: body.endDate ?? null,
-    floor: body.floor ?? null,
+    // '' → null: floor rỗng không được thành option "ma" trong meta dropdown (review 2.2)
+    floor: body.floor?.trim() || null,
     note: body.note ?? null,
     serial: body.serial ?? null,
     brand: body.brand ?? null,
