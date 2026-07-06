@@ -14,12 +14,23 @@ export function parseSaSubs(env: EnvLike): Set<string> {
   );
 }
 
+/** Ký tự hợp lệ của một `sub` (uuid hoặc dạng usr_xxx) — bắt lỗi gõ nhầm `;`/khoảng trắng giữa entry. */
+const SUB_PATTERN = /^[A-Za-z0-9._~-]{8,}$/;
+
 /** Boot-time assert (fail-closed): trống/sai định dạng → từ chối khởi động. */
 export function assertSaSubsConfigured(env: EnvLike): void {
-  if (env.SA_SUBS === undefined || parseSaSubs(env).size === 0) {
+  const subs = parseSaSubs(env);
+  if (env.SA_SUBS === undefined || subs.size === 0) {
     throw new Error(
-      'SA_SUBS trống hoặc sai định dạng — phải là danh sách `sub` PMH ID phân cách dấu phẩy. ' +
+      'SA_SUBS trống — phải là danh sách `sub` PMH ID phân cách dấu phẩy. ' +
         'Từ chối khởi động (không có cơ chế nâng SA ngầm).',
+    );
+  }
+  const invalid = [...subs].filter((s) => !SUB_PATTERN.test(s));
+  if (invalid.length > 0) {
+    throw new Error(
+      `SA_SUBS sai định dạng (entry không hợp lệ: ${invalid.join(' | ')}) — ` +
+        'mỗi entry là một `sub` PMH ID, phân cách bằng DẤU PHẨY. Từ chối khởi động.',
     );
   }
 }

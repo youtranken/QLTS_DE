@@ -71,7 +71,8 @@ export class UsersService {
         })
         .from(usersTable)
         .where(where)
-        .orderBy(usersTable.fullName)
+        // tiebreaker `sub`: fullName trùng/null không làm phân trang nuốt/lặp bản ghi
+        .orderBy(usersTable.fullName, usersTable.sub)
         .limit(query.pageSize)
         .offset((query.page - 1) * query.pageSize),
       this.db
@@ -80,7 +81,10 @@ export class UsersService {
         .where(where),
     ]);
     return {
-      items,
+      // Vai HIỆU LỰC: SA-từ-env hiển thị 'sa' (UI không mời gọi thao tác bị cấm)
+      items: items.map((u) =>
+        this.saSubs.has(u.sub) ? { ...u, role: 'sa' } : u,
+      ),
       total: totalRows[0]?.n ?? 0,
       page: query.page,
       pageSize: query.pageSize,
@@ -109,23 +113,28 @@ export class UsersService {
           'Không thể đổi vai của SA (SA chỉ định qua cấu hình hệ thống).',
       });
     }
-    const current = await this.findBySub(targetSub);
-    if (!current) {
+    // NGUYÊN TỬ: đọc role cũ + ghi role mới trong MỘT câu lệnh (khóa hàng) —
+    // 2 SA đổi vai đồng thời không tạo audit `from` sai (TOCTOU, review 1.5)
+    const result = await this.db.execute<{ old_role: string }>(sql`
+      UPDATE users AS u
+      SET role = ${role}, updated_at = now()
+      FROM (SELECT sub, role FROM users WHERE sub = ${targetSub} FOR UPDATE) AS old
+      WHERE u.sub = old.sub
+      RETURNING old.role AS old_role
+    `);
+    const oldRole = result.rows[0]?.old_role;
+    if (oldRole === undefined) {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',
         message: 'Không tìm thấy user này trong hệ thống.',
       });
     }
-    await this.db
-      .update(usersTable)
-      .set({ role, updatedAt: new Date() })
-      .where(eq(usersTable.sub, targetSub));
     await this.audit.append({
       actor: actorSub,
       action: 'users.role_change',
       objectType: 'user',
       objectId: targetSub,
-      detail: { from: current.role, to: role },
+      detail: { from: oldRole, to: role },
     });
   }
 

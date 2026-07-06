@@ -186,29 +186,38 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
   const [rows, setRows] = useState<UserRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/admin/users?search=${encodeURIComponent(search)}&page=1&pageSize=20`,
-      );
-      if (res.status === 401) {
-        window.location.href = '/';
-        return;
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/admin/users?search=${encodeURIComponent(search)}&page=1&pageSize=20`,
+          { signal },
+        );
+        if (res.status === 401) {
+          window.location.href = '/';
+          return;
+        }
+        const body = (await res.json()) as { items?: UserRow[]; message?: string };
+        if (res.ok && Array.isArray(body.items)) {
+          setRows(body.items);
+        } else {
+          setError(body.message ?? 'Không tải được danh sách.');
+        }
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') {
+          setError('Không gọi được máy chủ.');
+        }
       }
-      const body = (await res.json()) as { items?: UserRow[]; message?: string };
-      if (res.ok && Array.isArray(body.items)) {
-        setRows(body.items);
-      } else {
-        setError(body.message ?? 'Không tải được danh sách.');
-      }
-    } catch {
-      setError('Không gọi được máy chủ.');
-    }
-  }, [search]);
+    },
+    [search],
+  );
 
   useEffect(() => {
-    void load();
+    // Abort request cũ khi gõ tiếp — response chậm không ghi đè kết quả mới
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
   }, [load]);
 
   const setRole = useCallback(
@@ -250,6 +259,7 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
         <thead>
           <tr>
             <th style={{ padding: '0.25rem 0.75rem' }}>Tên</th>
+            <th style={{ padding: '0.25rem 0.75rem' }}>Mã NV</th>
             <th style={{ padding: '0.25rem 0.75rem' }}>Email</th>
             <th style={{ padding: '0.25rem 0.75rem' }}>Vai</th>
             <th style={{ padding: '0.25rem 0.75rem' }}></th>
@@ -259,9 +269,11 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
           {rows.map((u) => (
             <tr key={u.sub}>
               <td style={{ padding: '0.25rem 0.75rem' }}>{u.fullName ?? u.sub}</td>
+              <td style={{ padding: '0.25rem 0.75rem' }}>{u.employeeCode}</td>
               <td style={{ padding: '0.25rem 0.75rem' }}>{u.email}</td>
               <td style={{ padding: '0.25rem 0.75rem' }}>{u.role}</td>
               <td style={{ padding: '0.25rem 0.75rem' }}>
+                {/* role 'sa' (từ env): không hiện nút — thao tác bị server cấm */}
                 {u.sub !== mySub && u.role === 'member' && (
                   <button type="button" onClick={() => void setRole(u.sub, 'admin')}>
                     Bổ nhiệm Admin

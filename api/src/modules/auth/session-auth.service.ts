@@ -144,7 +144,9 @@ export class SessionAuthService {
       role = 'sa';
     } else {
       const user = await this.users.findBySub(claims.sub);
-      role = user?.role ?? 'member';
+      // CLAMP: 'sa' KHÔNG BAO GIỜ đến từ bảng users (chỉ từ env — AC 2);
+      // DB cũng có CHECK constraint (0007) — đây là lớp thứ hai
+      role = user?.role === 'admin' ? 'admin' : 'member';
     }
     return {
       sub: claims.sub,

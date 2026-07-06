@@ -10,8 +10,11 @@ describe('SA_SUBS (story 1.5 — SA chỉ từ env, fail-closed)', () => {
     ['', true],
     ['  ', true],
     [',,,', true],
-    ['sub-1', false],
-    ['sub-1,sub-2', false],
+    ['sub-a;sub-b', true], // nhầm ; thành , → 1 entry chứa ; → sai định dạng
+    ['sub a,sub-b12', true], // entry chứa khoảng trắng
+    ['ngắn', true], // entry < 8 ký tự
+    ['0e21b0f0-ae8e-4670-bdf6-dfd7b78092d7', false],
+    ['sub-0001,sub-0002', false],
   ])('SA_SUBS=%p → throw=%p', (value, shouldThrow) => {
     const env = { SA_SUBS: value };
     if (shouldThrow) {
