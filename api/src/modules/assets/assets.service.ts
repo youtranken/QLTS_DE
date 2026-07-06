@@ -827,13 +827,14 @@ export class AssetsService {
         r.startDate ?? '',
         r.endDate ?? '',
         esc(r.floor),
-        r.status,
+        // enum bị CHECK khóa nhưng vẫn esc — "mọi ô chuỗi" không dựa invariant file khác
+        esc(r.status),
         r.isPool ? 'x' : '',
         esc(r.serial),
         esc(r.brand),
         esc(r.model),
         esc(r.note),
-        r.licenseType ?? '',
+        esc(r.licenseType),
         esc(r.licenseName),
         esc(r.installedOnCode),
       ]);
