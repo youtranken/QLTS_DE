@@ -29,7 +29,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     // Đưa DB test về trạng thái chưa-migrate (extension giữ nguyên — CREATE IF NOT EXISTS idempotent)
     await pool.query(
-      'DROP TABLE IF EXISTS allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
+      'DROP TABLE IF EXISTS asset_note, allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
     );
   });
 
@@ -55,6 +55,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0010_allocation_history.sql',
       '0011_allocation_history_append_only.sql',
       '0012_assets_software.sql',
+      '0013_asset_note.sql',
     ]);
   });
 

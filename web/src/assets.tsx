@@ -34,7 +34,8 @@ interface AssetDetail extends AssetRow {
 interface FormState {
   id: string | null; // null = tạo mới
   version: number;
-  status: string; // chỉ hiển thị (AC 1) — đổi trạng thái là nghiệp vụ 2.6
+  status: string; // đổi qua khối Vòng đời (2.6), không qua form
+  isPool: boolean;
   code: string;
   type: string;
   configuration: string;
@@ -60,6 +61,7 @@ const EMPTY_FORM: FormState = {
   id: null,
   version: 1,
   status: 'in_use',
+  isPool: false,
   code: '',
   type: '',
   configuration: '',
@@ -396,6 +398,7 @@ function detailToForm(a: AssetDetail): FormState {
     id: a.id,
     version: a.version,
     status: a.status,
+    isPool: a.isPool,
     code: a.code,
     type: a.type,
     configuration: a.configuration ?? '',
@@ -440,8 +443,12 @@ function AssetForm({
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState(false);
-  // 2.5: đã transfer/gỡ trong phiên form này → Hủy vẫn phải refresh danh sách
+  // 2.5/2.6: đã đổi qua endpoint phụ (transfer/vòng đời) → Hủy vẫn refresh danh sách
   const [transferred, setTransferred] = useState(false);
+  // 2.6: form khóa máy (lý do bắt buộc + ETA tùy chọn)
+  const [showLockForm, setShowLockForm] = useState(false);
+  const [lockReason, setLockReason] = useState('');
+  const [lockEta, setLockEta] = useState('');
   // 2.3: ghi chú cấp phát (chỉ dùng khi đổi người) + lịch sử A→B chỉ đọc
   const [allocationNote, setAllocationNote] = useState('');
   const [allocations, setAllocations] = useState<AllocationRow[]>([]);
@@ -627,6 +634,55 @@ function AssetForm({
       setBusy(false);
     }
   }, [form, allocationNote, me.csrfToken, onDone, t]);
+
+  // 2.6: 4 thao tác vòng đời — chỉ cập nhật version + trường đổi (bài học 2.5)
+  const doLifecycle = useCallback(
+    async (
+      path: string,
+      method: 'POST' | 'PUT',
+      extra: Record<string, unknown>,
+      patch: Partial<FormState>,
+    ) => {
+      if (!form.id) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/admin/assets/${encodeURIComponent(form.id)}/${path}`,
+          {
+            method,
+            headers: {
+              'Content-Type': 'application/json',
+              ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+            },
+            body: JSON.stringify({ ...extra, version: form.version }),
+          },
+        );
+        if (res.ok) {
+          const body = (await res.json()) as { version: number };
+          setTransferred(true);
+          setForm((f) => ({ ...f, ...patch, version: body.version }));
+          setShowLockForm(false);
+          setLockReason('');
+          setLockEta('');
+          if (path === 'dispose') setInstalledSoftware([]); // license đã tự gỡ
+          return;
+        }
+        const body = (await res.json()) as { code?: string; message?: string };
+        if (body.code === 'STALE_VERSION') {
+          setError(t('assets.staleVersion'));
+          setStale(true);
+        } else {
+          setError(body.message ?? t('assets.saveFailed'));
+        }
+      } catch {
+        setError(t('app.serverUnreachable'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [form.id, form.version, me.csrfToken, t],
+  );
 
   // 2.5: chuyển license sang máy khác / gỡ về "chưa gắn máy" — endpoint riêng
   const transfer = useCallback(
@@ -875,6 +931,131 @@ function AssetForm({
             />
           </label>
         </div>
+        {form.id && (
+          // 2.6: vòng đời — 3 thao tác tách bạch, không đi qua nút Lưu
+          <div style={{ marginTop: '0.75rem' }}>
+            <h3 style={{ fontSize: '0.95rem', margin: '0 0 0.25rem' }}>
+              {t('assets.lifecycle')}
+            </h3>
+            {form.status === 'disposed' ? (
+              <p style={{ fontSize: '0.85rem', color: '#555' }}>
+                {t('assets.disposedTerminal')}
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                }}
+              >
+                {!form.isSoftware && form.status === 'in_use' && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setShowLockForm((v) => !v)}
+                  >
+                    {t('assets.lockAction')}
+                  </button>
+                )}
+                {!form.isSoftware && form.status === 'locked_repair' && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void doLifecycle('unlock', 'POST', {}, { status: 'in_use' })
+                    }
+                  >
+                    {t('assets.unlockAction')}
+                  </button>
+                )}
+                {!form.isSoftware && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void doLifecycle(
+                        'pool',
+                        'PUT',
+                        { isPool: !form.isPool },
+                        { isPool: !form.isPool },
+                      )
+                    }
+                  >
+                    {form.isPool ? t('assets.poolOff') : t('assets.poolOn')}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={busy}
+                  style={{ color: '#c0392b' }}
+                  onClick={() => {
+                    if (window.confirm(t('assets.disposeConfirm'))) {
+                      void doLifecycle(
+                        'dispose',
+                        'POST',
+                        {},
+                        {
+                          status: 'disposed',
+                          installedOnAssetId: '',
+                          installedOnCode: '',
+                        },
+                      );
+                    }
+                  }}
+                >
+                  {t('assets.disposeAction')}
+                </button>
+              </div>
+            )}
+            {showLockForm && form.status === 'in_use' && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap',
+                  alignItems: 'flex-end',
+                  marginTop: '0.5rem',
+                }}
+              >
+                <label style={field}>
+                  {t('assets.lockReason')} *
+                  <input
+                    maxLength={500}
+                    value={lockReason}
+                    onChange={(e) => setLockReason(e.target.value)}
+                  />
+                </label>
+                <label style={field}>
+                  {t('assets.lockEta')}
+                  <input
+                    type="date"
+                    value={lockEta}
+                    onChange={(e) => setLockEta(e.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={busy || !lockReason.trim()}
+                  onClick={() =>
+                    void doLifecycle(
+                      'lock',
+                      'POST',
+                      {
+                        reason: lockReason.trim(),
+                        ...(lockEta ? { eta: lockEta } : {}),
+                      },
+                      { status: 'locked_repair' },
+                    )
+                  }
+                >
+                  {t('assets.confirmLock')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ marginTop: '0.75rem', maxWidth: 480 }}>
           <p style={{ margin: '0 0 0.25rem' }}>
             {t('assets.assignee')}:{' '}

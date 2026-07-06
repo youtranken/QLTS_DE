@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
@@ -12,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsISO8601,
@@ -134,6 +136,31 @@ class UpdateAssetDto extends AssetBodyDto {
   allocationNote?: string | null;
 }
 
+class VersionDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  version!: number;
+}
+
+class LockAssetDto extends VersionDto {
+  /** BẮT BUỘC lý do khóa (FR-33). */
+  @trim
+  @IsString()
+  @Length(1, 500)
+  reason!: string;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'eta phải dạng YYYY-MM-DD' })
+  eta?: string | null;
+}
+
+class SetPoolDto extends VersionDto {
+  @IsBoolean()
+  isPool!: boolean;
+}
+
 class TransferLicenseDto {
   /** Bỏ trống = gỡ về "chưa gắn máy" (2.5). */
   @IsOptional()
@@ -241,6 +268,55 @@ export class AssetsAdminController {
   @Get(':id/software')
   listInstalledSoftware(@Param('id', ParseUUIDPipe) id: string) {
     return this.assets.listInstalledSoftware(id);
+  }
+
+  /** Khóa máy sửa chữa (2.6, FR-33) — bắt buộc lý do, ETA tùy chọn. */
+  @Post(':id/lock')
+  @HttpCode(200)
+  lock(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: LockAssetDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.assets.lock(
+      id,
+      body.reason,
+      body.eta ?? null,
+      body.version,
+      requireSub(req),
+    );
+  }
+
+  /** Mở khóa (2.6) — về in_use, pool như trước khi khóa. */
+  @Post(':id/unlock')
+  @HttpCode(200)
+  unlock(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: VersionDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.assets.unlock(id, body.version, requireSub(req));
+  }
+
+  /** Thanh lý (2.6, FR-32/50) — TERMINAL; license tự gỡ. */
+  @Post(':id/dispose')
+  @HttpCode(200)
+  dispose(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: VersionDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.assets.dispose(id, body.version, requireSub(req));
+  }
+
+  /** Bật/gỡ pool (2.6, FR-31/33) — chỉ cờ đổi, status giữ nguyên. */
+  @Put(':id/pool')
+  setPool(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: SetPoolDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.assets.setPool(id, body.isPool, body.version, requireSub(req));
   }
 
   /** Chuyển license giữa máy / gỡ về "chưa gắn máy" (2.5, FR-50). */

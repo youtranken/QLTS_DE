@@ -316,6 +316,86 @@ describe('transferLicense (2.5, FR-50)', () => {
   });
 });
 
+describe('lifecycle (2.6, FR-33/32)', () => {
+  const lockRow = (row: Record<string, unknown> | null) => ({
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          for: () => Promise.resolve(row ? [row] : []),
+        }),
+      }),
+    }),
+  });
+
+  it('lock software → 400 NOT_MACHINE', async () => {
+    const { svc } = makeService(
+      lockRow({
+        type: 'software',
+        status: 'in_use',
+        isPool: false,
+        version: 1,
+      }),
+    );
+    const err = await catchHttp(svc.lock('u1', 'hỏng', null, 1, 'adm'));
+    expect(err.getResponse()).toMatchObject({ code: 'NOT_MACHINE' });
+  });
+
+  it('lock máy đang khóa → 409 INVALID_STATE', async () => {
+    const { svc } = makeService(
+      lockRow({
+        type: 'laptop',
+        status: 'locked_repair',
+        isPool: true,
+        version: 1,
+      }),
+    );
+    const err = await catchHttp(svc.lock('u1', 'hỏng', null, 1, 'adm'));
+    expect(err.getResponse()).toMatchObject({ code: 'INVALID_STATE' });
+  });
+
+  it('version lệch → 409 STALE_VERSION (trước cả guard state)', async () => {
+    const { svc } = makeService(
+      lockRow({ type: 'laptop', status: 'in_use', isPool: false, version: 5 }),
+    );
+    const err = await catchHttp(svc.unlock('u1', 1, 'adm'));
+    expect(err.getResponse()).toMatchObject({ code: 'STALE_VERSION' });
+  });
+
+  it('setPool cùng giá trị → no-op: không audit, version giữ nguyên', async () => {
+    const { svc, audit } = makeService(
+      lockRow({ type: 'laptop', status: 'in_use', isPool: true, version: 3 }),
+    );
+    const res = await svc.setPool('u1', true, 3, 'adm');
+    expect(res).toEqual({ ok: true, version: 3 });
+    expect(audit.appendWithin).not.toHaveBeenCalled();
+  });
+
+  it('dispose máy → detach license + audit dispose kèm danh sách mã', async () => {
+    const tx = {
+      ...lockRow({
+        type: 'laptop',
+        status: 'in_use',
+        isPool: false,
+        version: 2,
+      }),
+      update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
+      insert: () => ({ values: () => Promise.resolve() }),
+      execute: () => Promise.resolve({ rows: [{ code: 'SW-01' }] }),
+    };
+    const { svc, audit } = makeService(tx);
+    const res = await svc.dispose('u1', 2, 'adm');
+    expect(res).toEqual({ ok: true, version: 3 });
+    const actions = audit.appendWithin.mock.calls.map(
+      (c: unknown[]) => (c[1] as { action: string }).action,
+    );
+    expect(actions).toEqual(['assets.license_detach_all', 'assets.dispose']);
+    const disposeDetail = audit.appendWithin.mock.calls[1][1] as {
+      detail: { detached: string[] };
+    };
+    expect(disposeDetail.detail.detached).toEqual(['SW-01']);
+  });
+});
+
 describe('validateSoftwareInput (2.4, FR-38)', () => {
   const sw = { ...baseInput, type: 'software' };
 

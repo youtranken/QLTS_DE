@@ -88,6 +88,18 @@ export default {
     transferToSearch: 'Transfer to machine (search by code)…',
     transferFailed: 'License transfer failed.',
     licenseWarningHint: 'License expiring soon',
+    lifecycle: 'Lifecycle',
+    lockAction: 'Lock (repair)',
+    unlockAction: 'Unlock',
+    disposeAction: 'Dispose',
+    disposeConfirm:
+      'Disposal CANNOT be undone. The asset stays in the list but can no longer be used. Continue?',
+    disposedTerminal: 'Disposed — no further lifecycle actions.',
+    lockReason: 'Lock reason',
+    lockEta: 'Expected done (ETA)',
+    confirmLock: 'Confirm lock',
+    poolOn: 'Add to pool',
+    poolOff: 'Remove from pool',
     installedSoftware: 'Installed software',
     status: {
       in_use: 'In use',

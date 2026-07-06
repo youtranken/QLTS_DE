@@ -173,6 +173,42 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
       .expect(400);
   });
 
+  it('vòng đời (2.6): member 403 cả 4 endpoint; thiếu lý do / eta sai / isPool sai → 400', async () => {
+    for (const [method, path, body] of [
+      ['post', 'lock', { reason: 'x', version: 1 }],
+      ['post', 'unlock', { version: 1 }],
+      ['post', 'dispose', { version: 1 }],
+      ['put', 'pool', { isPool: true, version: 1 }],
+    ] as const) {
+      await request(app.getHttpServer())
+        [method](`/api/admin/assets/${UUID}/${path}`)
+        .set(asMember)
+        .send(body)
+        .expect(403);
+    }
+    // thiếu lý do khóa (bắt buộc FR-33) / lý do toàn khoảng trắng
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${UUID}/lock`)
+      .set(asAdmin)
+      .send({ version: 1 })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${UUID}/lock`)
+      .set(asAdmin)
+      .send({ reason: '   ', version: 1 })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${UUID}/lock`)
+      .set(asAdmin)
+      .send({ reason: 'x', eta: '01/08/2026', version: 1 })
+      .expect(400);
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${UUID}/pool`)
+      .set(asAdmin)
+      .send({ isPool: 'yes', version: 1 })
+      .expect(400);
+  });
+
   it('lọc status ngoài enum → 400; member gọi meta → 403 (story 2.2)', async () => {
     await request(app.getHttpServer())
       .get('/api/admin/assets?status=dang_bay')

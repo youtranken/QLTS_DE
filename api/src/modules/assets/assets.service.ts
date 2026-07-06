@@ -13,6 +13,7 @@ import { AuditWriterService } from '../audit/audit-writer.service';
 import { SystemConfigService } from '../config/system-config.service';
 import { usersTable } from '../users/users.schema';
 import { allocationHistoryTable } from './allocation-history.schema';
+import { assetNoteTable } from './asset-note.schema';
 import { assetsTable } from './assets.schema';
 
 /** Trường Admin nhập được từ form (FR-30). status/is_pool KHÔNG ở đây — nghiệp vụ 2.6. */
@@ -65,6 +66,16 @@ interface PgError {
   code?: string;
   constraint?: string;
 }
+
+/** Row đã FOR UPDATE cho thao tác vòng đời (2.6). */
+interface LifecycleRow {
+  type: string;
+  status: string;
+  isPool: boolean;
+  version: number;
+}
+
+type LifecycleTx = Pick<Database, 'update' | 'insert' | 'execute' | 'select'>;
 
 @Injectable()
 export class AssetsService {
@@ -412,6 +423,215 @@ export class AssetsService {
       });
     }
     return codes;
+  }
+
+  /**
+   * Khóa máy sửa chữa (2.6, FR-33): BẮT BUỘC lý do, ETA tùy chọn — vào asset_note;
+   * cờ pool GIỮ NGUYÊN. Chỉ từ in_use.
+   */
+  async lock(
+    id: string,
+    reason: string,
+    eta: string | null,
+    version: number,
+    actorSub: string,
+  ) {
+    return this.lifecycle(id, version, actorSub, {
+      action: 'assets.lock',
+      guard: (row) => {
+        if (row.type === 'software') return 'NOT_MACHINE';
+        if (row.status !== 'in_use') return 'INVALID_STATE';
+        return null;
+      },
+      apply: async (tx, row) => {
+        await tx
+          .update(assetsTable)
+          .set({
+            status: 'locked_repair',
+            version: row.version + 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(assetsTable.id, id));
+        await tx.insert(assetNoteTable).values({
+          assetId: id,
+          kind: 'lock',
+          note: reason,
+          eta,
+          actor: actorSub,
+        });
+        // TODO(3.10): orchestrator trong Tickets hủy booking tương lai của máy khóa
+        return { reason, eta };
+      },
+    });
+  }
+
+  /** Mở khóa (2.6): locked_repair → in_use; pool tự "như trước" vì không bao giờ bị đụng. */
+  async unlock(id: string, version: number, actorSub: string) {
+    return this.lifecycle(id, version, actorSub, {
+      action: 'assets.unlock',
+      guard: (row) => {
+        if (row.type === 'software') return 'NOT_MACHINE';
+        if (row.status !== 'locked_repair') return 'INVALID_STATE';
+        return null;
+      },
+      apply: async (tx, row) => {
+        await tx
+          .update(assetsTable)
+          .set({
+            status: 'in_use',
+            version: row.version + 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(assetsTable.id, id));
+        await tx.insert(assetNoteTable).values({
+          assetId: id,
+          kind: 'unlock',
+          note: null,
+          eta: null,
+          actor: actorSub,
+        });
+        return {};
+      },
+    });
+  }
+
+  /**
+   * Thanh lý (2.6, FR-32/50): TERMINAL. Máy → detachAllFrom (hợp đồng 2.5:
+   * row máy đã FOR UPDATE trước); software → tự gỡ khỏi máy đang gắn.
+   */
+  async dispose(id: string, version: number, actorSub: string) {
+    return this.lifecycle(id, version, actorSub, {
+      action: 'assets.dispose',
+      guard: (row) => (row.status === 'disposed' ? 'INVALID_STATE' : null),
+      apply: async (tx, row) => {
+        await tx
+          .update(assetsTable)
+          .set({
+            status: 'disposed',
+            version: row.version + 1,
+            updatedAt: new Date(),
+            // software thanh lý không được tiếp tục "cài" trên máy nào
+            ...(row.type === 'software' ? { installedOnAssetId: null } : {}),
+          })
+          .where(eq(assetsTable.id, id));
+        let detached: string[] = [];
+        if (row.type !== 'software') {
+          detached = await this.detachAllFrom(tx, id, actorSub);
+        }
+        await tx.insert(assetNoteTable).values({
+          assetId: id,
+          kind: 'dispose',
+          note: null,
+          eta: null,
+          actor: actorSub,
+        });
+        // TODO(3.10): orchestrator trong Tickets hủy booking tương lai của máy thanh lý
+        return { detached };
+      },
+    });
+  }
+
+  /** Bật/gỡ pool (2.6, FR-31/33): CHỈ cờ đổi, status giữ nguyên; software/disposed chặn. */
+  async setPool(
+    id: string,
+    isPool: boolean,
+    version: number,
+    actorSub: string,
+  ) {
+    return this.lifecycle(id, version, actorSub, {
+      action: 'assets.pool_change',
+      guard: (row) => {
+        if (row.type === 'software') return 'NOT_MACHINE';
+        if (row.status === 'disposed') return 'INVALID_STATE';
+        return null;
+      },
+      apply: async (tx, row) => {
+        if (row.isPool === isPool) {
+          // idempotent — không bump version, không audit nhiễu
+          return null;
+        }
+        await tx
+          .update(assetsTable)
+          .set({ isPool, version: row.version + 1, updatedAt: new Date() })
+          .where(eq(assetsTable.id, id));
+        return { from: row.isPool, to: isPool };
+      },
+    });
+  }
+
+  /**
+   * Khung chung 4 thao tác vòng đời (2.6): tx + FOR UPDATE row TRƯỚC (hợp đồng
+   * 2.5), guard type/state (409/400), optimistic lock (409), audit; apply trả
+   * detail audit (null = no-op, không audit/bump).
+   */
+  private async lifecycle(
+    id: string,
+    version: number,
+    actorSub: string,
+    spec: {
+      action: string;
+      guard: (row: LifecycleRow) => 'NOT_MACHINE' | 'INVALID_STATE' | null;
+      apply: (
+        tx: LifecycleTx,
+        row: LifecycleRow,
+      ) => Promise<Record<string, unknown> | null>;
+    },
+  ) {
+    try {
+      return await this.db.transaction(async (tx) => {
+        const rows = await tx
+          .select({
+            type: assetsTable.type,
+            status: assetsTable.status,
+            isPool: assetsTable.isPool,
+            version: assetsTable.version,
+          })
+          .from(assetsTable)
+          .where(eq(assetsTable.id, id))
+          .for('update');
+        const row = rows[0];
+        if (!row) {
+          throw new NotFoundException({
+            code: 'ASSET_NOT_FOUND',
+            message: 'Không tìm thấy tài sản này.',
+          });
+        }
+        if (row.version !== version) {
+          throw new ConflictException({
+            code: 'STALE_VERSION',
+            message: 'Trạng thái đã thay đổi, tải lại.',
+          });
+        }
+        const violation = spec.guard(row);
+        if (violation === 'NOT_MACHINE') {
+          throw new BadRequestException({
+            code: 'NOT_MACHINE',
+            message:
+              'Thao tác này chỉ áp dụng cho máy, không áp dụng phần mềm.',
+          });
+        }
+        if (violation === 'INVALID_STATE') {
+          throw new ConflictException({
+            code: 'INVALID_STATE',
+            message: `Trạng thái hiện tại (${row.status}) không cho phép thao tác này.`,
+          });
+        }
+        const detail = await spec.apply(tx, row);
+        if (detail === null) {
+          return { ok: true, version: row.version };
+        }
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: spec.action,
+          objectType: 'asset',
+          objectId: id,
+          detail: { from_status: row.status, ...detail },
+        });
+        return { ok: true, version: row.version + 1 };
+      });
+    } catch (error) {
+      throw this.mapPgError(error);
+    }
   }
 
   /** Máy đích để cài software (2.4): tồn tại, KHÔNG phải software, KHÔNG thanh lý. */

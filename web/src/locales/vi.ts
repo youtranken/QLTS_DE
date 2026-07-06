@@ -88,6 +88,18 @@ export default {
     transferToSearch: 'Chuyển sang máy (tìm theo mã)…',
     transferFailed: 'Chuyển license thất bại.',
     licenseWarningHint: 'License sắp hết hạn',
+    lifecycle: 'Vòng đời',
+    lockAction: 'Khóa máy (sửa chữa)',
+    unlockAction: 'Mở khóa',
+    disposeAction: 'Thanh lý',
+    disposeConfirm:
+      'Thanh lý là thao tác KHÔNG khôi phục được. Máy vẫn hiện trong danh sách nhưng không dùng được nữa. Tiếp tục?',
+    disposedTerminal: 'Đã thanh lý — không còn thao tác vòng đời nào.',
+    lockReason: 'Lý do khóa',
+    lockEta: 'Dự kiến xong (ETA)',
+    confirmLock: 'Xác nhận khóa',
+    poolOn: 'Đưa vào pool',
+    poolOff: 'Gỡ khỏi pool',
     installedSoftware: 'Software đã cài',
     status: {
       in_use: 'Đang dùng',

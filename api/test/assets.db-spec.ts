@@ -32,7 +32,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     process.env.AUTH_DEV_MODE = 'true';
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query(
-      'DROP TABLE IF EXISTS allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
+      'DROP TABLE IF EXISTS asset_note, allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
     );
     await runMigrations(pool, join(__dirname, '..', 'src', 'migrations'), {
       log: () => undefined,
@@ -718,6 +718,199 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       'SW-FAR',
       'SW-RED',
     ]);
+  });
+
+  it('vòng đời (2.6): pool → khóa (note+ETA, pool GIỮ) → mở khóa (pool như trước) + guards', async () => {
+    const may = (
+      await pool.query("SELECT id FROM assets WHERE code = 'PAGE-02'")
+    ).rows[0].id as string;
+
+    // bật pool (version 1 → 2), status không đổi
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${may}/pool`)
+      .set(asAdmin())
+      .send({ isPool: true, version: 1 })
+      .expect(200);
+    let row = await pool.query(
+      'SELECT status, is_pool, version FROM assets WHERE id = $1',
+      [may],
+    );
+    expect(row.rows[0]).toEqual({
+      status: 'in_use',
+      is_pool: true,
+      version: 2,
+    });
+
+    // khóa: BẮT BUỘC lý do + ETA vào asset_note; pool GIỮ NGUYÊN
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${may}/lock`)
+      .set(asAdmin())
+      .send({ reason: 'Hỏng màn hình', eta: '2026-08-01', version: 2 })
+      .expect(200);
+    row = await pool.query(
+      'SELECT status, is_pool, version FROM assets WHERE id = $1',
+      [may],
+    );
+    expect(row.rows[0]).toEqual({
+      status: 'locked_repair',
+      is_pool: true,
+      version: 3,
+    });
+    const note = await pool.query(
+      "SELECT kind, note, eta::text AS eta, actor FROM asset_note WHERE asset_id = $1 AND kind = 'lock'",
+      [may],
+    );
+    expect(note.rows[0]).toEqual({
+      kind: 'lock',
+      note: 'Hỏng màn hình',
+      eta: '2026-08-01',
+      actor: 'admin-t',
+    });
+    const auditLock = await pool.query(
+      "SELECT detail FROM audit_log WHERE action = 'assets.lock'",
+    );
+    expect(auditLock.rows[0].detail).toMatchObject({
+      reason: 'Hỏng màn hình',
+      from_status: 'in_use',
+    });
+
+    // khóa máy đã khóa → 409 INVALID_STATE; version cũ → 409 STALE
+    const relock = await request(app.getHttpServer())
+      .post(`/api/admin/assets/${may}/lock`)
+      .set(asAdmin())
+      .send({ reason: 'x', version: 3 })
+      .expect(409);
+    expect(relock.body.code).toBe('INVALID_STATE');
+    const staleUnlock = await request(app.getHttpServer())
+      .post(`/api/admin/assets/${may}/unlock`)
+      .set(asAdmin())
+      .send({ version: 1 })
+      .expect(409);
+    expect(staleUnlock.body.code).toBe('STALE_VERSION');
+
+    // mở khóa → in_use, pool NHƯ TRƯỚC khi khóa (vẫn true)
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${may}/unlock`)
+      .set(asAdmin())
+      .send({ version: 3 })
+      .expect(200);
+    row = await pool.query('SELECT status, is_pool FROM assets WHERE id = $1', [
+      may,
+    ]);
+    expect(row.rows[0]).toEqual({ status: 'in_use', is_pool: true });
+    const unlockNote = await pool.query(
+      "SELECT count(*)::int AS n FROM asset_note WHERE asset_id = $1 AND kind = 'unlock'",
+      [may],
+    );
+    expect(unlockNote.rows[0].n).toBe(1);
+
+    // pool cho software → 400; lock software → 400
+    const sw = (
+      await pool.query("SELECT id, version FROM assets WHERE code = 'SW-01'")
+    ).rows[0];
+    const poolSw = await request(app.getHttpServer())
+      .put(`/api/admin/assets/${sw.id}/pool`)
+      .set(asAdmin())
+      .send({ isPool: true, version: sw.version })
+      .expect(400);
+    expect(poolSw.body.code).toBe('NOT_MACHINE');
+  });
+
+  it('thanh lý (2.6): cascade license hết đỏ end-to-end, TERMINAL, vẫn trong danh sách', async () => {
+    // máy mới + license term sắp hết hạn gắn vào → đỏ
+    const may = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'M-DISP', type: 'desktop' })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        code: 'SW-DISP',
+        type: 'software',
+        licenseType: 'term',
+        endDate: '2026-07-10',
+        installedOnAssetId: may.body.id,
+      })
+      .expect(201);
+    const red = await request(app.getHttpServer())
+      .get('/api/admin/assets?search=SW-DISP')
+      .set(asAdmin())
+      .expect(200);
+    expect(red.body.items[0].licenseWarning).toBe(true);
+
+    // thanh lý máy → license TỰ GỠ → hết đỏ NGAY; note + audit đủ
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${may.body.id}/dispose`)
+      .set(asAdmin())
+      .send({ version: 1 })
+      .expect(200);
+    const after = await request(app.getHttpServer())
+      .get('/api/admin/assets?search=SW-DISP')
+      .set(asAdmin())
+      .expect(200);
+    expect(after.body.items[0].licenseWarning).toBe(false);
+    const detached = await pool.query(
+      "SELECT installed_on_asset_id FROM assets WHERE code = 'SW-DISP'",
+    );
+    expect(detached.rows[0].installed_on_asset_id).toBeNull();
+    const auditDispose = await pool.query(
+      "SELECT detail FROM audit_log WHERE action = 'assets.dispose' ORDER BY created_at DESC LIMIT 1",
+    );
+    expect(auditDispose.rows[0].detail).toMatchObject({
+      detached: ['SW-DISP'],
+    });
+
+    // KHÔNG ẩn khỏi danh sách — lọc status=disposed thấy M-DISP
+    const disposedList = await request(app.getHttpServer())
+      .get('/api/admin/assets?status=disposed&pageSize=50')
+      .set(asAdmin())
+      .expect(200);
+    expect(
+      (disposedList.body.items as Array<{ code: string }>).map((a) => a.code),
+    ).toContain('M-DISP');
+
+    // TERMINAL: dispose/lock/pool trên máy đã thanh lý → 409
+    for (const [method, path, body] of [
+      ['post', 'dispose', { version: 2 }],
+      ['post', 'lock', { reason: 'x', version: 2 }],
+      ['put', 'pool', { isPool: true, version: 2 }],
+    ] as const) {
+      const res = await request(app.getHttpServer())
+        [method](`/api/admin/assets/${may.body.id}/${path}`)
+        .set(asAdmin())
+        .send(body)
+        .expect(409);
+      expect(res.body.code).toBe('INVALID_STATE');
+    }
+
+    // thanh lý SOFTWARE đang gắn máy → tự gỡ + disposed
+    const sw2 = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        code: 'SW-DISP2',
+        type: 'software',
+        licenseType: 'perpetual',
+        licenseName: 'X',
+        installedOnAssetId: (
+          await pool.query("SELECT id FROM assets WHERE code = 'PAGE-03'")
+        ).rows[0].id,
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${sw2.body.id}/dispose`)
+      .set(asAdmin())
+      .send({ version: 1 })
+      .expect(200);
+    const sw2After = await pool.query(
+      "SELECT status, installed_on_asset_id FROM assets WHERE code = 'SW-DISP2'",
+    );
+    expect(sw2After.rows[0]).toEqual({
+      status: 'disposed',
+      installed_on_asset_id: null,
+    });
   });
 
   it('CHECK constraint status: giá trị lạ bị DB từ chối (nền 2.6)', async () => {
