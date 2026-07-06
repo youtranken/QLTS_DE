@@ -56,6 +56,33 @@ describe('Vai trò — phân quyền (story 1.5)', () => {
     expect(res.body.code).toBe('BAD_REQUEST');
   });
 
+  it('member gọi API gán quyền → 403 (1.6, AC 4)', async () => {
+    await request(app.getHttpServer())
+      .put('/api/admin/users/ai-do/permissions')
+      .set('x-dev-user-sub', 'member-1')
+      .set('x-dev-role', 'member')
+      .send({ canLongTerm: true })
+      .expect(403);
+  });
+
+  it('gán quyền body rỗng (không cờ nào) → 400 (1.6)', async () => {
+    await request(app.getHttpServer())
+      .put('/api/admin/users/ai-do/permissions')
+      .set('x-dev-user-sub', 'admin-1')
+      .set('x-dev-role', 'admin')
+      .send({})
+      .expect(400);
+  });
+
+  it('gán quyền giá trị không phải boolean → 400 (1.6)', async () => {
+    await request(app.getHttpServer())
+      .put('/api/admin/users/ai-do/permissions')
+      .set('x-dev-user-sub', 'admin-1')
+      .set('x-dev-role', 'admin')
+      .send({ canLongTerm: 'yes' })
+      .expect(400);
+  });
+
   it('SA tự đổi vai chính mình → 403 SELF_ROLE_CHANGE', async () => {
     const res = await request(app.getHttpServer())
       .put('/api/admin/users/sa-1/role')

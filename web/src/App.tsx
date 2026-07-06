@@ -178,6 +178,8 @@ interface UserRow {
   fullName: string | null;
   role: string;
   status: string;
+  canLongTerm: boolean;
+  canRecurring: boolean;
 }
 
 /** Màn Vai trò tạm (story 1.5) — UI đầy đủ thuộc 1.7. */
@@ -219,6 +221,34 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
+
+  const setPermission = useCallback(
+    async (sub: string, patch: { canLongTerm?: boolean; canRecurring?: boolean }) => {
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/admin/users/${encodeURIComponent(sub)}/permissions`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+            },
+            body: JSON.stringify(patch),
+          },
+        );
+        if (res.ok) {
+          await load();
+        } else {
+          const body = (await res.json()) as { message?: string };
+          setError(body.message ?? 'Đổi quyền thất bại.');
+        }
+      } catch {
+        setError('Không gọi được máy chủ.');
+      }
+    },
+    [csrfToken, load],
+  );
 
   const setRole = useCallback(
     async (sub: string, role: 'admin' | 'member') => {
@@ -262,6 +292,8 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
             <th style={{ padding: '0.25rem 0.75rem' }}>Mã NV</th>
             <th style={{ padding: '0.25rem 0.75rem' }}>Email</th>
             <th style={{ padding: '0.25rem 0.75rem' }}>Vai</th>
+            <th style={{ padding: '0.25rem 0.75rem' }}>Dài hạn</th>
+            <th style={{ padding: '0.25rem 0.75rem' }}>Định kỳ</th>
             <th style={{ padding: '0.25rem 0.75rem' }}></th>
           </tr>
         </thead>
@@ -272,6 +304,28 @@ function RolesPanel({ csrfToken, mySub }: { csrfToken: string | null; mySub: str
               <td style={{ padding: '0.25rem 0.75rem' }}>{u.employeeCode}</td>
               <td style={{ padding: '0.25rem 0.75rem' }}>{u.email}</td>
               <td style={{ padding: '0.25rem 0.75rem' }}>{u.role}</td>
+              <td style={{ padding: '0.25rem 0.75rem' }}>
+                {u.role === 'member' && (
+                  <input
+                    type="checkbox"
+                    checked={u.canLongTerm}
+                    onChange={(e) =>
+                      void setPermission(u.sub, { canLongTerm: e.target.checked })
+                    }
+                  />
+                )}
+              </td>
+              <td style={{ padding: '0.25rem 0.75rem' }}>
+                {u.role === 'member' && (
+                  <input
+                    type="checkbox"
+                    checked={u.canRecurring}
+                    onChange={(e) =>
+                      void setPermission(u.sub, { canRecurring: e.target.checked })
+                    }
+                  />
+                )}
+              </td>
               <td style={{ padding: '0.25rem 0.75rem' }}>
                 {/* role 'sa' (từ env): không hiện nút — thao tác bị server cấm */}
                 {u.sub !== mySub && u.role === 'member' && (

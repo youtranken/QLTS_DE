@@ -147,6 +147,7 @@ export class AuthController {
     role: string;
     devMode: boolean;
     csrfToken: string | null;
+    permissions: { canLongTerm: boolean; canRecurring: boolean };
   }> {
     return this.buildMe(req);
   }
@@ -165,6 +166,11 @@ export class AuthController {
       const session = await this.sessions.find(user.sessionId);
       csrfToken = session?.csrfToken ?? null;
     }
+    // 2 cờ quyền (1.6, FR-8): chỉ member có; admin/sa luôn false (không đi luồng mượn)
+    const permissions =
+      user.role === 'member'
+        ? await this.users.getPermissions(user.sub)
+        : { canLongTerm: false, canRecurring: false };
     return {
       sub: user.sub,
       fullName: user.fullName,
@@ -172,6 +178,7 @@ export class AuthController {
       role: user.role,
       devMode: user.devMode,
       csrfToken,
+      permissions,
     };
   }
 

@@ -34,6 +34,8 @@ export interface UserListItem {
   fullName: string | null;
   status: string;
   role: string;
+  canLongTerm: boolean;
+  canRecurring: boolean;
 }
 
 @Injectable()
@@ -68,6 +70,8 @@ export class UsersService {
           fullName: usersTable.fullName,
           status: usersTable.status,
           role: usersTable.role,
+          canLongTerm: usersTable.canLongTerm,
+          canRecurring: usersTable.canRecurring,
         })
         .from(usersTable)
         .where(where)
@@ -135,6 +139,85 @@ export class UsersService {
       objectType: 'user',
       objectId: targetSub,
       detail: { from: oldRole, to: role },
+    });
+  }
+
+  /** 2 cờ quyền per-user (FR-3/FR-8) — Epic 3/4 check server-side qua đây. */
+  async getPermissions(
+    sub: string,
+  ): Promise<{ canLongTerm: boolean; canRecurring: boolean }> {
+    const rows = await this.db
+      .select({
+        canLongTerm: usersTable.canLongTerm,
+        canRecurring: usersTable.canRecurring,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.sub, sub));
+    return rows[0] ?? { canLongTerm: false, canRecurring: false };
+  }
+
+  /**
+   * Gán/thu hồi 2 quyền (1.6, SA/Admin). Chỉ MEMBER có quyền này —
+   * target admin/SA-env → 403 (Admin/SA không đi luồng mượn, mục 3 PRD).
+   */
+  async updatePermissions(
+    targetSub: string,
+    patch: { canLongTerm?: boolean; canRecurring?: boolean },
+    actorSub: string,
+  ): Promise<void> {
+    if (this.saSubs.has(targetSub)) {
+      throw new ForbiddenException({
+        code: 'PERMISSIONS_MEMBER_ONLY',
+        message:
+          'Chỉ member mới có quyền mượn dài hạn/định kỳ — SA không đi luồng mượn.',
+      });
+    }
+    // Nguyên tử: đọc giá trị cũ + role + ghi mới trong MỘT câu lệnh (bài học 1.5).
+    // Điều kiện role='member' nằm ngay trong UPDATE — không có khe TOCTOU đổi vai.
+    const result = await this.db.execute<{
+      old_long: boolean;
+      old_rec: boolean;
+      role: string;
+    }>(sql`
+      UPDATE users AS u
+      SET can_long_term = COALESCE(${patch.canLongTerm ?? null}, u.can_long_term),
+          can_recurring = COALESCE(${patch.canRecurring ?? null}, u.can_recurring),
+          updated_at = now()
+      FROM (SELECT sub, role, can_long_term, can_recurring FROM users WHERE sub = ${targetSub} FOR UPDATE) AS old
+      WHERE u.sub = old.sub AND old.role = 'member'
+      RETURNING old.can_long_term AS old_long, old.can_recurring AS old_rec, old.role AS role
+    `);
+    if (result.rows.length === 0) {
+      // Phân biệt 404 vs 403 (target tồn tại nhưng không phải member)
+      const target = await this.findBySub(targetSub);
+      if (!target) {
+        throw new NotFoundException({
+          code: 'USER_NOT_FOUND',
+          message: 'Không tìm thấy user này trong hệ thống.',
+        });
+      }
+      throw new ForbiddenException({
+        code: 'PERMISSIONS_MEMBER_ONLY',
+        message:
+          'Chỉ member mới có quyền mượn dài hạn/định kỳ — Admin/SA không đi luồng mượn.',
+      });
+    }
+    const old = result.rows[0];
+    await this.audit.append({
+      actor: actorSub,
+      action: 'users.permissions_change',
+      objectType: 'user',
+      objectId: targetSub,
+      detail: {
+        canLongTerm: {
+          from: old.old_long,
+          to: patch.canLongTerm ?? old.old_long,
+        },
+        canRecurring: {
+          from: old.old_rec,
+          to: patch.canRecurring ?? old.old_rec,
+        },
+      },
     });
   }
 

@@ -8,7 +8,9 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -48,6 +50,16 @@ class UpdateRoleDto {
   role!: 'admin' | 'member';
 }
 
+class UpdatePermissionsDto {
+  @IsOptional()
+  @IsBoolean()
+  canLongTerm?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  canRecurring?: boolean;
+}
+
 @Controller('admin/users')
 export class UsersAdminController {
   constructor(private readonly users: UsersService) {}
@@ -78,6 +90,34 @@ export class UsersAdminController {
       });
     }
     await this.users.updateRole(sub, body.role, req.user.sub);
+    return { ok: true };
+  }
+
+  /** Gán/thu hồi 2 quyền per-user (1.6) — SA và Admin (class @Roles bị override). */
+  @Put(':sub/permissions')
+  @Roles('sa', 'admin')
+  async updatePermissions(
+    @Param('sub') sub: string,
+    @Body() body: UpdatePermissionsDto,
+    @Req() req: AuthedRequest,
+  ): Promise<{ ok: boolean }> {
+    if (!req.user) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Chưa đăng nhập.',
+      });
+    }
+    if (body.canLongTerm === undefined && body.canRecurring === undefined) {
+      throw new BadRequestException({
+        code: 'BAD_REQUEST',
+        message: 'Phải có ít nhất một cờ quyền (canLongTerm/canRecurring).',
+      });
+    }
+    await this.users.updatePermissions(
+      sub,
+      { canLongTerm: body.canLongTerm, canRecurring: body.canRecurring },
+      req.user.sub,
+    );
     return { ok: true };
   }
 }

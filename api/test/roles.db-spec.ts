@@ -124,6 +124,78 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
     expect(res.body.code).toBe('USER_NOT_FOUND');
   });
 
+  it('quyền per-user (1.6): default TẮT; admin gán/thu hồi cho member + audit from→to', async () => {
+    const asAdmin = { 'x-dev-user-sub': 'admin-t', 'x-dev-role': 'admin' };
+    // default false
+    const before = await pool.query(
+      "SELECT can_long_term, can_recurring FROM users WHERE sub = 'sub-m1'",
+    );
+    expect(before.rows[0]).toEqual({
+      can_long_term: false,
+      can_recurring: false,
+    });
+    // gán dài hạn
+    await request(app.getHttpServer())
+      .put('/api/admin/users/sub-m1/permissions')
+      .set(asAdmin)
+      .send({ canLongTerm: true })
+      .expect(200);
+    const after = await pool.query(
+      "SELECT can_long_term, can_recurring FROM users WHERE sub = 'sub-m1'",
+    );
+    expect(after.rows[0]).toEqual({
+      can_long_term: true,
+      can_recurring: false,
+    });
+    const audit = await pool.query(
+      "SELECT actor, detail FROM audit_log WHERE action = 'users.permissions_change' ORDER BY created_at DESC LIMIT 1",
+    );
+    expect(audit.rows[0].actor).toBe('admin-t');
+    expect(audit.rows[0].detail).toMatchObject({
+      canLongTerm: { from: false, to: true },
+    });
+  });
+
+  it('quyền per-user (1.6): /api/auth/me trả cờ đúng cho member qua phiên OIDC', async () => {
+    const sid = await fakeSession('sub-m1');
+    const res = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', `qlts_sid=${sid}`)
+      .expect(200);
+    expect(res.body.permissions).toEqual({
+      canLongTerm: true,
+      canRecurring: false,
+    });
+  });
+
+  it('quyền per-user (1.6): target admin → 403 PERMISSIONS_MEMBER_ONLY; SA-env → 403; identity sa → permissions false', async () => {
+    // nâng m1 lên admin để test target admin (rồi hạ lại)
+    await pool.query("UPDATE users SET role = 'admin' WHERE sub = 'sub-m1'");
+    const res = await request(app.getHttpServer())
+      .put('/api/admin/users/sub-m1/permissions')
+      .set(asSa())
+      .send({ canRecurring: true })
+      .expect(403);
+    expect(res.body.code).toBe('PERMISSIONS_MEMBER_ONLY');
+    await pool.query("UPDATE users SET role = 'member' WHERE sub = 'sub-m1'");
+
+    await request(app.getHttpServer())
+      .put(`/api/admin/users/${SA_ENV_SUB}/permissions`)
+      .set(asSa())
+      .send({ canLongTerm: true })
+      .expect(403);
+
+    const sidSa = await fakeSession(SA_ENV_SUB);
+    const me = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', `qlts_sid=${sidSa}`)
+      .expect(200);
+    expect(me.body.permissions).toEqual({
+      canLongTerm: false,
+      canRecurring: false,
+    });
+  });
+
   it('list: tìm theo tên/email + phân trang server-side (AC 3)', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/admin/users?search=Member&page=1&pageSize=10')
