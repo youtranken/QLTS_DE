@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { SweepService } from '../queue/sweep.service';
 import { ExtensionService } from './extension.service';
+import { RecurringService } from './recurring.service';
 import { TicketsService } from './tickets.service';
 
 /**
@@ -14,6 +15,7 @@ export class TicketsSweepRegistrar implements OnModuleInit {
     private readonly sweep: SweepService,
     private readonly tickets: TicketsService,
     private readonly extension: ExtensionService,
+    private readonly recurring: RecurringService,
   ) {}
 
   onModuleInit(): void {
@@ -47,6 +49,13 @@ export class TicketsSweepRegistrar implements OnModuleInit {
       name: 'expire-extension',
       run: async () => {
         await this.extension.expireStaleExtensions();
+      },
+    });
+    // 4.4: chuỗi định kỳ chờ duyệt hết hạn khi buổi đầu trôi qua (all-or-nothing)
+    this.sweep.register({
+      name: 'expire-recurring',
+      run: async () => {
+        await this.recurring.expireStalePendingRecurring();
       },
     });
   }

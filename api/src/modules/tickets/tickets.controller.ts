@@ -11,11 +11,22 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsISO8601, IsInt, IsUUID, Matches, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsISO8601,
+  IsInt,
+  IsUUID,
+  Matches,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import type { Response } from 'express';
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ExtensionService } from './extension.service';
+import { RecurringService } from './recurring.service';
 import { TicketsService } from './tickets.service';
 
 /** Offset bắt buộc (party phiên 7) — như availability 3.1b. */
@@ -32,6 +43,28 @@ class SubmitBookingDto {
   @IsISO8601({ strict: true })
   @Matches(HAS_OFFSET, { message: 'to phải là ISO-8601 có offset' })
   to!: string;
+}
+
+class RecurringSessionDto {
+  @IsISO8601({ strict: true })
+  @Matches(HAS_OFFSET, { message: 'from phải là ISO-8601 có offset' })
+  from!: string;
+
+  @IsISO8601({ strict: true })
+  @Matches(HAS_OFFSET, { message: 'to phải là ISO-8601 có offset' })
+  to!: string;
+}
+
+class RecurringDto {
+  @IsUUID()
+  assetId!: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => RecurringSessionDto)
+  sessions!: RecurringSessionDto[];
 }
 
 class CancelTicketDto {
@@ -64,12 +97,24 @@ export class TicketsController {
   constructor(
     private readonly tickets: TicketsService,
     private readonly extension: ExtensionService,
+    private readonly recurring: RecurringService,
   ) {}
 
   @Post()
   submit(@Body() body: SubmitBookingDto, @Req() req: AuthedRequest) {
     return this.tickets.submitOwnBooking(
       { assetId: body.assetId, from: body.from, to: body.to },
+      requireSub(req),
+    );
+  }
+
+  /** Đặt chuỗi định kỳ (4.4) — 1 máy, N buổi, all-or-nothing. */
+  @Post('recurring')
+  @HttpCode(201)
+  recurringSubmit(@Body() body: RecurringDto, @Req() req: AuthedRequest) {
+    return this.recurring.submitRecurring(
+      body.assetId,
+      body.sessions,
       requireSub(req),
     );
   }
