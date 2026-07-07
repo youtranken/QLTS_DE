@@ -8,6 +8,7 @@ import {
   Routes,
 } from 'react-router-dom';
 import { AssetDetailPage, AssetsPage } from './assets';
+import { BookingPage } from './booking';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
@@ -235,7 +236,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
         </header>
         <main style={{ padding: '1rem' }}>
           <Routes>
-            <Route path="/" element={<Placeholder titleKey="nav.booking" />} />
+            <Route path="/" element={<BookingPage />} />
             <Route
               path="/xu-ly-muon"
               element={

@@ -13,6 +13,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { OidcModule } from './modules/auth/oidc.module';
 import { SystemConfigModule } from './modules/config/config.module';
 import { TicketsModule } from './modules/tickets/tickets.module';
+import { BookingModule } from './modules/booking/booking.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { TicketsModule } from './modules/tickets/tickets.module';
     AuthModule,
     SystemConfigModule,
     TicketsModule,
+    BookingModule,
   ],
   controllers: [HealthController],
   // Đăng ký SAU AuthModule (imports xử lý trước providers) → chạy sau IdentityGuard,

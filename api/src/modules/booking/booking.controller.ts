@@ -1,0 +1,38 @@
+import { Controller, Get, Query } from '@nestjs/common';
+import { IsISO8601, Matches } from 'class-validator';
+import { Roles } from '../auth/roles.decorator';
+import { BookingService } from './booking.service';
+
+/** Offset BẮT BUỘC (party phiên 7): IsISO8601 strict vẫn nhận datetime KHÔNG offset —
+ * '9h sáng' của client TZ sẽ lệch giờ. Ép có `Z` hoặc offset (extended `±HH:MM` hoặc
+ * basic `±HHMM`) cuối chuỗi. IsISO8601 strict AND-ed nên giờ/phút vô lý vẫn bị chặn. */
+const HAS_OFFSET = /([+-]\d{2}:?\d{2}|Z)$/;
+
+class AvailabilityQueryDto {
+  @IsISO8601({ strict: true })
+  @Matches(HAS_OFFSET, {
+    message: 'from phải là ISO-8601 có offset (Z hoặc ±HH:MM)',
+  })
+  from!: string;
+
+  @IsISO8601({ strict: true })
+  @Matches(HAS_OFFSET, {
+    message: 'to phải là ISO-8601 có offset (Z hoặc ±HH:MM)',
+  })
+  to!: string;
+}
+
+/**
+ * Đặt mượn (Epic 3). Availability là read-model công khai nội bộ — chỉ máy + khung,
+ * KHÔNG lộ người mượn (AD-5). Admin/SA cũng gọi được (3.7 tạo hộ reuse).
+ */
+@Controller('booking')
+@Roles('member', 'admin', 'sa')
+export class BookingController {
+  constructor(private readonly booking: BookingService) {}
+
+  @Get('availability')
+  availability(@Query() query: AvailabilityQueryDto) {
+    return this.booking.availableMachines(query.from, query.to);
+  }
+}
