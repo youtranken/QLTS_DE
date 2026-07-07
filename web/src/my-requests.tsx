@@ -15,6 +15,8 @@ interface MyTicket {
   cancellable: boolean;
   isOverdue: boolean;
   overdueMinutes: number | null;
+  extensionCount: number;
+  hasPendingExtension: boolean;
 }
 
 /** "Request của tôi" (3.3) — dưới form đặt máy. Nút Hủy chỉ hiện khi cancellable. */
@@ -29,6 +31,11 @@ export function MyRequestsPanel({
   const [tickets, setTickets] = useState<MyTicket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // 4.1: modal xin gia hạn
+  const [extTicket, setExtTicket] = useState<MyTicket | null>(null);
+  const [newDue, setNewDue] = useState('');
+  const [extBusy, setExtBusy] = useState(false);
+  const [extErr, setExtErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -86,6 +93,54 @@ export function MyRequestsPanel({
     },
     [me.csrfToken, load, t],
   );
+
+  const submitExtension = useCallback(async () => {
+    if (!extTicket || !newDue) return;
+    setExtBusy(true);
+    setExtErr(null);
+    try {
+      const res = await fetch(
+        `/api/booking/my-tickets/${extTicket.id}/extension`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            newDue: new Date(newDue).toISOString(),
+            version: extTicket.version,
+          }),
+        },
+      );
+      if (res.status === 201 || res.ok) {
+        setExtTicket(null);
+        setNewDue('');
+        await load();
+        return;
+      }
+      const body = (await res.json().catch(() => ({}))) as { code?: string };
+      const map: Record<string, string> = {
+        SLOT_TAKEN: t('extension.errSlot'),
+        ASSET_UNAVAILABLE: t('extension.errSlot'),
+        EXTENSION_TOO_LONG: t('extension.errTooLong'),
+        EXTENSION_LIMIT: t('extension.errLimit'),
+        EXTENSION_PENDING: t('extension.errPending'),
+        TICKET_OVERDUE: t('extension.errOverdue'),
+        INVALID_RANGE: t('extension.errRange'),
+        STALE_VERSION: t('extension.errStale'),
+      };
+      setExtErr((body.code && map[body.code]) || t('extension.errGeneric'));
+      // 409 khung bị nẫng → refetch danh sách (convention); modal vẫn mở để chọn lại
+      if (body.code === 'SLOT_TAKEN' || body.code === 'ASSET_UNAVAILABLE') {
+        await load();
+      }
+    } catch {
+      setExtErr(t('extension.errGeneric'));
+    } finally {
+      setExtBusy(false);
+    }
+  }, [extTicket, newDue, me.csrfToken, load, t]);
 
   const fmt = (iso: string | null) =>
     iso
@@ -151,6 +206,11 @@ export function MyRequestsPanel({
                     <span className={`badge ${stateBadge[tk.state] ?? 'muted'}`}>
                       {tk.stateLabel}
                     </span>
+                    {tk.hasPendingExtension && (
+                      <span className="badge warn" style={{ marginLeft: 6 }}>
+                        {t('extension.pendingChip')}
+                      </span>
+                    )}
                     {tk.isOverdue && (
                       <span
                         style={{
@@ -169,7 +229,7 @@ export function MyRequestsPanel({
                       </span>
                     )}
                   </td>
-                  <td>
+                  <td className="table-actions">
                     {tk.cancellable && (
                       <button
                         type="button"
@@ -182,11 +242,69 @@ export function MyRequestsPanel({
                           : t('myreq.cancel')}
                       </button>
                     )}
+                    {tk.state === 'in_use' && !tk.isOverdue && (
+                      <button
+                        type="button"
+                        className="sm"
+                        disabled={tk.hasPendingExtension}
+                        title={
+                          tk.hasPendingExtension
+                            ? t('extension.pendingHint')
+                            : undefined
+                        }
+                        onClick={() => {
+                          setExtErr(null);
+                          setNewDue('');
+                          setExtTicket(tk);
+                        }}
+                      >
+                        {t('extension.action')}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* 4.1: modal xin gia hạn (EXPERIENCE.md P1) */}
+      {extTicket && (
+        <div className="modal-backdrop" onClick={() => setExtTicket(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ marginBottom: '0.75rem' }}>
+              {t('extension.title')}{' '}
+              <span className="mono">{extTicket.assetCode}</span>
+            </h2>
+            <p className="muted" style={{ marginBottom: '0.75rem' }}>
+              {t('extension.currentDue')}: <strong>{fmt(extTicket.to)}</strong>
+              {' · '}
+              {t('extension.usedCount', { n: extTicket.extensionCount })}
+            </p>
+            {extErr && <p className="alert error">{extErr}</p>}
+            <label className="field" style={{ marginBottom: '1.25rem' }}>
+              {t('extension.newDue')}
+              <input
+                type="datetime-local"
+                value={newDue}
+                onChange={(e) => setNewDue(e.target.value)}
+              />
+            </label>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setExtTicket(null)}>
+                {t('extension.cancel')}
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={extBusy || !newDue}
+                onClick={() => void submitExtension()}
+              >
+                {extBusy ? t('extension.submitting') : t('extension.submit')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>

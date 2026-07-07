@@ -41,6 +41,18 @@ class CancelTicketDto {
   version!: number;
 }
 
+class ExtendTicketDto {
+  /** Hạn trả mới — ISO-8601 CÓ offset (chống lệch múi giờ, mẫu SubmitBookingDto). */
+  @IsISO8601({ strict: true })
+  @Matches(HAS_OFFSET, { message: 'newDue phải là ISO-8601 có offset' })
+  newDue!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  version!: number;
+}
+
 /**
  * Đặt mượn — vòng đời ticket là chủ của Tickets (AD-4). Member tự đặt cho mình;
  * Admin/SA KHÔNG đi luồng mượn (mục 3 PRD) — tạo hộ là 3.7 (endpoint riêng).
@@ -80,6 +92,22 @@ export class TicketsController {
     @Req() req: AuthedRequest,
   ) {
     return this.tickets.cancelMyTicket(id, requireSub(req), body.version);
+  }
+
+  /** Member xin gia hạn (4.1, FR-18) — chủ ticket từ session, chống IDOR. */
+  @Post('my-tickets/:id/extension')
+  @HttpCode(201)
+  extend(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ExtendTicketDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.tickets.requestExtension(
+      id,
+      body.newDue,
+      requireSub(req),
+      body.version,
+    );
   }
 
   /**

@@ -43,6 +43,8 @@ export interface MyTicket {
   cancellable: boolean;
   isOverdue: boolean;
   overdueMinutes: number | null;
+  extensionCount: number;
+  hasPendingExtension: boolean;
 }
 
 export interface SubmitBookingResult {
@@ -582,11 +584,13 @@ export class TicketsService {
       pickup_passed: boolean | null;
       is_overdue: boolean;
       overdue_minutes: number | null;
+      extension_count: number;
+      has_pending_ext: boolean;
     }>(sql`
       SELECT t.id, t.state, t.kind, t.version, t.created_at,
         a.code AS asset_code,
         lower(b.period) AS from_ts, upper(b.period) AS to_ts,
-        t.is_overdue,
+        t.is_overdue, t.extension_count,
         CASE WHEN t.is_overdue THEN
           EXTRACT(EPOCH FROM (now() - upper(b.period)))::int / 60
           ELSE NULL END AS overdue_minutes,
@@ -597,9 +601,14 @@ export class TicketsService {
              AND b2.state IN (${sql.join(
                OCCUPYING_STATES.map((s) => sql`${s}`),
                sql`, `,
-             )})) AS pickup_passed
+             )})) AS pickup_passed,
+        -- 4.1: có yêu cầu gia hạn treo? (dòng extension held)
+        EXISTS (SELECT 1 FROM booking be
+           WHERE be.ticket_id = t.id AND be.kind = 'extension' AND be.state = 'held')
+          AS has_pending_ext
       FROM ticket t
-      LEFT JOIN booking b ON b.ticket_id = t.id
+      -- 4.1 (G4): lọc kind<>'extension' → dòng extension KHÔNG nhân đôi ticket
+      LEFT JOIN booking b ON b.ticket_id = t.id AND b.kind <> 'extension'
       LEFT JOIN assets a ON a.id = b.asset_id
       WHERE t.borrower_sub = ${borrowerSub}
       ORDER BY t.created_at DESC, b.id
@@ -617,6 +626,8 @@ export class TicketsService {
       cancellable: this.isCancellable(r.state, r.pickup_passed),
       isOverdue: r.is_overdue,
       overdueMinutes: r.overdue_minutes,
+      extensionCount: r.extension_count,
+      hasPendingExtension: r.has_pending_ext,
     }));
   }
 
@@ -1306,6 +1317,147 @@ export class TicketsService {
 
   /** Admin xác nhận "Đã nhận" (FR-14/17): in_use → closed, booking delivered → returned.
    * Note BẮT BUỘC (controller ép) → asset_note handover. Trả sớm = close sớm (không kiểm giờ). */
+  /**
+   * Member xin gia hạn (4.1, FR-18/19/20/47, AD-3): MỘT dòng booking kind='extension' state='held'
+   * period=[hạn_trả_cũ, hạn_mới) — không bao trùm period gốc. EXCLUDE chặn chồng khung (SLOT_TAKEN).
+   * KHÔNG enqueue mail (FR-47). Chủ ticket + optimistic lock (AD-4/5).
+   */
+  async requestExtension(
+    ticketId: string,
+    newDueIso: string,
+    borrowerSub: string,
+    version: number,
+  ): Promise<{ id: string }> {
+    const days = await this.config.getExtensionDaysPerGrant();
+    const maxGrants = await this.config.getExtensionMaxGrants();
+    try {
+      return await this.db.transaction(async (tx) => {
+        const rows = await tx.execute<{
+          borrower_sub: string;
+          state: string;
+          version: number;
+          is_overdue: boolean;
+          extension_count: number;
+          old_due: string | null;
+          asset_id: string | null;
+          old_due_passed: boolean | null;
+          has_pending_ext: boolean;
+        }>(sql`
+          SELECT t.borrower_sub, t.state, t.version, t.is_overdue, t.extension_count,
+            (SELECT upper(b.period) FROM booking b
+               WHERE b.ticket_id = t.id AND b.state = 'delivered' LIMIT 1) AS old_due,
+            (SELECT b.asset_id FROM booking b
+               WHERE b.ticket_id = t.id AND b.state = 'delivered' LIMIT 1) AS asset_id,
+            -- Hạn trả cũ ĐÃ QUA chưa — so bằng DB now() (không tin cờ is_overdue trễ sweep,
+            -- review 4.1 MED). Quá hạn thật → cấm gia hạn (AC1) + chống new_due rơi vào quá khứ.
+            (SELECT upper(b.period) < now() FROM booking b
+               WHERE b.ticket_id = t.id AND b.state = 'delivered' LIMIT 1) AS old_due_passed,
+            EXISTS (SELECT 1 FROM booking b
+               WHERE b.ticket_id = t.id AND b.kind = 'extension' AND b.state = 'held')
+              AS has_pending_ext
+          FROM ticket t WHERE t.id = ${ticketId} FOR UPDATE
+        `);
+        if (rows.rows.length === 0) {
+          throw new NotFoundException({
+            code: 'TICKET_NOT_FOUND',
+            message: 'Không tìm thấy ticket.',
+          });
+        }
+        const t = rows.rows[0];
+        if (t.borrower_sub !== borrowerSub) {
+          throw new ForbiddenException({
+            code: 'NOT_TICKET_OWNER',
+            message: 'Bạn không có quyền với ticket này.',
+          });
+        }
+        if (t.version !== version) {
+          throw new ConflictException({
+            code: 'STALE_VERSION',
+            message: 'Ticket vừa được cập nhật — vui lòng tải lại.',
+          });
+        }
+        if (t.state !== 'in_use') {
+          throw new ConflictException({
+            code: 'INVALID_STATE',
+            message: 'Chỉ gia hạn được ticket đang mượn.',
+          });
+        }
+        if (t.is_overdue || t.old_due_passed) {
+          throw new ConflictException({
+            code: 'TICKET_OVERDUE',
+            message: 'Ticket đã quá hạn trả — chỉ còn cách trả máy.',
+          });
+        }
+        if (t.has_pending_ext) {
+          throw new ConflictException({
+            code: 'EXTENSION_PENDING',
+            message: 'Đang chờ duyệt một yêu cầu gia hạn cho ticket này.',
+          });
+        }
+        if (t.extension_count >= maxGrants) {
+          throw new ConflictException({
+            code: 'EXTENSION_LIMIT',
+            message: `Đã dùng hết ${maxGrants} lần gia hạn cho ticket này.`,
+          });
+        }
+        if (!t.old_due || !t.asset_id) {
+          throw new ConflictException({
+            code: 'INVALID_STATE',
+            message: 'Ticket chưa có booking đang mượn hợp lệ.',
+          });
+        }
+        const oldMs = new Date(t.old_due).getTime();
+        const newMs = new Date(newDueIso).getTime();
+        if (newMs <= oldMs) {
+          throw new BadRequestException({
+            code: 'INVALID_RANGE',
+            message: 'Hạn mới phải sau hạn trả hiện tại.',
+          });
+        }
+        if (newMs - oldMs > days * 24 * 60 * 60 * 1000) {
+          throw new BadRequestException({
+            code: 'EXTENSION_TOO_LONG',
+            message: `Mỗi lần gia hạn tối đa ${days} ngày.`,
+          });
+        }
+        // AD-3: period=[hạn_cũ, hạn_mới) — không bao period gốc. EXCLUDE chặn chồng → SLOT_TAKEN.
+        const ins = await tx.execute<{ id: string }>(sql`
+          INSERT INTO booking (ticket_id, asset_id, kind, state, period)
+          VALUES (${ticketId}, ${t.asset_id}, 'extension', 'held',
+            tstzrange(${t.old_due}, ${newDueIso}, '[)'))
+          RETURNING id
+        `);
+        await this.audit.appendWithin(tx, {
+          actor: borrowerSub,
+          action: 'tickets.extension_request',
+          objectType: 'ticket',
+          objectId: ticketId,
+          detail: { newDue: newDueIso },
+        });
+        // FR-47: KHÔNG enqueue mail cho luồng gia hạn (giảm nhiễu).
+        return { id: ins.rows[0].id };
+      });
+    } catch (error) {
+      throw mapBookingPgError(error);
+    }
+  }
+
+  /**
+   * 4.1 AC5: đóng ticket → dòng extension `held` treo → cancelled + result='expired', nhả khung.
+   * Gọi TRONG transaction close (returnTicket…). Không có extension trên awaiting_pickup nên
+   * no-show/cancelMyTicket không cần.
+   */
+  private async expireHeldExtensionWithin(
+    tx: Pick<Database, 'execute'>,
+    ticketId: string,
+  ): Promise<void> {
+    await tx.execute(sql`
+      UPDATE booking SET state = 'cancelled', result = 'expired',
+        version = version + 1, updated_at = now()
+      WHERE ticket_id = ${ticketId} AND kind = 'extension' AND state = 'held'
+    `);
+  }
+
   async returnTicket(
     ticketId: string,
     version: number,
@@ -1320,6 +1472,8 @@ export class TicketsService {
         version,
         'in_use',
       );
+      // 4.1 AC5: nhả yêu cầu gia hạn treo (nếu có) trong CÙNG transaction close.
+      await this.expireHeldExtensionWithin(tx, ticketId);
       // Close → gỡ cờ is_overdue (hết hiển thị) nhưng GIỮ overdue_marked_at (FR-42 "từng quá hạn").
       await tx.execute(sql`
         UPDATE ticket SET state = 'closed', returned_at = now(),

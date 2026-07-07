@@ -65,6 +65,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0020_ticket_handover.sql',
       '0021_pickup_reminder.sql',
       '0022_outbox_redrive.sql',
+      '0023_ticket_extension_count.sql',
     ]);
   });
 
