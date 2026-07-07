@@ -2,15 +2,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CreateForForm } from './create-for';
 import type { Me } from './panels';
+import { RecurringSessionQueue } from './recurring-session-queue';
 
 interface PendingRequest {
   id: string;
   version: number;
+  kind: string;
   borrowerSub: string;
   borrowerName: string | null;
   assetCode: string | null;
   from: string | null;
   to: string | null;
+  sessionCount: number;
   createdAt: string;
 }
 
@@ -50,8 +53,13 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
       setBusyId(req.id);
       setError(null);
       try {
+        // 4.5a: chuỗi định kỳ duyệt/từ chối CẢ chuỗi qua route recurring/*
+        const path =
+          req.kind === 'recurring'
+            ? `/api/admin/tickets/recurring/${req.id}/${kind}`
+            : `/api/admin/tickets/${req.id}/${kind}`;
         const res = await fetch(
-          `/api/admin/tickets/${req.id}/${kind}`,
+          path,
           {
             method: 'POST',
             headers: {
@@ -134,9 +142,17 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
                     ) : (
                       '—'
                     )}
+                    {req.kind === 'recurring' && (
+                      <span className="badge muted" style={{ marginLeft: 6 }}>
+                        {t('approval.recurringChip', { n: req.sessionCount })}
+                      </span>
+                    )}
                   </td>
                   <td>
                     {fmt(req.from)} → {fmt(req.to)}
+                    {req.kind === 'recurring' && (
+                      <span className="muted"> {t('approval.recurringFirst')}</span>
+                    )}
                   </td>
                   <td className="table-actions">
                     {rejectingId === req.id ? (
@@ -201,6 +217,7 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
 
       <ExtensionQueue me={me} />
       <HandoverQueues me={me} />
+      <RecurringSessionQueue me={me} />
       <CreateForForm me={me} />
     </section>
   );

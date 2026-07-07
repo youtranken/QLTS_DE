@@ -51,6 +51,58 @@ export class RecurringService {
     private readonly audit: AuditWriterService,
   ) {}
 
+  /**
+   * Hàng đợi giao/nhận từng buổi (4.5a AC2): buổi recurring còn pending (chờ giao) hoặc
+   * delivered (chờ nhận). Kèm cha + máy + người mượn + cờ quá hạn cho badge. Sort giờ tăng dần.
+   */
+  async listSessionQueue(): Promise<
+    Array<{
+      id: string;
+      version: number;
+      ticketId: string;
+      state: string;
+      borrowerName: string | null;
+      assetCode: string | null;
+      from: string | null;
+      to: string | null;
+      isOverdue: boolean;
+    }>
+  > {
+    const rows = await this.db.execute<{
+      id: string;
+      version: number;
+      ticket_id: string;
+      state: string;
+      borrower_name: string | null;
+      asset_code: string | null;
+      from_ts: string | null;
+      to_ts: string | null;
+      is_overdue: boolean;
+    }>(sql`
+      SELECT b.id, b.version, b.ticket_id, b.state,
+        u.full_name AS borrower_name, a.code AS asset_code,
+        lower(b.period) AS from_ts, upper(b.period) AS to_ts,
+        (b.state = 'delivered' AND upper(b.period) < now()) AS is_overdue
+      FROM booking b
+      JOIN ticket t ON t.id = b.ticket_id
+      LEFT JOIN users u ON u.sub = t.borrower_sub
+      LEFT JOIN assets a ON a.id = b.asset_id
+      WHERE b.kind = 'recurring' AND b.state IN ('pending', 'delivered')
+      ORDER BY is_overdue DESC, lower(b.period) ASC
+    `);
+    return rows.rows.map((r) => ({
+      id: r.id,
+      version: r.version,
+      ticketId: r.ticket_id,
+      state: r.state,
+      borrowerName: r.borrower_name,
+      assetCode: r.asset_code,
+      from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
+      to: r.to_ts ? new Date(r.to_ts).toISOString() : null,
+      isOverdue: r.is_overdue,
+    }));
+  }
+
   async submitRecurring(
     assetId: string,
     sessions: RecurringSession[],

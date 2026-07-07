@@ -19,11 +19,12 @@ import { AssetsService } from '../assets/assets.service';
 import { ExtensionService } from './extension.service';
 import {
   ACTIVE_TICKET_STATES,
+  BOOKING_SESSION_LABELS_VI,
   MAX_DURATION_AUTO_MS,
   OCCUPYING_STATES,
   TICKET_STATE_LABELS_VI,
 } from './ticket-states';
-import type { TicketState } from './ticket-states';
+import type { BookingState, TicketState } from './ticket-states';
 
 export interface SubmitBookingInput {
   assetId: string;
@@ -46,6 +47,7 @@ export interface MyTicket {
   overdueMinutes: number | null;
   extensionCount: number;
   hasPendingExtension: boolean;
+  sessionCount: number;
 }
 
 export interface SubmitBookingResult {
@@ -588,6 +590,7 @@ export class TicketsService {
       overdue_minutes: number | null;
       extension_count: number;
       has_pending_ext: boolean;
+      session_count: number;
     }>(sql`
       SELECT t.id, t.state, t.kind, t.version, t.created_at,
         a.code AS asset_code,
@@ -607,13 +610,26 @@ export class TicketsService {
         -- 4.1: có yêu cầu gia hạn treo? (dòng extension held)
         EXISTS (SELECT 1 FROM booking be
            WHERE be.ticket_id = t.id AND be.kind = 'extension' AND be.state = 'held')
-          AS has_pending_ext
+          AS has_pending_ext,
+        -- 4.5b: số buổi của chuỗi định kỳ (0 với ticket thường) → FE mở rộng xem chi tiết
+        (SELECT count(*)::int FROM booking bs
+           WHERE bs.ticket_id = t.id AND bs.kind = 'recurring') AS session_count
       FROM ticket t
-      -- 4.1 (G4): lọc kind<>'extension' → dòng extension KHÔNG nhân đôi ticket
-      LEFT JOIN booking b ON b.ticket_id = t.id AND b.kind <> 'extension'
+      -- 4.5b: chuỗi định kỳ có N buổi → lấy MỘT buổi đại diện tránh nhân dòng cha.
+      -- Ưu tiên buổi còn hiệu lực (held/pending/delivered) sớm nhất = "buổi kế"; nếu chuỗi
+      -- đã kết thúc (mọi buổi terminal) mới rơi về buổi sớm nhất bất kỳ.
+      LEFT JOIN LATERAL (
+        SELECT period, asset_id FROM booking
+        WHERE ticket_id = t.id AND kind <> 'extension'
+        ORDER BY (state IN (${sql.join(
+          OCCUPYING_STATES.map((s) => sql`${s}`),
+          sql`, `,
+        )})) DESC, lower(period) ASC
+        LIMIT 1
+      ) b ON true
       LEFT JOIN assets a ON a.id = b.asset_id
       WHERE t.borrower_sub = ${borrowerSub}
-      ORDER BY t.created_at DESC, b.id
+      ORDER BY t.created_at DESC
     `);
     return rows.rows.map((r) => ({
       id: r.id,
@@ -630,6 +646,71 @@ export class TicketsService {
       overdueMinutes: r.overdue_minutes,
       extensionCount: r.extension_count,
       hasPendingExtension: r.has_pending_ext,
+      sessionCount: r.session_count,
+    }));
+  }
+
+  /**
+   * Chi tiết các buổi của một chuỗi định kỳ (4.5b) — CHỈ chủ chuỗi (IDOR: borrower≠sub → 403).
+   * FE mở rộng dòng cha để xem từng buổi + trạng thái. Sort theo giờ tăng dần.
+   */
+  async listMyRecurringSessions(
+    ticketId: string,
+    borrowerSub: string,
+  ): Promise<
+    Array<{
+      id: string;
+      version: number;
+      state: string;
+      stateLabel: string;
+      from: string | null;
+      to: string | null;
+      isOverdue: boolean;
+      cancellable: boolean;
+    }>
+  > {
+    const owner = await this.db.execute<{ borrower_sub: string }>(sql`
+      SELECT borrower_sub FROM ticket WHERE id = ${ticketId}
+    `);
+    if (owner.rows.length === 0) {
+      throw new NotFoundException({
+        code: 'TICKET_NOT_FOUND',
+        message: 'Không tìm thấy chuỗi này.',
+      });
+    }
+    if (owner.rows[0].borrower_sub !== borrowerSub) {
+      throw new ForbiddenException({
+        code: 'NOT_TICKET_OWNER',
+        message: 'Bạn không có quyền với chuỗi này.',
+      });
+    }
+    const rows = await this.db.execute<{
+      id: string;
+      version: number;
+      state: string;
+      from_ts: string | null;
+      to_ts: string | null;
+      is_overdue: boolean;
+      cancellable: boolean;
+    }>(sql`
+      SELECT b.id, b.version, b.state,
+        lower(b.period) AS from_ts, upper(b.period) AS to_ts,
+        (b.state = 'delivered' AND upper(b.period) < now()) AS is_overdue,
+        -- 4.6: member hủy buổi chưa giao TRƯỚC giờ nhận (so bằng DB now())
+        (b.state IN ('held', 'pending') AND lower(b.period) > now()) AS cancellable
+      FROM booking b
+      WHERE b.ticket_id = ${ticketId} AND b.kind = 'recurring'
+      ORDER BY lower(b.period) ASC
+    `);
+    return rows.rows.map((r) => ({
+      id: r.id,
+      version: r.version,
+      state: r.state,
+      stateLabel: BOOKING_SESSION_LABELS_VI[r.state as BookingState] ?? r.state,
+      from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
+      to: r.to_ts ? new Date(r.to_ts).toISOString() : null,
+      isOverdue: r.is_overdue,
+      cancellable: r.cancellable,
     }));
   }
 
@@ -730,42 +811,58 @@ export class TicketsService {
     Array<{
       id: string;
       version: number;
+      kind: string;
       borrowerSub: string;
       borrowerName: string | null;
       assetCode: string | null;
       from: string | null;
       to: string | null;
+      sessionCount: number;
       createdAt: string;
     }>
   > {
     const rows = await this.db.execute<{
       id: string;
       version: number;
+      kind: string;
       borrower_sub: string;
       borrower_name: string | null;
       asset_code: string | null;
       from_ts: string | null;
       to_ts: string | null;
+      session_count: number;
       created_at: string;
     }>(sql`
-      SELECT t.id, t.version, t.borrower_sub,
+      SELECT t.id, t.version, t.kind, t.borrower_sub,
         u.full_name AS borrower_name, a.code AS asset_code,
-        lower(b.period) AS from_ts, upper(b.period) AS to_ts, t.created_at
+        lower(b.period) AS from_ts, upper(b.period) AS to_ts,
+        -- chuỗi định kỳ: đếm số buổi đang chờ duyệt để hiển thị "N buổi"
+        (SELECT count(*)::int FROM booking bs
+           WHERE bs.ticket_id = t.id AND bs.kind = 'recurring' AND bs.state = 'held')
+          AS session_count,
+        t.created_at
       FROM ticket t
       LEFT JOIN users u ON u.sub = t.borrower_sub
-      LEFT JOIN booking b ON b.ticket_id = t.id AND b.state = 'held'
+      -- buổi sớm nhất làm đại diện khung giờ (chuỗi lấy buổi đầu; thường lấy held đơn)
+      LEFT JOIN LATERAL (
+        SELECT period, asset_id FROM booking
+        WHERE ticket_id = t.id AND state = 'held'
+        ORDER BY lower(period) ASC LIMIT 1
+      ) b ON true
       LEFT JOIN assets a ON a.id = b.asset_id
       WHERE t.state = 'pending_approval'
-      ORDER BY t.created_at ASC, b.id
+      ORDER BY t.created_at ASC
     `);
     return rows.rows.map((r) => ({
       id: r.id,
       version: r.version,
+      kind: r.kind,
       borrowerSub: r.borrower_sub,
       borrowerName: r.borrower_name,
       assetCode: r.asset_code,
       from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
       to: r.to_ts ? new Date(r.to_ts).toISOString() : null,
+      sessionCount: r.session_count,
       createdAt: new Date(r.created_at).toISOString(),
     }));
   }
@@ -811,7 +908,9 @@ export class TicketsService {
           sql`, `,
         )})
       LEFT JOIN assets a ON a.id = b.asset_id
-      WHERE t.state = ${ticketState}
+      -- 4.5a: chuỗi định kỳ giao/nhận theo BUỔI (queue riêng) — loại parent recurring khỏi
+      -- queue ticket-level, tránh N dòng trùng + nút giao/nhận sai luồng.
+      WHERE t.state = ${ticketState} AND t.kind = 'normal'
       -- quá hạn nổi lên đầu (sort — 3.8 AC1), rồi tới giờ nhận/trả sớm nhất
       ORDER BY t.is_overdue DESC, lower(b.period) ASC, t.created_at
     `);
@@ -1233,9 +1332,10 @@ export class TicketsService {
     const rows = await tx.execute<{
       state: string;
       version: number;
+      kind: string;
       asset_id: string | null;
     }>(sql`
-      SELECT t.state, t.version,
+      SELECT t.state, t.version, t.kind,
         (SELECT b.asset_id FROM booking b
            WHERE b.ticket_id = t.id
              AND b.state IN (${sql.join(
@@ -1252,6 +1352,14 @@ export class TicketsService {
       });
     }
     const t = rows.rows[0];
+    // Chuỗi định kỳ giao/nhận TỪNG buổi qua RecurringLifecycleService — KHÔNG dùng luồng
+    // ticket-level này (nếu không: 1 click chuyển hết mọi buổi, bỏ qua deriveParentState).
+    if (t.kind === 'recurring') {
+      throw new ConflictException({
+        code: 'IS_RECURRING',
+        message: 'Chuỗi định kỳ giao/nhận theo từng buổi.',
+      });
+    }
     if (t.version !== version) {
       throw new ConflictException({
         code: 'STALE_VERSION',
@@ -1474,7 +1582,7 @@ export class TicketsService {
   async autoCloseNoShow(): Promise<number> {
     const candidates = await this.db.execute<{ id: string }>(sql`
       SELECT t.id FROM ticket t
-      WHERE t.state = 'awaiting_pickup'
+      WHERE t.state = 'awaiting_pickup' AND t.kind = 'normal'
         AND EXISTS (
           SELECT 1 FROM booking b
           WHERE b.ticket_id = t.id AND b.state = 'pending' AND upper(b.period) < now()

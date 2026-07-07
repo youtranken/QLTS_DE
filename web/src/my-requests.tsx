@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MemberRecurringSessions } from './member-recurring-sessions';
 import type { Me } from './panels';
 
 interface MyTicket {
@@ -17,6 +18,7 @@ interface MyTicket {
   overdueMinutes: number | null;
   extensionCount: number;
   hasPendingExtension: boolean;
+  sessionCount: number;
 }
 
 /** "Request của tôi" (3.3) — dưới form đặt máy. Nút Hủy chỉ hiện khi cancellable. */
@@ -31,6 +33,8 @@ export function MyRequestsPanel({
   const [tickets, setTickets] = useState<MyTicket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // 4.5b: mở rộng xem từng buổi của chuỗi định kỳ
+  const [openSessions, setOpenSessions] = useState<string | null>(null);
   // 4.1: modal xin gia hạn
   const [extTicket, setExtTicket] = useState<MyTicket | null>(null);
   const [newDue, setNewDue] = useState('');
@@ -186,13 +190,26 @@ export function MyRequestsPanel({
             </thead>
             <tbody>
               {tickets.map((tk) => (
+                <Fragment key={tk.id}>
                 <tr
-                  key={tk.id}
                   className={
                     tk.state === 'in_use' && tk.isOverdue ? 'overdue' : undefined
                   }
                 >
                   <td>
+                    {tk.kind === 'recurring' && tk.sessionCount > 0 && (
+                      <button
+                        type="button"
+                        className="link session-toggle"
+                        aria-expanded={openSessions === tk.id}
+                        onClick={() =>
+                          setOpenSessions(openSessions === tk.id ? null : tk.id)
+                        }
+                      >
+                        {openSessions === tk.id ? '▾' : '▸'}{' '}
+                        {t('myreq.sessCount', { n: tk.sessionCount })}
+                      </button>
+                    )}
                     {tk.assetCode ? (
                       <span className="mono">{tk.assetCode}</span>
                     ) : (
@@ -242,7 +259,9 @@ export function MyRequestsPanel({
                           : t('myreq.cancel')}
                       </button>
                     )}
-                    {tk.state === 'in_use' && !tk.isOverdue && (
+                    {tk.state === 'in_use' &&
+                      !tk.isOverdue &&
+                      tk.kind !== 'recurring' && (
                       <button
                         type="button"
                         className="sm"
@@ -263,6 +282,15 @@ export function MyRequestsPanel({
                     )}
                   </td>
                 </tr>
+                {openSessions === tk.id && (
+                  <MemberRecurringSessions
+                    me={me}
+                    ticketId={tk.id}
+                    colSpan={4}
+                    onChanged={() => void load()}
+                  />
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

@@ -66,6 +66,15 @@ export const TICKET_STATE_LABELS_VI: Record<TicketState, string> = {
   cancelled: 'Đã hủy',
 };
 
+/** Nhãn tiếng Việt cho TỪNG BUỔI của chuỗi định kỳ (booking.state) — 4.5b. */
+export const BOOKING_SESSION_LABELS_VI: Record<BookingState, string> = {
+  held: 'Chờ duyệt',
+  pending: 'Chờ giao',
+  delivered: 'Đang mượn',
+  returned: 'Đã trả',
+  cancelled: 'Đã hủy',
+};
+
 /** Bảng ánh xạ AD-16: ticket.state → booking.state tương ứng của luồng thuận. */
 export const TICKET_TO_BOOKING_STATE: Record<TicketState, BookingState> = {
   pending_approval: 'held',

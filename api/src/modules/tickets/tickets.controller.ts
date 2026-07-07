@@ -26,6 +26,7 @@ import type { Response } from 'express';
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ExtensionService } from './extension.service';
+import { RecurringLifecycleService } from './recurring-lifecycle.service';
 import { RecurringService } from './recurring.service';
 import { TicketsService } from './tickets.service';
 
@@ -98,6 +99,7 @@ export class TicketsController {
     private readonly tickets: TicketsService,
     private readonly extension: ExtensionService,
     private readonly recurring: RecurringService,
+    private readonly recurringLifecycle: RecurringLifecycleService,
   ) {}
 
   @Post()
@@ -123,6 +125,31 @@ export class TicketsController {
   @Get('my-tickets')
   myTickets(@Req() req: AuthedRequest) {
     return this.tickets.listMyTickets(requireSub(req));
+  }
+
+  /** Chi tiết từng buổi của chuỗi định kỳ (4.5b) — chủ chuỗi từ session, chống IDOR. */
+  @Get('my-tickets/:id/sessions')
+  mySessions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.tickets.listMyRecurringSessions(id, requireSub(req));
+  }
+
+  /** Member hủy 1 buổi lẻ chưa giao, trước giờ nhận (4.6) — chủ buổi từ session, chống IDOR. */
+  @Post('sessions/:id/cancel')
+  @HttpCode(200)
+  cancelSession(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: CancelTicketDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.recurringLifecycle.cancelSession(
+      id,
+      body.version,
+      requireSub(req),
+      false,
+    );
   }
 
   /** "Máy đang được mượn" (NFR-2, 3.11) — read-model snapshot, không lộ sub/email (AD-5). */

@@ -6,6 +6,7 @@ import { AdminTicketsController } from './admin-tickets.controller';
 import { AssetLifecycleController } from './asset-lifecycle.controller';
 import { TicketsController } from './tickets.controller';
 import { ExtensionService } from './extension.service';
+import { RecurringLifecycleService } from './recurring-lifecycle.service';
 import { RecurringService } from './recurring.service';
 import { TicketsService } from './tickets.service';
 import { TicketsSweepRegistrar } from './tickets-sweep.registrar';
@@ -27,8 +28,14 @@ import { TicketsSweepRegistrar } from './tickets-sweep.registrar';
     TicketsService,
     ExtensionService,
     RecurringService,
+    RecurringLifecycleService,
     TicketsSweepRegistrar,
   ],
-  exports: [TicketsService, ExtensionService, RecurringService],
+  exports: [
+    TicketsService,
+    ExtensionService,
+    RecurringService,
+    RecurringLifecycleService,
+  ],
 })
 export class TicketsModule {}

@@ -27,6 +27,8 @@ import {
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ExtensionService } from './extension.service';
+import { RecurringLifecycleService } from './recurring-lifecycle.service';
+import { RecurringService } from './recurring.service';
 import { TicketsService } from './tickets.service';
 
 const trim = Transform(({ value }: { value: unknown }) =>
@@ -128,6 +130,8 @@ export class AdminTicketsController {
   constructor(
     private readonly tickets: TicketsService,
     private readonly extension: ExtensionService,
+    private readonly recurringLifecycle: RecurringLifecycleService,
+    private readonly recurring: RecurringService,
   ) {}
 
   @Get('pending-approval')
@@ -208,6 +212,93 @@ export class AdminTicketsController {
       body.version,
       body.reason,
       requireSub(req),
+    );
+  }
+
+  /** Hàng đợi giao/nhận từng buổi của chuỗi định kỳ (4.5a). */
+  @Get('recurring-sessions')
+  recurringSessions() {
+    return this.recurring.listSessionQueue();
+  }
+
+  /** Duyệt cả chuỗi định kỳ (4.5a) — :id là ticket cha kind='recurring'. */
+  @Post('recurring/:id/approve')
+  @HttpCode(200)
+  approveChain(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ApproveDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.recurringLifecycle.approveChain(
+      id,
+      body.version,
+      requireSub(req),
+    );
+  }
+
+  /** Từ chối cả chuỗi định kỳ (4.5a) — bắt buộc lý do. */
+  @Post('recurring/:id/reject')
+  @HttpCode(200)
+  rejectChain(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: RejectDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.recurringLifecycle.rejectChain(
+      id,
+      body.version,
+      body.reason,
+      requireSub(req),
+    );
+  }
+
+  /** Giao 1 buổi của chuỗi (4.5a) — :id là booking buổi (pending→delivered). */
+  @Post('sessions/:id/deliver')
+  @HttpCode(200)
+  deliverSession(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: DeliverDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.recurringLifecycle.deliverSession(
+      id,
+      body.version,
+      body.note ?? null,
+      body.photoIds ?? [],
+      requireSub(req),
+    );
+  }
+
+  /** Nhận trả 1 buổi của chuỗi (4.5a) — :id là booking buổi (delivered→returned). */
+  @Post('sessions/:id/return')
+  @HttpCode(200)
+  returnSession(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ReturnDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.recurringLifecycle.returnSession(
+      id,
+      body.version,
+      body.note,
+      body.photoIds ?? [],
+      requireSub(req),
+    );
+  }
+
+  /** Admin hủy 1 buổi CHƯA giao (4.6 AC3) — được cả sau giờ nhận (isAdmin=true). */
+  @Post('sessions/:id/cancel')
+  @HttpCode(200)
+  cancelSession(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ApproveDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.recurringLifecycle.cancelSession(
+      id,
+      body.version,
+      requireSub(req),
+      true,
     );
   }
 

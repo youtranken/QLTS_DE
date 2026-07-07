@@ -40,6 +40,7 @@ export class ExtensionService {
         const rows = await tx.execute<{
           borrower_sub: string;
           state: string;
+          kind: string;
           version: number;
           is_overdue: boolean;
           extension_count: number;
@@ -48,7 +49,7 @@ export class ExtensionService {
           old_due_passed: boolean | null;
           has_pending_ext: boolean;
         }>(sql`
-          SELECT t.borrower_sub, t.state, t.version, t.is_overdue, t.extension_count,
+          SELECT t.borrower_sub, t.state, t.kind, t.version, t.is_overdue, t.extension_count,
             (SELECT upper(b.period) FROM booking b
                WHERE b.ticket_id = t.id AND b.state = 'delivered' LIMIT 1) AS old_due,
             (SELECT b.asset_id FROM booking b
@@ -83,6 +84,13 @@ export class ExtensionService {
           throw new ConflictException({
             code: 'INVALID_STATE',
             message: 'Chỉ gia hạn được ticket đang mượn.',
+          });
+        }
+        // 4.5a AC4: buổi lẻ định kỳ KHÔNG gia hạn.
+        if (t.kind === 'recurring') {
+          throw new ConflictException({
+            code: 'INVALID_STATE',
+            message: 'Chuỗi định kỳ không gia hạn từng buổi.',
           });
         }
         // Quá hạn thật (DB now(), không tin cờ trễ sweep) → cấm gia hạn (AC1).
