@@ -38,6 +38,24 @@ services:
       retries: 5
       start_period: 15s
 
+  # Worker nền (story 3.5a, AD-9) — process THỨ HAI cùng image api, gọi service in-process.
+  # Relay outbox → BullMQ + sweep định kỳ. KHÔNG chạy migration (api chủ migrate).
+  worker:
+    build: ./api
+    restart: unless-stopped
+    mem_limit: ${WORKER_MEM_LIMIT:-256m}
+    command: ['node', 'dist/worker/worker']
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      # đợi api healthy → migration đã chạy xong trước khi worker đọc bảng
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   web:
     build: ./web
     restart: unless-stopped

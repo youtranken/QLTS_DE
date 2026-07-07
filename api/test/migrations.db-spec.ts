@@ -29,7 +29,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     // Đưa DB test về trạng thái chưa-migrate (extension giữ nguyên — CREATE IF NOT EXISTS idempotent)
     await pool.query(
-      'DROP TABLE IF EXISTS booking, ticket, inventory_round_files, inventory_rounds, files, asset_note, allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
+      'DROP TABLE IF EXISTS outbox, booking, ticket, inventory_round_files, inventory_rounds, files, asset_note, allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
     );
   });
 
@@ -61,6 +61,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0016_assets_import.sql',
       '0017_ticket_booking.sql',
       '0018_booking_bookability_trigger.sql',
+      '0019_outbox.sql',
     ]);
   });
 

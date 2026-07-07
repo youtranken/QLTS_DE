@@ -43,8 +43,10 @@ Test DB với Postgres tạm:
 
 ```bash
 docker run -d --name qlts-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=qlts_test -p 54329:5432 postgres:18-alpine
+# Story 3.5a: outbox.db-spec cần Redis (BullMQ). REDIS_TEST_URL mặc định trỏ container này.
+docker run -d --name qlts-test-redis -p 63799:6379 redis:8-alpine redis-server --requirepass test
 DATABASE_URL=postgresql://postgres:test@localhost:54329/qlts_test npm run test:db
-docker rm -f qlts-test-pg
+docker rm -f qlts-test-pg qlts-test-redis
 ```
 
 (PowerShell: `$env:DATABASE_URL='postgresql://postgres:test@localhost:54329/qlts_test'; npm run test:db`)

@@ -49,7 +49,7 @@ describe('Request của tôi & member tự hủy (story 3.3)', () => {
     process.env.AUTH_DEV_MODE = 'true';
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query(
-      'DROP TABLE IF EXISTS booking, ticket, inventory_round_files, inventory_rounds, files, asset_note, allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
+      'DROP TABLE IF EXISTS outbox, booking, ticket, inventory_round_files, inventory_rounds, files, asset_note, allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
     );
     await runMigrations(pool, join(__dirname, '..', 'src', 'migrations'), {
       log: () => undefined,
