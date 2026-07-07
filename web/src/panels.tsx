@@ -53,12 +53,12 @@ export function DirectorySyncPanel({ csrfToken }: { csrfToken: string | null }) 
   }, [csrfToken, t]);
 
   return (
-    <section style={{ marginTop: '1.5rem' }}>
-      <h2 style={{ fontSize: '1rem' }}>{t('sync.title')}</h2>
-      <button type="button" disabled={busy} onClick={() => void runSync()}>
+    <section className="section-gap">
+      <h2>{t('sync.title')}</h2>
+      <button type="button" className="primary" disabled={busy} onClick={() => void runSync()}>
         {busy ? t('sync.syncing') : t('sync.syncNow')}
       </button>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      {error && <p className="alert error">{error}</p>}
       {result && (
         <>
           <p>
@@ -68,7 +68,7 @@ export function DirectorySyncPanel({ csrfToken }: { csrfToken: string | null }) 
               updated: result.updated,
             })}
           </p>
-          <p style={{ fontSize: '0.85rem', color: '#555' }}>
+          <p className="muted" style={{ fontSize: '0.85rem' }}>
             {t('sync.groupsSeen', {
               groups:
                 result.groups.map((g) => g.name).join(', ') || t('sync.noGroups'),
@@ -185,39 +185,42 @@ export function RolesPanel({
       t('roles.permissionChangeFailed'),
     );
 
-  const cell: React.CSSProperties = { padding: '0.25rem 0.75rem' };
-
   return (
-    <section style={{ marginTop: '1.5rem' }}>
-      <h2 style={{ fontSize: '1rem' }}>{t('roles.title')}</h2>
-      <input
-        placeholder={t('roles.searchPlaceholder')}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ padding: '0.3rem 0.5rem', marginBottom: '0.5rem' }}
-      />
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }}>
+    <section className="section-gap">
+      <h2>{t('roles.title')}</h2>
+      <div className="toolbar">
+        <input
+          placeholder={t('roles.searchPlaceholder')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      {error && <p className="alert error">{error}</p>}
+      <div className="table-wrap">
+        <table className="table">
           <thead>
             <tr>
-              <th style={cell}>{t('roles.name')}</th>
-              <th style={cell}>{t('roles.employeeCode')}</th>
-              <th style={cell}>{t('roles.email')}</th>
-              <th style={cell}>{t('roles.role')}</th>
-              <th style={cell}>{t('roles.longTerm')}</th>
-              <th style={cell}>{t('roles.recurring')}</th>
-              <th style={cell}></th>
+              <th>{t('roles.name')}</th>
+              <th>{t('roles.employeeCode')}</th>
+              <th>{t('roles.email')}</th>
+              <th>{t('roles.role')}</th>
+              <th>{t('roles.longTerm')}</th>
+              <th>{t('roles.recurring')}</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {rows.map((u) => (
               <tr key={u.sub}>
-                <td style={cell}>{u.fullName ?? u.sub}</td>
-                <td style={cell}>{u.employeeCode}</td>
-                <td style={cell}>{u.email}</td>
-                <td style={cell}>{t(`roles.roleName.${u.role}`)}</td>
-                <td style={cell}>
+                <td>{u.fullName ?? u.sub}</td>
+                <td><span className="mono">{u.employeeCode}</span></td>
+                <td>{u.email}</td>
+                <td>
+                  <span className={`badge ${u.role === 'member' ? 'muted' : 'ok'}`}>
+                    {t(`roles.roleName.${u.role}`)}
+                  </span>
+                </td>
+                <td>
                   {u.role === 'member' && (
                     <input
                       type="checkbox"
@@ -229,7 +232,7 @@ export function RolesPanel({
                     />
                   )}
                 </td>
-                <td style={cell}>
+                <td>
                   {u.role === 'member' && (
                     <input
                       type="checkbox"
@@ -241,14 +244,14 @@ export function RolesPanel({
                     />
                   )}
                 </td>
-                <td style={cell}>
+                <td className="table-actions">
                   {canChangeRole && u.sub !== mySub && u.role === 'member' && (
-                    <button type="button" disabled={busy} onClick={() => void setRole(u.sub, 'admin')}>
+                    <button type="button" className="primary sm" disabled={busy} onClick={() => void setRole(u.sub, 'admin')}>
                       {t('roles.makeAdmin')}
                     </button>
                   )}
                   {canChangeRole && u.sub !== mySub && u.role === 'admin' && (
-                    <button type="button" disabled={busy} onClick={() => void setRole(u.sub, 'member')}>
+                    <button type="button" className="danger sm" disabled={busy} onClick={() => void setRole(u.sub, 'member')}>
                       {t('roles.removeAdmin')}
                     </button>
                   )}

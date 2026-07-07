@@ -138,10 +138,10 @@ export function BookingPage({ me }: { me: Me }) {
   );
 
   return (
-    <section style={{ maxWidth: 900 }}>
-      <h1 style={{ fontSize: '1.3rem', marginBottom: '1rem' }}>
-        {t('booking.title')}
-      </h1>
+    <section>
+      <div className="page-header">
+        <h1>{t('booking.title')}</h1>
+      </div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -152,10 +152,10 @@ export function BookingPage({ me }: { me: Me }) {
           gap: '1rem',
           flexWrap: 'wrap',
           alignItems: 'flex-end',
-          marginBottom: '1rem',
+          marginBottom: '1.25rem',
         }}
       >
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <label className="field">
           {t('booking.from')}
           <input
             type="datetime-local"
@@ -164,7 +164,7 @@ export function BookingPage({ me }: { me: Me }) {
             onChange={(e) => setFrom(e.target.value)}
           />
         </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <label className="field">
           {t('booking.to')}
           <input
             type="datetime-local"
@@ -173,31 +173,40 @@ export function BookingPage({ me }: { me: Me }) {
             onChange={(e) => setTo(e.target.value)}
           />
         </label>
-        <button type="submit" disabled={loading || !from || !to}>
+        <button
+          type="submit"
+          className="primary"
+          disabled={loading || !from || !to}
+        >
           {loading ? t('booking.searching') : t('booking.search')}
         </button>
       </form>
 
       {longTermBlocked && (
-        <p style={{ color: '#b8860b' }}>{t('booking.errLongTerm')}</p>
+        <p className="alert warn">{t('booking.errLongTerm')}</p>
       )}
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
-      {notice && <p style={{ color: '#1a7f37' }}>{notice}</p>}
+      {error && <p className="alert error">{error}</p>}
+      {notice && <p className="alert ok">{notice}</p>}
 
-      {machines === null && !error && <p>{t('booking.prompt')}</p>}
+      {machines === null && !error && (
+        <p className="empty">{t('booking.prompt')}</p>
+      )}
       {machines !== null && machines.length === 0 && (
-        <p>{t('booking.empty')}</p>
+        <p className="empty">{t('booking.empty')}</p>
       )}
       {machines !== null && machines.length > 0 && (
         <>
-          <p>
+          <p className="muted" style={{ marginBottom: '0.6rem' }}>
             {t('booking.resultCount', { n: machines.length })}
             {rangeStale && (
-              <span style={{ color: '#b8860b' }}> — {t('booking.staleRange')}</span>
+              <span style={{ color: 'var(--warn)' }}>
+                {' '}
+                — {t('booking.staleRange')}
+              </span>
             )}
           </p>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+          <div className="table-wrap">
+            <table className="table">
               <thead>
                 <tr>
                   {[
@@ -207,39 +216,31 @@ export function BookingPage({ me }: { me: Me }) {
                     'colFloor',
                     'colSoftware',
                   ].map((k) => (
-                    <th
-                      key={k}
-                      style={{
-                        textAlign: 'left',
-                        borderBottom: '1px solid #ccc',
-                        padding: '0.4rem',
-                      }}
-                    >
-                      {t(`booking.${k}`)}
-                    </th>
+                    <th key={k}>{t(`booking.${k}`)}</th>
                   ))}
-                  <th style={{ borderBottom: '1px solid #ccc' }} />
+                  <th />
                 </tr>
               </thead>
               <tbody>
                 {machines.map((m) => (
                   <tr key={m.id}>
-                    <td style={{ padding: '0.4rem' }}>{m.code}</td>
-                    <td style={{ padding: '0.4rem' }}>{m.type}</td>
-                    <td style={{ padding: '0.4rem' }}>
-                      {m.configuration ?? '—'}
+                    <td>
+                      <span className="mono">{m.code}</span>
                     </td>
-                    <td style={{ padding: '0.4rem' }}>{m.floor ?? '—'}</td>
-                    <td style={{ padding: '0.4rem' }}>
-                      {m.software.length === 0
-                        ? t('booking.noSoftware')
-                        : m.software
-                            .map((s) => s.licenseName || s.code)
-                            .join(', ')}
+                    <td>{m.type}</td>
+                    <td>{m.configuration ?? '—'}</td>
+                    <td>{m.floor ?? '—'}</td>
+                    <td>
+                      {m.software.length === 0 ? (
+                        <span className="muted">{t('booking.noSoftware')}</span>
+                      ) : (
+                        m.software.map((s) => s.licenseName || s.code).join(', ')
+                      )}
                     </td>
-                    <td style={{ padding: '0.4rem', whiteSpace: 'nowrap' }}>
+                    <td className="table-actions">
                       <button
                         type="button"
+                        className="primary sm"
                         disabled={
                           longTermBlocked || submitting !== null || rangeStale
                         }
@@ -252,6 +253,7 @@ export function BookingPage({ me }: { me: Me }) {
                       </button>{' '}
                       <button
                         type="button"
+                        className="sm"
                         onClick={() => navigate(`/lich-may/${m.id}`)}
                       >
                         {t('booking.viewCalendar')}
@@ -278,8 +280,12 @@ interface InUseRow {
   to: string | null;
 }
 
-/** "Máy đang được mượn" (3.11, NFR-2) — snapshot ai đang giữ máy gì; không lộ sub/email. */
-function InUseNowPanel() {
+/**
+ * "Máy đang được mượn" (3.11, NFR-2) — snapshot ai đang giữ máy gì; không lộ sub/email.
+ * `standalone`: mục sidebar riêng → có page-header + empty-state; mặc định = panel dưới
+ * trang đặt máy (ẩn khi rỗng).
+ */
+export function InUseNowPanel({ standalone = false }: { standalone?: boolean }) {
   const { t, i18n } = useTranslation();
   const [rows, setRows] = useState<InUseRow[] | null>(null);
 
@@ -308,43 +314,45 @@ function InUseNowPanel() {
         )
       : '—';
 
-  if (rows === null || rows.length === 0) return null;
+  // Panel dưới trang đặt máy: ẩn khi rỗng. Trang riêng: luôn hiện + empty-state.
+  if (!standalone && (rows === null || rows.length === 0)) return null;
   return (
-    <section style={{ maxWidth: 900, marginTop: '2rem' }}>
-      <h2 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>
-        {t('inusenow.title')}
-      </h2>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-          <thead>
-            <tr>
-              {['colBorrower', 'colMachine', 'colTime'].map((k) => (
-                <th
-                  key={k}
-                  style={{
-                    textAlign: 'left',
-                    borderBottom: '1px solid #ccc',
-                    padding: '0.4rem',
-                  }}
-                >
-                  {t(`inusenow.${k}`)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td style={{ padding: '0.4rem' }}>{r.borrowerName ?? '—'}</td>
-                <td style={{ padding: '0.4rem' }}>{r.assetCode ?? '—'}</td>
-                <td style={{ padding: '0.4rem' }}>
-                  {fmt(r.from)} → {fmt(r.to)}
-                </td>
+    <section className={standalone ? undefined : 'section-gap'}>
+      {standalone ? (
+        <div className="page-header">
+          <h1>{t('inusenow.title')}</h1>
+        </div>
+      ) : (
+        <h2 style={{ marginBottom: '0.75rem' }}>{t('inusenow.title')}</h2>
+      )}
+      {rows !== null && rows.length > 0 ? (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                {['colBorrower', 'colMachine', 'colTime'].map((k) => (
+                  <th key={k}>{t(`inusenow.${k}`)}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.borrowerName ?? '—'}</td>
+                  <td>
+                    <span className="mono">{r.assetCode ?? '—'}</span>
+                  </td>
+                  <td>
+                    {fmt(r.from)} → {fmt(r.to)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        standalone && <p className="empty">{t('inusenow.empty')}</p>
+      )}
     </section>
   );
 }

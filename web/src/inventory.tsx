@@ -132,8 +132,10 @@ export function InventoryPage({ me }: { me: Me }) {
       <p style={{ marginBottom: '0.5rem' }}>
         <Link to="/tai-san">‹ {t('assets.backToList')}</Link>
       </p>
-      <h1 style={{ fontSize: '1.2rem' }}>{t('inventory.title')}</h1>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      <div className="page-header">
+        <h1>{t('inventory.title')}</h1>
+      </div>
+      {error && <p className="alert error">{error}</p>}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -167,20 +169,18 @@ export function InventoryPage({ me }: { me: Me }) {
             onChange={(e) => setNote(e.target.value)}
           />
         </label>
-        <button type="submit" disabled={busy}>
+        <button type="submit" className="primary" disabled={busy}>
           {t('inventory.createRound')}
         </button>
       </form>
-      {rounds.length === 0 && <p>{t('inventory.empty')}</p>}
+      {rounds.length === 0 && <p className="empty">{t('inventory.empty')}</p>}
       {rounds.map((r) => (
         <section
           key={r.id}
+          className="card"
           style={{
-            border: '1px solid #ddd',
-            borderRadius: 6,
             padding: '0.75rem 1rem',
             marginBottom: '0.75rem',
-            maxWidth: 720,
           }}
         >
           <h2 style={{ fontSize: '1rem', margin: '0 0 0.25rem' }}>

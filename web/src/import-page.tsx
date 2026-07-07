@@ -16,12 +16,6 @@ interface PreviewResult {
   rows: PreviewRow[];
 }
 
-const cell: React.CSSProperties = {
-  padding: '0.2rem 0.6rem',
-  fontSize: '0.85rem',
-  verticalAlign: 'top',
-};
-
 /** Import Excel go-live (story 2.9, FR-40) — preview dry-run rồi mới import thật. */
 export function ImportPage({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -150,21 +144,15 @@ export function ImportPage({ me }: { me: Me }) {
       <p style={{ marginBottom: '0.5rem' }}>
         <Link to="/tai-san">‹ {t('assets.backToList')}</Link>
       </p>
-      <h1 style={{ fontSize: '1.2rem' }}>{t('importx.title')}</h1>
-      <p style={{ fontSize: '0.85rem', color: '#555' }}>
+      <div className="page-header">
+        <h1>{t('importx.title')}</h1>
+      </div>
+      <p className="muted" style={{ fontSize: '0.85rem' }}>
         {t('importx.hint')}
       </p>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
-      {commitMsg && <p style={{ color: '#1e7e34' }}>{commitMsg}</p>}
-      <div
-        style={{
-          display: 'flex',
-          gap: '0.5rem',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          marginBottom: '0.75rem',
-        }}
-      >
+      {error && <p className="alert error">{error}</p>}
+      {commitMsg && <p className="alert ok">{commitMsg}</p>}
+      <div className="toolbar">
         <input
           key={inputKey}
           type="file"
@@ -181,9 +169,9 @@ export function ImportPage({ me }: { me: Me }) {
         </button>
         <button
           type="button"
+          className="primary"
           disabled={busy || !file || !preview || preview.invalid > 0}
           onClick={() => void runCommit()}
-          style={{ fontWeight: 600 }}
         >
           {t('importx.commit')}
         </button>
@@ -201,34 +189,38 @@ export function ImportPage({ me }: { me: Me }) {
               invalid: preview.invalid,
             })}
           </p>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }}>
+          <div className="table-wrap">
+            <table className="table">
               <thead>
                 <tr>
-                  <th style={cell}>#</th>
+                  <th>#</th>
                   {columns.map((c) => (
-                    <th key={c} style={cell}>
-                      {t(`importx.col.${c}`)}
-                    </th>
+                    <th key={c}>{t(`importx.col.${c}`)}</th>
                   ))}
-                  <th style={cell}>{t('importx.rowErrors')}</th>
+                  <th>{t('importx.rowErrors')}</th>
                 </tr>
               </thead>
               <tbody>
                 {preview.rows.map((r) => (
                   <tr
                     key={r.rowNumber}
-                    style={{
-                      color: r.errors.length > 0 ? '#c0392b' : undefined,
-                    }}
+                    className={r.errors.length > 0 ? 'overdue' : undefined}
                   >
-                    <td style={cell}>{r.rowNumber}</td>
+                    <td>{r.rowNumber}</td>
                     {columns.map((c) => (
-                      <td key={c} style={cell}>
-                        {r.display[c] ?? ''}
+                      <td key={c}>
+                        {c === 'code' ? (
+                          <span className="mono">{r.display[c] ?? ''}</span>
+                        ) : (
+                          (r.display[c] ?? '')
+                        )}
                       </td>
                     ))}
-                    <td style={cell}>{r.errors.join(' ')}</td>
+                    <td>
+                      {r.errors.length > 0 && (
+                        <span className="badge danger">{r.errors.join(' ')}</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

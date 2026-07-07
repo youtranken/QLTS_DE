@@ -104,44 +104,41 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
       : '—';
 
   return (
-    <section style={{ maxWidth: 950 }}>
-      <h1 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>
-        {t('approval.title')}
-      </h1>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+    <section>
+      <div className="page-header">
+        <h1>{t('approval.title')}</h1>
+      </div>
+      {error && <p className="alert error">{error}</p>}
       {items === null && <p>{t('approval.loading')}</p>}
-      {items !== null && items.length === 0 && <p>{t('approval.empty')}</p>}
+      {items !== null && items.length === 0 && (
+        <p className="empty">{t('approval.empty')}</p>
+      )}
       {items !== null && items.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <div className="table-wrap">
+          <table className="table">
             <thead>
               <tr>
                 {['colBorrower', 'colMachine', 'colTime'].map((k) => (
-                  <th
-                    key={k}
-                    style={{
-                      textAlign: 'left',
-                      borderBottom: '1px solid #ccc',
-                      padding: '0.4rem',
-                    }}
-                  >
-                    {t(`approval.${k}`)}
-                  </th>
+                  <th key={k}>{t(`approval.${k}`)}</th>
                 ))}
-                <th style={{ borderBottom: '1px solid #ccc' }} />
+                <th />
               </tr>
             </thead>
             <tbody>
               {items.map((req) => (
                 <tr key={req.id}>
-                  <td style={{ padding: '0.4rem' }}>
-                    {req.borrowerName ?? req.borrowerSub}
+                  <td>{req.borrowerName ?? req.borrowerSub}</td>
+                  <td>
+                    {req.assetCode ? (
+                      <span className="mono">{req.assetCode}</span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
-                  <td style={{ padding: '0.4rem' }}>{req.assetCode ?? '—'}</td>
-                  <td style={{ padding: '0.4rem' }}>
+                  <td>
                     {fmt(req.from)} → {fmt(req.to)}
                   </td>
-                  <td style={{ padding: '0.4rem', whiteSpace: 'nowrap' }}>
+                  <td className="table-actions">
                     {rejectingId === req.id ? (
                       <span
                         style={{ display: 'flex', gap: 4, alignItems: 'center' }}
@@ -154,6 +151,7 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
                         />
                         <button
                           type="button"
+                          className="danger sm"
                           disabled={busyId !== null || reason.trim() === ''}
                           onClick={() => void act(req, 'reject', reason.trim())}
                         >
@@ -161,6 +159,7 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
                         </button>
                         <button
                           type="button"
+                          className="sm"
                           onClick={() => {
                             setRejectingId(null);
                             setReason('');
@@ -173,6 +172,7 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
                       <>
                         <button
                           type="button"
+                          className="primary sm"
                           disabled={busyId !== null}
                           onClick={() => void act(req, 'approve')}
                         >
@@ -180,6 +180,7 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
                         </button>{' '}
                         <button
                           type="button"
+                          className="danger sm"
                           disabled={busyId !== null}
                           onClick={() => {
                             setRejectingId(req.id);
@@ -332,18 +333,18 @@ function HandoverQueues({ me }: { me: Me }) {
     actionKey: string,
   ) => (
     <div style={{ marginTop: '1.5rem' }}>
-      <h2 style={{ fontSize: '1.05rem', marginBottom: '0.5rem' }}>
-        {t(titleKey)}
-      </h2>
+      <div className="page-header">
+        <h2>{t(titleKey)}</h2>
+      </div>
       {rows.length === 0 ? (
-        <p>{t('handover.empty')}</p>
+        <p className="empty">{t('handover.empty')}</p>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <div className="table-wrap">
+          <table className="table">
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id}>
-                  <td style={{ padding: '0.4rem' }}>
+                <tr key={row.id} className={row.isOverdue ? 'overdue' : undefined}>
+                  <td>
                     {row.borrowerName ?? '—'}
                     {/* F8: badge đỏ + thời lượng quá hạn NGAY trên queue đang mượn (3.8/3.12
                         AC "đỏ, sort" — backend listQueue sort is_overdue lên đầu) */}
@@ -365,11 +366,17 @@ function HandoverQueues({ me }: { me: Me }) {
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: '0.4rem' }}>{row.assetCode ?? '—'}</td>
-                  <td style={{ padding: '0.4rem' }}>
+                  <td>
+                    {row.assetCode ? (
+                      <span className="mono">{row.assetCode}</span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td>
                     {fmt(row.from)} → {fmt(row.to)}
                   </td>
-                  <td style={{ padding: '0.4rem', whiteSpace: 'nowrap' }}>
+                  <td className="table-actions">
                     {actingId === row.id ? (
                       <span
                         style={{ display: 'flex', gap: 4, alignItems: 'center' }}
@@ -393,6 +400,7 @@ function HandoverQueues({ me }: { me: Me }) {
                         />
                         <button
                           type="button"
+                          className="primary sm"
                           disabled={busyId !== null}
                           onClick={() => void act(row, kind)}
                         >
@@ -400,6 +408,7 @@ function HandoverQueues({ me }: { me: Me }) {
                         </button>
                         <button
                           type="button"
+                          className="sm"
                           onClick={() => {
                             setActingId(null);
                             setNote('');
@@ -412,6 +421,7 @@ function HandoverQueues({ me }: { me: Me }) {
                     ) : (
                       <button
                         type="button"
+                        className="primary sm"
                         disabled={busyId !== null}
                         onClick={() => {
                           setActingId(row.id);
@@ -434,7 +444,7 @@ function HandoverQueues({ me }: { me: Me }) {
 
   return (
     <div>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      {error && <p className="alert error">{error}</p>}
       {renderQueue(pickup, 'deliver', 'handover.pickupTitle', 'handover.deliver')}
       {renderQueue(inUse, 'return', 'handover.inUseTitle', 'handover.receive')}
     </div>

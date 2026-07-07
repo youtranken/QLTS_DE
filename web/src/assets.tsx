@@ -90,6 +90,13 @@ const EMPTY_FORM: FormState = {
 
 const PAGE_SIZE = 20;
 
+/** Trạng thái tài sản → lớp badge màu (vòng đời: đang dùng/khóa/thanh lý). */
+const STATUS_BADGE: Record<string, string> = {
+  in_use: 'ok',
+  locked_repair: 'warn',
+  disposed: 'muted',
+};
+
 /** Sổ tài sản (story 2.1) — danh sách phân trang + form thêm/sửa. Admin/SA. */
 export function AssetsPage({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -212,12 +219,42 @@ export function AssetsPage({ me }: { me: Me }) {
   );
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const cell: React.CSSProperties = { padding: '0.25rem 0.75rem' };
 
   return (
     <>
-      <h1 style={{ fontSize: '1.2rem' }}>{t('nav.assets')}</h1>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      <div className="page-header">
+        <h1>{t('nav.assets')}</h1>
+        {!form && (
+          <>
+            <Link className="linkbtn" to="/tai-san/kiem-ke">
+              {t('inventory.link')}
+            </Link>
+            <Link className="linkbtn" to="/tai-san/import">
+              {t('importx.link')}
+            </Link>
+            {/* 2.10: export theo bộ lọc ĐANG áp — <a> điều hướng thật, cookie đi kèm */}
+            <a
+              className="linkbtn"
+              href={`/api/admin/assets/export?${new URLSearchParams({
+                ...(search ? { search } : {}),
+                ...(type ? { type } : {}),
+                ...(status ? { status } : {}),
+                ...(floor ? { floor } : {}),
+              }).toString()}`}
+            >
+              {t('assets.exportExcel')}
+            </a>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setForm(EMPTY_FORM)}
+            >
+              {t('assets.addAsset')}
+            </button>
+          </>
+        )}
+      </div>
+      {error && <p className="alert error">{error}</p>}
       {form ? (
         <AssetForm
           me={me}
@@ -232,37 +269,12 @@ export function AssetsPage({ me }: { me: Me }) {
         />
       ) : (
         <>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <button type="button" onClick={() => setForm(EMPTY_FORM)}>
-              {t('assets.addAsset')}
-            </button>
-            <Link to="/tai-san/kiem-ke">{t('inventory.link')}</Link>
-            <Link to="/tai-san/import">{t('importx.link')}</Link>
-            {/* 2.10: export theo bộ lọc ĐANG áp — <a> điều hướng thật, cookie đi kèm */}
-            <a
-              href={`/api/admin/assets/export?${new URLSearchParams({
-                ...(search ? { search } : {}),
-                ...(type ? { type } : {}),
-                ...(status ? { status } : {}),
-                ...(floor ? { floor } : {}),
-              }).toString()}`}
-            >
-              {t('assets.exportExcel')}
-            </a>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '0.5rem',
-              marginTop: '0.75rem',
-            }}
-          >
+          <div className="toolbar">
             <input
+              className="grow"
               placeholder={t('assets.searchPlaceholder')}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              style={{ padding: '0.3rem 0.5rem', minWidth: 220 }}
             />
             <select
               value={type}
@@ -322,17 +334,17 @@ export function AssetsPage({ me }: { me: Me }) {
               </button>
             )}
           </div>
-          <div style={{ overflowX: 'auto', marginTop: '0.75rem' }}>
-            <table style={{ borderCollapse: 'collapse' }}>
+          <div className="table-wrap">
+            <table className="table">
               <thead>
                 <tr>
-                  <th style={cell}>{t('assets.code')}</th>
-                  <th style={cell}>{t('assets.type')}</th>
-                  <th style={cell}>{t('assets.assignee')}</th>
-                  <th style={cell}>{t('assets.floor')}</th>
-                  <th style={cell}>{t('assets.statusLabel')}</th>
-                  <th style={cell}>{t('assets.pool')}</th>
-                  <th style={cell}></th>
+                  <th>{t('assets.code')}</th>
+                  <th>{t('assets.type')}</th>
+                  <th>{t('assets.assignee')}</th>
+                  <th>{t('assets.floor')}</th>
+                  <th>{t('assets.statusLabel')}</th>
+                  <th>{t('assets.pool')}</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -340,6 +352,8 @@ export function AssetsPage({ me }: { me: Me }) {
                   // click dòng → xem chi tiết (AC 1; trang 3 tab là 2.7 — tạm mở form đủ trường)
                   <tr
                     key={a.id}
+                    // FR-38: license sắp hết hạn → viền trái đỏ (class overdue)
+                    className={a.licenseWarning ? 'overdue' : undefined}
                     onClick={() => {
                       // đang bôi đen copy mã → không phải ý định mở trang (review 2.2)
                       if (window.getSelection()?.toString()) return;
@@ -349,26 +363,32 @@ export function AssetsPage({ me }: { me: Me }) {
                     title={
                       a.licenseWarning ? t('assets.licenseWarningHint') : undefined
                     }
-                    style={{
-                      cursor: 'pointer',
-                      // FR-38: license sắp hết hạn — dòng đỏ
-                      color: a.licenseWarning ? '#c0392b' : undefined,
-                      fontWeight: a.licenseWarning ? 600 : undefined,
-                    }}
+                    style={{ cursor: 'pointer' }}
                   >
-                    <td style={cell}>{a.code}</td>
-                    <td style={cell}>
+                    <td>
+                      <span className="mono">{a.code}</span>
+                    </td>
+                    <td>
                       {a.type === 'software' ? t('assets.kindSoftware') : a.type}
                     </td>
-                    <td style={cell}>
-                      {a.assignedUserName ?? a.assignedUserSub ?? ''}
+                    <td>{a.assignedUserName ?? a.assignedUserSub ?? '—'}</td>
+                    <td>{a.floor ?? '—'}</td>
+                    <td>
+                      <span className={`badge ${STATUS_BADGE[a.status] ?? 'muted'}`}>
+                        {t(`assets.status.${a.status}`)}
+                      </span>
                     </td>
-                    <td style={cell}>{a.floor}</td>
-                    <td style={cell}>{t(`assets.status.${a.status}`)}</td>
-                    <td style={cell}>{a.isPool ? '✓' : ''}</td>
-                    <td style={cell}>
+                    <td>
+                      {a.isPool ? (
+                        <span className="badge ok plain">{t('assets.pool')}</span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td className="table-actions">
                       <button
                         type="button"
+                        className="sm"
                         onClick={(e) => {
                           e.stopPropagation(); // tr đã có onClick — không mở 2 lần
                           void openEdit(a.id);
@@ -383,9 +403,18 @@ export function AssetsPage({ me }: { me: Me }) {
             </table>
           </div>
           {items.length === 0 && (
-            <p>{hasFilter ? t('assets.noMatch') : t('assets.empty')}</p>
+            <p className="empty">
+              {hasFilter ? t('assets.noMatch') : t('assets.empty')}
+            </p>
           )}
-          <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
+          <div
+            style={{
+              marginTop: '0.75rem',
+              display: 'flex',
+              gap: '0.75rem',
+              alignItems: 'center',
+            }}
+          >
             <button
               type="button"
               disabled={page <= 1}
@@ -393,7 +422,7 @@ export function AssetsPage({ me }: { me: Me }) {
             >
               ‹ {t('assets.prev')}
             </button>
-            <span>
+            <span className="muted" style={{ fontSize: '0.85rem' }}>
               {t('assets.pageOf', { page, totalPages, total })}
             </span>
             <button
@@ -764,11 +793,6 @@ function AssetForm({
     [form.id, form.version, me.csrfToken, t],
   );
 
-  const field: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.15rem',
-  };
   const grid: React.CSSProperties = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
@@ -778,11 +802,13 @@ function AssetForm({
 
   return (
     <section>
-      <h2 style={{ fontSize: '1rem' }}>
-        {form.id ? t('assets.editTitle', { code: initial.code }) : t('assets.addAsset')}
-      </h2>
+      <div className="page-header">
+        <h1>
+          {form.id ? t('assets.editTitle', { code: initial.code }) : t('assets.addAsset')}
+        </h1>
+      </div>
       {error && (
-        <p style={{ color: '#c0392b' }}>
+        <p className="alert error">
           {error}{' '}
           {stale && (
             <button type="button" onClick={() => void reload()}>
@@ -830,7 +856,7 @@ function AssetForm({
           </div>
         )}
         <div style={grid}>
-          <label style={field}>
+          <label className="field">
             {t('assets.code')} *
             <input
               required
@@ -840,7 +866,7 @@ function AssetForm({
             />
           </label>
           {!form.isSoftware && (
-            <label style={field}>
+            <label className="field">
               {t('assets.type')} *
               <input
                 required
@@ -851,7 +877,7 @@ function AssetForm({
             </label>
           )}
           {form.isSoftware && (
-            <label style={field}>
+            <label className="field">
               {t('assets.licenseType')} *
               <select
                 required
@@ -865,7 +891,7 @@ function AssetForm({
             </label>
           )}
           {form.isSoftware && form.licenseType && (
-            <label style={field}>
+            <label className="field">
               {t('assets.licenseName')}
               {form.licenseType === 'perpetual' && ' *'}
               <input
@@ -876,7 +902,7 @@ function AssetForm({
               />
             </label>
           )}
-          <label style={field}>
+          <label className="field">
             {t('assets.configuration')}
             <input
               maxLength={2000}
@@ -884,7 +910,7 @@ function AssetForm({
               onChange={(e) => set('configuration')(e.target.value)}
             />
           </label>
-          <label style={field}>
+          <label className="field">
             {t('assets.cost')}
             <input
               type="number"
@@ -894,7 +920,7 @@ function AssetForm({
               onChange={(e) => set('cost')(e.target.value)}
             />
           </label>
-          <label style={field}>
+          <label className="field">
             {t('assets.startDate')}
             <input
               type="date"
@@ -903,7 +929,7 @@ function AssetForm({
             />
           </label>
           {!(form.isSoftware && form.licenseType === 'perpetual') && (
-            <label style={field}>
+            <label className="field">
               {t('assets.endDate')}
               {form.isSoftware && form.licenseType === 'term' && ' *'}
               <input
@@ -914,7 +940,7 @@ function AssetForm({
               />
             </label>
           )}
-          <label style={field}>
+          <label className="field">
             {t('assets.floor')}
             <input
               maxLength={50}
@@ -922,12 +948,12 @@ function AssetForm({
               onChange={(e) => set('floor')(e.target.value)}
             />
           </label>
-          <label style={field}>
+          <label className="field">
             {t('assets.statusLabel')}
             {/* Chỉ hiển thị (AC 1) — khóa/gỡ pool/thanh lý là nghiệp vụ 2.6 */}
             <input disabled value={t(`assets.status.${form.status}`)} />
           </label>
-          <label style={field}>
+          <label className="field">
             {t('assets.serial')}
             <input
               maxLength={200}
@@ -935,7 +961,7 @@ function AssetForm({
               onChange={(e) => set('serial')(e.target.value)}
             />
           </label>
-          <label style={field}>
+          <label className="field">
             {t('assets.brand')}
             <input
               maxLength={200}
@@ -943,7 +969,7 @@ function AssetForm({
               onChange={(e) => set('brand')(e.target.value)}
             />
           </label>
-          <label style={field}>
+          <label className="field">
             {t('assets.model')}
             <input
               maxLength={200}
@@ -951,7 +977,7 @@ function AssetForm({
               onChange={(e) => set('model')(e.target.value)}
             />
           </label>
-          <label style={field}>
+          <label className="field">
             {t('assets.note')}
             <input
               maxLength={2000}
@@ -963,11 +989,11 @@ function AssetForm({
         {form.id && (
           // 2.6: vòng đời — 3 thao tác tách bạch, không đi qua nút Lưu
           <div style={{ marginTop: '0.75rem' }}>
-            <h3 style={{ fontSize: '0.95rem', margin: '0 0 0.25rem' }}>
+            <h3 style={{ margin: '0 0 0.25rem' }}>
               {t('assets.lifecycle')}
             </h3>
             {form.status === 'disposed' ? (
-              <p style={{ fontSize: '0.85rem', color: '#555' }}>
+              <p className="muted">
                 {t('assets.disposedTerminal')}
               </p>
             ) : (
@@ -991,6 +1017,7 @@ function AssetForm({
                 {!form.isSoftware && form.status === 'locked_repair' && (
                   <button
                     type="button"
+                    className="primary"
                     disabled={busy}
                     onClick={() =>
                       void doLifecycle('unlock', 'POST', {}, { status: 'in_use' })
@@ -1019,8 +1046,8 @@ function AssetForm({
                 )}
                 <button
                   type="button"
+                  className="danger"
                   disabled={busy}
-                  style={{ color: '#c0392b' }}
                   onClick={() => {
                     if (window.confirm(t('assets.disposeConfirm'))) {
                       void doLifecycle(
@@ -1050,7 +1077,7 @@ function AssetForm({
                   marginTop: '0.5rem',
                 }}
               >
-                <label style={field}>
+                <label className="field">
                   {t('assets.lockReason')} *
                   <input
                     maxLength={500}
@@ -1058,7 +1085,7 @@ function AssetForm({
                     onChange={(e) => setLockReason(e.target.value)}
                   />
                 </label>
-                <label style={field}>
+                <label className="field">
                   {t('assets.lockEta')}
                   <input
                     type="date"
@@ -1068,6 +1095,7 @@ function AssetForm({
                 </label>
                 <button
                   type="button"
+                  className="primary"
                   disabled={busy || !lockReason.trim()}
                   onClick={() =>
                     void doLifecycle(
@@ -1216,14 +1244,7 @@ function AssetForm({
             </div>
           )}
           {form.id && (
-            <label
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.15rem',
-                marginTop: '0.5rem',
-              }}
-            >
+            <label className="field" style={{ marginTop: '0.5rem' }}>
               {t('assets.allocationNote')}
               <input
                 maxLength={500}
@@ -1238,6 +1259,7 @@ function AssetForm({
           {/* disposed = hồ sơ đã chốt (F2) — server cũng chặn 409 DISPOSED_TERMINAL */}
           <button
             type="submit"
+            className="primary"
             disabled={busy || (!!form.id && form.status === 'disposed')}
           >
             {t('assets.save')}
@@ -1253,7 +1275,7 @@ function AssetForm({
       </form>
       {form.id && !form.isSoftware && installedSoftware.length > 0 && (
         <div style={{ marginTop: '1.5rem' }}>
-          <h3 style={{ fontSize: '0.95rem' }}>
+          <h3>
             {t('assets.installedSoftware')}
           </h3>
           <ul style={{ margin: '0.25rem 0', paddingLeft: '1.25rem' }}>
@@ -1272,51 +1294,39 @@ function AssetForm({
       )}
       {form.id && allocations.length > 0 && (
         <div style={{ marginTop: '1.5rem' }}>
-          <h3 style={{ fontSize: '0.95rem' }}>{t('assets.allocationHistory')}</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse' }}>
+          <h3 style={{ marginBottom: '0.5rem' }}>{t('assets.allocationHistory')}</h3>
+          <div className="table-wrap">
+            <table className="table">
               <thead>
                 <tr>
-                  <th style={{ padding: '0.25rem 0.75rem' }}>
-                    {t('assets.allocDate')}
-                  </th>
-                  <th style={{ padding: '0.25rem 0.75rem' }}>
-                    {t('assets.allocFrom')}
-                  </th>
-                  <th style={{ padding: '0.25rem 0.75rem' }}>
-                    {t('assets.allocTo')}
-                  </th>
-                  <th style={{ padding: '0.25rem 0.75rem' }}>
-                    {t('assets.allocActor')}
-                  </th>
-                  <th style={{ padding: '0.25rem 0.75rem' }}>
-                    {t('assets.note')}
-                  </th>
+                  <th>{t('assets.allocDate')}</th>
+                  <th>{t('assets.allocFrom')}</th>
+                  <th>{t('assets.allocTo')}</th>
+                  <th>{t('assets.allocActor')}</th>
+                  <th>{t('assets.note')}</th>
                 </tr>
               </thead>
               <tbody>
                 {allocations.map((h) => (
                   <tr key={h.id}>
-                    <td style={{ padding: '0.25rem 0.75rem' }}>
+                    <td>
                       {/* theo ngôn ngữ UI đang chọn, không phải locale browser (review 2.3) */}
                       {new Date(h.createdAt).toLocaleString(
                         i18n.language === 'en' ? 'en-GB' : 'vi-VN',
                       )}
                     </td>
-                    <td style={{ padding: '0.25rem 0.75rem' }}>
+                    <td>
                       {h.fromUserSub
                         ? (h.fromUserName ?? h.fromUserSub)
                         : t('assets.stock')}
                     </td>
-                    <td style={{ padding: '0.25rem 0.75rem' }}>
+                    <td>
                       {h.toUserSub
                         ? (h.toUserName ?? h.toUserSub)
                         : t('assets.stock')}
                     </td>
-                    <td style={{ padding: '0.25rem 0.75rem' }}>
-                      {h.actorName ?? h.actor}
-                    </td>
-                    <td style={{ padding: '0.25rem 0.75rem' }}>{h.note}</td>
+                    <td>{h.actorName ?? h.actor}</td>
+                    <td>{h.note}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1337,8 +1347,6 @@ interface NoteRow {
   actorName: string | null;
   createdAt: string;
 }
-
-const cellStyle: React.CSSProperties = { padding: '0.25rem 0.75rem' };
 
 /** Trang chi tiết máy 3 tab (story 2.7, UJ-3) — route /tai-san/:id. */
 export function AssetDetailPage({ me }: { me: Me }) {
@@ -1547,10 +1555,12 @@ export function AssetDetailPage({ me }: { me: Me }) {
       type="button"
       onClick={() => setTab(key)}
       style={{
-        padding: '0.35rem 0.8rem',
-        fontWeight: tab === key ? 700 : 400,
-        borderBottom:
-          tab === key ? '2px solid #0b5ed7' : '2px solid transparent',
+        padding: '0.4rem 0.85rem',
+        borderRadius: 'var(--r-sm)',
+        border: '1px solid transparent',
+        fontWeight: 600,
+        background: tab === key ? 'var(--primary-soft)' : 'transparent',
+        color: tab === key ? 'var(--primary-ink)' : 'var(--ink-3)',
       }}
     >
       {label}
@@ -1562,20 +1572,13 @@ export function AssetDetailPage({ me }: { me: Me }) {
       <p style={{ marginBottom: '0.5rem' }}>
         <Link to="/tai-san">‹ {t('assets.backToList')}</Link>
       </p>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          flexWrap: 'wrap',
-        }}
-      >
-        <h1 style={{ fontSize: '1.2rem', margin: 0 }}>{detail.code}</h1>
-        <button type="button" onClick={() => setEditing(true)}>
+      <div className="page-header">
+        <h1>{detail.code}</h1>
+        <button type="button" className="primary" onClick={() => setEditing(true)}>
           {t('assets.edit')}
         </button>
       </div>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      {error && <p className="alert error">{error}</p>}
       <dl
         style={{
           display: 'grid',
@@ -1589,18 +1592,18 @@ export function AssetDetailPage({ me }: { me: Me }) {
           .filter(([, v]) => v != null && v !== '')
           .map(([label, value]) => (
             <div key={label}>
-              <dt style={{ fontSize: '0.8rem', color: '#555' }}>{label}</dt>
+              <dt style={{ fontSize: '0.8rem', color: 'var(--ink-2)' }}>{label}</dt>
               <dd style={{ margin: 0 }}>{value}</dd>
             </div>
           ))}
       </dl>
       {detail.type !== 'software' && (
         <div style={{ margin: '0.75rem 0' }}>
-          <h3 style={{ fontSize: '0.95rem', margin: '0 0 0.25rem' }}>
+          <h3 style={{ margin: '0 0 0.25rem' }}>
             {t('assets.installedSoftware')}
           </h3>
           {software.length === 0 ? (
-            <p style={{ color: '#555', fontSize: '0.85rem' }}>
+            <p className="muted">
               {t('assets.noInstalledSoftware')}
             </p>
           ) : (
@@ -1623,7 +1626,8 @@ export function AssetDetailPage({ me }: { me: Me }) {
         style={{
           display: 'flex',
           gap: '0.25rem',
-          borderBottom: '1px solid #ddd',
+          borderBottom: '1px solid var(--border)',
+          paddingBottom: '0.5rem',
           marginTop: '1rem',
         }}
       >
@@ -1631,74 +1635,80 @@ export function AssetDetailPage({ me }: { me: Me }) {
         {tabButton('loan', t('assets.loanTab'))}
         {tabButton('notes', t('assets.notesTab'))}
       </div>
-      <div style={{ marginTop: '0.75rem', overflowX: 'auto' }}>
+      <div style={{ marginTop: '0.75rem' }}>
         {tab === 'alloc' &&
           (allocations.length === 0 ? (
             <p>{t('assets.noAllocations')}</p>
           ) : (
-            <table style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={cellStyle}>{t('assets.allocDate')}</th>
-                  <th style={cellStyle}>{t('assets.allocFrom')}</th>
-                  <th style={cellStyle}>{t('assets.allocTo')}</th>
-                  <th style={cellStyle}>{t('assets.allocActor')}</th>
-                  <th style={cellStyle}>{t('assets.note')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allocations.map((h) => (
-                  <tr key={h.id}>
-                    <td style={cellStyle}>{fmtDateTime(h.createdAt)}</td>
-                    <td style={cellStyle}>
-                      {h.fromUserSub
-                        ? (h.fromUserName ?? h.fromUserSub)
-                        : t('assets.stock')}
-                    </td>
-                    <td style={cellStyle}>
-                      {h.toUserSub
-                        ? (h.toUserName ?? h.toUserSub)
-                        : t('assets.stock')}
-                    </td>
-                    <td style={cellStyle}>{h.actorName ?? h.actor}</td>
-                    <td style={cellStyle}>{h.note}</td>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{t('assets.allocDate')}</th>
+                    <th>{t('assets.allocFrom')}</th>
+                    <th>{t('assets.allocTo')}</th>
+                    <th>{t('assets.allocActor')}</th>
+                    <th>{t('assets.note')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {allocations.map((h) => (
+                    <tr key={h.id}>
+                      <td>{fmtDateTime(h.createdAt)}</td>
+                      <td>
+                        {h.fromUserSub
+                          ? (h.fromUserName ?? h.fromUserSub)
+                          : t('assets.stock')}
+                      </td>
+                      <td>
+                        {h.toUserSub
+                          ? (h.toUserName ?? h.toUserSub)
+                          : t('assets.stock')}
+                      </td>
+                      <td>{h.actorName ?? h.actor}</td>
+                      <td>{h.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ))}
         {tab === 'loan' &&
           (handovers.length === 0 ? (
             <p>{t('assets.loanTabEmpty')}</p>
           ) : (
-            <table style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={cellStyle}>{t('assets.hoBorrower')}</th>
-                  <th style={cellStyle}>{t('assets.hoWindow')}</th>
-                  <th style={cellStyle}>{t('assets.hoDelivered')}</th>
-                  <th style={cellStyle}>{t('assets.hoReturned')}</th>
-                  <th style={cellStyle}>{t('assets.hoState')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {handovers.map((h) => (
-                  <tr key={h.ticketId}>
-                    <td style={cellStyle}>{h.borrowerName ?? '—'}</td>
-                    <td style={cellStyle}>
-                      {fmtDateTime(h.from)} → {fmtDateTime(h.to)}
-                    </td>
-                    <td style={cellStyle}>
-                      {h.deliveredAt ? fmtDateTime(h.deliveredAt) : '—'}
-                    </td>
-                    <td style={cellStyle}>
-                      {h.returnedAt ? fmtDateTime(h.returnedAt) : '—'}
-                    </td>
-                    <td style={cellStyle}>{h.stateLabel}</td>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{t('assets.hoBorrower')}</th>
+                    <th>{t('assets.hoWindow')}</th>
+                    <th>{t('assets.hoDelivered')}</th>
+                    <th>{t('assets.hoReturned')}</th>
+                    <th>{t('assets.hoState')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {handovers.map((h) => (
+                    <tr key={h.ticketId}>
+                      <td>{h.borrowerName ?? '—'}</td>
+                      <td>
+                        {fmtDateTime(h.from)} → {fmtDateTime(h.to)}
+                      </td>
+                      <td>
+                        {h.deliveredAt ? fmtDateTime(h.deliveredAt) : '—'}
+                      </td>
+                      <td>
+                        {h.returnedAt ? fmtDateTime(h.returnedAt) : '—'}
+                      </td>
+                      <td>
+                        <span className="badge muted">{h.stateLabel}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ))}
         {tab === 'loan' &&
           handoverTotal > HANDOVER_PAGE_SIZE && (
@@ -1727,28 +1737,30 @@ export function AssetDetailPage({ me }: { me: Me }) {
           (notes.length === 0 ? (
             <p>{t('assets.noNotes')}</p>
           ) : (
-            <table style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={cellStyle}>{t('assets.allocDate')}</th>
-                  <th style={cellStyle}>{t('assets.noteKind')}</th>
-                  <th style={cellStyle}>{t('assets.note')}</th>
-                  <th style={cellStyle}>{t('assets.lockEta')}</th>
-                  <th style={cellStyle}>{t('assets.allocActor')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {notes.map((n) => (
-                  <tr key={n.id}>
-                    <td style={cellStyle}>{fmtDateTime(n.createdAt)}</td>
-                    <td style={cellStyle}>{t(`assets.noteKinds.${n.kind}`)}</td>
-                    <td style={cellStyle}>{n.note}</td>
-                    <td style={cellStyle}>{n.eta}</td>
-                    <td style={cellStyle}>{n.actorName ?? n.actor}</td>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{t('assets.allocDate')}</th>
+                    <th>{t('assets.noteKind')}</th>
+                    <th>{t('assets.note')}</th>
+                    <th>{t('assets.lockEta')}</th>
+                    <th>{t('assets.allocActor')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {notes.map((n) => (
+                    <tr key={n.id}>
+                      <td>{fmtDateTime(n.createdAt)}</td>
+                      <td>{t(`assets.noteKinds.${n.kind}`)}</td>
+                      <td>{n.note}</td>
+                      <td>{n.eta}</td>
+                      <td>{n.actorName ?? n.actor}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ))}
       </div>
     </>

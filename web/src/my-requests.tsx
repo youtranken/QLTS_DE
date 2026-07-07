@@ -101,43 +101,56 @@ export function MyRequestsPanel({
         )
       : '—';
 
+  const stateBadge: Record<string, string> = {
+    pending_approval: 'muted',
+    awaiting_pickup: 'warn',
+    in_use: 'ok',
+    closed: 'muted',
+    rejected: 'danger',
+    cancelled: 'muted',
+  };
+
   return (
-    <section style={{ maxWidth: 900, marginTop: '2rem' }}>
-      <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>
-        {t('myreq.title')}
-      </h2>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+    <section style={{ marginTop: '2rem' }}>
+      <h2>{t('myreq.title')}</h2>
+      {error && <p className="alert error">{error}</p>}
       {tickets === null && <p>{t('myreq.loading')}</p>}
-      {tickets !== null && tickets.length === 0 && <p>{t('myreq.empty')}</p>}
+      {tickets !== null && tickets.length === 0 && (
+        <p className="empty">{t('myreq.empty')}</p>
+      )}
       {tickets !== null && tickets.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <div className="table-wrap">
+          <table className="table">
             <thead>
               <tr>
                 {['colMachine', 'colTime', 'colState'].map((k) => (
-                  <th
-                    key={k}
-                    style={{
-                      textAlign: 'left',
-                      borderBottom: '1px solid #ccc',
-                      padding: '0.4rem',
-                    }}
-                  >
-                    {t(`myreq.${k}`)}
-                  </th>
+                  <th key={k}>{t(`myreq.${k}`)}</th>
                 ))}
-                <th style={{ borderBottom: '1px solid #ccc' }} />
+                <th />
               </tr>
             </thead>
             <tbody>
               {tickets.map((tk) => (
-                <tr key={tk.id}>
-                  <td style={{ padding: '0.4rem' }}>{tk.assetCode ?? '—'}</td>
-                  <td style={{ padding: '0.4rem' }}>
+                <tr
+                  key={tk.id}
+                  className={
+                    tk.state === 'in_use' && tk.isOverdue ? 'overdue' : undefined
+                  }
+                >
+                  <td>
+                    {tk.assetCode ? (
+                      <span className="mono">{tk.assetCode}</span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td>
                     {fmt(tk.from)} → {fmt(tk.to)}
                   </td>
-                  <td style={{ padding: '0.4rem' }}>
-                    {tk.stateLabel}
+                  <td>
+                    <span className={`badge ${stateBadge[tk.state] ?? 'muted'}`}>
+                      {tk.stateLabel}
+                    </span>
                     {tk.isOverdue && (
                       <span
                         style={{
@@ -156,10 +169,11 @@ export function MyRequestsPanel({
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: '0.4rem' }}>
+                  <td>
                     {tk.cancellable && (
                       <button
                         type="button"
+                        className="danger sm"
                         disabled={busyId !== null}
                         onClick={() => void cancel(tk)}
                       >

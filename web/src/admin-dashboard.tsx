@@ -61,42 +61,61 @@ export function AdminDashboard() {
 
   return (
     <section>
-      <h1 style={{ fontSize: '1.3rem', marginBottom: '1rem' }}>
-        {t('dashboard.title')}
-      </h1>
+      <div className="page-header">
+        <h1>{t('dashboard.title')}</h1>
+      </div>
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
           gap: '1rem',
         }}
       >
-        {cards.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => navigate(c.to)}
-            style={{
-              textAlign: 'left',
-              padding: '1rem',
-              border: `1px solid ${c.danger && (c.count ?? 0) > 0 ? '#c0392b' : '#ddd'}`,
-              borderRadius: 8,
-              background: '#fff',
-              cursor: 'pointer',
-            }}
-          >
-            <div
+        {cards.map((c) => {
+          const isDanger = c.danger && (c.count ?? 0) > 0;
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => navigate(c.to)}
+              className="card"
               style={{
-                fontSize: '2rem',
-                fontWeight: 700,
-                color: c.danger && (c.count ?? 0) > 0 ? '#c0392b' : '#1a1a2e',
+                textAlign: 'left',
+                padding: '1.1rem 1.25rem',
+                background: 'var(--surface)',
+                color: 'inherit',
+                cursor: 'pointer',
+                borderColor: isDanger ? 'var(--danger)' : undefined,
               }}
             >
-              {c.count ?? '…'}
-            </div>
-            <div style={{ color: '#555' }}>{t(`dashboard.${c.key}`)}</div>
-          </button>
-        ))}
+              <div
+                style={{
+                  fontSize: '1.9rem',
+                  fontWeight: 680,
+                  lineHeight: 1.1,
+                  color: isDanger
+                    ? 'var(--danger)'
+                    : c.count === 0
+                      ? 'var(--ink-3)'
+                      : 'var(--ink)',
+                }}
+              >
+                {c.count ?? '…'}
+              </div>
+              <div
+                className="muted"
+                style={{
+                  marginTop: '0.35rem',
+                  fontSize: '0.85rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.03em',
+                }}
+              >
+                {t(`dashboard.${c.key}`)}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </section>
   );

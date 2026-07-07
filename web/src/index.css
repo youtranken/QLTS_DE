@@ -1,14 +1,562 @@
+/* ============================================================================
+   QLTS design system — "Slate Console" (redesign 2026-07-07)
+   Sidebar tối + bảng là hero. Accent xanh sáng. Micro-animation restrained.
+   Tokens → primitives → animation. Áp toàn app.
+   ========================================================================== */
+
 :root {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #1a1a2e;
-  background: #f5f6fa;
+  /* Bề mặt & mực (content sáng) */
+  --canvas: #eef1f5;
+  --surface: #ffffff;
+  --surface-2: #f7f8fa;
+  --ink: #1b2231;
+  --ink-2: #566072;
+  --ink-3: #8a93a2;
+  --border: #e5e8ee;
+  --border-2: #d3d8e0;
+
+  /* Accent xanh sáng */
+  --primary: #4c6ef5;
+  --primary-ink: #3b5bdb;
+  --primary-soft: #e7ecfe;
+
+  /* Sidebar tối (slate) */
+  --sidebar-bg: #1e2633;
+  --sidebar-ink: #97a3b6;
+  --sidebar-ink-2: #eef2f8;
+  --sidebar-active-bg: rgba(76, 110, 245, 0.2);
+  --sidebar-active-ink: #c7d3ff;
+  --sidebar-border: #2a3342;
+  --sidebar-label: #5b6779;
+
+  /* Hệ màu trạng thái (vòng đời asset/ticket) */
+  --ok: #0f7a55;
+  --ok-soft: #e4f4ee;
+  --warn: #b45309;
+  --warn-soft: #fdf0e3;
+  --danger: #c0392b;
+  --danger-soft: #fdeceb;
+  --muted: #667085;
+  --muted-soft: #eef1f4;
+
+  --ring: 0 0 0 3px rgba(76, 110, 245, 0.3);
+  --r-sm: 6px;
+  --r: 7px;
+  --r-lg: 10px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.1), 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 12px 32px -8px rgba(16, 24, 40, 0.28);
+
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--canvas);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
   margin: 0;
   box-sizing: border-box;
 }
-
 body {
   min-height: 100vh;
+}
+
+h1 {
+  font-size: 1.3rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+h2 {
+  font-size: 1.05rem;
+  font-weight: 620;
+  letter-spacing: -0.005em;
+}
+h3 {
+  font-size: 0.95rem;
+  font-weight: 620;
+}
+
+a {
+  color: var(--primary-ink);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* --- Animations ----------------------------------------------------------- */
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rowIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- Form controls -------------------------------------------------------- */
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  padding: 0.44rem 0.6rem;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+input::placeholder {
+  color: var(--ink-3);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+select {
+  cursor: pointer;
+  appearance: none;
+  padding-right: 1.9rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238a93a2' d='M6 8.5 2.5 5h7z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+}
+label {
+  font-size: 0.82rem;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+/* --- Buttons -------------------------------------------------------------- */
+button {
+  font: inherit;
+  font-weight: 550;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  padding: 0.42rem 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease), transform 0.08s var(--ease), opacity 0.15s;
+  white-space: nowrap;
+}
+button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button.primary {
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 1px 2px rgba(76, 110, 245, 0.35);
+}
+button.primary:hover:not(:disabled) {
+  background: var(--primary-ink);
+  border-color: var(--primary-ink);
+}
+button.danger {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+button.danger:hover:not(:disabled) {
+  background: #a5271b;
+}
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+  padding: 0.42rem 0.55rem;
+}
+button.ghost:hover:not(:disabled) {
+  background: var(--muted-soft);
+  color: var(--ink);
+}
+button.sm {
+  padding: 0.28rem 0.6rem;
+  font-size: 0.82rem;
+}
+a.linkbtn {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 550;
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  padding: 0.42rem 0.85rem;
+  text-decoration: none;
+  transition: background 0.15s var(--ease);
+}
+a.linkbtn:hover {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+
+/* --- Shell: sidebar tối + topbar ----------------------------------------- */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: 236px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  padding: 1.1rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: var(--sidebar-ink-2);
+  padding: 0.1rem 0.6rem 1rem;
+}
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(135deg, var(--primary), #7d92f7);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.nav-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sidebar-label);
+  padding: 0.9rem 0.65rem 0.3rem;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--r-sm);
+  color: var(--sidebar-ink);
+  font-weight: 550;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease),
+    transform 0.12s var(--ease);
+}
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sidebar-ink-2);
+  text-decoration: none;
+  transform: translateX(2px);
+}
+.nav-item.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-ink);
+}
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 56px;
+  padding: 0 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.topbar .spacer {
+  flex: 1;
+}
+.topbar .hello {
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+.topbar .hello strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.page {
+  padding: 1.5rem;
+  max-width: 1180px;
+  width: 100%;
+  animation: pageIn 0.25s var(--ease) both;
+}
+
+/* --- Page header + toolbar ----------------------------------------------- */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.page-header h1 {
+  margin-right: auto;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.toolbar .grow {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* --- Card ----------------------------------------------------------------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.section-gap {
+  margin-top: 1.5rem;
+}
+
+/* --- Table (signature) ---------------------------------------------------- */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+table.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+table.table thead th {
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+table.table tbody td {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  vertical-align: middle;
+}
+table.table tbody tr:last-child td {
+  border-bottom: none;
+}
+table.table tbody tr {
+  transition: background 0.12s var(--ease);
+}
+table.table tbody tr:hover {
+  background: var(--surface-2);
+}
+table.table tbody tr.overdue td:first-child {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+.table-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  letter-spacing: -0.01em;
+}
+
+/* --- Status badge / pill -------------------------------------------------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.9;
+}
+.badge.ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+.badge.warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+.badge.danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+.badge.muted {
+  color: var(--muted);
+  background: var(--muted-soft);
+}
+.badge.plain::before {
+  display: none;
+}
+
+/* --- Alerts / notices ----------------------------------------------------- */
+.alert {
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--r);
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+  animation: rowIn 0.2s var(--ease) both;
+}
+.alert.error {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: #f4cfcb;
+}
+.alert.ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+  border-color: #bfe4d4;
+}
+.alert.warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-color: #f2d9b8;
+}
+
+/* --- Field (label trên input) -------------------------------------------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* --- Modal ---------------------------------------------------------------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 26, 38, 0.5);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+  padding: 1rem;
+  animation: rowIn 0.15s var(--ease) both;
+}
+.modal {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 560px;
+  width: 100%;
+  padding: 1.5rem;
+  animation: modalIn 0.2s var(--ease) both;
+}
+
+/* --- Utilities ------------------------------------------------------------ */
+.muted {
+  color: var(--ink-2);
+}
+.center {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  text-align: center;
+  animation: pageIn 0.3s var(--ease) both;
+}
+.empty {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 0.9rem;
+}
+.spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.6s linear infinite;
+  vertical-align: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

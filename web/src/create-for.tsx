@@ -104,18 +104,18 @@ export function CreateForForm({ me }: { me: Me }) {
       <summary style={{ cursor: 'pointer', fontSize: '1.05rem' }}>
         {t('createfor.title')}
       </summary>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8, maxWidth: 520 }}>
-        <label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12, maxWidth: 520 }}>
+        <label className="field">
           {t('createfor.borrower')}
           <input
             value={borrowerSub}
             onChange={(e) => setBorrowerSub(e.target.value)}
             placeholder="sub (PMH ID)"
-            style={{ marginLeft: 8, minWidth: 240 }}
+            style={{ minWidth: 240 }}
           />
         </label>
         <div style={{ display: 'flex', gap: 12 }}>
-          <label>
+          <label className="field">
             {t('createfor.from')}
             <input
               type="datetime-local"
@@ -123,7 +123,7 @@ export function CreateForForm({ me }: { me: Me }) {
               onChange={(e) => setFrom(e.target.value)}
             />
           </label>
-          <label>
+          <label className="field">
             {t('createfor.to')}
             <input
               type="datetime-local"
@@ -150,7 +150,7 @@ export function CreateForForm({ me }: { me: Me }) {
             {t('createfor.modeNow')}
           </label>
         </div>
-        <button type="button" onClick={() => void findMachines()}>
+        <button type="button" className="sm" onClick={() => void findMachines()}>
           {t('createfor.find')}
         </button>
         {machines !== null && (
@@ -171,11 +171,11 @@ export function CreateForForm({ me }: { me: Me }) {
             rows={2}
           />
         )}
-        <button type="button" disabled={busy} onClick={() => void submit()}>
+        <button type="button" className="primary" disabled={busy} onClick={() => void submit()}>
           {t('createfor.submit')}
         </button>
         {msg && (
-          <p style={{ color: msg.ok ? '#1a7f37' : '#c0392b' }}>{msg.text}</p>
+          <p className={`alert ${msg.ok ? 'ok' : 'error'}`}>{msg.text}</p>
         )}
       </div>
     </details>

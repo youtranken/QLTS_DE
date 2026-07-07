@@ -8,7 +8,7 @@ import {
   Routes,
 } from 'react-router-dom';
 import { AssetDetailPage, AssetsPage } from './assets';
-import { BookingPage } from './booking';
+import { BookingPage, InUseNowPanel } from './booking';
 import { MachineCalendarPage } from './machine-calendar';
 import { ApprovalQueuePage } from './approval-queue';
 import { AdminDashboard } from './admin-dashboard';
@@ -94,15 +94,21 @@ function App() {
   if (auth.kind === 'anonymous') {
     return (
       <Center>
-        <h1>{t('app.title')}</h1>
-        <LanguageSwitch />
+        <div className="brand" style={{ fontSize: '1.4rem', padding: 0 }}>
+          <span className="brand-mark">QL</span> {t('app.title')}
+        </div>
         {loginFailed && (
-          <p style={{ color: '#c0392b' }}>{t('app.loginFailed')}</p>
+          <p className="alert error" style={{ margin: 0 }}>
+            {t('app.loginFailed')}
+          </p>
         )}
-        <p>{t('app.loginPrompt')}</p>
+        <p className="muted">{t('app.loginPrompt')}</p>
         <a href="/api/auth/login">
-          <button type="button">{t('app.login')}</button>
+          <button type="button" className="primary">
+            {t('app.login')}
+          </button>
         </a>
+        <LanguageSwitch />
       </Center>
     );
   }
@@ -115,20 +121,7 @@ function App() {
 }
 
 function Center({ children }: { children: React.ReactNode }) {
-  return (
-    <main
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '0.75rem',
-      }}
-    >
-      {children}
-    </main>
-  );
+  return <main className="center">{children}</main>;
 }
 
 function LanguageSwitch() {
@@ -139,29 +132,48 @@ function LanguageSwitch() {
     setLang(next);
   };
   return (
-    <button type="button" onClick={toggle} style={{ fontSize: '0.85rem' }}>
+    <button type="button" className="ghost sm" onClick={toggle}>
       {lang === 'vi' ? 'EN' : 'VI'}
     </button>
   );
 }
 
-/** Sidebar theo vai (NFR-2): [Xử lý mượn] và [Quản lý tài sản] TÁCH BIỆT — không gộp. */
-function navItems(role: string): Array<{ to: string; key: string }> {
+interface NavGroup {
+  label: string;
+  items: Array<{ to: string; key: string }>;
+}
+
+/**
+ * Sidebar theo vai, NHÓM theo domain (NFR-2): domain "Mượn tài sản" tách hẳn khỏi
+ * "Quản lý tài sản" cho đỡ rối. "Máy đang mượn" là mục riêng (tách khỏi trang đặt máy).
+ */
+function navGroups(role: string): NavGroup[] {
   const isAdmin = role === 'admin' || role === 'sa';
-  // Landing theo vai (3.12): admin/sa → dashboard, member → đặt máy
-  const items = [{ to: '/', key: isAdmin ? 'nav.dashboard' : 'nav.booking' }];
-  if (role === 'admin' || role === 'sa') {
-    items.push(
-      { to: '/xu-ly-muon', key: 'nav.lending' },
-      { to: '/tai-san', key: 'nav.assets' },
-      { to: '/bao-cao', key: 'nav.reports' },
-    );
+  const groups: NavGroup[] = [];
+
+  // Domain Mượn tài sản — landing theo vai (3.12): admin → dashboard, member → đặt máy
+  const borrow = [{ to: '/', key: isAdmin ? 'nav.dashboard' : 'nav.booking' }];
+  if (isAdmin) borrow.push({ to: '/xu-ly-muon', key: 'nav.lending' });
+  borrow.push({ to: '/may-dang-muon', key: 'nav.inUse' });
+  groups.push({ label: 'nav.groupBorrow', items: borrow });
+
+  // Domain Quản lý tài sản (admin/sa)
+  if (isAdmin) {
+    groups.push({
+      label: 'nav.groupAssets',
+      items: [
+        { to: '/tai-san', key: 'nav.assets' },
+        { to: '/tai-san/kiem-ke', key: 'nav.inventory' },
+        { to: '/bao-cao', key: 'nav.reports' },
+      ],
+    });
+    // Hệ thống — Quản trị (SA đầy đủ; Admin chỉ phần quyền per-user, server enforce)
+    groups.push({
+      label: 'nav.groupSystem',
+      items: [{ to: '/quan-tri', key: 'nav.admin' }],
+    });
   }
-  if (role === 'sa' || role === 'admin') {
-    // Quản trị: SA đầy đủ; Admin chỉ phần quyền per-user (server enforce từng API)
-    items.push({ to: '/quan-tri', key: 'nav.admin' });
-  }
-  return items;
+  return groups;
 }
 
 function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
@@ -171,7 +183,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const showSidebar = !narrow || menuOpen;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="app-shell">
       {narrow && menuOpen && (
         // Backdrop: bấm ngoài menu để đóng (nút hamburger bị nav che khi mở)
         <div
@@ -179,67 +191,64 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.3)',
+            background: 'rgba(27,34,49,0.4)',
             zIndex: 9,
           }}
         />
       )}
       {showSidebar && (
         <nav
-          style={{
-            width: 220,
-            flexShrink: 0,
-            borderRight: '1px solid #ddd',
-            padding: '1rem',
-            background: '#fff',
-            ...(narrow
+          className="sidebar"
+          style={
+            narrow
               ? { position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 10 }
-              : {}),
-          }}
+              : undefined
+          }
         >
-          <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>QLTS</h2>
-          {navItems(me.role).map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => setMenuOpen(false)}
-              style={({ isActive }) => ({
-                display: 'block',
-                padding: '0.4rem 0.5rem',
-                textDecoration: 'none',
-                color: isActive ? '#0b5ed7' : '#1a1a2e',
-                fontWeight: isActive ? 700 : 400,
-              })}
-            >
-              {t(item.key)}
-            </NavLink>
+          <div className="brand">
+            <span className="brand-mark">QL</span> QLTS
+          </div>
+          {navGroups(me.role).map((group) => (
+            <div key={group.label}>
+              <div className="nav-label">{t(group.label)}</div>
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/'}
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    isActive ? 'nav-item active' : 'nav-item'
+                  }
+                >
+                  {t(item.key)}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
       )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <header
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-            padding: '0.5rem 1rem',
-            borderBottom: '1px solid #ddd',
-          }}
-        >
+      <div className="content">
+        <header className="topbar">
           {narrow && (
-            <button type="button" onClick={() => setMenuOpen((v) => !v)}>
-              ☰ {t('nav.menu')}
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              ☰
             </button>
           )}
-          <span style={{ flex: 1 }}>
+          <span className="spacer" />
+          <span className="hello">
             {t('app.hello')} <strong>{me.fullName ?? me.sub}</strong>
           </span>
           <LanguageSwitch />
-          <button type="button" onClick={onLogout}>
+          <button type="button" className="ghost sm" onClick={onLogout}>
             {t('app.logout')}
           </button>
         </header>
-        <main style={{ padding: '1rem' }}>
+        <main className="page">
           <Routes>
             {/* Landing theo vai (3.12, NFR-2): admin/sa → dashboard tác vụ; member → đặt máy. */}
             <Route
@@ -253,6 +262,15 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               }
             />
             <Route path="/lich-may/:id" element={<MachineCalendarPage />} />
+            {/* Máy đang mượn — mục sidebar riêng (tách khỏi trang đặt máy). Member + admin. */}
+            <Route
+              path="/may-dang-muon"
+              element={
+                <section>
+                  <InUseNowPanel standalone />
+                </section>
+              }
+            />
             <Route
               path="/xu-ly-muon"
               element={

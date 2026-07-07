@@ -77,13 +77,13 @@ export function MachineCalendarPage() {
 
   return (
     <section style={{ maxWidth: 800 }}>
-      <button type="button" onClick={() => navigate('/')}>
+      <button type="button" className="sm" onClick={() => navigate('/')}>
         ← {t('calendar.back')}
       </button>
-      <h1 style={{ fontSize: '1.2rem', margin: '0.75rem 0' }}>
-        {t('calendar.title', { code: data?.code ?? '' })}
-      </h1>
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      <div className="page-header">
+        <h1>{t('calendar.title', { code: data?.code ?? '' })}</h1>
+      </div>
+      {error && <p className="alert error">{error}</p>}
       {data && (
         <>
           <div
@@ -94,34 +94,48 @@ export function MachineCalendarPage() {
               marginBottom: '0.75rem',
             }}
           >
-            <button type="button" onClick={() => shiftWeek(-7)}>
+            <button type="button" className="sm" onClick={() => shiftWeek(-7)}>
               ← {t('calendar.prevWeek')}
             </button>
-            <span>
+            <span style={{ color: 'var(--ink)' }}>
               {fmtDate(data.weekStart)} –{' '}
               {fmtDate(
                 new Date(new Date(data.weekEnd).getTime() - DAY_MS).toISOString(),
               )}
             </span>
-            <button type="button" onClick={() => shiftWeek(7)}>
+            <button type="button" className="sm" onClick={() => shiftWeek(7)}>
               {t('calendar.nextWeek')} →
             </button>
           </div>
           {data.busy.length === 0 ? (
-            <p style={{ color: '#1a7f37' }}>{t('calendar.allFree')}</p>
+            <p className="alert ok">{t('calendar.allFree')}</p>
           ) : (
-            <ul style={{ paddingLeft: '1rem' }}>
+            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 0.75rem' }}>
               {data.busy.map((b, i) => (
-                <li key={i} style={{ marginBottom: '0.3rem' }}>
+                <li
+                  key={i}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '0.5rem 0.75rem',
+                    marginBottom: '0.4rem',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--r)',
+                    color: 'var(--ink)',
+                  }}
+                >
                   <span
                     style={{
                       display: 'inline-block',
                       width: 10,
                       height: 10,
                       background:
-                        b.kind === 'extension' ? '#b8860b' : '#c0392b',
+                        b.kind === 'extension'
+                          ? 'var(--warn)'
+                          : 'var(--danger)',
                       borderRadius: 2,
-                      marginRight: 6,
                     }}
                   />
                   {fmt(b.from)} → {fmt(b.to)}
@@ -129,7 +143,7 @@ export function MachineCalendarPage() {
               ))}
             </ul>
           )}
-          <p style={{ fontSize: '0.85rem', color: '#666' }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--ink-2)' }}>
             {t('calendar.privacyNote')}
           </p>
         </>
