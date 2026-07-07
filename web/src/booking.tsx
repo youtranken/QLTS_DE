@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import type { Me } from './panels';
 
 const MAX_DURATION_AUTO_MS = 48 * 60 * 60 * 1000;
@@ -29,6 +30,7 @@ interface AvailableMachine {
  */
 export function BookingPage({ me }: { me: Me }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [machines, setMachines] = useState<AvailableMachine[] | null>(null);
@@ -232,7 +234,7 @@ export function BookingPage({ me }: { me: Me }) {
                             .map((s) => s.licenseName || s.code)
                             .join(', ')}
                     </td>
-                    <td style={{ padding: '0.4rem' }}>
+                    <td style={{ padding: '0.4rem', whiteSpace: 'nowrap' }}>
                       <button
                         type="button"
                         disabled={
@@ -244,6 +246,12 @@ export function BookingPage({ me }: { me: Me }) {
                         {submitting === m.id
                           ? t('booking.submitting')
                           : t('booking.pick')}
+                      </button>{' '}
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/lich-may/${m.id}`)}
+                      >
+                        {t('booking.viewCalendar')}
                       </button>
                     </td>
                   </tr>

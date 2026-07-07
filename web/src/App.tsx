@@ -9,6 +9,7 @@ import {
 } from 'react-router-dom';
 import { AssetDetailPage, AssetsPage } from './assets';
 import { BookingPage } from './booking';
+import { MachineCalendarPage } from './machine-calendar';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
@@ -237,6 +238,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
         <main style={{ padding: '1rem' }}>
           <Routes>
             <Route path="/" element={<BookingPage me={me} />} />
+            <Route path="/lich-may/:id" element={<MachineCalendarPage />} />
             <Route
               path="/xu-ly-muon"
               element={

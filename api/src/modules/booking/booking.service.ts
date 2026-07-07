@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { parseBookingWindow } from '../../common/booking-window';
 import { DRIZZLE_DB } from '../../database/database.module';
@@ -22,6 +22,20 @@ export interface AvailableMachine {
   model: string | null;
   floor: string | null;
   software: AvailableSoftware[];
+}
+
+export interface BusyBlock {
+  from: string;
+  to: string;
+  kind: string;
+}
+
+export interface MachineCalendar {
+  assetId: string;
+  code: string;
+  weekStart: string;
+  weekEnd: string;
+  busy: BusyBlock[];
 }
 
 @Injectable()
@@ -89,5 +103,75 @@ export class BookingService {
       floor: r.floor,
       software: r.software,
     }));
+  }
+
+  /**
+   * Lịch tuần của MỘT máy (FR-10): các khối busy = booking OCCUPYING chồng tuần đó.
+   * AD-5 NGHIÊM NGẶT: payload chỉ khung giờ + kind — TUYỆT ĐỐI không borrower/lý do.
+   * weekStart chuẩn hóa về Thứ 2 00:00 giờ VN (date_trunc('week') — tuần Postgres bắt đầu
+   * Thứ 2, khớp ISO). weekStart null → tuần chứa hiện tại.
+   */
+  async machineCalendar(
+    assetId: string,
+    weekStartIso: string | null,
+  ): Promise<MachineCalendar> {
+    const asset = await this.db.execute<{ code: string }>(sql`
+      SELECT code FROM assets WHERE id = ${assetId}
+    `);
+    if (asset.rows.length === 0) {
+      throw new NotFoundException({
+        code: 'ASSET_NOT_FOUND',
+        message: 'Không tìm thấy máy này.',
+      });
+    }
+
+    // Neo tuần theo giờ VN: date_trunc('week') trên timestamp-VN rồi gán lại timezone VN
+    // → tstz đúng mốc Thứ 2 00:00 Asia/Ho_Chi_Minh, ổn định bất kể TZ server.
+    const anchor = weekStartIso
+      ? sql`${weekStartIso}::timestamptz`
+      : sql`now()`;
+    const occupying = sql.join(
+      OCCUPYING_STATES.map((s) => sql`${s}`),
+      sql`, `,
+    );
+    // ws_local: MỐc Thứ 2 00:00 dạng wall-clock VN (timestamp không tz). Cộng '7 days'
+    // TRONG miền wall-clock (day-arithmetic, DST-agnostic) rồi mới AT TIME ZONE ra tstz —
+    // độc lập session tz Postgres (robust dù deploy ở tz có DST — review 3.2 Low-2).
+    const rows = await this.db.execute<{
+      week_start: string;
+      week_end: string;
+      busy: BusyBlock[];
+    }>(sql`
+      WITH wk AS (
+        SELECT date_trunc('week', (${anchor} AT TIME ZONE 'Asia/Ho_Chi_Minh')) AS ws_local
+      )
+      SELECT
+        (wk.ws_local AT TIME ZONE 'Asia/Ho_Chi_Minh') AS week_start,
+        ((wk.ws_local + interval '7 days') AT TIME ZONE 'Asia/Ho_Chi_Minh') AS week_end,
+        COALESCE(
+          json_agg(json_build_object(
+            'from', lower(b.period), 'to', upper(b.period), 'kind', b.kind
+          ) ORDER BY lower(b.period)) FILTER (WHERE b.id IS NOT NULL),
+          '[]'
+        ) AS busy
+      FROM wk
+      LEFT JOIN booking b
+        ON b.asset_id = ${assetId}
+        AND b.state IN (${occupying})
+        AND b.period && tstzrange(
+          (wk.ws_local AT TIME ZONE 'Asia/Ho_Chi_Minh'),
+          ((wk.ws_local + interval '7 days') AT TIME ZONE 'Asia/Ho_Chi_Minh'),
+          '[)'
+        )
+      GROUP BY wk.ws_local
+    `);
+    const row = rows.rows[0];
+    return {
+      assetId,
+      code: asset.rows[0].code,
+      weekStart: new Date(row.week_start).toISOString(),
+      weekEnd: new Date(row.week_end).toISOString(),
+      busy: row.busy,
+    };
   }
 }

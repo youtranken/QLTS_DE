@@ -1,5 +1,5 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { IsISO8601, Matches } from 'class-validator';
+import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { IsISO8601, IsOptional, Matches } from 'class-validator';
 import { Roles } from '../auth/roles.decorator';
 import { BookingService } from './booking.service';
 
@@ -22,6 +22,14 @@ class AvailabilityQueryDto {
   to!: string;
 }
 
+class CalendarQueryDto {
+  /** Tuần cần xem — mặc định tuần hiện tại nếu bỏ trống. */
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @Matches(HAS_OFFSET, { message: 'weekStart phải là ISO-8601 có offset' })
+  weekStart?: string;
+}
+
 /**
  * Đặt mượn (Epic 3). Availability là read-model công khai nội bộ — chỉ máy + khung,
  * KHÔNG lộ người mượn (AD-5). Admin/SA cũng gọi được (3.7 tạo hộ reuse).
@@ -34,5 +42,14 @@ export class BookingController {
   @Get('availability')
   availability(@Query() query: AvailabilityQueryDto) {
     return this.booking.availableMachines(query.from, query.to);
+  }
+
+  /** Lịch tuần busy/free của một máy (FR-10) — AD-5: không lộ người mượn. */
+  @Get('machines/:id/calendar')
+  calendar(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: CalendarQueryDto,
+  ) {
+    return this.booking.machineCalendar(id, query.weekStart ?? null);
   }
 }
