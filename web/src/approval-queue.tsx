@@ -211,6 +211,8 @@ interface QueueRow {
   assetCode: string | null;
   from: string | null;
   to: string | null;
+  isOverdue?: boolean;
+  overdueMinutes?: number | null;
 }
 
 /** Hàng đợi chờ giao (Đã giao) + đang mượn (Đã nhận) — story 3.6. */
@@ -343,6 +345,25 @@ function HandoverQueues({ me }: { me: Me }) {
                 <tr key={row.id}>
                   <td style={{ padding: '0.4rem' }}>
                     {row.borrowerName ?? '—'}
+                    {/* F8: badge đỏ + thời lượng quá hạn NGAY trên queue đang mượn (3.8/3.12
+                        AC "đỏ, sort" — backend listQueue sort is_overdue lên đầu) */}
+                    {row.isOverdue && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          padding: '1px 6px',
+                          borderRadius: 3,
+                          background: '#c0392b',
+                          color: '#fff',
+                          fontSize: '0.75rem',
+                        }}
+                      >
+                        {t('myreq.overdue', {
+                          h: Math.floor((row.overdueMinutes ?? 0) / 60),
+                          m: (row.overdueMinutes ?? 0) % 60,
+                        })}
+                      </span>
+                    )}
                   </td>
                   <td style={{ padding: '0.4rem' }}>{row.assetCode ?? '—'}</td>
                   <td style={{ padding: '0.4rem' }}>

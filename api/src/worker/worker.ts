@@ -43,17 +43,23 @@ async function bootstrap(): Promise<void> {
   const sweepQueue = new Queue(SWEEP_QUEUE, { connection });
 
   // EVENTS worker — baseline: đọc lại theo id từ DB rồi xử (Epic 5 gắn consumer mail).
+  // F1: mark processed_at khi xử xong (check-and-set) → relay KHÔNG re-drive vô hạn.
   const eventsWorker = new Worker(
     EVENTS_QUEUE,
-    (job: Job) => {
+    async (job: Job) => {
       const data = job.data as { id?: string };
       logger.log(`event '${job.name}' id=${data?.id ?? '?'} (baseline ack)`);
-      return Promise.resolve();
+      if (data?.id) await outbox.markProcessed(data.id);
     },
     { connection },
   );
+  // F2: job cạn retry → ghi marker BỀN vào Postgres cho dashboard SA (không chết im lặng).
+  // removeOnFail:true (queue.constants) xóa job failed ở BullMQ để relay re-drive được;
+  // bằng chứng DLQ nằm ở outbox.fail_count/last_error (Postgres là bộ nhớ, Redis là đồng hồ).
   eventsWorker.on('failed', (job, err) => {
+    const id = (job?.data as { id?: string })?.id;
     logger.error(`EVENTS job ${job?.id} cạn retry → DLQ: ${err.message}`);
+    if (id) void outbox.markFailed(id, err.message);
   });
 
   // SWEEP worker — chạy mọi handler đã đăng ký (registry rỗng ở 3.5a).

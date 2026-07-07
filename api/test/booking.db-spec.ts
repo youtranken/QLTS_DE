@@ -137,6 +137,27 @@ describe('Nền DB booking — double-booking bất khả thi (story 3.1a)', () 
     ).resolves.toBeDefined();
   });
 
+  // F13 (review Epic 3): EXCLUDE dùng literal ('held','pending','delivered') RIÊNG với function
+  // booking_state_occupies — nếu rớt 'held'/'delivered' khỏi literal thì test function↔TS + test
+  // 23P01 dùng 'pending' vẫn xanh mà double-booking 'held'/'delivered' lọt. 2 test này bịt lưới.
+  it('2 booking HELD (giữ chỗ >48h) chồng giờ cùng máy → 23P01 (F13, AD-2)', async () => {
+    await expect(
+      insertBooking(freeMachine, T(0), T(2), 'held'),
+    ).resolves.toBeDefined();
+    await expect(
+      insertBooking(freeMachine, T(1), T(3), 'held'),
+    ).rejects.toMatchObject({ code: '23P01' });
+  });
+
+  it('2 booking DELIVERED (đang mượn) chồng giờ cùng máy → 23P01 (F13, AD-2)', async () => {
+    await expect(
+      insertBooking(freeMachine, T(4), T(6), 'delivered'),
+    ).resolves.toBeDefined();
+    await expect(
+      insertBooking(freeMachine, T(5), T(7), 'delivered'),
+    ).rejects.toMatchObject({ code: '23P01' });
+  });
+
   it('INSERT range rỗng → CHECK từ chối 23514 (AC 5)', async () => {
     await expect(insertBooking(poolMachine, T(8), T(8))).rejects.toMatchObject({
       code: '23514',

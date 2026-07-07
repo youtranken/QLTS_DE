@@ -7,15 +7,16 @@ export const SWEEP_QUEUE = 'qlts-sweep';
 /**
  * Job options chuẩn (AD-9): retry 5 lần backoff mũ → cạn thì vào failed (DLQ).
  * removeOnComplete GIỮ theo cửa sổ (không xóa ngay) — jobId dedup còn hiệu lực trong
- * cửa sổ crash relay-trước-commit (M3 review); removeOnFail giữ 24h cho SA soi DLQ.
- * KHÔNG dùng removeOnComplete:true (xóa ngay) — sẽ mở lỗ at-least-twice khi relay re-add
- * jobId đã bị GC. Dedup BỀN thật do consumer check-and-set outbox.processed_at (Epic 5).
+ * cửa sổ crash relay-trước-commit (M3 review); Dedup BỀN thật do consumer check-and-set
+ * outbox.processed_at (F1). KHÔNG dùng removeOnComplete:true.
+ * removeOnFail:true (F2): xóa job failed NGAY ở BullMQ để relay re-drive được (jobId rảnh);
+ * bằng chứng DLQ bền nằm ở outbox.fail_count/last_error (Postgres), không ở Redis.
  */
 export const EVENTS_JOB_OPTIONS: JobsOptions = {
   attempts: 5,
   backoff: { type: 'exponential', delay: 1_000 },
   removeOnComplete: { age: 3_600, count: 5_000 },
-  removeOnFail: { age: 86_400 },
+  removeOnFail: true,
 };
 
 /** Sweep-tick: retry + xóa completed (idempotent, không cần giữ) nhưng giữ failed để soi. */

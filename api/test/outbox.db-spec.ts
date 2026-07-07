@@ -175,6 +175,55 @@ describe('Outbox + relay (story 3.5a)', () => {
     ).toBe(6);
   });
 
+  it('F1: row đã claim nhưng CHƯA processed + lease hết 5p → relay RE-DRIVE (không nuốt)', async () => {
+    await db.transaction(async (tx) => {
+      await service.enqueueWithin(tx, 'ev.stranded', { id: 's' });
+    });
+    const first = await service.relayBatch(queue);
+    expect(first).toBe(1);
+    // Mô phỏng: job cạn retry/DLQ hoặc Redis mất job — processed_at vẫn NULL, lease cũ >5p
+    await pool.query(
+      `UPDATE outbox SET claimed_at = now() - interval '10 minutes'`,
+    );
+    const redrive = await service.relayBatch(queue);
+    expect(redrive).toBe(1); // re-drive, KHÔNG kẹt vĩnh viễn (F1)
+  });
+
+  it('F1: row ĐÃ processed → relay KHÔNG re-drive (dedup bền)', async () => {
+    await db.transaction(async (tx) => {
+      await service.enqueueWithin(tx, 'ev.done', { id: 'd' });
+    });
+    const evRow = await pool.query<{ id: string }>(`SELECT id FROM outbox`);
+    await service.relayBatch(queue);
+    const marked = await service.markProcessed(evRow.rows[0].id);
+    expect(marked).toBe(true);
+    // Dù lease hết hạn, đã processed thì không claim lại
+    await pool.query(
+      `UPDATE outbox SET claimed_at = now() - interval '10 minutes'`,
+    );
+    const redrive = await service.relayBatch(queue);
+    expect(redrive).toBe(0);
+    // markProcessed lần 2 = idempotent, trả false (đã xử)
+    expect(await service.markProcessed(evRow.rows[0].id)).toBe(false);
+  });
+
+  it('F2: markFailed ghi marker DLQ bền (fail_count/last_error) cho dashboard SA', async () => {
+    await db.transaction(async (tx) => {
+      await service.enqueueWithin(tx, 'ev.fail', { id: 'f' });
+    });
+    const evRow = await pool.query<{ id: string }>(`SELECT id FROM outbox`);
+    await service.markFailed(evRow.rows[0].id, 'SMTP timeout');
+    await service.markFailed(evRow.rows[0].id, 'SMTP timeout again');
+    const row = await pool.query<{
+      fail_count: number;
+      last_error: string;
+      processed_at: string | null;
+    }>(`SELECT fail_count, last_error, processed_at FROM outbox`);
+    expect(row.rows[0].fail_count).toBe(2);
+    expect(row.rows[0].last_error).toContain('SMTP timeout again');
+    expect(row.rows[0].processed_at).toBeNull(); // vẫn re-drive được (backstop)
+  });
+
   it('payload chỉ id/ref — không PII (AC 3, quy ước)', async () => {
     await db.transaction(async (tx) => {
       await service.enqueueWithin(tx, 'ev.ref', {

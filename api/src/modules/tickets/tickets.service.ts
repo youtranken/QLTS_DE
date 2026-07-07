@@ -76,24 +76,35 @@ export class TicketsService {
     version: number,
     actorSub: string,
   ) {
-    return this.db.transaction(async (tx) => {
-      const res = await this.assets.lockWithin(
-        tx,
-        assetId,
-        reason,
-        eta,
-        version,
-        actorSub,
-      );
-      const cancelled = await this.cancelFutureBookings(tx, assetId, actorSub);
-      return { ...res, cancelledBookings: cancelled };
-    });
+    // Task 2 (3.10): caller bọc mapPgError — lỗi PG-level trong cascade (deadlock 40P01
+    // review F11, trigger P0001…) dịch 409 thay vì 500 thô. Nest exception (STALE_VERSION…)
+    // đi qua nguyên vẹn vì mapBookingPgError trả về error gốc khi không khớp code.
+    try {
+      return await this.db.transaction(async (tx) => {
+        const res = await this.assets.lockWithin(
+          tx,
+          assetId,
+          reason,
+          eta,
+          version,
+          actorSub,
+        );
+        const cancelled = await this.cancelFutureBookings(tx, assetId, actorSub);
+        return { ...res, cancelledBookings: cancelled };
+      });
+    } catch (error) {
+      throw mapBookingPgError(error);
+    }
   }
 
   async unlockAsset(assetId: string, version: number, actorSub: string) {
-    return this.db.transaction((tx) =>
-      this.assets.unlockWithin(tx, assetId, version, actorSub),
-    );
+    try {
+      return await this.db.transaction((tx) =>
+        this.assets.unlockWithin(tx, assetId, version, actorSub),
+      );
+    } catch (error) {
+      throw mapBookingPgError(error);
+    }
   }
 
   async disposeAssetCascade(
@@ -101,16 +112,20 @@ export class TicketsService {
     version: number,
     actorSub: string,
   ) {
-    return this.db.transaction(async (tx) => {
-      const res = await this.assets.disposeWithin(
-        tx,
-        assetId,
-        version,
-        actorSub,
-      );
-      const cancelled = await this.cancelFutureBookings(tx, assetId, actorSub);
-      return { ...res, cancelledBookings: cancelled };
-    });
+    try {
+      return await this.db.transaction(async (tx) => {
+        const res = await this.assets.disposeWithin(
+          tx,
+          assetId,
+          version,
+          actorSub,
+        );
+        const cancelled = await this.cancelFutureBookings(tx, assetId, actorSub);
+        return { ...res, cancelledBookings: cancelled };
+      });
+    } catch (error) {
+      throw mapBookingPgError(error);
+    }
   }
 
   async setPoolCascade(
@@ -119,25 +134,29 @@ export class TicketsService {
     version: number,
     actorSub: string,
   ) {
-    return this.db.transaction(async (tx) => {
-      const res = await this.assets.setPoolWithin(
-        tx,
-        assetId,
-        isPool,
-        version,
-        actorSub,
-      );
-      // Gỡ pool (isPool=false) → máy không bookable → cascade; bật pool → không.
-      if (!isPool) {
-        const cancelled = await this.cancelFutureBookings(
+    try {
+      return await this.db.transaction(async (tx) => {
+        const res = await this.assets.setPoolWithin(
           tx,
           assetId,
+          isPool,
+          version,
           actorSub,
         );
-        return { ...res, cancelledBookings: cancelled };
-      }
-      return res;
-    });
+        // Gỡ pool (isPool=false) → máy không bookable → cascade; bật pool → không.
+        if (!isPool) {
+          const cancelled = await this.cancelFutureBookings(
+            tx,
+            assetId,
+            actorSub,
+          );
+          return { ...res, cancelledBookings: cancelled };
+        }
+        return res;
+      });
+    } catch (error) {
+      throw mapBookingPgError(error);
+    }
   }
 
   /**
@@ -469,7 +488,7 @@ export class TicketsService {
       asset_code: string | null;
       from_ts: string | null;
       to_ts: string | null;
-      pickup_ts: string | null;
+      pickup_passed: boolean | null;
       is_overdue: boolean;
       overdue_minutes: number | null;
     }>(sql`
@@ -480,21 +499,20 @@ export class TicketsService {
         CASE WHEN t.is_overdue THEN
           EXTRACT(EPOCH FROM (now() - upper(b.period)))::int / 60
           ELSE NULL END AS overdue_minutes,
-        -- giờ nhận sớm nhất tính TRÊN booking còn chiếm chỗ (bỏ cancelled/returned cũ —
-        -- chống false-negative khi Epic 4 thêm nhiều booking/ticket)
-        (SELECT min(lower(b2.period)) FROM booking b2
+        -- giờ nhận ĐÃ QUA chưa (F5: so bằng DB now(), không Date.now()) — tính TRÊN booking
+        -- còn chiếm chỗ (bỏ cancelled/returned cũ; chống false-negative khi Epic 4 đa booking)
+        (SELECT min(lower(b2.period)) < now() FROM booking b2
            WHERE b2.ticket_id = t.id
              AND b2.state IN (${sql.join(
                OCCUPYING_STATES.map((s) => sql`${s}`),
                sql`, `,
-             )})) AS pickup_ts
+             )})) AS pickup_passed
       FROM ticket t
       LEFT JOIN booking b ON b.ticket_id = t.id
       LEFT JOIN assets a ON a.id = b.asset_id
       WHERE t.borrower_sub = ${borrowerSub}
       ORDER BY t.created_at DESC, b.id
     `);
-    const now = Date.now();
     return rows.rows.map((r) => ({
       id: r.id,
       state: r.state,
@@ -505,24 +523,20 @@ export class TicketsService {
       from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
       to: r.to_ts ? new Date(r.to_ts).toISOString() : null,
       createdAt: new Date(r.created_at).toISOString(),
-      cancellable: this.isCancellable(
-        r.state,
-        r.pickup_ts ? new Date(r.pickup_ts).getTime() : null,
-        now,
-      ),
+      cancellable: this.isCancellable(r.state, r.pickup_passed),
       isOverdue: r.is_overdue,
       overdueMinutes: r.overdue_minutes,
     }));
   }
 
-  /** Hủy được: pending_approval bất kỳ lúc nào; awaiting_pickup CHỈ trước giờ nhận (FR-11). */
-  private isCancellable(
-    state: string,
-    pickupMs: number | null,
-    now: number,
-  ): boolean {
+  /**
+   * Hủy được: pending_approval bất kỳ lúc nào; awaiting_pickup CHỈ trước giờ nhận (FR-11).
+   * `pickupPassed` derive từ DB now() (F5 — MỘT nguồn đồng hồ = Postgres, không trộn
+   * Date.now() Node; đồng bộ với sweep expireStalePendingApprovals/autoCloseNoShow).
+   */
+  private isCancellable(state: string, pickupPassed: boolean | null): boolean {
     if (state === 'pending_approval') return true;
-    if (state === 'awaiting_pickup') return pickupMs === null || now < pickupMs;
+    if (state === 'awaiting_pickup') return pickupPassed !== true;
     return false;
   }
 
@@ -541,15 +555,15 @@ export class TicketsService {
         borrower_sub: string;
         state: string;
         version: number;
-        pickup_ts: string | null;
+        pickup_passed: boolean | null;
       }>(sql`
         SELECT t.borrower_sub, t.state, t.version,
-          (SELECT min(lower(b.period)) FROM booking b
+          (SELECT min(lower(b.period)) < now() FROM booking b
              WHERE b.ticket_id = t.id
                AND b.state IN (${sql.join(
                  OCCUPYING_STATES.map((s) => sql`${s}`),
                  sql`, `,
-               )})) AS pickup_ts
+               )})) AS pickup_passed
         FROM ticket t WHERE t.id = ${ticketId} FOR UPDATE
       `);
       if (rows.rows.length === 0) {
@@ -572,8 +586,7 @@ export class TicketsService {
           message: 'Request vừa được cập nhật — vui lòng tải lại.',
         });
       }
-      const pickupMs = t.pickup_ts ? new Date(t.pickup_ts).getTime() : null;
-      if (!this.isCancellable(t.state, pickupMs, Date.now())) {
+      if (!this.isCancellable(t.state, t.pickup_passed)) {
         throw new ConflictException({
           code: 'CANNOT_CANCEL',
           message:
@@ -665,6 +678,8 @@ export class TicketsService {
       assetCode: string | null;
       from: string | null;
       to: string | null;
+      isOverdue: boolean;
+      overdueMinutes: number | null;
     }>
   > {
     const rows = await this.db.execute<{
@@ -674,9 +689,16 @@ export class TicketsService {
       asset_code: string | null;
       from_ts: string | null;
       to_ts: string | null;
+      is_overdue: boolean;
+      overdue_minutes: number | null;
     }>(sql`
       SELECT t.id, t.version, u.full_name AS borrower_name, a.code AS asset_code,
-        lower(b.period) AS from_ts, upper(b.period) AS to_ts
+        lower(b.period) AS from_ts, upper(b.period) AS to_ts,
+        t.is_overdue,
+        -- F9: badge đỏ + thời lượng quá hạn NGAY trên queue đang mượn (3.8 Task 5)
+        CASE WHEN t.is_overdue THEN
+          EXTRACT(EPOCH FROM (now() - upper(b.period)))::int / 60
+          ELSE NULL END AS overdue_minutes
       FROM ticket t
       LEFT JOIN users u ON u.sub = t.borrower_sub
       LEFT JOIN booking b ON b.ticket_id = t.id
@@ -686,7 +708,8 @@ export class TicketsService {
         )})
       LEFT JOIN assets a ON a.id = b.asset_id
       WHERE t.state = ${ticketState}
-      ORDER BY lower(b.period) ASC, t.created_at
+      -- quá hạn nổi lên đầu (sort — 3.8 AC1), rồi tới giờ nhận/trả sớm nhất
+      ORDER BY t.is_overdue DESC, lower(b.period) ASC, t.created_at
     `);
     return rows.rows.map((r) => ({
       id: r.id,
@@ -695,6 +718,8 @@ export class TicketsService {
       assetCode: r.asset_code,
       from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
       to: r.to_ts ? new Date(r.to_ts).toISOString() : null,
+      isOverdue: r.is_overdue,
+      overdueMinutes: r.overdue_minutes,
     }));
   }
 
@@ -739,15 +764,15 @@ export class TicketsService {
     tx: Pick<Database, 'execute' | 'insert'>,
     ticketId: string,
     version: number,
-  ): Promise<{ pickupMs: number | null }> {
+  ): Promise<{ pickupPassed: boolean | null }> {
     const rows = await tx.execute<{
       state: string;
       version: number;
-      pickup_ts: string | null;
+      pickup_passed: boolean | null;
     }>(sql`
       SELECT t.state, t.version,
-        (SELECT min(lower(b.period)) FROM booking b
-           WHERE b.ticket_id = t.id AND b.state = 'held') AS pickup_ts
+        (SELECT min(lower(b.period)) < now() FROM booking b
+           WHERE b.ticket_id = t.id AND b.state = 'held') AS pickup_passed
       FROM ticket t WHERE t.id = ${ticketId} FOR UPDATE
     `);
     if (rows.rows.length === 0) {
@@ -772,7 +797,7 @@ export class TicketsService {
         message: 'Request không còn ở trạng thái chờ duyệt.',
       });
     }
-    return { pickupMs: t.pickup_ts ? new Date(t.pickup_ts).getTime() : null };
+    return { pickupPassed: t.pickup_passed };
   }
 
   /**
@@ -808,13 +833,13 @@ export class TicketsService {
   ): Promise<{ id: string; state: string }> {
     try {
       return await this.db.transaction(async (tx) => {
-        const { pickupMs } = await this.lockPendingForDecision(
+        const { pickupPassed } = await this.lockPendingForDecision(
           tx,
           ticketId,
           version,
         );
-        // Guard AD-4: không duyệt booking có giờ nhận đã ở quá khứ
-        if (pickupMs !== null && pickupMs < Date.now()) {
+        // Guard AD-4: không duyệt booking có giờ nhận đã ở quá khứ (F5: DB now(), không Date.now())
+        if (pickupPassed === true) {
           throw new ConflictException({
             code: 'PICKUP_PASSED',
             message: 'Giờ nhận đã trôi qua — không thể duyệt; đề nghị hủy.',
@@ -845,7 +870,9 @@ export class TicketsService {
         actorSub,
         error,
       );
-      throw error;
+      // F14: UPDATE held→pending kích trigger bookability → P0001 ASSET_UNAVAILABLE khi máy
+      // vừa bị khóa/gỡ pool; map 409 thay vì 500 thô (đồng bộ submit/create-for).
+      throw mapBookingPgError(error);
     }
   }
 
@@ -957,6 +984,9 @@ export class TicketsService {
    * Expire-on-conflict (AD-9): trong tx submit, giải phóng dòng `held` (pending_approval)
    * trên máy `assetId` chồng khung [from,to) mà giờ nhận (lower) đã qua. CHỈ held quá giờ —
    * không đụng booking còn hạn / đang mượn.
+   * KHÔNG đụng `pending` (awaiting_pickup) trễ giờ nhận: khung còn hiệu lực (upper>now) nghĩa là
+   * member VẪN giữ chỗ hợp lệ (đang được nhắc pickup) — không cướp; còn khi upper<now thì booking
+   * mới của B (from≥now) không thể chồng nên không có "SLOT_TAKEN giả" (review Epic 3 F4).
    * THỨ TỰ KHÓA ticket → booking (giống sweep) để KHÔNG deadlock (review Med): tìm ticket_id
    * (không FOR UPDATE booking) → khóa ticket trước → cancelExpiredWithin update booking sau.
    */
@@ -1250,10 +1280,17 @@ export class TicketsService {
         to_ts: string;
         delivered_at: string | null;
         returned_at: string | null;
+        is_overdue: boolean;
+        overdue_minutes: number | null;
       }>(sql`
         SELECT t.id AS ticket_id, t.state, u.full_name AS borrower_name,
           lower(b.period) AS from_ts, upper(b.period) AS to_ts,
-          t.delivered_at, t.returned_at
+          t.delivered_at, t.returned_at,
+          t.is_overdue,
+          -- F9: cờ/thời lượng quá hạn cho tab Mượn-trả (3.8 Task 4)
+          CASE WHEN t.is_overdue THEN
+            EXTRACT(EPOCH FROM (now() - upper(b.period)))::int / 60
+            ELSE NULL END AS overdue_minutes
         FROM booking b
         JOIN ticket t ON t.id = b.ticket_id
         LEFT JOIN users u ON u.sub = t.borrower_sub
@@ -1282,6 +1319,8 @@ export class TicketsService {
         returnedAt: r.returned_at
           ? new Date(r.returned_at).toISOString()
           : null,
+        isOverdue: r.is_overdue,
+        overdueMinutes: r.overdue_minutes,
       })),
       total: totalRows.rows[0]?.n ?? 0,
       page,

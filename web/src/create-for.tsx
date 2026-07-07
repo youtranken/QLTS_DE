@@ -81,6 +81,13 @@ export function CreateForForm({ me }: { me: Me }) {
         BOOKING_WINDOW: t('createfor.errRange'),
         SELF_CREATE_FORBIDDEN: t('createfor.errSelf'),
       };
+      // F6: 409 khung/máy hết rảnh → PHẢI refetch availability trước khi cho submit lại
+      // (Consistency Convention) — danh sách `machines` cũ chứa máy stale; reset assetId +
+      // load lại để Admin không "bấm lại mù" trên máy đã hết rảnh.
+      if (body.code === 'SLOT_TAKEN' || body.code === 'ASSET_UNAVAILABLE') {
+        setAssetId('');
+        await findMachines();
+      }
       setMsg({
         ok: false,
         text: (body.code && map[body.code]) || t('createfor.errGeneric'),
@@ -90,7 +97,7 @@ export function CreateForForm({ me }: { me: Me }) {
     } finally {
       setBusy(false);
     }
-  }, [borrowerSub, assetId, from, to, mode, note, me.csrfToken, t]);
+  }, [borrowerSub, assetId, from, to, mode, note, me.csrfToken, t, findMachines]);
 
   return (
     <details style={{ marginTop: '2rem' }}>

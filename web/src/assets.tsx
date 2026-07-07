@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 import type { Me } from './panels';
 
 interface AssetRow {
@@ -89,6 +94,9 @@ const PAGE_SIZE = 20;
 export function AssetsPage({ me }: { me: Me }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // F7: khởi tạo lọc status từ URL (?status=locked_repair) — card dashboard "Máy đang khóa"
+  // (3.12 AC1 ≤2 click) dẫn thẳng vào danh sách đã lọc, không rơi vào list không lọc.
+  const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<AssetRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -98,7 +106,10 @@ export function AssetsPage({ me }: { me: Me }) {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(() => {
+    const s = searchParams.get('status') ?? '';
+    return ['in_use', 'locked_repair', 'disposed'].includes(s) ? s : '';
+  });
   const [floor, setFloor] = useState('');
   const [meta, setMeta] = useState<{ types: string[]; floors: string[] }>({
     types: [],

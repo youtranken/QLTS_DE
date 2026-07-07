@@ -38,5 +38,14 @@ export function mapBookingPgError(error: unknown): unknown {
       message: 'Khung giờ không hợp lệ.',
     });
   }
+  if (pg?.code === '40P01') {
+    // Deadlock (cascade khóa-máy ⟷ submit đặt cùng lúc: thứ tự khóa asset↔ticket
+    // ngược nhau — review Epic 3 F11). PG đã abort 1 nhánh, dữ liệu nhất quán; trả 409
+    // để FE thử lại (refetch availability) thay vì 500 thô.
+    return new ConflictException({
+      code: 'RETRY',
+      message: 'Hệ thống bận xử lý — vui lòng thử lại.',
+    });
+  }
   return error;
 }
