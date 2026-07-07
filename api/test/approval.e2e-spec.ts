@@ -95,6 +95,15 @@ describe('Admin duyệt request — phân quyền (story 3.4)', () => {
       .expect(401);
   });
 
+  it('dashboard count endpoints: member → 403 (story 3.12)', async () => {
+    for (const path of ['overdue', 'awaiting-pickup', 'in-use']) {
+      await request(app.getHttpServer())
+        .get(`/api/admin/tickets/${path}`)
+        .set(asMember)
+        .expect(403);
+    }
+  });
+
   it('create-for: mode sai → 400 (admin)', async () => {
     await request(app.getHttpServer())
       .post('/api/admin/tickets/create-for')

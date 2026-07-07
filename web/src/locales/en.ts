@@ -15,6 +15,7 @@ export default {
   },
   nav: {
     booking: 'Book a device',
+    dashboard: 'Dashboard',
     lending: 'Lending desk',
     assets: 'Asset management',
     reports: 'Reports',
@@ -104,6 +105,14 @@ export default {
     error: 'Could not process — try again.',
     errStale: 'The ticket was just updated — reloaded.',
     errInvalidState: 'The ticket is no longer in a suitable state — reloaded.',
+  },
+  dashboard: {
+    title: 'Task board',
+    pending: 'Awaiting approval',
+    pickup: 'Awaiting pickup',
+    inuse: 'In use',
+    overdue: 'Overdue',
+    locked: 'Locked machines',
   },
   inusenow: {
     title: 'Machines currently borrowed',

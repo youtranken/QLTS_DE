@@ -11,6 +11,7 @@ import { AssetDetailPage, AssetsPage } from './assets';
 import { BookingPage } from './booking';
 import { MachineCalendarPage } from './machine-calendar';
 import { ApprovalQueuePage } from './approval-queue';
+import { AdminDashboard } from './admin-dashboard';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
@@ -146,7 +147,9 @@ function LanguageSwitch() {
 
 /** Sidebar theo vai (NFR-2): [Xử lý mượn] và [Quản lý tài sản] TÁCH BIỆT — không gộp. */
 function navItems(role: string): Array<{ to: string; key: string }> {
-  const items = [{ to: '/', key: 'nav.booking' }];
+  const isAdmin = role === 'admin' || role === 'sa';
+  // Landing theo vai (3.12): admin/sa → dashboard, member → đặt máy
+  const items = [{ to: '/', key: isAdmin ? 'nav.dashboard' : 'nav.booking' }];
   if (role === 'admin' || role === 'sa') {
     items.push(
       { to: '/xu-ly-muon', key: 'nav.lending' },
@@ -238,7 +241,17 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
         </header>
         <main style={{ padding: '1rem' }}>
           <Routes>
-            <Route path="/" element={<BookingPage me={me} />} />
+            {/* Landing theo vai (3.12, NFR-2): admin/sa → dashboard tác vụ; member → đặt máy. */}
+            <Route
+              path="/"
+              element={
+                me.role === 'admin' || me.role === 'sa' ? (
+                  <AdminDashboard />
+                ) : (
+                  <BookingPage me={me} />
+                )
+              }
+            />
             <Route path="/lich-may/:id" element={<MachineCalendarPage />} />
             <Route
               path="/xu-ly-muon"

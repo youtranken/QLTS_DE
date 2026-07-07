@@ -15,6 +15,7 @@ export default {
   },
   nav: {
     booking: 'Đặt máy',
+    dashboard: 'Dashboard',
     lending: 'Xử lý mượn',
     assets: 'Quản lý tài sản',
     reports: 'Báo cáo',
@@ -104,6 +105,14 @@ export default {
     error: 'Không xử lý được — thử lại.',
     errStale: 'Ticket vừa được cập nhật — đã tải lại.',
     errInvalidState: 'Ticket không còn ở trạng thái phù hợp — đã tải lại.',
+  },
+  dashboard: {
+    title: 'Bảng tác vụ',
+    pending: 'Chờ duyệt',
+    pickup: 'Chờ giao',
+    inuse: 'Đang mượn',
+    overdue: 'Quá hạn',
+    locked: 'Máy đang khóa',
   },
   inusenow: {
     title: 'Máy đang được mượn',
