@@ -10,6 +10,7 @@ import {
 import { AssetDetailPage, AssetsPage } from './assets';
 import { BookingPage } from './booking';
 import { MachineCalendarPage } from './machine-calendar';
+import { ApprovalQueuePage } from './approval-queue';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
@@ -243,7 +244,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               path="/xu-ly-muon"
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
-                  <Placeholder titleKey="nav.lending" />
+                  <ApprovalQueuePage me={me} />
                 </RequireRole>
               }
             />

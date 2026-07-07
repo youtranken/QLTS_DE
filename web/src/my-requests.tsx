@@ -73,8 +73,9 @@ export function MyRequestsPanel({
           CANNOT_CANCEL: t('myreq.errCannotCancel'),
           NOT_TICKET_OWNER: t('myreq.errNotOwner'),
         };
+        // reload TRƯỚC (load reset error=null) rồi mới set message — không bị nuốt
+        await load();
         setError((body.code && map[body.code]) || t('myreq.error'));
-        await load(); // đồng bộ lại trạng thái thật (STALE/đổi trạng thái)
       } catch {
         setError(t('myreq.error'));
       } finally {

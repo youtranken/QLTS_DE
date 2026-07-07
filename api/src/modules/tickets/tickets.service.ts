@@ -304,4 +304,207 @@ export class TicketsService {
       return { id: ticketId, state: 'cancelled' };
     });
   }
+
+  /**
+   * Hàng đợi Admin "Chờ duyệt" (FR-13) — request >48h/định kỳ đang giữ chỗ (held).
+   * Admin THẤY tên người mượn (hàng đợi nội bộ, khác read-model AD-5 công khai).
+   */
+  async listPendingApproval(): Promise<
+    Array<{
+      id: string;
+      version: number;
+      borrowerSub: string;
+      borrowerName: string | null;
+      assetCode: string | null;
+      from: string | null;
+      to: string | null;
+      createdAt: string;
+    }>
+  > {
+    const rows = await this.db.execute<{
+      id: string;
+      version: number;
+      borrower_sub: string;
+      borrower_name: string | null;
+      asset_code: string | null;
+      from_ts: string | null;
+      to_ts: string | null;
+      created_at: string;
+    }>(sql`
+      SELECT t.id, t.version, t.borrower_sub,
+        u.full_name AS borrower_name, a.code AS asset_code,
+        lower(b.period) AS from_ts, upper(b.period) AS to_ts, t.created_at
+      FROM ticket t
+      LEFT JOIN users u ON u.sub = t.borrower_sub
+      LEFT JOIN booking b ON b.ticket_id = t.id AND b.state = 'held'
+      LEFT JOIN assets a ON a.id = b.asset_id
+      WHERE t.state = 'pending_approval'
+      ORDER BY t.created_at ASC, b.id
+    `);
+    return rows.rows.map((r) => ({
+      id: r.id,
+      version: r.version,
+      borrowerSub: r.borrower_sub,
+      borrowerName: r.borrower_name,
+      assetCode: r.asset_code,
+      from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
+      to: r.to_ts ? new Date(r.to_ts).toISOString() : null,
+      createdAt: new Date(r.created_at).toISOString(),
+    }));
+  }
+
+  /** Đọc ticket pending_approval trong tx + kiểm version/state chung cho approve+reject. */
+  private async lockPendingForDecision(
+    tx: Pick<Database, 'execute' | 'insert'>,
+    ticketId: string,
+    version: number,
+  ): Promise<{ pickupMs: number | null }> {
+    const rows = await tx.execute<{
+      state: string;
+      version: number;
+      pickup_ts: string | null;
+    }>(sql`
+      SELECT t.state, t.version,
+        (SELECT min(lower(b.period)) FROM booking b
+           WHERE b.ticket_id = t.id AND b.state = 'held') AS pickup_ts
+      FROM ticket t WHERE t.id = ${ticketId} FOR UPDATE
+    `);
+    if (rows.rows.length === 0) {
+      throw new NotFoundException({
+        code: 'TICKET_NOT_FOUND',
+        message: 'Không tìm thấy request này.',
+      });
+    }
+    const t = rows.rows[0];
+    // Kiểm VERSION trước (AD-4, AC4): 2 Admin cùng version → người thua (state ĐÃ đổi +
+    // version ĐÃ bump) nhận STALE_VERSION. INVALID_STATE dành cho version-đúng-nhưng-state-sai
+    // (client cầm version mới của ticket đã rời pending_approval).
+    if (t.version !== version) {
+      throw new ConflictException({
+        code: 'STALE_VERSION',
+        message: 'Request vừa được người khác xử lý — vui lòng tải lại.',
+      });
+    }
+    if (t.state !== 'pending_approval') {
+      throw new ConflictException({
+        code: 'INVALID_STATE',
+        message: 'Request không còn ở trạng thái chờ duyệt.',
+      });
+    }
+    return { pickupMs: t.pickup_ts ? new Date(t.pickup_ts).getTime() : null };
+  }
+
+  /**
+   * Ghi vết lần thử THUA (AC 4) — NGOÀI transaction quyết định (tx đó đã rollback theo throw,
+   * appendWithin trong tx sẽ mất vết). Best-effort: lỗi audit không che lỗi gốc.
+   */
+  private async auditFailedDecision(
+    action: string,
+    ticketId: string,
+    actorSub: string,
+    error: unknown,
+  ): Promise<void> {
+    if (!(error instanceof ConflictException)) return;
+    const resp = error.getResponse();
+    const code =
+      typeof resp === 'object' && resp && 'code' in resp
+        ? String(resp.code)
+        : 'CONFLICT';
+    await this.audit.append({
+      actor: actorSub,
+      action: `${action}_failed`,
+      objectType: 'ticket',
+      objectId: ticketId,
+      detail: { code },
+    });
+  }
+
+  /** Admin duyệt request (FR-13): held → pending, ticket → awaiting_pickup. */
+  async approveRequest(
+    ticketId: string,
+    version: number,
+    actorSub: string,
+  ): Promise<{ id: string; state: string }> {
+    try {
+      return await this.db.transaction(async (tx) => {
+        const { pickupMs } = await this.lockPendingForDecision(
+          tx,
+          ticketId,
+          version,
+        );
+        // Guard AD-4: không duyệt booking có giờ nhận đã ở quá khứ
+        if (pickupMs !== null && pickupMs < Date.now()) {
+          throw new ConflictException({
+            code: 'PICKUP_PASSED',
+            message: 'Giờ nhận đã trôi qua — không thể duyệt; đề nghị hủy.',
+          });
+        }
+        await tx.execute(sql`
+          UPDATE ticket SET state = 'awaiting_pickup', version = version + 1, updated_at = now()
+          WHERE id = ${ticketId}
+        `);
+        await tx.execute(sql`
+          UPDATE booking SET state = 'pending', version = version + 1, updated_at = now()
+          WHERE ticket_id = ${ticketId} AND state = 'held'
+        `);
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'tickets.approve',
+          objectType: 'ticket',
+          objectId: ticketId,
+          detail: {},
+        });
+        return { id: ticketId, state: 'awaiting_pickup' };
+      });
+    } catch (error) {
+      // AC 4: ghi vết lần thử THUA (STALE/INVALID_STATE) ngoài tx đã rollback
+      await this.auditFailedDecision(
+        'tickets.approve',
+        ticketId,
+        actorSub,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /** Admin từ chối (FR-13): bắt buộc lý do; held → cancelled (nhả khung), ticket → rejected. */
+  async rejectRequest(
+    ticketId: string,
+    version: number,
+    reason: string,
+    actorSub: string,
+  ): Promise<{ id: string; state: string }> {
+    try {
+      return await this.db.transaction(async (tx) => {
+        await this.lockPendingForDecision(tx, ticketId, version);
+        // reject_reason set CÙNG lúc state='rejected' (không lách CHECK 0017)
+        await tx.execute(sql`
+          UPDATE ticket SET state = 'rejected', reject_reason = ${reason},
+            version = version + 1, updated_at = now()
+          WHERE id = ${ticketId}
+        `);
+        await tx.execute(sql`
+          UPDATE booking SET state = 'cancelled', version = version + 1, updated_at = now()
+          WHERE ticket_id = ${ticketId} AND state = 'held'
+        `);
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'tickets.reject',
+          objectType: 'ticket',
+          objectId: ticketId,
+          detail: { reason },
+        });
+        return { id: ticketId, state: 'rejected' };
+      });
+    } catch (error) {
+      await this.auditFailedDecision(
+        'tickets.reject',
+        ticketId,
+        actorSub,
+        error,
+      );
+      throw error;
+    }
+  }
 }

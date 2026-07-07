@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { SystemConfigModule } from '../config/config.module';
+import { AdminTicketsController } from './admin-tickets.controller';
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
 
@@ -11,7 +12,7 @@ import { TicketsService } from './tickets.service';
  */
 @Module({
   imports: [SystemConfigModule],
-  controllers: [TicketsController],
+  controllers: [TicketsController, AdminTicketsController],
   providers: [TicketsService],
   exports: [TicketsService],
 })
