@@ -40,5 +40,12 @@ export class TicketsSweepRegistrar implements OnModuleInit {
         await this.tickets.emitPickupReminders();
       },
     });
+    // 4.3: vô hiệu yêu cầu gia hạn khi hạn trả cũ đã trôi qua (không duyệt hồi tố)
+    this.sweep.register({
+      name: 'expire-extension',
+      run: async () => {
+        await this.tickets.expireStaleExtensions();
+      },
+    });
   }
 }

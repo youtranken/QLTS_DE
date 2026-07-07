@@ -1657,6 +1657,48 @@ export class TicketsService {
   }
 
   /**
+   * Sweep (4.3, AD-9): dòng extension `held` có hạn trả CŨ (`lower(period)`) đã trôi qua →
+   * `cancelled` + `result='expired'`, nhả khung; audit actor='system'. Idempotent (re-lock +
+   * re-check). Derive DB now() → quét bù được. Ticket đi luồng quá hạn 3.8 (không đụng ở đây).
+   */
+  async expireStaleExtensions(): Promise<number> {
+    const candidates = await this.db.execute<{ id: string; ticket_id: string }>(sql`
+      SELECT id, ticket_id FROM booking
+      WHERE kind = 'extension' AND state = 'held' AND lower(period) < now()
+    `);
+    let n = 0;
+    for (const c of candidates.rows) {
+      const done = await this.db.transaction(async (tx) => {
+        // Thứ tự khóa ticket → booking (chống deadlock, nhất quán approveExtension).
+        await tx.execute(
+          sql`SELECT 1 FROM ticket WHERE id = ${c.ticket_id} FOR UPDATE`,
+        );
+        const r = await tx.execute<{ state: string; expired: boolean | null }>(sql`
+          SELECT state, lower(period) < now() AS expired
+          FROM booking WHERE id = ${c.id} AND kind = 'extension' FOR UPDATE
+        `);
+        const row = r.rows[0];
+        if (!row || row.state !== 'held' || row.expired !== true) return false;
+        await tx.execute(sql`
+          UPDATE booking SET state = 'cancelled', result = 'expired',
+            version = version + 1, updated_at = now()
+          WHERE id = ${c.id}
+        `);
+        await this.audit.appendWithin(tx, {
+          actor: 'system',
+          action: 'tickets.extension_expire',
+          objectType: 'ticket',
+          objectId: c.ticket_id,
+          detail: { extensionId: c.id },
+        });
+        return true;
+      });
+      if (done) n++;
+    }
+    return n;
+  }
+
+  /**
    * 4.1 AC5: đóng ticket → dòng extension `held` treo → cancelled + result='expired', nhả khung.
    * Gọi TRONG transaction close (returnTicket…). Không có extension trên awaiting_pickup nên
    * no-show/cancelMyTicket không cần.
