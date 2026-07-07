@@ -26,6 +26,7 @@ import {
 } from 'class-validator';
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
+import { ExtensionService } from './extension.service';
 import { TicketsService } from './tickets.service';
 
 const trim = Transform(({ value }: { value: unknown }) =>
@@ -124,7 +125,10 @@ class CreateForDto {
 @Controller('admin/tickets')
 @Roles('admin', 'sa')
 export class AdminTicketsController {
-  constructor(private readonly tickets: TicketsService) {}
+  constructor(
+    private readonly tickets: TicketsService,
+    private readonly extension: ExtensionService,
+  ) {}
 
   @Get('pending-approval')
   pending() {
@@ -177,7 +181,7 @@ export class AdminTicketsController {
   /** Hàng đợi Chờ gia hạn (4.2). */
   @Get('extensions')
   extensions() {
-    return this.tickets.listPendingExtensions();
+    return this.extension.listPendingExtensions();
   }
 
   /** Duyệt gia hạn (4.2) — :id là dòng extension booking. */
@@ -188,7 +192,7 @@ export class AdminTicketsController {
     @Body() body: ApproveDto,
     @Req() req: AuthedRequest,
   ) {
-    return this.tickets.approveExtension(id, body.version, requireSub(req));
+    return this.extension.approveExtension(id, body.version, requireSub(req));
   }
 
   /** Từ chối gia hạn (4.2) — bắt buộc lý do. */
@@ -199,7 +203,7 @@ export class AdminTicketsController {
     @Body() body: RejectDto,
     @Req() req: AuthedRequest,
   ) {
-    return this.tickets.rejectExtension(
+    return this.extension.rejectExtension(
       id,
       body.version,
       body.reason,

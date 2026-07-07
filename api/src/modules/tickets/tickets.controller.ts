@@ -15,6 +15,7 @@ import { IsISO8601, IsInt, IsUUID, Matches, Min } from 'class-validator';
 import type { Response } from 'express';
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
+import { ExtensionService } from './extension.service';
 import { TicketsService } from './tickets.service';
 
 /** Offset bắt buộc (party phiên 7) — như availability 3.1b. */
@@ -60,7 +61,10 @@ class ExtendTicketDto {
 @Controller('booking')
 @Roles('member')
 export class TicketsController {
-  constructor(private readonly tickets: TicketsService) {}
+  constructor(
+    private readonly tickets: TicketsService,
+    private readonly extension: ExtensionService,
+  ) {}
 
   @Post()
   submit(@Body() body: SubmitBookingDto, @Req() req: AuthedRequest) {
@@ -102,7 +106,7 @@ export class TicketsController {
     @Body() body: ExtendTicketDto,
     @Req() req: AuthedRequest,
   ) {
-    return this.tickets.requestExtension(
+    return this.extension.requestExtension(
       id,
       body.newDue,
       requireSub(req),

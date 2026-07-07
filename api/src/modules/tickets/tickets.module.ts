@@ -5,6 +5,7 @@ import { FilesModule } from '../files/files.module';
 import { AdminTicketsController } from './admin-tickets.controller';
 import { AssetLifecycleController } from './asset-lifecycle.controller';
 import { TicketsController } from './tickets.controller';
+import { ExtensionService } from './extension.service';
 import { TicketsService } from './tickets.service';
 import { TicketsSweepRegistrar } from './tickets-sweep.registrar';
 
@@ -21,7 +22,7 @@ import { TicketsSweepRegistrar } from './tickets-sweep.registrar';
     AdminTicketsController,
     AssetLifecycleController,
   ],
-  providers: [TicketsService, TicketsSweepRegistrar],
-  exports: [TicketsService],
+  providers: [TicketsService, ExtensionService, TicketsSweepRegistrar],
+  exports: [TicketsService, ExtensionService],
 })
 export class TicketsModule {}

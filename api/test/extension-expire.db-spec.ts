@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { Pool } from 'pg';
 import request from 'supertest';
 import { runMigrations } from '../src/database/migration-runner';
-import { TicketsService } from '../src/modules/tickets/tickets.service';
+import { ExtensionService } from '../src/modules/tickets/extension.service';
 import { createTestApp } from './test-app.helper';
 
 /** Story 4.3 — sweep tự vô hiệu gia hạn khi hạn trả cũ trôi qua (AD-9, FR-47/49). */
@@ -22,7 +22,7 @@ const D = 24 * H;
 describe('Sweep vô hiệu gia hạn (story 4.3)', () => {
   let app: INestApplication;
   let pool: Pool;
-  let tickets: TicketsService;
+  let ext: ExtensionService;
 
   const newMachine = async (code: string) => {
     const r = await pool.query<{ id: string }>(
@@ -65,7 +65,7 @@ describe('Sweep vô hiệu gia hạn (story 4.3)', () => {
       `INSERT INTO users (sub, email, full_name, role) VALUES ('mem-x','x@t.vn','Member X','member')`,
     );
     app = await createTestApp();
-    tickets = app.get(TicketsService);
+    ext = app.get(ExtensionService);
   });
 
   afterAll(async () => {
@@ -77,7 +77,7 @@ describe('Sweep vô hiệu gia hạn (story 4.3)', () => {
   it('AC1: extension held hạn cũ đã qua → cancelled+result=expired (audit system), idempotent', async () => {
     const m = await newMachine('EXP-1');
     const s = await setup(m, iso(-2 * D), iso(-1 * H), iso(1 * D)); // old_due đã qua
-    const n = await tickets.expireStaleExtensions();
+    const n = await ext.expireStaleExtensions();
     expect(n).toBe(1);
     const ex = await pool.query<{ state: string; result: string }>(
       `SELECT state, result FROM booking WHERE id=$1`,
@@ -90,13 +90,13 @@ describe('Sweep vô hiệu gia hạn (story 4.3)', () => {
     );
     expect(au.rows[0].n).toBe(1);
     // idempotent: lần 2 không đụng gì
-    expect(await tickets.expireStaleExtensions()).toBe(0);
+    expect(await ext.expireStaleExtensions()).toBe(0);
   });
 
   it('AC1: extension held hạn cũ CÒN tương lai → KHÔNG đụng', async () => {
     const m = await newMachine('EXP-2');
     const s = await setup(m, iso(-1 * H), iso(20 * H), iso(20 * H + 1 * D));
-    await tickets.expireStaleExtensions();
+    await ext.expireStaleExtensions();
     const ex = await pool.query<{ state: string }>(
       `SELECT state FROM booking WHERE id=$1`,
       [s.extId],
@@ -107,7 +107,7 @@ describe('Sweep vô hiệu gia hạn (story 4.3)', () => {
   it('AC2: sau khi vô hiệu, Admin bấm Duyệt (cache cũ) → 409 STALE_VERSION', async () => {
     const m = await newMachine('EXP-3');
     const s = await setup(m, iso(-2 * D), iso(-1 * H), iso(1 * D));
-    await tickets.expireStaleExtensions(); // version bump
+    await ext.expireStaleExtensions(); // version bump
     const res = await request(app.getHttpServer())
       .post(`/api/admin/tickets/extensions/${s.extId}/approve`)
       .set({ 'x-dev-user-sub': 'adm', 'x-dev-role': 'admin' })

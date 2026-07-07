@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { SweepService } from '../queue/sweep.service';
+import { ExtensionService } from './extension.service';
 import { TicketsService } from './tickets.service';
 
 /**
@@ -12,6 +13,7 @@ export class TicketsSweepRegistrar implements OnModuleInit {
   constructor(
     private readonly sweep: SweepService,
     private readonly tickets: TicketsService,
+    private readonly extension: ExtensionService,
   ) {}
 
   onModuleInit(): void {
@@ -44,7 +46,7 @@ export class TicketsSweepRegistrar implements OnModuleInit {
     this.sweep.register({
       name: 'expire-extension',
       run: async () => {
-        await this.tickets.expireStaleExtensions();
+        await this.extension.expireStaleExtensions();
       },
     });
   }
