@@ -15,6 +15,7 @@ import { AuditWriterService } from '../audit/audit-writer.service';
 import { SystemConfigService } from '../config/system-config.service';
 import { FilesService } from '../files/files.service';
 import { OutboxService } from '../outbox/outbox.service';
+import { AssetsService } from '../assets/assets.service';
 import {
   ACTIVE_TICKET_STATES,
   MAX_DURATION_AUTO_MS,
@@ -60,7 +61,141 @@ export class TicketsService {
     private readonly audit: AuditWriterService,
     private readonly files: FilesService,
     private readonly outbox: OutboxService,
+    private readonly assets: AssetsService,
   ) {}
+
+  /**
+   * Orchestrator vòng đời máy (3.10, AD-1 Tickets→Assets): mở 1 tx, gọi AssetsService đổi
+   * trạng thái máy (lock/unlock/dispose/setPool) rồi cascade hủy booking tương lai TRONG
+   * CÙNG transaction. Khóa/thanh lý/gỡ-pool làm máy KHÔNG bookable → hủy held/pending.
+   */
+  async lockAssetCascade(
+    assetId: string,
+    reason: string,
+    eta: string | null,
+    version: number,
+    actorSub: string,
+  ) {
+    return this.db.transaction(async (tx) => {
+      const res = await this.assets.lockWithin(
+        tx,
+        assetId,
+        reason,
+        eta,
+        version,
+        actorSub,
+      );
+      const cancelled = await this.cancelFutureBookings(tx, assetId, actorSub);
+      return { ...res, cancelledBookings: cancelled };
+    });
+  }
+
+  async unlockAsset(assetId: string, version: number, actorSub: string) {
+    return this.db.transaction((tx) =>
+      this.assets.unlockWithin(tx, assetId, version, actorSub),
+    );
+  }
+
+  async disposeAssetCascade(
+    assetId: string,
+    version: number,
+    actorSub: string,
+  ) {
+    return this.db.transaction(async (tx) => {
+      const res = await this.assets.disposeWithin(
+        tx,
+        assetId,
+        version,
+        actorSub,
+      );
+      const cancelled = await this.cancelFutureBookings(tx, assetId, actorSub);
+      return { ...res, cancelledBookings: cancelled };
+    });
+  }
+
+  async setPoolCascade(
+    assetId: string,
+    isPool: boolean,
+    version: number,
+    actorSub: string,
+  ) {
+    return this.db.transaction(async (tx) => {
+      const res = await this.assets.setPoolWithin(
+        tx,
+        assetId,
+        isPool,
+        version,
+        actorSub,
+      );
+      // Gỡ pool (isPool=false) → máy không bookable → cascade; bật pool → không.
+      if (!isPool) {
+        const cancelled = await this.cancelFutureBookings(
+          tx,
+          assetId,
+          actorSub,
+        );
+        return { ...res, cancelledBookings: cancelled };
+      }
+      return res;
+    });
+  }
+
+  /**
+   * Hủy MỌI booking `held`/`pending` (occupying nhưng CHƯA giao) normal/recurring trên máy
+   * (AC2): future + stale-past-pickup (không rơi khe AD-15). `delivered` (in_use) GIỮ —
+   * Admin thu hồi tay. Ticket pending_approval/awaiting_pickup → cancelled; ghi outbox FR-27
+   * (mail Epic 5) mỗi booking. Trả số booking bị hủy. (Extension kind → Epic 4.)
+   */
+  private async cancelFutureBookings(
+    tx: Pick<Database, 'execute' | 'insert'>,
+    assetId: string,
+    actorSub: string,
+  ): Promise<number> {
+    // THỨ TỰ KHÓA ticket → booking (khớp expireStaleHoldsForAsset/sweep/approve — chống
+    // deadlock 40P01 với approve/cancel/sweep song song; review 3.10 Med). Tìm ticket_id
+    // (không khóa) → khóa ticket TRƯỚC → hủy booking của ticket đó trên máy này.
+    const tickets = await tx.execute<{ ticket_id: string }>(sql`
+      SELECT DISTINCT ticket_id FROM booking
+      WHERE asset_id = ${assetId}
+        AND state IN ('held', 'pending')
+        AND kind IN ('normal', 'recurring')
+    `);
+    let count = 0;
+    for (const { ticket_id } of tickets.rows) {
+      await tx.execute(
+        sql`SELECT 1 FROM ticket WHERE id = ${ticket_id} FOR UPDATE`,
+      );
+      const cancelled = await tx.execute<{ id: string }>(sql`
+        UPDATE booking SET state = 'cancelled', version = version + 1, updated_at = now()
+        WHERE ticket_id = ${ticket_id} AND asset_id = ${assetId}
+          AND state IN ('held', 'pending')
+          AND kind IN ('normal', 'recurring')
+        RETURNING id
+      `);
+      if (cancelled.rows.length === 0) continue;
+      // ticket normal (1 booking) → cancelled. (Recurring Epic 4: cần deriveParentState.)
+      await tx.execute(sql`
+        UPDATE ticket SET state = 'cancelled', version = version + 1, updated_at = now()
+        WHERE id = ${ticket_id}
+          AND state IN ('pending_approval', 'awaiting_pickup')
+      `);
+      for (const b of cancelled.rows) {
+        await this.outbox.enqueueWithin(tx, 'booking_cancelled', {
+          ticketId: ticket_id,
+          bookingId: b.id,
+        });
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'tickets.cascade_cancel',
+          objectType: 'ticket',
+          objectId: ticket_id,
+          detail: { reason: 'asset_unbookable', bookingId: b.id },
+        });
+        count++;
+      }
+    }
+    return count;
+  }
 
   /**
    * Member tự đặt máy (FR-8, AD-4). ≤48h → tự duyệt (awaiting_pickup/pending);

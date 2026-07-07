@@ -463,102 +463,31 @@ export class AssetsService {
     version: number,
     actorSub: string,
   ) {
-    return this.lifecycle(id, version, actorSub, {
-      action: 'assets.lock',
-      guard: (row) => {
-        if (row.type === 'software') return 'NOT_MACHINE';
-        if (row.status !== 'in_use') return 'INVALID_STATE';
-        return null;
-      },
-      apply: async (tx, row) => {
-        await tx
-          .update(assetsTable)
-          .set({
-            status: 'locked_repair',
-            version: row.version + 1,
-            updatedAt: new Date(),
-          })
-          .where(eq(assetsTable.id, id));
-        await tx.insert(assetNoteTable).values({
-          assetId: id,
-          kind: 'lock',
-          note: reason,
-          eta,
-          actor: actorSub,
-        });
-        // TODO(3.10): orchestrator trong Tickets hủy booking tương lai của máy khóa
-        return { reason, eta };
-      },
-    });
+    return this.lifecycle(
+      id,
+      version,
+      actorSub,
+      this.lockSpec(id, reason, eta, actorSub),
+    );
   }
 
   /** Mở khóa (2.6): locked_repair → in_use; pool tự "như trước" vì không bao giờ bị đụng. */
   async unlock(id: string, version: number, actorSub: string) {
-    return this.lifecycle(id, version, actorSub, {
-      action: 'assets.unlock',
-      guard: (row) => {
-        if (row.type === 'software') return 'NOT_MACHINE';
-        if (row.status !== 'locked_repair') return 'INVALID_STATE';
-        return null;
-      },
-      apply: async (tx, row) => {
-        await tx
-          .update(assetsTable)
-          .set({
-            status: 'in_use',
-            version: row.version + 1,
-            updatedAt: new Date(),
-          })
-          .where(eq(assetsTable.id, id));
-        await tx.insert(assetNoteTable).values({
-          assetId: id,
-          kind: 'unlock',
-          note: null,
-          eta: null,
-          actor: actorSub,
-        });
-        return {};
-      },
-    });
+    return this.lifecycle(id, version, actorSub, this.unlockSpec(id, actorSub));
   }
 
   /**
    * Thanh lý (2.6, FR-32/50): TERMINAL. Máy → detachAllFrom (hợp đồng 2.5:
    * row máy đã FOR UPDATE trước); software → tự gỡ khỏi máy đang gắn.
+   * Cascade hủy booking do orchestrator Tickets lo (3.10).
    */
   async dispose(id: string, version: number, actorSub: string) {
-    return this.lifecycle(id, version, actorSub, {
-      action: 'assets.dispose',
-      guard: (row) => (row.status === 'disposed' ? 'INVALID_STATE' : null),
-      apply: async (tx, row) => {
-        await tx
-          .update(assetsTable)
-          .set({
-            status: 'disposed',
-            // cờ pool không được KẸT vĩnh viễn trên máy thanh lý (review 2.6) —
-            // setPool đã chặn disposed nên đây là đường gỡ cuối cùng
-            isPool: false,
-            version: row.version + 1,
-            updatedAt: new Date(),
-            // software thanh lý không được tiếp tục "cài" trên máy nào
-            ...(row.type === 'software' ? { installedOnAssetId: null } : {}),
-          })
-          .where(eq(assetsTable.id, id));
-        let detached: string[] = [];
-        if (row.type !== 'software') {
-          detached = await this.detachAllFrom(tx, id, actorSub);
-        }
-        await tx.insert(assetNoteTable).values({
-          assetId: id,
-          kind: 'dispose',
-          note: null,
-          eta: null,
-          actor: actorSub,
-        });
-        // TODO(3.10): orchestrator trong Tickets hủy booking tương lai của máy thanh lý
-        return { detached, pool_cleared: row.isPool };
-      },
-    });
+    return this.lifecycle(
+      id,
+      version,
+      actorSub,
+      this.disposeSpec(id, actorSub),
+    );
   }
 
   /** Bật/gỡ pool (2.6, FR-31/33): CHỈ cờ đổi, status giữ nguyên; software/disposed chặn. */
@@ -568,25 +497,7 @@ export class AssetsService {
     version: number,
     actorSub: string,
   ) {
-    return this.lifecycle(id, version, actorSub, {
-      action: 'assets.pool_change',
-      guard: (row) => {
-        if (row.type === 'software') return 'NOT_MACHINE';
-        if (row.status === 'disposed') return 'INVALID_STATE';
-        return null;
-      },
-      apply: async (tx, row) => {
-        if (row.isPool === isPool) {
-          // idempotent — không bump version, không audit nhiễu
-          return null;
-        }
-        await tx
-          .update(assetsTable)
-          .set({ isPool, version: row.version + 1, updatedAt: new Date() })
-          .where(eq(assetsTable.id, id));
-        return { from: row.isPool, to: isPool };
-      },
-    });
+    return this.lifecycle(id, version, actorSub, this.setPoolSpec(id, isPool));
   }
 
   /**
@@ -608,60 +519,255 @@ export class AssetsService {
     },
   ) {
     try {
-      return await this.db.transaction(async (tx) => {
-        const rows = await tx
-          .select({
-            type: assetsTable.type,
-            status: assetsTable.status,
-            isPool: assetsTable.isPool,
-            version: assetsTable.version,
-          })
-          .from(assetsTable)
-          .where(eq(assetsTable.id, id))
-          .for('update');
-        const row = rows[0];
-        if (!row) {
-          throw new NotFoundException({
-            code: 'ASSET_NOT_FOUND',
-            message: 'Không tìm thấy tài sản này.',
-          });
-        }
-        if (row.version !== version) {
-          throw new ConflictException({
-            code: 'STALE_VERSION',
-            message: 'Trạng thái đã thay đổi, tải lại.',
-          });
-        }
-        const violation = spec.guard(row);
-        if (violation === 'NOT_MACHINE') {
-          throw new BadRequestException({
-            code: 'NOT_MACHINE',
-            message:
-              'Thao tác này chỉ áp dụng cho máy, không áp dụng phần mềm.',
-          });
-        }
-        if (violation === 'INVALID_STATE') {
-          throw new ConflictException({
-            code: 'INVALID_STATE',
-            message: `Trạng thái hiện tại (${row.status}) không cho phép thao tác này.`,
-          });
-        }
-        const detail = await spec.apply(tx, row);
-        if (detail === null) {
-          return { ok: true, version: row.version };
-        }
-        await this.audit.appendWithin(tx, {
-          actor: actorSub,
-          action: spec.action,
-          objectType: 'asset',
-          objectId: id,
-          detail: { from_status: row.status, ...detail },
-        });
-        return { ok: true, version: row.version + 1 };
-      });
+      return await this.db.transaction((tx) =>
+        this.runLifecycleWithin(tx, id, version, actorSub, spec),
+      );
     } catch (error) {
       throw this.mapPgError(error);
     }
+  }
+
+  /**
+   * Thân vòng đời KHÔNG mở tx (3.10): orchestrator Tickets gọi trong CÙNG transaction với
+   * cascade hủy booking. FOR UPDATE row máy TRƯỚC (serialize với trigger AD-15 FOR SHARE),
+   * guard/version/audit như 2.6. KHÔNG bọc mapPgError (caller bọc).
+   */
+  async runLifecycleWithin(
+    tx: LifecycleTx,
+    id: string,
+    version: number,
+    actorSub: string,
+    spec: {
+      action: string;
+      guard: (row: LifecycleRow) => 'NOT_MACHINE' | 'INVALID_STATE' | null;
+      apply: (
+        tx: LifecycleTx,
+        row: LifecycleRow,
+      ) => Promise<Record<string, unknown> | null>;
+    },
+  ) {
+    const rows = await tx
+      .select({
+        type: assetsTable.type,
+        status: assetsTable.status,
+        isPool: assetsTable.isPool,
+        version: assetsTable.version,
+      })
+      .from(assetsTable)
+      .where(eq(assetsTable.id, id))
+      .for('update');
+    const row = rows[0];
+    if (!row) {
+      throw new NotFoundException({
+        code: 'ASSET_NOT_FOUND',
+        message: 'Không tìm thấy tài sản này.',
+      });
+    }
+    if (row.version !== version) {
+      throw new ConflictException({
+        code: 'STALE_VERSION',
+        message: 'Trạng thái đã thay đổi, tải lại.',
+      });
+    }
+    const violation = spec.guard(row);
+    if (violation === 'NOT_MACHINE') {
+      throw new BadRequestException({
+        code: 'NOT_MACHINE',
+        message: 'Thao tác này chỉ áp dụng cho máy, không áp dụng phần mềm.',
+      });
+    }
+    if (violation === 'INVALID_STATE') {
+      throw new ConflictException({
+        code: 'INVALID_STATE',
+        message: `Trạng thái hiện tại (${row.status}) không cho phép thao tác này.`,
+      });
+    }
+    const detail = await spec.apply(tx, row);
+    if (detail === null) {
+      return { ok: true, version: row.version };
+    }
+    await this.audit.appendWithin(tx, {
+      actor: actorSub,
+      action: spec.action,
+      objectType: 'asset',
+      objectId: id,
+      detail: { from_status: row.status, ...detail },
+    });
+    return { ok: true, version: row.version + 1 };
+  }
+
+  /** Spec builders (3.10) — dùng chung cho lifecycle() 2.6 lẫn *Within orchestrator. */
+  private lockSpec(
+    id: string,
+    reason: string,
+    eta: string | null,
+    actorSub: string,
+  ) {
+    return {
+      action: 'assets.lock',
+      guard: (row: LifecycleRow) => {
+        if (row.type === 'software') return 'NOT_MACHINE' as const;
+        if (row.status !== 'in_use') return 'INVALID_STATE' as const;
+        return null;
+      },
+      apply: async (tx: LifecycleTx, row: LifecycleRow) => {
+        await tx
+          .update(assetsTable)
+          .set({
+            status: 'locked_repair',
+            version: row.version + 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(assetsTable.id, id));
+        await tx.insert(assetNoteTable).values({
+          assetId: id,
+          kind: 'lock',
+          note: reason,
+          eta,
+          actor: actorSub,
+        });
+        return { reason, eta };
+      },
+    };
+  }
+
+  private disposeSpec(id: string, actorSub: string) {
+    return {
+      action: 'assets.dispose',
+      guard: (row: LifecycleRow) =>
+        row.status === 'disposed' ? ('INVALID_STATE' as const) : null,
+      apply: async (tx: LifecycleTx, row: LifecycleRow) => {
+        await tx
+          .update(assetsTable)
+          .set({
+            status: 'disposed',
+            isPool: false,
+            version: row.version + 1,
+            updatedAt: new Date(),
+            ...(row.type === 'software' ? { installedOnAssetId: null } : {}),
+          })
+          .where(eq(assetsTable.id, id));
+        let detached: string[] = [];
+        if (row.type !== 'software') {
+          detached = await this.detachAllFrom(tx, id, actorSub);
+        }
+        await tx.insert(assetNoteTable).values({
+          assetId: id,
+          kind: 'dispose',
+          note: null,
+          eta: null,
+          actor: actorSub,
+        });
+        return { detached, pool_cleared: row.isPool };
+      },
+    };
+  }
+
+  private setPoolSpec(id: string, isPool: boolean) {
+    return {
+      action: 'assets.pool_change',
+      guard: (row: LifecycleRow) => {
+        if (row.type === 'software') return 'NOT_MACHINE' as const;
+        if (row.status === 'disposed') return 'INVALID_STATE' as const;
+        return null;
+      },
+      apply: async (tx: LifecycleTx, row: LifecycleRow) => {
+        if (row.isPool === isPool) return null;
+        await tx
+          .update(assetsTable)
+          .set({ isPool, version: row.version + 1, updatedAt: new Date() })
+          .where(eq(assetsTable.id, id));
+        return { from: row.isPool, to: isPool };
+      },
+    };
+  }
+
+  private unlockSpec(id: string, actorSub: string) {
+    return {
+      action: 'assets.unlock',
+      guard: (row: LifecycleRow) => {
+        if (row.type === 'software') return 'NOT_MACHINE' as const;
+        if (row.status !== 'locked_repair') return 'INVALID_STATE' as const;
+        return null;
+      },
+      apply: async (tx: LifecycleTx, row: LifecycleRow) => {
+        await tx
+          .update(assetsTable)
+          .set({
+            status: 'in_use',
+            version: row.version + 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(assetsTable.id, id));
+        await tx.insert(assetNoteTable).values({
+          assetId: id,
+          kind: 'unlock',
+          note: null,
+          eta: null,
+          actor: actorSub,
+        });
+        return {};
+      },
+    };
+  }
+
+  /** *Within (3.10): orchestrator Tickets gọi trong tx của mình (cascade cùng transaction). */
+  lockWithin(
+    tx: LifecycleTx,
+    id: string,
+    reason: string,
+    eta: string | null,
+    version: number,
+    actorSub: string,
+  ) {
+    return this.runLifecycleWithin(
+      tx,
+      id,
+      version,
+      actorSub,
+      this.lockSpec(id, reason, eta, actorSub),
+    );
+  }
+
+  unlockWithin(tx: LifecycleTx, id: string, version: number, actorSub: string) {
+    return this.runLifecycleWithin(
+      tx,
+      id,
+      version,
+      actorSub,
+      this.unlockSpec(id, actorSub),
+    );
+  }
+
+  disposeWithin(
+    tx: LifecycleTx,
+    id: string,
+    version: number,
+    actorSub: string,
+  ) {
+    return this.runLifecycleWithin(
+      tx,
+      id,
+      version,
+      actorSub,
+      this.disposeSpec(id, actorSub),
+    );
+  }
+
+  setPoolWithin(
+    tx: LifecycleTx,
+    id: string,
+    isPool: boolean,
+    version: number,
+    actorSub: string,
+  ) {
+    return this.runLifecycleWithin(
+      tx,
+      id,
+      version,
+      actorSub,
+      this.setPoolSpec(id, isPool),
+    );
   }
 
   /** Máy đích để cài software (2.4): tồn tại, KHÔNG phải software, KHÔNG thanh lý. */
