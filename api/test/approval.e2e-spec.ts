@@ -67,4 +67,45 @@ describe('Admin duyệt request — phân quyền (story 3.4)', () => {
       .get(`/api/booking/tickets/${UUID}/photos/${UUID}`)
       .expect(401);
   });
+
+  it('create-for: member → 403 (endpoint bypass mạnh nhất — story 3.7)', async () => {
+    await request(app.getHttpServer())
+      .post('/api/admin/tickets/create-for')
+      .set(asMember)
+      .send({
+        borrowerSub: 'x',
+        assetId: UUID,
+        from: '2026-08-01T09:00:00+07:00',
+        to: '2026-08-01T11:00:00+07:00',
+        mode: 'schedule',
+      })
+      .expect(403);
+  });
+
+  it('create-for: anonymous → 401', async () => {
+    await request(app.getHttpServer())
+      .post('/api/admin/tickets/create-for')
+      .send({
+        borrowerSub: 'x',
+        assetId: UUID,
+        from: 'a',
+        to: 'b',
+        mode: 'now',
+      })
+      .expect(401);
+  });
+
+  it('create-for: mode sai → 400 (admin)', async () => {
+    await request(app.getHttpServer())
+      .post('/api/admin/tickets/create-for')
+      .set({ 'x-dev-user-sub': 'adm', 'x-dev-role': 'admin' })
+      .send({
+        borrowerSub: 'x',
+        assetId: UUID,
+        from: '2026-08-01T09:00:00+07:00',
+        to: '2026-08-01T11:00:00+07:00',
+        mode: 'invalid',
+      })
+      .expect(400);
+  });
 });

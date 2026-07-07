@@ -13,11 +13,14 @@ import {
 import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
+  IsIn,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
   Length,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -83,6 +86,38 @@ class HandoverQueryDto {
   @IsInt()
   @Min(1)
   pageSize = 20;
+}
+
+const HAS_OFFSET = /([+-]\d{2}:?\d{2}|Z)$/;
+
+class CreateForDto {
+  @IsString()
+  @Length(1, 255)
+  borrowerSub!: string;
+
+  @IsUUID()
+  assetId!: string;
+
+  @IsISO8601({ strict: true })
+  @Matches(HAS_OFFSET, { message: 'from phải là ISO-8601 có offset' })
+  from!: string;
+
+  @IsISO8601({ strict: true })
+  @Matches(HAS_OFFSET, { message: 'to phải là ISO-8601 có offset' })
+  to!: string;
+
+  @IsIn(['now', 'schedule'])
+  mode!: 'now' | 'schedule';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  note?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  photoIds?: string[];
 }
 
 /** Hàng đợi duyệt request (3.4) — CHỈ Admin/SA (NFR-7); member 403 từ RolesGuard. */
@@ -163,6 +198,24 @@ export class AdminTicketsController {
       body.version,
       body.note,
       body.photoIds ?? [],
+      requireSub(req),
+    );
+  }
+
+  /** Admin tạo request hộ member (FR-12) — 2 chế độ giao-ngay/đặt-lịch. */
+  @Post('create-for')
+  @HttpCode(201)
+  createFor(@Body() body: CreateForDto, @Req() req: AuthedRequest) {
+    return this.tickets.createForMember(
+      {
+        borrowerSub: body.borrowerSub,
+        assetId: body.assetId,
+        from: body.from,
+        to: body.to,
+        mode: body.mode,
+        note: body.note ?? null,
+        photoIds: body.photoIds ?? [],
+      },
       requireSub(req),
     );
   }

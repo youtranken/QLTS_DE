@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CreateForForm } from './create-for';
 import type { Me } from './panels';
 
 interface PendingRequest {
@@ -198,6 +199,7 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
       )}
 
       <HandoverQueues me={me} />
+      <CreateForForm me={me} />
     </section>
   );
 }

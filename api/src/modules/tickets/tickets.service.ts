@@ -177,6 +177,146 @@ export class TicketsService {
   }
 
   /**
+   * Admin tạo request HỘ member (FR-12) — BỎ QUA quota + quyền per-user, VẪN EXCLUDE (AD-2)
+   * + bookability (AD-15). Skip-quota chỉ hợp lệ khi actor (Admin) ≠ borrower (AD-4). Hai chế
+   * độ: 'now' (giao ngay → in_use/delivered) | 'schedule' (đặt lịch → awaiting_pickup/pending).
+   */
+  async createForMember(
+    input: {
+      borrowerSub: string;
+      assetId: string;
+      from: string;
+      to: string;
+      mode: 'now' | 'schedule';
+      note: string | null;
+      photoIds: string[];
+    },
+    actorSub: string,
+  ): Promise<{ ticketId: string; ticketState: string }> {
+    if (input.borrowerSub === actorSub) {
+      throw new ForbiddenException({
+        code: 'SELF_CREATE_FORBIDDEN',
+        message: 'Admin không tạo hộ cho chính mình (không đi luồng mượn).',
+      });
+    }
+    const to = new Date(input.to);
+    const from = new Date(input.from);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      throw new BadRequestException({
+        code: 'INVALID_RANGE',
+        message: 'Giờ không hợp lệ.',
+      });
+    }
+    if (input.mode === 'schedule') {
+      // đặt lịch tương lai: from≥now + trong window
+      const windowDays = await this.config.getBookingWindowDays();
+      parseBookingWindow(input.from, input.to, windowDays);
+    } else {
+      // giao ngay = giao TẠI CHỖ: from ≤ now (không đặt lịch tương lai — dùng schedule),
+      // to > now (máy đang giao thì hạn trả phải ở tương lai). Chống backdate/future-in_use
+      // tạo trạng thái domain vô nghĩa (review Med1).
+      const now = Date.now();
+      if (to.getTime() <= from.getTime()) {
+        throw new BadRequestException({
+          code: 'INVALID_RANGE',
+          message: 'Giờ trả phải sau giờ nhận.',
+        });
+      }
+      if (from.getTime() > now) {
+        throw new BadRequestException({
+          code: 'INVALID_RANGE',
+          message:
+            'Giao ngay: giờ nhận không được ở tương lai — dùng "Đặt lịch".',
+        });
+      }
+      if (to.getTime() <= now) {
+        throw new BadRequestException({
+          code: 'INVALID_RANGE',
+          message: 'Giao ngay: hạn trả phải ở tương lai.',
+        });
+      }
+    }
+
+    const ticketState = input.mode === 'now' ? 'in_use' : 'awaiting_pickup';
+    const bookingState = input.mode === 'now' ? 'delivered' : 'pending';
+
+    try {
+      return await this.db.transaction(async (tx) => {
+        // borrower phải là member tồn tại — Admin/SA không đi luồng mượn (mục 3 PRD)
+        const u = await tx.execute<{ role: string }>(sql`
+          SELECT role FROM users WHERE sub = ${input.borrowerSub}
+        `);
+        if (u.rows.length === 0) {
+          throw new NotFoundException({
+            code: 'USER_NOT_FOUND',
+            message: 'Không tìm thấy người mượn.',
+          });
+        }
+        if (u.rows[0].role !== 'member') {
+          throw new ForbiddenException({
+            code: 'BORROWER_NOT_MEMBER',
+            message: 'Chỉ tạo hộ cho member (Admin/SA không đi luồng mượn).',
+          });
+        }
+
+        const ticketRows = await tx.execute<{ id: string }>(sql`
+          INSERT INTO ticket (kind, state, borrower_sub, created_by_sub,
+            delivered_at)
+          VALUES ('normal', ${ticketState}, ${input.borrowerSub}, ${actorSub},
+            ${input.mode === 'now' ? sql`now()` : sql`NULL`})
+          RETURNING id
+        `);
+        const ticketId = ticketRows.rows[0].id;
+
+        // Expire-on-conflict (nhất quán submitOwnBooking): nhả held cũ quá giờ chồng khung
+        // → tránh SLOT_TAKEN giả trước khi sweep chạy (review Low1).
+        await this.expireStaleHoldsForAsset(
+          tx,
+          input.assetId,
+          input.from,
+          input.to,
+        );
+
+        await tx.execute(sql`
+          INSERT INTO booking (ticket_id, asset_id, kind, state, period)
+          VALUES (${ticketId}, ${input.assetId}, 'normal', ${bookingState},
+                  tstzrange(${input.from}, ${input.to}, '[)'))
+        `);
+
+        // giao ngay → gắn note/ảnh tình trạng đầu (reuse 3.6, kiểm file tồn tại)
+        if (input.mode === 'now') {
+          await this.attachHandoverArtifacts(
+            tx,
+            ticketId,
+            input.assetId,
+            'deliver',
+            input.note,
+            input.photoIds,
+            actorSub,
+          );
+        }
+
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'tickets.create_for',
+          objectType: 'ticket',
+          objectId: ticketId,
+          detail: {
+            borrower: input.borrowerSub,
+            mode: input.mode,
+            assetId: input.assetId,
+            from: input.from,
+            to: input.to,
+          },
+        });
+        return { ticketId, ticketState };
+      });
+    } catch (error) {
+      throw mapBookingPgError(error);
+    }
+  }
+
+  /**
    * "Request của tôi" (FR-11, NFR-7) — CHỈ ticket của member đó (WHERE borrower_sub).
    * Kèm nhãn tiếng Việt (AD-16) + máy + khung giờ + cờ hủy được (FE ẩn/hiện nút).
    */
