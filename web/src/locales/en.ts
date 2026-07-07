@@ -126,6 +126,17 @@ export default {
     colTime: 'Time slot',
     empty: 'No machines are being borrowed right now.',
   },
+  cascade: {
+    title: 'Confirm machine action',
+    willCancel: '{{n}} booking(s) will be cancelled',
+    willRecall: '{{n}} machine(s) in use — need recall',
+    recallHint: 'These tickets are actively borrowed; recall the machine first or handle later.',
+    colBorrower: 'Booked by',
+    colTime: 'Time slot',
+    notify: 'Email the affected users',
+    confirm: 'Cancel them all',
+    cancel: 'Dismiss',
+  },
   myreq: {
     title: 'My requests',
     loading: 'Loading…',

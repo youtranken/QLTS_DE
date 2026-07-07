@@ -97,6 +97,42 @@ const STATUS_BADGE: Record<string, string> = {
   disposed: 'muted',
 };
 
+/** 3.13: preview cascade (dry-run) — booking sẽ hủy + ticket in_use cần thu hồi. */
+interface CascadePreview {
+  futureCancellations: Array<{
+    ticketId: string;
+    borrowerName: string | null;
+    from: string | null;
+    to: string | null;
+    state: string;
+  }>;
+  inUseRecalls: Array<{
+    ticketId: string;
+    borrowerName: string | null;
+    from: string | null;
+    to: string | null;
+  }>;
+}
+/** Thao tác vòng đời đang chờ Admin xác nhận trong popup. */
+interface PendingCascade {
+  path: string;
+  method: 'POST' | 'PUT';
+  extra: Record<string, unknown>;
+  patch: Partial<FormState>;
+  data: CascadePreview;
+}
+
+const fmtDateTime = (iso: string | null): string =>
+  iso
+    ? new Date(iso).toLocaleString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '—';
+
 /** Sổ tài sản (story 2.1) — danh sách phân trang + form thêm/sửa. Admin/SA. */
 export function AssetsPage({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -507,6 +543,9 @@ function AssetForm({
   const [showLockForm, setShowLockForm] = useState(false);
   const [lockReason, setLockReason] = useState('');
   const [lockEta, setLockEta] = useState('');
+  // 3.13: popup xác nhận cascade + cờ báo mail (preview trước khi Khóa/Gỡ pool/Thanh lý)
+  const [cascade, setCascade] = useState<PendingCascade | null>(null);
+  const [notifyUsers, setNotifyUsers] = useState(true);
   // 2.3: ghi chú cấp phát (chỉ dùng khi đổi người) + lịch sử A→B chỉ đọc
   const [allocationNote, setAllocationNote] = useState('');
   const [allocations, setAllocations] = useState<AllocationRow[]>([]);
@@ -740,6 +779,43 @@ function AssetForm({
       }
     },
     [form.id, form.version, me.csrfToken, t],
+  );
+
+  /**
+   * 3.13: Khóa/Gỡ pool/Thanh lý → lấy PREVIEW trước. Có booking/ticket bị ảnh hưởng thì mở
+   * popup cho Admin xem + xác nhận (kèm tick báo mail); không có gì thì chạy thẳng.
+   * Preview lỗi → không chặn thao tác, chạy thẳng (notify mặc định true ở server).
+   */
+  const previewThenRun = useCallback(
+    async (
+      path: string,
+      method: 'POST' | 'PUT',
+      extra: Record<string, unknown>,
+      patch: Partial<FormState>,
+    ) => {
+      if (!form.id) return;
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/admin/assets/${encodeURIComponent(form.id)}/lifecycle-preview`,
+        );
+        if (res.ok) {
+          const data = (await res.json()) as CascadePreview;
+          if (
+            data.futureCancellations.length > 0 ||
+            data.inUseRecalls.length > 0
+          ) {
+            setNotifyUsers(true);
+            setCascade({ path, method, extra, patch, data });
+            return;
+          }
+        }
+      } catch {
+        // preview hỏng → không chặn; chạy thẳng
+      }
+      void doLifecycle(path, method, extra, patch);
+    },
+    [form.id, doLifecycle],
   );
 
   // 2.5: chuyển license sang máy khác / gỡ về "chưa gắn máy" — endpoint riêng
@@ -1032,14 +1108,12 @@ function AssetForm({
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() =>
-                      void doLifecycle(
-                        'pool',
-                        'PUT',
-                        { isPool: !form.isPool },
-                        { isPool: !form.isPool },
-                      )
-                    }
+                    onClick={() => {
+                      const next = !form.isPool;
+                      // Gỡ pool (next=false) → cascade → preview+popup; bật pool → chạy thẳng
+                      const run = next ? doLifecycle : previewThenRun;
+                      void run('pool', 'PUT', { isPool: next }, { isPool: next });
+                    }}
                   >
                     {form.isPool ? t('assets.poolOff') : t('assets.poolOn')}
                   </button>
@@ -1049,8 +1123,9 @@ function AssetForm({
                   className="danger"
                   disabled={busy}
                   onClick={() => {
+                    // Thanh lý không đảo ngược → giữ window.confirm (AC2); rồi preview+popup
                     if (window.confirm(t('assets.disposeConfirm'))) {
-                      void doLifecycle(
+                      void previewThenRun(
                         'dispose',
                         'POST',
                         {},
@@ -1098,7 +1173,7 @@ function AssetForm({
                   className="primary"
                   disabled={busy || !lockReason.trim()}
                   onClick={() =>
-                    void doLifecycle(
+                    void previewThenRun(
                       'lock',
                       'POST',
                       {
@@ -1331,6 +1406,119 @@ function AssetForm({
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* 3.13: popup xác nhận cascade — danh sách bị ảnh hưởng + cờ báo mail */}
+      {cascade && (
+        <div className="modal-backdrop" onClick={() => setCascade(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ marginBottom: '0.75rem' }}>{t('cascade.title')}</h2>
+
+            {cascade.data.futureCancellations.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ marginBottom: '0.4rem' }}>
+                  {t('cascade.willCancel', {
+                    n: cascade.data.futureCancellations.length,
+                  })}
+                </h3>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>{t('cascade.colBorrower')}</th>
+                        <th>{t('cascade.colTime')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cascade.data.futureCancellations.map((r) => (
+                        // key kèm from: ticket recurring (Epic 4) có nhiều booking/máy → tránh trùng key
+                        <tr key={`${r.ticketId}-${r.from ?? ''}`}>
+                          <td>{r.borrowerName ?? '—'}</td>
+                          <td>
+                            {fmtDateTime(r.from)} → {fmtDateTime(r.to)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {cascade.data.inUseRecalls.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ marginBottom: '0.4rem' }}>
+                  {t('cascade.willRecall', {
+                    n: cascade.data.inUseRecalls.length,
+                  })}
+                </h3>
+                <p className="muted" style={{ margin: '0 0 0.4rem', fontSize: '0.85rem' }}>
+                  {t('cascade.recallHint')}
+                </p>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>{t('cascade.colBorrower')}</th>
+                        <th>{t('cascade.colTime')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cascade.data.inUseRecalls.map((r) => (
+                        <tr key={`${r.ticketId}-${r.from ?? ''}`}>
+                          <td>{r.borrowerName ?? '—'}</td>
+                          <td>
+                            {fmtDateTime(r.from)} → {fmtDateTime(r.to)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <label
+              style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+                margin: '0.75rem 0 1.25rem',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={notifyUsers}
+                onChange={(e) => setNotifyUsers(e.target.checked)}
+                style={{ width: 'auto' }}
+              />
+              {t('cascade.notify')}
+            </label>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setCascade(null)}>
+                {t('cascade.cancel')}
+              </button>
+              <button
+                type="button"
+                className="danger"
+                disabled={busy}
+                onClick={() => {
+                  const c = cascade;
+                  setCascade(null);
+                  void doLifecycle(
+                    c.path,
+                    c.method,
+                    { ...c.extra, notify: notifyUsers },
+                    c.patch,
+                  );
+                }}
+              >
+                {t('cascade.confirm')}
+              </button>
+            </div>
           </div>
         </div>
       )}

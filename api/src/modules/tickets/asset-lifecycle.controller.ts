@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -32,6 +33,11 @@ class VersionDto {
   @IsInt()
   @Min(1)
   version!: number;
+
+  /** 3.13: Admin tick "báo user đã đặt" → enqueue mail booking_cancelled. Mặc định true. */
+  @IsOptional()
+  @IsBoolean()
+  notify?: boolean;
 }
 
 class LockAssetDto extends VersionDto {
@@ -60,6 +66,12 @@ class SetPoolDto extends VersionDto {
 export class AssetLifecycleController {
   constructor(private readonly tickets: TicketsService) {}
 
+  /** Preview cascade (3.13 AC1) — READ-ONLY: booking sẽ hủy + ticket in_use cần thu hồi. */
+  @Get(':id/lifecycle-preview')
+  preview(@Param('id', ParseUUIDPipe) id: string) {
+    return this.tickets.previewLifecycleCascade(id);
+  }
+
   @Post(':id/lock')
   @HttpCode(200)
   lock(
@@ -73,6 +85,7 @@ export class AssetLifecycleController {
       body.eta ?? null,
       body.version,
       requireSub(req),
+      body.notify ?? true,
     );
   }
 
@@ -93,7 +106,12 @@ export class AssetLifecycleController {
     @Body() body: VersionDto,
     @Req() req: AuthedRequest,
   ) {
-    return this.tickets.disposeAssetCascade(id, body.version, requireSub(req));
+    return this.tickets.disposeAssetCascade(
+      id,
+      body.version,
+      requireSub(req),
+      body.notify ?? true,
+    );
   }
 
   @Put(':id/pool')
@@ -107,6 +125,7 @@ export class AssetLifecycleController {
       body.isPool,
       body.version,
       requireSub(req),
+      body.notify ?? true,
     );
   }
 }

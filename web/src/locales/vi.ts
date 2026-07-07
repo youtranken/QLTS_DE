@@ -126,6 +126,17 @@ export default {
     colTime: 'Khung giờ',
     empty: 'Hiện chưa có máy nào đang được mượn.',
   },
+  cascade: {
+    title: 'Xác nhận thao tác trên máy',
+    willCancel: '{{n}} đặt chỗ sẽ bị hủy',
+    willRecall: '{{n}} máy đang được mượn — cần thu hồi',
+    recallHint: 'Các ticket này đang mượn thật; hãy thu hồi máy trước hoặc xử lý sau.',
+    colBorrower: 'Người đặt',
+    colTime: 'Khung giờ',
+    notify: 'Gửi mail báo người đã đặt',
+    confirm: 'Đồng ý hủy hết',
+    cancel: 'Hủy bỏ',
+  },
   myreq: {
     title: 'Request của tôi',
     loading: 'Đang tải…',
