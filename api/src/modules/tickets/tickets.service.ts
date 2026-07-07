@@ -1442,6 +1442,220 @@ export class TicketsService {
     }
   }
 
+  /** Hàng đợi Chờ gia hạn (4.2 AC1) — dòng extension held; AD-5 chỉ display name. */
+  async listPendingExtensions(): Promise<
+    Array<{
+      extensionId: string;
+      version: number;
+      ticketId: string;
+      borrowerName: string | null;
+      assetCode: string | null;
+      oldDue: string | null;
+      newDue: string | null;
+      usedCount: number;
+    }>
+  > {
+    const rows = await this.db.execute<{
+      extension_id: string;
+      version: number;
+      ticket_id: string;
+      borrower_name: string | null;
+      asset_code: string | null;
+      old_due: string | null;
+      new_due: string | null;
+      used_count: number;
+    }>(sql`
+      SELECT e.id AS extension_id, e.version, e.ticket_id,
+        u.full_name AS borrower_name, a.code AS asset_code,
+        lower(e.period) AS old_due, upper(e.period) AS new_due,
+        t.extension_count AS used_count
+      FROM booking e
+      JOIN ticket t ON t.id = e.ticket_id
+      LEFT JOIN users u ON u.sub = t.borrower_sub
+      LEFT JOIN assets a ON a.id = e.asset_id
+      WHERE e.kind = 'extension' AND e.state = 'held'
+      ORDER BY upper(e.period)
+    `);
+    const iso = (v: string | null) => (v ? new Date(v).toISOString() : null);
+    return rows.rows.map((r) => ({
+      extensionId: r.extension_id,
+      version: r.version,
+      ticketId: r.ticket_id,
+      borrowerName: r.borrower_name,
+      assetCode: r.asset_code,
+      oldDue: iso(r.old_due),
+      newDue: iso(r.new_due),
+      usedCount: r.used_count,
+    }));
+  }
+
+  /**
+   * Admin DUYỆT gia hạn (4.2 AC2, AD-3 party phiên 6). THỨ TỰ SINH TỬ: (2a) cancel dòng
+   * extension `held` TRƯỚC → (2b) mới mở rộng period booking gốc tới hạn mới. Đảo lại thì
+   * UPDATE mở rộng tự đụng EXCLUDE (extension còn held chồng khung, EXCLUDE per-statement).
+   * Extension KHÔNG thành delivered (FR-42). count+1, gỡ cờ overdue (giữ marker AD-14).
+   */
+  async approveExtension(
+    extensionId: string,
+    version: number,
+    actorSub: string,
+  ): Promise<{ id: string; state: string }> {
+    try {
+      return await this.db.transaction(async (tx) => {
+        // THỨ TỰ KHÓA ticket → booking (nhất quán cancelFutureBookings/expireStaleHoldsForAsset
+        // — chống deadlock 40P01 với returnTicket song song; review 4.2 MED). Đọc ticket_id
+        // (không khóa) → khóa TICKET trước → rồi mới khóa các dòng booking.
+        const ref = await tx.execute<{ ticket_id: string }>(sql`
+          SELECT ticket_id FROM booking
+          WHERE id = ${extensionId} AND kind = 'extension'
+        `);
+        if (ref.rows.length === 0) {
+          throw new NotFoundException({
+            code: 'EXTENSION_NOT_FOUND',
+            message: 'Không tìm thấy yêu cầu gia hạn.',
+          });
+        }
+        await tx.execute(
+          sql`SELECT 1 FROM ticket WHERE id = ${ref.rows[0].ticket_id} FOR UPDATE`,
+        );
+        // (1) khóa dòng extension (sau ticket)
+        const ex = await tx.execute<{
+          ticket_id: string;
+          ext_version: number;
+          state: string;
+          new_due: string;
+          new_due_passed: boolean;
+        }>(sql`
+          SELECT ticket_id, version AS ext_version, state,
+            upper(period) AS new_due, upper(period) <= now() AS new_due_passed
+          FROM booking WHERE id = ${extensionId} AND kind = 'extension' FOR UPDATE
+        `);
+        if (ex.rows.length === 0) {
+          throw new NotFoundException({
+            code: 'EXTENSION_NOT_FOUND',
+            message: 'Không tìm thấy yêu cầu gia hạn.',
+          });
+        }
+        const e = ex.rows[0];
+        if (e.ext_version !== version) {
+          throw new ConflictException({
+            code: 'STALE_VERSION',
+            message: 'Yêu cầu vừa được xử lý — vui lòng tải lại.',
+          });
+        }
+        if (e.state !== 'held') {
+          throw new ConflictException({
+            code: 'INVALID_STATE',
+            message: 'Yêu cầu gia hạn không còn ở trạng thái chờ duyệt.',
+          });
+        }
+        // AC4: hạn MỚI đã ở quá khứ → không duyệt hồi tố (guard DB now()).
+        if (e.new_due_passed) {
+          throw new ConflictException({
+            code: 'EXTENSION_EXPIRED',
+            message: 'Hạn mới đã ở quá khứ — không duyệt được.',
+          });
+        }
+        // (1b) khóa booking gốc delivered
+        const orig = await tx.execute<{ id: string; from_ts: string }>(sql`
+          SELECT id, lower(period) AS from_ts FROM booking
+          WHERE ticket_id = ${e.ticket_id} AND state = 'delivered'
+          FOR UPDATE LIMIT 1
+        `);
+        if (orig.rows.length === 0) {
+          throw new ConflictException({
+            code: 'INVALID_STATE',
+            message: 'Ticket không còn booking đang mượn.',
+          });
+        }
+        // (2a) cancel extension TRƯỚC (nhả held → không tự đụng EXCLUDE khi mở rộng)
+        await tx.execute(sql`
+          UPDATE booking SET state = 'cancelled', result = 'approved',
+            version = version + 1, updated_at = now()
+          WHERE id = ${extensionId}
+        `);
+        // (2b) mở rộng period booking gốc tới hạn mới
+        await tx.execute(sql`
+          UPDATE booking
+          SET period = tstzrange(${orig.rows[0].from_ts}, ${e.new_due}, '[)'),
+            version = version + 1, updated_at = now()
+          WHERE id = ${orig.rows[0].id}
+        `);
+        // (3) ticket: +1 lần gia hạn, gỡ cờ quá hạn (GIỮ overdue_marked_at — AD-14)
+        await tx.execute(sql`
+          UPDATE ticket SET extension_count = extension_count + 1, is_overdue = false,
+            version = version + 1, updated_at = now()
+          WHERE id = ${e.ticket_id}
+        `);
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'tickets.extension_approve',
+          objectType: 'ticket',
+          objectId: e.ticket_id,
+          detail: { extensionId, newDue: e.new_due },
+        });
+        return { id: e.ticket_id, state: 'in_use' };
+      });
+    } catch (error) {
+      throw mapBookingPgError(error);
+    }
+  }
+
+  /** Admin TỪ CHỐI gia hạn (4.2 AC3): extension → cancelled+result='rejected', nhả khung. */
+  async rejectExtension(
+    extensionId: string,
+    version: number,
+    reason: string,
+    actorSub: string,
+  ): Promise<{ id: string }> {
+    try {
+      return await this.db.transaction(async (tx) => {
+        const ex = await tx.execute<{
+          ticket_id: string;
+          ext_version: number;
+          state: string;
+        }>(sql`
+          SELECT ticket_id, version AS ext_version, state
+          FROM booking WHERE id = ${extensionId} AND kind = 'extension' FOR UPDATE
+        `);
+        if (ex.rows.length === 0) {
+          throw new NotFoundException({
+            code: 'EXTENSION_NOT_FOUND',
+            message: 'Không tìm thấy yêu cầu gia hạn.',
+          });
+        }
+        const e = ex.rows[0];
+        if (e.ext_version !== version) {
+          throw new ConflictException({
+            code: 'STALE_VERSION',
+            message: 'Yêu cầu vừa được xử lý — vui lòng tải lại.',
+          });
+        }
+        if (e.state !== 'held') {
+          throw new ConflictException({
+            code: 'INVALID_STATE',
+            message: 'Yêu cầu gia hạn không còn ở trạng thái chờ duyệt.',
+          });
+        }
+        await tx.execute(sql`
+          UPDATE booking SET state = 'cancelled', result = 'rejected',
+            version = version + 1, updated_at = now()
+          WHERE id = ${extensionId}
+        `);
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'tickets.extension_reject',
+          objectType: 'ticket',
+          objectId: e.ticket_id,
+          detail: { reason },
+        });
+        return { id: e.ticket_id };
+      });
+    } catch (error) {
+      throw mapBookingPgError(error);
+    }
+  }
+
   /**
    * 4.1 AC5: đóng ticket → dòng extension `held` treo → cancelled + result='expired', nhả khung.
    * Gọi TRONG transaction close (returnTicket…). Không có extension trên awaiting_pickup nên

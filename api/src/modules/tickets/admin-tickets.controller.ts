@@ -174,6 +174,39 @@ export class AdminTicketsController {
     );
   }
 
+  /** Hàng đợi Chờ gia hạn (4.2). */
+  @Get('extensions')
+  extensions() {
+    return this.tickets.listPendingExtensions();
+  }
+
+  /** Duyệt gia hạn (4.2) — :id là dòng extension booking. */
+  @Post('extensions/:id/approve')
+  @HttpCode(200)
+  approveExtension(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ApproveDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.tickets.approveExtension(id, body.version, requireSub(req));
+  }
+
+  /** Từ chối gia hạn (4.2) — bắt buộc lý do. */
+  @Post('extensions/:id/reject')
+  @HttpCode(200)
+  rejectExtension(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: RejectDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.tickets.rejectExtension(
+      id,
+      body.version,
+      body.reason,
+      requireSub(req),
+    );
+  }
+
   /** Xác nhận đã giao (FR-14). Ảnh upload trước qua /admin/files → photoIds. */
   @Post(':id/deliver')
   @HttpCode(200)

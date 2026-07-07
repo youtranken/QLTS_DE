@@ -18,6 +18,7 @@ export function AdminDashboard() {
   const navigate = useNavigate();
   const [counts, setCounts] = useState<Record<string, number | null>>({
     pending: null,
+    extension: null,
     pickup: null,
     inuse: null,
     overdue: null,
@@ -38,12 +39,14 @@ export function AdminDashboard() {
         .catch(() => 0);
     void Promise.all([
       arrLen('/api/admin/tickets/pending-approval'),
+      arrLen('/api/admin/tickets/extensions'),
       arrLen('/api/admin/tickets/awaiting-pickup'),
       arrLen('/api/admin/tickets/in-use'),
       arrLen('/api/admin/tickets/overdue'),
       totalOf('/api/admin/assets?status=locked_repair&pageSize=1'),
-    ]).then(([pending, pickup, inuse, overdue, locked]) => {
-      if (alive) setCounts({ pending, pickup, inuse, overdue, locked });
+    ]).then(([pending, extension, pickup, inuse, overdue, locked]) => {
+      if (alive)
+        setCounts({ pending, extension, pickup, inuse, overdue, locked });
     });
     return () => {
       alive = false;
@@ -52,6 +55,7 @@ export function AdminDashboard() {
 
   const cards: QueueCard[] = [
     { key: 'pending', count: counts.pending, to: '/xu-ly-muon' },
+    { key: 'extension', count: counts.extension, to: '/xu-ly-muon' },
     { key: 'pickup', count: counts.pickup, to: '/xu-ly-muon' },
     { key: 'inuse', count: counts.inuse, to: '/xu-ly-muon' },
     { key: 'overdue', count: counts.overdue, to: '/xu-ly-muon', danger: true },
