@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { SystemConfigModule } from '../config/config.module';
+import { FilesModule } from '../files/files.module';
 import { AdminTicketsController } from './admin-tickets.controller';
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
@@ -12,7 +13,7 @@ import { TicketsSweepRegistrar } from './tickets-sweep.registrar';
  * không cần UsersService, tránh TOCTOU.
  */
 @Module({
-  imports: [SystemConfigModule],
+  imports: [SystemConfigModule, FilesModule],
   controllers: [TicketsController, AdminTicketsController],
   providers: [TicketsService, TicketsSweepRegistrar],
   exports: [TicketsService],

@@ -7,10 +7,12 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
+  Res,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsISO8601, IsInt, IsUUID, Matches, Min } from 'class-validator';
+import type { Response } from 'express';
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
 import { TicketsService } from './tickets.service';
@@ -71,6 +73,49 @@ export class TicketsController {
     @Req() req: AuthedRequest,
   ) {
     return this.tickets.cancelMyTicket(id, requireSub(req), body.version);
+  }
+
+  /**
+   * Xem ảnh đính kèm ticket (NFR-8, AD-6): CHỦ ticket hoặc Admin/SA. Override @Roles
+   * lớp (member-only) để admin/sa cũng vào; service kiểm chủ + ticket_file.
+   */
+  @Get('tickets/:id/photos/:fileId')
+  @Roles('member', 'admin', 'sa')
+  async photo(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('fileId', ParseUUIDPipe) fileId: string,
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+  ) {
+    if (!req.user) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Chưa đăng nhập.',
+      });
+    }
+    const { meta, stream } = await this.tickets.getTicketPhoto(
+      id,
+      fileId,
+      req.user.sub,
+      req.user.role,
+    );
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Length', String(meta.sizeBytes));
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileId}"`);
+    stream.on('error', () => {
+      if (!res.headersSent) {
+        res.removeHeader('Content-Length');
+        res.status(500).json({
+          statusCode: 500,
+          code: 'FILE_MISSING',
+          message: 'File không còn trên ổ lưu trữ — báo quản trị hệ thống.',
+        });
+      } else {
+        res.destroy();
+      }
+    });
+    stream.pipe(res);
   }
 }
 

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -12,6 +13,7 @@ import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
 import { SystemConfigService } from '../config/system-config.service';
+import { FilesService } from '../files/files.service';
 import {
   ACTIVE_TICKET_STATES,
   MAX_DURATION_AUTO_MS,
@@ -53,6 +55,7 @@ export class TicketsService {
     @Inject(DRIZZLE_DB) private readonly db: Database,
     private readonly config: SystemConfigService,
     private readonly audit: AuditWriterService,
+    private readonly files: FilesService,
   ) {}
 
   /**
@@ -363,6 +366,51 @@ export class TicketsService {
     }));
   }
 
+  /**
+   * Hàng đợi Admin theo trạng thái (FR-45): chờ giao (awaiting_pickup) / đang mượn (in_use).
+   * Kèm tên người mượn + máy + khung + version cho nút giao/nhận. Booking occupying của ticket.
+   */
+  async listQueue(ticketState: 'awaiting_pickup' | 'in_use'): Promise<
+    Array<{
+      id: string;
+      version: number;
+      borrowerName: string | null;
+      assetCode: string | null;
+      from: string | null;
+      to: string | null;
+    }>
+  > {
+    const rows = await this.db.execute<{
+      id: string;
+      version: number;
+      borrower_name: string | null;
+      asset_code: string | null;
+      from_ts: string | null;
+      to_ts: string | null;
+    }>(sql`
+      SELECT t.id, t.version, u.full_name AS borrower_name, a.code AS asset_code,
+        lower(b.period) AS from_ts, upper(b.period) AS to_ts
+      FROM ticket t
+      LEFT JOIN users u ON u.sub = t.borrower_sub
+      LEFT JOIN booking b ON b.ticket_id = t.id
+        AND b.state IN (${sql.join(
+          OCCUPYING_STATES.map((s) => sql`${s}`),
+          sql`, `,
+        )})
+      LEFT JOIN assets a ON a.id = b.asset_id
+      WHERE t.state = ${ticketState}
+      ORDER BY lower(b.period) ASC, t.created_at
+    `);
+    return rows.rows.map((r) => ({
+      id: r.id,
+      version: r.version,
+      borrowerName: r.borrower_name,
+      assetCode: r.asset_code,
+      from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
+      to: r.to_ts ? new Date(r.to_ts).toISOString() : null,
+    }));
+  }
+
   /** Đọc ticket pending_approval trong tx + kiểm version/state chung cho approve+reject. */
   private async lockPendingForDecision(
     tx: Pick<Database, 'execute' | 'insert'>,
@@ -611,5 +659,278 @@ export class TicketsService {
         await this.cancelExpiredWithin(tx, row.ticket_id);
       }
     }
+  }
+
+  /** Gắn ảnh (đã upload qua /admin/files) vào ticket theo phase + ghi note handover. */
+  private async attachHandoverArtifacts(
+    tx: Pick<Database, 'execute'>,
+    ticketId: string,
+    assetId: string,
+    phase: 'deliver' | 'return',
+    note: string | null,
+    photoIds: string[],
+    actorSub: string,
+  ): Promise<void> {
+    if (note && note.trim()) {
+      await tx.execute(sql`
+        INSERT INTO asset_note (asset_id, kind, note, actor)
+        VALUES (${assetId}, 'handover', ${note.trim()}, ${actorSub})
+      `);
+    }
+    // Kiểm ảnh tồn tại TRƯỚC khi link — photoId ma → 400 sạch (không để FK 23503 thành 500
+    // rollback cả thao tác giao/nhận — review Med Bug1).
+    const uniquePhotoIds = [...new Set(photoIds)];
+    if (uniquePhotoIds.length > 0) {
+      const found = await tx.execute<{ n: number }>(sql`
+        SELECT count(*)::int AS n FROM files
+        WHERE id IN (${sql.join(
+          uniquePhotoIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})
+      `);
+      if ((found.rows[0]?.n ?? 0) !== uniquePhotoIds.length) {
+        throw new BadRequestException({
+          code: 'FILE_NOT_FOUND',
+          message: 'Ảnh đính kèm không tồn tại — upload lại.',
+        });
+      }
+    }
+    for (const fileId of photoIds) {
+      await tx.execute(sql`
+        INSERT INTO ticket_file (ticket_id, file_id, phase)
+        VALUES (${ticketId}, ${fileId}, ${phase})
+        ON CONFLICT (ticket_id, file_id) DO NOTHING
+      `);
+    }
+  }
+
+  /** Đọc ticket + asset của booking chiếm chỗ, khóa FOR UPDATE; kiểm version. */
+  private async lockTicketForHandover(
+    tx: Pick<Database, 'execute'>,
+    ticketId: string,
+    version: number,
+    expectState: string,
+  ): Promise<{ assetId: string }> {
+    const rows = await tx.execute<{
+      state: string;
+      version: number;
+      asset_id: string | null;
+    }>(sql`
+      SELECT t.state, t.version,
+        (SELECT b.asset_id FROM booking b
+           WHERE b.ticket_id = t.id
+             AND b.state IN (${sql.join(
+               OCCUPYING_STATES.map((s) => sql`${s}`),
+               sql`, `,
+             )})
+           ORDER BY lower(b.period) LIMIT 1) AS asset_id
+      FROM ticket t WHERE t.id = ${ticketId} FOR UPDATE
+    `);
+    if (rows.rows.length === 0) {
+      throw new NotFoundException({
+        code: 'TICKET_NOT_FOUND',
+        message: 'Không tìm thấy ticket này.',
+      });
+    }
+    const t = rows.rows[0];
+    if (t.version !== version) {
+      throw new ConflictException({
+        code: 'STALE_VERSION',
+        message: 'Ticket vừa được cập nhật — vui lòng tải lại.',
+      });
+    }
+    if (t.state !== expectState) {
+      throw new ConflictException({
+        code: 'INVALID_STATE',
+        message: `Ticket không ở trạng thái phù hợp thao tác này.`,
+      });
+    }
+    if (!t.asset_id) {
+      throw new ConflictException({
+        code: 'NO_BOOKING',
+        message: 'Ticket không có booking đang hoạt động.',
+      });
+    }
+    return { assetId: t.asset_id };
+  }
+
+  /** Admin xác nhận "Đã giao" (FR-14): awaiting_pickup → in_use, booking pending → delivered. */
+  async deliver(
+    ticketId: string,
+    version: number,
+    note: string | null,
+    photoIds: string[],
+    actorSub: string,
+  ): Promise<{ id: string; state: string }> {
+    return this.db.transaction(async (tx) => {
+      const { assetId } = await this.lockTicketForHandover(
+        tx,
+        ticketId,
+        version,
+        'awaiting_pickup',
+      );
+      await tx.execute(sql`
+        UPDATE ticket SET state = 'in_use', delivered_at = now(),
+          version = version + 1, updated_at = now()
+        WHERE id = ${ticketId}
+      `);
+      await tx.execute(sql`
+        UPDATE booking SET state = 'delivered', version = version + 1, updated_at = now()
+        WHERE ticket_id = ${ticketId} AND state = 'pending'
+      `);
+      await this.attachHandoverArtifacts(
+        tx,
+        ticketId,
+        assetId,
+        'deliver',
+        note,
+        photoIds,
+        actorSub,
+      );
+      await this.audit.appendWithin(tx, {
+        actor: actorSub,
+        action: 'tickets.deliver',
+        objectType: 'ticket',
+        objectId: ticketId,
+        detail: { photos: photoIds.length },
+      });
+      return { id: ticketId, state: 'in_use' };
+    });
+  }
+
+  /** Admin xác nhận "Đã nhận" (FR-14/17): in_use → closed, booking delivered → returned.
+   * Note BẮT BUỘC (controller ép) → asset_note handover. Trả sớm = close sớm (không kiểm giờ). */
+  async returnTicket(
+    ticketId: string,
+    version: number,
+    note: string,
+    photoIds: string[],
+    actorSub: string,
+  ): Promise<{ id: string; state: string }> {
+    return this.db.transaction(async (tx) => {
+      const { assetId } = await this.lockTicketForHandover(
+        tx,
+        ticketId,
+        version,
+        'in_use',
+      );
+      await tx.execute(sql`
+        UPDATE ticket SET state = 'closed', returned_at = now(),
+          version = version + 1, updated_at = now()
+        WHERE id = ${ticketId}
+      `);
+      await tx.execute(sql`
+        UPDATE booking SET state = 'returned', version = version + 1, updated_at = now()
+        WHERE ticket_id = ${ticketId} AND state = 'delivered'
+      `);
+      await this.attachHandoverArtifacts(
+        tx,
+        ticketId,
+        assetId,
+        'return',
+        note,
+        photoIds,
+        actorSub,
+      );
+      await this.audit.appendWithin(tx, {
+        actor: actorSub,
+        action: 'tickets.return',
+        objectType: 'ticket',
+        objectId: ticketId,
+        detail: { photos: photoIds.length },
+      });
+      return { id: ticketId, state: 'closed' };
+    });
+  }
+
+  /** Tab "Mượn-trả" của máy (FR-34): ticket/buổi của máy — người mượn, khung, giao/nhận, trạng thái. */
+  async listAssetHandovers(
+    assetId: string,
+    page = 1,
+    pageSize = 20,
+  ): Promise<{
+    items: unknown[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const offset = (page - 1) * pageSize;
+    const [items, totalRows] = await Promise.all([
+      this.db.execute<{
+        ticket_id: string;
+        state: string;
+        borrower_name: string | null;
+        from_ts: string;
+        to_ts: string;
+        delivered_at: string | null;
+        returned_at: string | null;
+      }>(sql`
+        SELECT t.id AS ticket_id, t.state, u.full_name AS borrower_name,
+          lower(b.period) AS from_ts, upper(b.period) AS to_ts,
+          t.delivered_at, t.returned_at
+        FROM booking b
+        JOIN ticket t ON t.id = b.ticket_id
+        LEFT JOIN users u ON u.sub = t.borrower_sub
+        WHERE b.asset_id = ${assetId} AND b.kind IN ('normal', 'recurring')
+          AND b.state <> 'cancelled'
+        ORDER BY lower(b.period) DESC
+        LIMIT ${pageSize} OFFSET ${offset}
+      `),
+      this.db.execute<{ n: number }>(sql`
+        SELECT count(*)::int AS n FROM booking b
+        WHERE b.asset_id = ${assetId} AND b.kind IN ('normal', 'recurring')
+          AND b.state <> 'cancelled'
+      `),
+    ]);
+    return {
+      items: items.rows.map((r) => ({
+        ticketId: r.ticket_id,
+        state: r.state,
+        stateLabel: TICKET_STATE_LABELS_VI[r.state as TicketState] ?? r.state,
+        borrowerName: r.borrower_name,
+        from: new Date(r.from_ts).toISOString(),
+        to: new Date(r.to_ts).toISOString(),
+        deliveredAt: r.delivered_at
+          ? new Date(r.delivered_at).toISOString()
+          : null,
+        returnedAt: r.returned_at
+          ? new Date(r.returned_at).toISOString()
+          : null,
+      })),
+      total: totalRows.rows[0]?.n ?? 0,
+      page,
+      pageSize,
+    };
+  }
+
+  /**
+   * Mở ảnh đính kèm ticket (NFR-8/AD-6): CHỈ chủ ticket HOẶC admin/sa. File phải thuộc
+   * ticket (ticket_file) — chống đọc file id bất kỳ. Trả stream qua FilesService.
+   */
+  async getTicketPhoto(
+    ticketId: string,
+    fileId: string,
+    requesterSub: string,
+    requesterRole: string,
+  ) {
+    const rows = await this.db.execute<{ borrower_sub: string }>(sql`
+      SELECT t.borrower_sub FROM ticket t
+      JOIN ticket_file tf ON tf.ticket_id = t.id AND tf.file_id = ${fileId}
+      WHERE t.id = ${ticketId}
+    `);
+    if (rows.rows.length === 0) {
+      throw new NotFoundException({
+        code: 'PHOTO_NOT_FOUND',
+        message: 'Không tìm thấy ảnh của ticket này.',
+      });
+    }
+    const isAdmin = requesterRole === 'admin' || requesterRole === 'sa';
+    if (!isAdmin && rows.rows[0].borrower_sub !== requesterSub) {
+      throw new ForbiddenException({
+        code: 'NOT_TICKET_OWNER',
+        message: 'Bạn không có quyền xem ảnh này.',
+      });
+    }
+    return this.files.openForDownload(fileId, requesterSub);
   }
 }

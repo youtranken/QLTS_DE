@@ -48,4 +48,23 @@ describe('Admin duyệt request — phân quyền (story 3.4)', () => {
       .send({ version: 1 })
       .expect(400);
   });
+
+  it('deliver/return: member → 403 (story 3.6)', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/admin/tickets/${UUID}/deliver`)
+      .set(asMember)
+      .send({ version: 1 })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`/api/admin/tickets/${UUID}/return`)
+      .set(asMember)
+      .send({ version: 1, note: 'x' })
+      .expect(403);
+  });
+
+  it('photo endpoint: anonymous → 401 (story 3.6)', async () => {
+    await request(app.getHttpServer())
+      .get(`/api/booking/tickets/${UUID}/photos/${UUID}`)
+      .expect(401);
+  });
 });

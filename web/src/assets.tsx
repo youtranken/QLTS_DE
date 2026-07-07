@@ -1339,6 +1339,20 @@ export function AssetDetailPage({ me }: { me: Me }) {
   const [tab, setTab] = useState<'alloc' | 'loan' | 'notes'>('alloc');
   const [allocations, setAllocations] = useState<AllocationRow[]>([]);
   const [notes, setNotes] = useState<NoteRow[]>([]);
+  const [handovers, setHandovers] = useState<
+    Array<{
+      ticketId: string;
+      stateLabel: string;
+      borrowerName: string | null;
+      from: string;
+      to: string;
+      deliveredAt: string | null;
+      returnedAt: string | null;
+    }>
+  >([]);
+  const [handoverTotal, setHandoverTotal] = useState(0);
+  const [handoverPage, setHandoverPage] = useState(1);
+  const HANDOVER_PAGE_SIZE = 20;
   const [software, setSoftware] = useState<
     Array<{
       id: string;
@@ -1371,11 +1385,14 @@ export function AssetDetailPage({ me }: { me: Me }) {
       }
       const a = (await res.json()) as AssetDetail;
       setDetail(a);
-      const [allocRes, noteRes, swRes] = await Promise.all([
+      const [allocRes, noteRes, swRes, hoRes] = await Promise.all([
         fetch(`/api/admin/assets/${encodeURIComponent(id)}/allocations`),
         fetch(`/api/admin/assets/${encodeURIComponent(id)}/notes`),
         a.type !== 'software'
           ? fetch(`/api/admin/assets/${encodeURIComponent(id)}/software`)
+          : Promise.resolve(null),
+        a.type !== 'software'
+          ? fetch(`/api/admin/tickets/by-asset/${encodeURIComponent(id)}/handovers`)
           : Promise.resolve(null),
       ]);
       // fetch phụ lỗi phải HIỆN lỗi — "chưa có dữ liệu" khác "không tải được" (UJ-3)
@@ -1396,10 +1413,41 @@ export function AssetDetailPage({ me }: { me: Me }) {
           setError(t('assets.loadFailed'));
         }
       }
+      if (hoRes) {
+        if (hoRes.ok) {
+          const body = (await hoRes.json()) as {
+            items: typeof handovers;
+            total: number;
+          };
+          setHandovers(body.items);
+          setHandoverTotal(body.total);
+        } else {
+          setError(t('assets.loadFailed'));
+        }
+      }
     } catch {
       setError(t('app.serverUnreachable'));
     }
   }, [id, t]);
+
+  const loadHandovers = useCallback(
+    async (page: number) => {
+      if (!id) return;
+      const res = await fetch(
+        `/api/admin/tickets/by-asset/${encodeURIComponent(id)}/handovers?page=${page}`,
+      );
+      if (res.ok) {
+        const body = (await res.json()) as {
+          items: typeof handovers;
+          total: number;
+        };
+        setHandovers(body.items);
+        setHandoverTotal(body.total);
+        setHandoverPage(page);
+      }
+    },
+    [id],
+  );
 
   useEffect(() => {
     void loadAll();
@@ -1608,7 +1656,62 @@ export function AssetDetailPage({ me }: { me: Me }) {
               </tbody>
             </table>
           ))}
-        {tab === 'loan' && <p>{t('assets.loanTabEmpty')}</p>}
+        {tab === 'loan' &&
+          (handovers.length === 0 ? (
+            <p>{t('assets.loanTabEmpty')}</p>
+          ) : (
+            <table style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={cellStyle}>{t('assets.hoBorrower')}</th>
+                  <th style={cellStyle}>{t('assets.hoWindow')}</th>
+                  <th style={cellStyle}>{t('assets.hoDelivered')}</th>
+                  <th style={cellStyle}>{t('assets.hoReturned')}</th>
+                  <th style={cellStyle}>{t('assets.hoState')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {handovers.map((h) => (
+                  <tr key={h.ticketId}>
+                    <td style={cellStyle}>{h.borrowerName ?? '—'}</td>
+                    <td style={cellStyle}>
+                      {fmtDateTime(h.from)} → {fmtDateTime(h.to)}
+                    </td>
+                    <td style={cellStyle}>
+                      {h.deliveredAt ? fmtDateTime(h.deliveredAt) : '—'}
+                    </td>
+                    <td style={cellStyle}>
+                      {h.returnedAt ? fmtDateTime(h.returnedAt) : '—'}
+                    </td>
+                    <td style={cellStyle}>{h.stateLabel}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
+        {tab === 'loan' &&
+          handoverTotal > HANDOVER_PAGE_SIZE && (
+            <div style={{ marginTop: '0.5rem', display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                disabled={handoverPage <= 1}
+                onClick={() => void loadHandovers(handoverPage - 1)}
+              >
+                ‹ {t('assets.prev')}
+              </button>
+              <span>
+                {handoverPage} /{' '}
+                {Math.ceil(handoverTotal / HANDOVER_PAGE_SIZE)}
+              </span>
+              <button
+                type="button"
+                disabled={handoverPage >= Math.ceil(handoverTotal / HANDOVER_PAGE_SIZE)}
+                onClick={() => void loadHandovers(handoverPage + 1)}
+              >
+                {t('assets.next')} ›
+              </button>
+            </div>
+          )}
         {tab === 'notes' &&
           (notes.length === 0 ? (
             <p>{t('assets.noNotes')}</p>
