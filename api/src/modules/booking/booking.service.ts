@@ -1,5 +1,6 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
+import { parseBookingWindow } from '../../common/booking-window';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { SystemConfigService } from '../config/system-config.service';
@@ -39,34 +40,8 @@ export class BookingService {
     fromIso: string,
     toIso: string,
   ): Promise<AvailableMachine[]> {
-    const from = new Date(fromIso);
-    const to = new Date(toIso);
-    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
-      throw new BadRequestException({
-        code: 'INVALID_RANGE',
-        message: 'Giờ mượn/trả không hợp lệ.',
-      });
-    }
-    if (to.getTime() <= from.getTime()) {
-      throw new BadRequestException({
-        code: 'INVALID_RANGE',
-        message: 'Giờ trả phải sau giờ nhận.',
-      });
-    }
-    if (from.getTime() < Date.now()) {
-      throw new BadRequestException({
-        code: 'PAST_PICKUP',
-        message: 'Giờ nhận phải từ hiện tại trở đi.',
-      });
-    }
     const windowDays = await this.config.getBookingWindowDays();
-    const windowEnd = Date.now() + windowDays * 24 * 60 * 60 * 1000;
-    if (from.getTime() > windowEnd) {
-      throw new BadRequestException({
-        code: 'BOOKING_WINDOW',
-        message: `Chỉ được đặt trong vòng ${windowDays} ngày tới.`,
-      });
-    }
+    parseBookingWindow(fromIso, toIso, windowDays);
 
     // OCCUPYING_STATES từ nguồn chung (AD-2) — dựng list literal cho SQL, không hard-code lại
     const occupying = sql.join(

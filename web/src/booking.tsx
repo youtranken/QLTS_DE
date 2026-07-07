@@ -1,5 +1,8 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { Me } from './panels';
+
+const MAX_DURATION_AUTO_MS = 48 * 60 * 60 * 1000;
 
 interface AvailableSoftware {
   id: string;
@@ -24,16 +27,31 @@ interface AvailableMachine {
  * — giữ đúng INSTANT, server nhận offset hợp lệ (party phiên 7 chống lệch giờ).
  * Nút "Chọn" (submit đặt) là story 3.1c.
  */
-export function BookingPage() {
+export function BookingPage({ me }: { me: Me }) {
   const { t } = useTranslation();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [machines, setMachines] = useState<AvailableMachine[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<string | null>(null);
+  // Khung giờ đã dùng để tìm danh sách đang hiển thị — đổi input mà chưa tìm lại
+  // thì "Chọn" bị khóa (không đặt khung B trên máy chỉ xác nhận rảnh ở khung A).
+  const [searchedKey, setSearchedKey] = useState<string | null>(null);
+  const currentKey = from && to ? `${from}|${to}` : null;
+  const rangeStale = searchedKey !== null && searchedKey !== currentKey;
+
+  // Form-gate >48h (AC 4): duration tính từ input; chặn nếu không có quyền dài hạn.
+  const durationMs =
+    from && to ? new Date(to).getTime() - new Date(from).getTime() : 0;
+  const isLongTerm = durationMs > MAX_DURATION_AUTO_MS;
+  const canLongTerm = me.permissions?.canLongTerm ?? false;
+  const longTermBlocked = isLongTerm && !canLongTerm;
 
   const search = useCallback(async () => {
     setError(null);
+    setNotice(null);
     if (!from || !to) return;
     const fromIso = new Date(from).toISOString();
     const toIso = new Date(to).toISOString();
@@ -44,6 +62,7 @@ export function BookingPage() {
       );
       if (res.ok) {
         setMachines((await res.json()) as AvailableMachine[]);
+        setSearchedKey(`${from}|${to}`);
         return;
       }
       const body = (await res.json().catch(() => ({}))) as { code?: string };
@@ -61,6 +80,57 @@ export function BookingPage() {
       setLoading(false);
     }
   }, [from, to, t]);
+
+  const submit = useCallback(
+    async (assetId: string) => {
+      setError(null);
+      setNotice(null);
+      setSubmitting(assetId);
+      try {
+        const res = await fetch('/api/booking', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            assetId,
+            from: new Date(from).toISOString(),
+            to: new Date(to).toISOString(),
+          }),
+        });
+        if (res.status === 201 || res.ok) {
+          const body = (await res.json().catch(() => ({}))) as {
+            autoApproved?: boolean;
+          };
+          setNotice(
+            body.autoApproved
+              ? t('booking.submitOkAuto')
+              : t('booking.submitOkHeld'),
+          );
+          await search(); // refetch — khung vừa đặt biến khỏi danh sách
+          return;
+        }
+        const body = (await res.json().catch(() => ({}))) as { code?: string };
+        const map: Record<string, string> = {
+          SLOT_TAKEN: t('booking.errSlotTaken'),
+          ASSET_UNAVAILABLE: t('booking.errAssetUnavailable'),
+          QUOTA_EXCEEDED: t('booking.errQuota'),
+          LONG_TERM_REQUIRED: t('booking.errLongTerm'),
+        };
+        setError((body.code && map[body.code]) || t('booking.errGeneric'));
+        // 409 chồng giờ/khóa máy → refetch trước khi cho đặt lại (conventions)
+        if (body.code === 'SLOT_TAKEN' || body.code === 'ASSET_UNAVAILABLE') {
+          await search();
+        }
+      } catch {
+        setError(t('booking.errGeneric'));
+      } finally {
+        setSubmitting(null);
+      }
+    },
+    [from, to, me.csrfToken, search, t],
+  );
 
   return (
     <section style={{ maxWidth: 900 }}>
@@ -103,7 +173,11 @@ export function BookingPage() {
         </button>
       </form>
 
+      {longTermBlocked && (
+        <p style={{ color: '#b8860b' }}>{t('booking.errLongTerm')}</p>
+      )}
       {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      {notice && <p style={{ color: '#1a7f37' }}>{notice}</p>}
 
       {machines === null && !error && <p>{t('booking.prompt')}</p>}
       {machines !== null && machines.length === 0 && (
@@ -111,7 +185,12 @@ export function BookingPage() {
       )}
       {machines !== null && machines.length > 0 && (
         <>
-          <p>{t('booking.resultCount', { n: machines.length })}</p>
+          <p>
+            {t('booking.resultCount', { n: machines.length })}
+            {rangeStale && (
+              <span style={{ color: '#b8860b' }}> — {t('booking.staleRange')}</span>
+            )}
+          </p>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', width: '100%' }}>
               <thead>
@@ -154,8 +233,17 @@ export function BookingPage() {
                             .join(', ')}
                     </td>
                     <td style={{ padding: '0.4rem' }}>
-                      <button type="button" disabled title="3.1c">
-                        {t('booking.pick')}
+                      <button
+                        type="button"
+                        disabled={
+                          longTermBlocked || submitting !== null || rangeStale
+                        }
+                        title={rangeStale ? t('booking.staleRange') : undefined}
+                        onClick={() => void submit(m.id)}
+                      >
+                        {submitting === m.id
+                          ? t('booking.submitting')
+                          : t('booking.pick')}
                       </button>
                     </td>
                   </tr>

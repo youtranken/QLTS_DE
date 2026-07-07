@@ -41,6 +41,21 @@ export function isOccupying(state: BookingState): boolean {
   return (OCCUPYING_STATES as readonly string[]).includes(state);
 }
 
+/**
+ * AD-4/FR-7 — "ticket active" (đếm quota): giữ chỗ/chờ giao/đang mượn.
+ * MỘT nguồn — mọi chỗ đếm quota import đây, không tự liệt kê lại.
+ * `rejected`/`cancelled`/`closed` KHÔNG đếm (đã rời hàng đợi).
+ */
+export const ACTIVE_TICKET_STATES = [
+  'pending_approval',
+  'awaiting_pickup',
+  'in_use',
+] as const satisfies readonly TicketState[];
+
+/** Ngưỡng tự-duyệt (FR-8): khung ≤48h liên tục vào thẳng awaiting_pickup;
+ * >48h cần quyền dài hạn + qua hàng đợi duyệt Admin (3.4). */
+export const MAX_DURATION_AUTO_MS = 48 * 60 * 60 * 1000;
+
 /** Nhãn tiếng Việt theo bảng AD-16 — FE dùng làm nguồn cho i18n, không hard-code chuỗi trạng thái. */
 export const TICKET_STATE_LABELS_VI: Record<TicketState, string> = {
   pending_approval: 'Chờ duyệt',

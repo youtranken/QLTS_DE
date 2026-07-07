@@ -236,7 +236,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
         </header>
         <main style={{ padding: '1rem' }}>
           <Routes>
-            <Route path="/" element={<BookingPage />} />
+            <Route path="/" element={<BookingPage me={me} />} />
             <Route
               path="/xu-ly-muon"
               element={
