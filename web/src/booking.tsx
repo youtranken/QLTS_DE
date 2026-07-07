@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { MyRequestsPanel } from './my-requests';
@@ -265,7 +265,86 @@ export function BookingPage({ me }: { me: Me }) {
         </>
       )}
 
+      <InUseNowPanel />
       <MyRequestsPanel me={me} reloadKey={myReqReload} />
+    </section>
+  );
+}
+
+interface InUseRow {
+  borrowerName: string | null;
+  assetCode: string | null;
+  from: string | null;
+  to: string | null;
+}
+
+/** "Máy đang được mượn" (3.11, NFR-2) — snapshot ai đang giữ máy gì; không lộ sub/email. */
+function InUseNowPanel() {
+  const { t, i18n } = useTranslation();
+  const [rows, setRows] = useState<InUseRow[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/booking/in-use-now')
+      .then((r) => (r.ok ? (r.json() as Promise<InUseRow[]>) : []))
+      .then((d) => alive && setRows(d))
+      .catch(() => alive && setRows([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const fmt = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleString(
+          i18n.language === 'vi' ? 'vi-VN' : 'en-US',
+          {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          },
+        )
+      : '—';
+
+  if (rows === null || rows.length === 0) return null;
+  return (
+    <section style={{ maxWidth: 900, marginTop: '2rem' }}>
+      <h2 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+        {t('inusenow.title')}
+      </h2>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+          <thead>
+            <tr>
+              {['colBorrower', 'colMachine', 'colTime'].map((k) => (
+                <th
+                  key={k}
+                  style={{
+                    textAlign: 'left',
+                    borderBottom: '1px solid #ccc',
+                    padding: '0.4rem',
+                  }}
+                >
+                  {t(`inusenow.${k}`)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td style={{ padding: '0.4rem' }}>{r.borrowerName ?? '—'}</td>
+                <td style={{ padding: '0.4rem' }}>{r.assetCode ?? '—'}</td>
+                <td style={{ padding: '0.4rem' }}>
+                  {fmt(r.from)} → {fmt(r.to)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

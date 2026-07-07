@@ -64,6 +64,13 @@ export class TicketsController {
     return this.tickets.listMyTickets(requireSub(req));
   }
 
+  /** "Máy đang được mượn" (NFR-2, 3.11) — read-model snapshot, không lộ sub/email (AD-5). */
+  @Get('in-use-now')
+  @Roles('member', 'admin', 'sa')
+  inUseNow() {
+    return this.tickets.listInUseNow();
+  }
+
   /** Member tự hủy request của mình (FR-11) — borrower từ session, không body (chống IDOR). */
   @Post('my-tickets/:id/cancel')
   @HttpCode(200)

@@ -698,6 +698,42 @@ export class TicketsService {
     }));
   }
 
+  /**
+   * "Máy đang được mượn" (NFR-2, 3.11) — read-model CÔNG KHAI NỘI BỘ cho member: snapshot
+   * hiện tại, CHỈ display name + máy + khung. AD-5: KHÔNG sub/email, KHÔNG filter theo người,
+   * KHÔNG phân trang lịch sử. Sort theo hạn trả tăng dần (sắp trả trước).
+   */
+  async listInUseNow(): Promise<
+    Array<{
+      borrowerName: string | null;
+      assetCode: string | null;
+      from: string | null;
+      to: string | null;
+    }>
+  > {
+    const rows = await this.db.execute<{
+      borrower_name: string | null;
+      asset_code: string | null;
+      from_ts: string | null;
+      to_ts: string | null;
+    }>(sql`
+      SELECT u.full_name AS borrower_name, a.code AS asset_code,
+        lower(b.period) AS from_ts, upper(b.period) AS to_ts
+      FROM ticket t
+      JOIN booking b ON b.ticket_id = t.id AND b.state = 'delivered'
+      LEFT JOIN users u ON u.sub = t.borrower_sub
+      LEFT JOIN assets a ON a.id = b.asset_id
+      WHERE t.state = 'in_use'
+      ORDER BY upper(b.period) ASC
+    `);
+    return rows.rows.map((r) => ({
+      borrowerName: r.borrower_name,
+      assetCode: r.asset_code,
+      from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
+      to: r.to_ts ? new Date(r.to_ts).toISOString() : null,
+    }));
+  }
+
   /** Đọc ticket pending_approval trong tx + kiểm version/state chung cho approve+reject. */
   private async lockPendingForDecision(
     tx: Pick<Database, 'execute' | 'insert'>,

@@ -105,6 +105,12 @@ export default {
     errStale: 'Ticket vừa được cập nhật — đã tải lại.',
     errInvalidState: 'Ticket không còn ở trạng thái phù hợp — đã tải lại.',
   },
+  inusenow: {
+    title: 'Máy đang được mượn',
+    colBorrower: 'Người mượn',
+    colMachine: 'Máy',
+    colTime: 'Khung giờ',
+  },
   myreq: {
     title: 'Request của tôi',
     loading: 'Đang tải…',

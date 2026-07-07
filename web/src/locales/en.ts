@@ -105,6 +105,12 @@ export default {
     errStale: 'The ticket was just updated — reloaded.',
     errInvalidState: 'The ticket is no longer in a suitable state — reloaded.',
   },
+  inusenow: {
+    title: 'Machines currently borrowed',
+    colBorrower: 'Borrower',
+    colMachine: 'Machine',
+    colTime: 'Time slot',
+  },
   myreq: {
     title: 'My requests',
     loading: 'Loading…',
