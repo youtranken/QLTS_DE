@@ -27,5 +27,18 @@ export class TicketsSweepRegistrar implements OnModuleInit {
         await this.tickets.markOverdue();
       },
     });
+    // No-show TRƯỚC reminder: ticket hết hạn thì close, không nhắc nữa (3.9)
+    this.sweep.register({
+      name: 'auto-close-no-show',
+      run: async () => {
+        await this.tickets.autoCloseNoShow();
+      },
+    });
+    this.sweep.register({
+      name: 'pickup-reminder',
+      run: async () => {
+        await this.tickets.emitPickupReminders();
+      },
+    });
   }
 }

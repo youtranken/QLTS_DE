@@ -63,6 +63,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0018_booking_bookability_trigger.sql',
       '0019_outbox.sql',
       '0020_ticket_handover.sql',
+      '0021_pickup_reminder.sql',
     ]);
   });
 
