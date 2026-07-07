@@ -12,12 +12,31 @@ import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
 import { SystemConfigService } from '../config/system-config.service';
-import { ACTIVE_TICKET_STATES, MAX_DURATION_AUTO_MS } from './ticket-states';
+import {
+  ACTIVE_TICKET_STATES,
+  MAX_DURATION_AUTO_MS,
+  OCCUPYING_STATES,
+  TICKET_STATE_LABELS_VI,
+} from './ticket-states';
+import type { TicketState } from './ticket-states';
 
 export interface SubmitBookingInput {
   assetId: string;
   from: string;
   to: string;
+}
+
+export interface MyTicket {
+  id: string;
+  state: string;
+  stateLabel: string;
+  kind: string;
+  version: number;
+  assetCode: string | null;
+  from: string | null;
+  to: string | null;
+  createdAt: string;
+  cancellable: boolean;
 }
 
 export interface SubmitBookingResult {
@@ -142,5 +161,147 @@ export class TicketsService {
     } catch (error) {
       throw mapBookingPgError(error);
     }
+  }
+
+  /**
+   * "Request của tôi" (FR-11, NFR-7) — CHỈ ticket của member đó (WHERE borrower_sub).
+   * Kèm nhãn tiếng Việt (AD-16) + máy + khung giờ + cờ hủy được (FE ẩn/hiện nút).
+   */
+  async listMyTickets(borrowerSub: string): Promise<MyTicket[]> {
+    const rows = await this.db.execute<{
+      id: string;
+      state: string;
+      kind: string;
+      version: number;
+      created_at: string;
+      asset_code: string | null;
+      from_ts: string | null;
+      to_ts: string | null;
+      pickup_ts: string | null;
+    }>(sql`
+      SELECT t.id, t.state, t.kind, t.version, t.created_at,
+        a.code AS asset_code,
+        lower(b.period) AS from_ts, upper(b.period) AS to_ts,
+        -- giờ nhận sớm nhất tính TRÊN booking còn chiếm chỗ (bỏ cancelled/returned cũ —
+        -- chống false-negative khi Epic 4 thêm nhiều booking/ticket)
+        (SELECT min(lower(b2.period)) FROM booking b2
+           WHERE b2.ticket_id = t.id
+             AND b2.state IN (${sql.join(
+               OCCUPYING_STATES.map((s) => sql`${s}`),
+               sql`, `,
+             )})) AS pickup_ts
+      FROM ticket t
+      LEFT JOIN booking b ON b.ticket_id = t.id
+      LEFT JOIN assets a ON a.id = b.asset_id
+      WHERE t.borrower_sub = ${borrowerSub}
+      ORDER BY t.created_at DESC, b.id
+    `);
+    const now = Date.now();
+    return rows.rows.map((r) => ({
+      id: r.id,
+      state: r.state,
+      stateLabel: TICKET_STATE_LABELS_VI[r.state as TicketState] ?? r.state,
+      kind: r.kind,
+      version: r.version,
+      assetCode: r.asset_code,
+      from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
+      to: r.to_ts ? new Date(r.to_ts).toISOString() : null,
+      createdAt: new Date(r.created_at).toISOString(),
+      cancellable: this.isCancellable(
+        r.state,
+        r.pickup_ts ? new Date(r.pickup_ts).getTime() : null,
+        now,
+      ),
+    }));
+  }
+
+  /** Hủy được: pending_approval bất kỳ lúc nào; awaiting_pickup CHỈ trước giờ nhận (FR-11). */
+  private isCancellable(
+    state: string,
+    pickupMs: number | null,
+    now: number,
+  ): boolean {
+    if (state === 'pending_approval') return true;
+    if (state === 'awaiting_pickup') return pickupMs === null || now < pickupMs;
+    return false;
+  }
+
+  /**
+   * Member tự hủy ticket của mình (FR-11). IDOR: borrower≠sub → 403. Optimistic
+   * lock: version lệch → 409 STALE_VERSION (Admin thao tác cùng ticket, FR-49).
+   * Hủy → ticket+booking cancelled, khung nhả (rời OCCUPYING), quota giải phóng.
+   */
+  async cancelMyTicket(
+    ticketId: string,
+    borrowerSub: string,
+    version: number,
+  ): Promise<{ id: string; state: string }> {
+    return this.db.transaction(async (tx) => {
+      const rows = await tx.execute<{
+        borrower_sub: string;
+        state: string;
+        version: number;
+        pickup_ts: string | null;
+      }>(sql`
+        SELECT t.borrower_sub, t.state, t.version,
+          (SELECT min(lower(b.period)) FROM booking b
+             WHERE b.ticket_id = t.id
+               AND b.state IN (${sql.join(
+                 OCCUPYING_STATES.map((s) => sql`${s}`),
+                 sql`, `,
+               )})) AS pickup_ts
+        FROM ticket t WHERE t.id = ${ticketId} FOR UPDATE
+      `);
+      if (rows.rows.length === 0) {
+        throw new NotFoundException({
+          code: 'TICKET_NOT_FOUND',
+          message: 'Không tìm thấy request này.',
+        });
+      }
+      const t = rows.rows[0];
+      // IDOR: ticket người khác → 403 (dù tồn tại) — không lộ thông tin
+      if (t.borrower_sub !== borrowerSub) {
+        throw new ForbiddenException({
+          code: 'NOT_TICKET_OWNER',
+          message: 'Bạn không có quyền với request này.',
+        });
+      }
+      if (t.version !== version) {
+        throw new ConflictException({
+          code: 'STALE_VERSION',
+          message: 'Request vừa được cập nhật — vui lòng tải lại.',
+        });
+      }
+      const pickupMs = t.pickup_ts ? new Date(t.pickup_ts).getTime() : null;
+      if (!this.isCancellable(t.state, pickupMs, Date.now())) {
+        throw new ConflictException({
+          code: 'CANNOT_CANCEL',
+          message:
+            'Không thể hủy request ở trạng thái này (đã qua giờ nhận hoặc đã kết thúc).',
+        });
+      }
+
+      await tx.execute(sql`
+        UPDATE ticket SET state = 'cancelled', version = version + 1, updated_at = now()
+        WHERE id = ${ticketId}
+      `);
+      // Hủy MỌI booking occupying của ticket (nhả khung) — cancelled/returned giữ nguyên
+      await tx.execute(sql`
+        UPDATE booking SET state = 'cancelled', version = version + 1, updated_at = now()
+        WHERE ticket_id = ${ticketId}
+          AND state IN (${sql.join(
+            OCCUPYING_STATES.map((s) => sql`${s}`),
+            sql`, `,
+          )})
+      `);
+      await this.audit.appendWithin(tx, {
+        actor: borrowerSub,
+        action: 'tickets.cancel',
+        objectType: 'ticket',
+        objectId: ticketId,
+        detail: { by: 'member', fromState: t.state },
+      });
+      return { id: ticketId, state: 'cancelled' };
+    });
   }
 }

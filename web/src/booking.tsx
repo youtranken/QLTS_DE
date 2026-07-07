@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { MyRequestsPanel } from './my-requests';
 import type { Me } from './panels';
 
 const MAX_DURATION_AUTO_MS = 48 * 60 * 60 * 1000;
@@ -41,6 +42,7 @@ export function BookingPage({ me }: { me: Me }) {
   // Khung giờ đã dùng để tìm danh sách đang hiển thị — đổi input mà chưa tìm lại
   // thì "Chọn" bị khóa (không đặt khung B trên máy chỉ xác nhận rảnh ở khung A).
   const [searchedKey, setSearchedKey] = useState<string | null>(null);
+  const [myReqReload, setMyReqReload] = useState(0);
   const currentKey = from && to ? `${from}|${to}` : null;
   const rangeStale = searchedKey !== null && searchedKey !== currentKey;
 
@@ -110,6 +112,7 @@ export function BookingPage({ me }: { me: Me }) {
               ? t('booking.submitOkAuto')
               : t('booking.submitOkHeld'),
           );
+          setMyReqReload((n) => n + 1); // "Request của tôi" cập nhật ngay
           await search(); // refetch — khung vừa đặt biến khỏi danh sách
           return;
         }
@@ -261,6 +264,8 @@ export function BookingPage({ me }: { me: Me }) {
           </div>
         </>
       )}
+
+      <MyRequestsPanel me={me} reloadKey={myReqReload} />
     </section>
   );
 }

@@ -57,4 +57,25 @@ describe('Submit đặt mượn — phân quyền & validate DTO (story 3.1c)', 
       .send({ ...OK, from: '2026-08-01T09:00:00' })
       .expect(400);
   });
+
+  it('my-tickets: anonymous → 401 (story 3.3)', async () => {
+    await request(app.getHttpServer())
+      .get('/api/booking/my-tickets')
+      .expect(401);
+  });
+
+  it('my-tickets: admin → 403 (chỉ member)', async () => {
+    await request(app.getHttpServer())
+      .get('/api/booking/my-tickets')
+      .set(asAdmin)
+      .expect(403);
+  });
+
+  it('cancel: thiếu version → 400', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/booking/my-tickets/${UUID}/cancel`)
+      .set(asMember)
+      .send({})
+      .expect(400);
+  });
 });
