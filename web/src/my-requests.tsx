@@ -13,6 +13,8 @@ interface MyTicket {
   to: string | null;
   createdAt: string;
   cancellable: boolean;
+  isOverdue: boolean;
+  overdueMinutes: number | null;
 }
 
 /** "Request của tôi" (3.3) — dưới form đặt máy. Nút Hủy chỉ hiện khi cancellable. */
@@ -134,7 +136,26 @@ export function MyRequestsPanel({
                   <td style={{ padding: '0.4rem' }}>
                     {fmt(tk.from)} → {fmt(tk.to)}
                   </td>
-                  <td style={{ padding: '0.4rem' }}>{tk.stateLabel}</td>
+                  <td style={{ padding: '0.4rem' }}>
+                    {tk.stateLabel}
+                    {tk.isOverdue && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          padding: '1px 6px',
+                          borderRadius: 3,
+                          background: '#c0392b',
+                          color: '#fff',
+                          fontSize: '0.75rem',
+                        }}
+                      >
+                        {t('myreq.overdue', {
+                          h: Math.floor((tk.overdueMinutes ?? 0) / 60),
+                          m: (tk.overdueMinutes ?? 0) % 60,
+                        })}
+                      </span>
+                    )}
+                  </td>
                   <td style={{ padding: '0.4rem' }}>
                     {tk.cancellable && (
                       <button

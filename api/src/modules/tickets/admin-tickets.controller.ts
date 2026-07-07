@@ -143,6 +143,12 @@ export class AdminTicketsController {
     return this.tickets.listQueue('in_use');
   }
 
+  /** Hàng đợi quá hạn (FR-15) — sort thời lượng giảm dần. */
+  @Get('overdue')
+  overdue() {
+    return this.tickets.listOverdue();
+  }
+
   @Post(':id/approve')
   @HttpCode(200)
   approve(

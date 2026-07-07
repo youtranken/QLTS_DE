@@ -119,6 +119,7 @@ export default {
     errStale: 'Request vừa được cập nhật — đã tải lại.',
     errCannotCancel: 'Không thể hủy request ở trạng thái này.',
     errNotOwner: 'Bạn không có quyền với request này.',
+    overdue: 'Quá hạn {{h}}h{{m}}p',
   },
   calendar: {
     title: 'Lịch máy {{code}}',

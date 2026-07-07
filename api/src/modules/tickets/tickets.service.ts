@@ -39,6 +39,8 @@ export interface MyTicket {
   to: string | null;
   createdAt: string;
   cancellable: boolean;
+  isOverdue: boolean;
+  overdueMinutes: number | null;
 }
 
 export interface SubmitBookingResult {
@@ -331,10 +333,16 @@ export class TicketsService {
       from_ts: string | null;
       to_ts: string | null;
       pickup_ts: string | null;
+      is_overdue: boolean;
+      overdue_minutes: number | null;
     }>(sql`
       SELECT t.id, t.state, t.kind, t.version, t.created_at,
         a.code AS asset_code,
         lower(b.period) AS from_ts, upper(b.period) AS to_ts,
+        t.is_overdue,
+        CASE WHEN t.is_overdue THEN
+          EXTRACT(EPOCH FROM (now() - upper(b.period)))::int / 60
+          ELSE NULL END AS overdue_minutes,
         -- giờ nhận sớm nhất tính TRÊN booking còn chiếm chỗ (bỏ cancelled/returned cũ —
         -- chống false-negative khi Epic 4 thêm nhiều booking/ticket)
         (SELECT min(lower(b2.period)) FROM booking b2
@@ -365,6 +373,8 @@ export class TicketsService {
         r.pickup_ts ? new Date(r.pickup_ts).getTime() : null,
         now,
       ),
+      isOverdue: r.is_overdue,
+      overdueMinutes: r.overdue_minutes,
     }));
   }
 
@@ -801,6 +811,68 @@ export class TicketsService {
     }
   }
 
+  /**
+   * Sweep handler (AD-14, 3.8): ticket `in_use` có booking `delivered` quá hạn trả
+   * (upper period < now) chưa gắn cờ → bật is_overdue + overdue_marked_at (một lần, COALESCE
+   * — không ghi đè). CHỈ cờ, KHÔNG đụng booking.state. Idempotent. KHÔNG phát mail (5.3 chủ).
+   */
+  async markOverdue(): Promise<number> {
+    const res = await this.db.execute<{ id: string }>(sql`
+      UPDATE ticket t SET is_overdue = true,
+        overdue_marked_at = COALESCE(t.overdue_marked_at, now()),
+        updated_at = now()
+      WHERE t.state = 'in_use' AND t.is_overdue = false
+        AND EXISTS (
+          SELECT 1 FROM booking b
+          WHERE b.ticket_id = t.id AND b.state = 'delivered'
+            AND upper(b.period) < now()
+        )
+      RETURNING t.id
+    `);
+    return res.rows.length;
+  }
+
+  /** Danh sách ticket đang quá hạn (dashboard 3.12) — sort thời lượng quá hạn giảm dần. */
+  async listOverdue(): Promise<
+    Array<{
+      id: string;
+      borrowerName: string | null;
+      assetCode: string | null;
+      dueAt: string | null;
+      overdueMinutes: number;
+    }>
+  > {
+    // DISTINCT ON (t.id): ticket nhiều booking delivered (định kỳ Epic 4) → 1 dòng/ticket,
+    // lấy booking quá hạn LÂU nhất (upper sớm nhất). Sort ngoài theo thời lượng giảm dần.
+    const rows = await this.db.execute<{
+      id: string;
+      borrower_name: string | null;
+      asset_code: string | null;
+      due_at: string | null;
+      overdue_minutes: number;
+    }>(sql`
+      SELECT id, borrower_name, asset_code, due_at, overdue_minutes FROM (
+        SELECT DISTINCT ON (t.id) t.id, u.full_name AS borrower_name, a.code AS asset_code,
+          upper(b.period) AS due_at,
+          EXTRACT(EPOCH FROM (now() - upper(b.period)))::int / 60 AS overdue_minutes
+        FROM ticket t
+        JOIN booking b ON b.ticket_id = t.id AND b.state = 'delivered'
+        LEFT JOIN users u ON u.sub = t.borrower_sub
+        LEFT JOIN assets a ON a.id = b.asset_id
+        WHERE t.state = 'in_use' AND t.is_overdue = true
+        ORDER BY t.id, upper(b.period) ASC
+      ) q
+      ORDER BY overdue_minutes DESC
+    `);
+    return rows.rows.map((r) => ({
+      id: r.id,
+      borrowerName: r.borrower_name,
+      assetCode: r.asset_code,
+      dueAt: r.due_at ? new Date(r.due_at).toISOString() : null,
+      overdueMinutes: r.overdue_minutes,
+    }));
+  }
+
   /** Gắn ảnh (đã upload qua /admin/files) vào ticket theo phase + ghi note handover. */
   private async attachHandoverArtifacts(
     tx: Pick<Database, 'execute'>,
@@ -954,9 +1026,10 @@ export class TicketsService {
         version,
         'in_use',
       );
+      // Close → gỡ cờ is_overdue (hết hiển thị) nhưng GIỮ overdue_marked_at (FR-42 "từng quá hạn").
       await tx.execute(sql`
         UPDATE ticket SET state = 'closed', returned_at = now(),
-          version = version + 1, updated_at = now()
+          is_overdue = false, version = version + 1, updated_at = now()
         WHERE id = ${ticketId}
       `);
       await tx.execute(sql`

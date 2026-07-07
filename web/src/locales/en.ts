@@ -119,6 +119,7 @@ export default {
     errStale: 'The request was just updated — reloaded.',
     errCannotCancel: 'This request cannot be cancelled in its current state.',
     errNotOwner: 'You do not have access to this request.',
+    overdue: 'Overdue {{h}}h{{m}}m',
   },
   calendar: {
     title: 'Machine calendar {{code}}',

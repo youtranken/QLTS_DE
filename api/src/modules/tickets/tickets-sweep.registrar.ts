@@ -21,5 +21,11 @@ export class TicketsSweepRegistrar implements OnModuleInit {
         await this.tickets.expireStalePendingApprovals();
       },
     });
+    this.sweep.register({
+      name: 'mark-overdue',
+      run: async () => {
+        await this.tickets.markOverdue();
+      },
+    });
   }
 }
