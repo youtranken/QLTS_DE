@@ -9,6 +9,18 @@ const MIGRATION_LOCK_ID = 727_001;
 /** Bắt buộc NNNN_ (zero-pad) — sort chuỗi mới trùng thứ tự số ('10_' < '2_' nếu không pad). */
 const MIGRATION_NAME_PATTERN = /^\d{4}_.+\.sql$/;
 
+/**
+ * Marker dòng ĐẦU file → chạy NGOÀI transaction wrapper (CREATE INDEX CONCURRENTLY...).
+ * File no-transaction chỉ được chứa MỘT câu lệnh (multi-statement simple query vẫn bị
+ * Postgres bọc implicit transaction — marker mất tác dụng).
+ * CẢNH BÁO CIC (F4 review): fail giữa chừng KHÔNG rollback được → để lại index INVALID mà
+ * `CREATE INDEX CONCURRENTLY IF NOT EXISTS` lần sau coi là "đã có" → no-op, journal ghi,
+ * index INVALID sống mãi (planner bỏ qua, invariant không được ép). Pattern AN TOÀN: đặt
+ * `DROP INDEX CONCURRENTLY IF EXISTS <name>;` ở MỘT file no-tx riêng NGAY TRƯỚC file CIC.
+ * Runner thêm lưới: sau file no-tx có CONCURRENTLY, phát hiện index INVALID → fail to.
+ */
+const NO_TX_MARKER = /^--\s*qlts:no-transaction\b/;
+
 export interface MigrationLogger {
   log(message: string): void;
 }
@@ -69,22 +81,53 @@ export async function runMigrations(
         }
         continue;
       }
-      await client.query('BEGIN');
-      try {
-        await client.query(sql);
-        await client.query(
-          'INSERT INTO _migrations (name, checksum) VALUES ($1, $2)',
-          [file, checksum],
-        );
-        await client.query('COMMIT');
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw new Error(
-          `Migration ${file} thất bại: ${(error as Error).message}`,
-          {
-            cause: error,
-          },
-        );
+      if (NO_TX_MARKER.test(sql)) {
+        // Không wrap transaction; journal ghi SAU khi câu lệnh thành công.
+        try {
+          await client.query(sql);
+          if (/concurrently/i.test(sql)) {
+            const invalid = await client.query<{ idx: string }>(
+              `SELECT indexrelid::regclass::text AS idx
+                 FROM pg_index WHERE NOT indisvalid`,
+            );
+            if ((invalid.rowCount ?? 0) > 0) {
+              throw new Error(
+                `có index INVALID sau CREATE INDEX CONCURRENTLY (${invalid.rows
+                  .map((r) => r.idx)
+                  .join(
+                    ', ',
+                  )}) — CIC fail dở; DROP INDEX CONCURRENTLY IF EXISTS rồi chạy lại`,
+              );
+            }
+          }
+          await client.query(
+            'INSERT INTO _migrations (name, checksum) VALUES ($1, $2)',
+            [file, checksum],
+          );
+        } catch (error) {
+          throw new Error(
+            `Migration ${file} (no-transaction) thất bại: ${(error as Error).message}`,
+            { cause: error },
+          );
+        }
+      } else {
+        await client.query('BEGIN');
+        try {
+          await client.query(sql);
+          await client.query(
+            'INSERT INTO _migrations (name, checksum) VALUES ($1, $2)',
+            [file, checksum],
+          );
+          await client.query('COMMIT');
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw new Error(
+            `Migration ${file} thất bại: ${(error as Error).message}`,
+            {
+              cause: error,
+            },
+          );
+        }
       }
       applied.push(file);
       logger.log(`Migration applied: ${file}`);

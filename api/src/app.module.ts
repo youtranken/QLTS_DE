@@ -12,6 +12,7 @@ import { FilesModule } from './modules/files/files.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OidcModule } from './modules/auth/oidc.module';
 import { SystemConfigModule } from './modules/config/config.module';
+import { TicketsModule } from './modules/tickets/tickets.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { SystemConfigModule } from './modules/config/config.module';
     OidcModule,
     AuthModule,
     SystemConfigModule,
+    TicketsModule,
   ],
   controllers: [HealthController],
   // Đăng ký SAU AuthModule (imports xử lý trước providers) → chạy sau IdentityGuard,
