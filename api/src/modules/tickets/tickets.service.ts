@@ -118,6 +118,16 @@ export class TicketsService {
         `);
         const ticketId = ticketRows.rows[0].id;
 
+        // Expire-on-conflict (AD-9, 3.5b): giải phóng dòng held CŨ đã quá giờ nhận trên máy
+        // này chồng khung — member không phải chờ sweep. Nếu vẫn còn booking hợp lệ chồng
+        // → INSERT dưới đây 23P01 → SLOT_TAKEN thật.
+        await this.expireStaleHoldsForAsset(
+          tx,
+          input.assetId,
+          input.from,
+          input.to,
+        );
+
         const bookingRows = await tx.execute<{ id: string }>(sql`
           INSERT INTO booking (ticket_id, asset_id, kind, state, period)
           VALUES (${ticketId}, ${input.assetId}, 'normal', ${bookingState},
@@ -505,6 +515,101 @@ export class TicketsService {
         error,
       );
       throw error;
+    }
+  }
+
+  /**
+   * Chuyển 1 ticket pending_approval quá giờ nhận → cancelled TRONG tx cho trước:
+   * ticket→cancelled, booking held→cancelled, audit actor=system. Không mở tx mới.
+   */
+  private async cancelExpiredWithin(
+    tx: Pick<Database, 'execute' | 'insert'>,
+    ticketId: string,
+  ): Promise<void> {
+    await tx.execute(sql`
+      UPDATE ticket SET state = 'cancelled', version = version + 1, updated_at = now()
+      WHERE id = ${ticketId}
+    `);
+    await tx.execute(sql`
+      UPDATE booking SET state = 'cancelled', version = version + 1, updated_at = now()
+      WHERE ticket_id = ${ticketId} AND state = 'held'
+    `);
+    await this.audit.appendWithin(tx, {
+      actor: 'system',
+      action: 'tickets.auto_expire',
+      objectType: 'ticket',
+      objectId: ticketId,
+      detail: { reason: 'expired_pending_approval' },
+    });
+  }
+
+  /**
+   * Sweep handler (AD-9, 3.5b): request `pending_approval` có giờ nhận đã trôi qua →
+   * tự hết hạn, nhả khung, quota giải phóng, audit actor=system. Idempotent: mỗi ticket
+   * re-lock + re-check pending_approval + pickup<now trong tx riêng (chạy lại vô hại).
+   * Deadline derive từ Postgres → Redis chết/sống, sweep kế bù hết. Trả số ticket expire.
+   */
+  async expireStalePendingApprovals(): Promise<number> {
+    const candidates = await this.db.execute<{ id: string }>(sql`
+      SELECT t.id FROM ticket t
+      WHERE t.state = 'pending_approval'
+        AND EXISTS (
+          SELECT 1 FROM booking b
+          WHERE b.ticket_id = t.id AND b.state = 'held' AND lower(b.period) < now()
+        )
+    `);
+    let n = 0;
+    for (const c of candidates.rows) {
+      const done = await this.db.transaction(async (tx) => {
+        // Đồng hồ MỘT nguồn = Postgres now() (không trộn Date.now() Node — review Low).
+        const r = await tx.execute<{
+          state: string;
+          expired: boolean | null;
+        }>(sql`
+          SELECT t.state,
+            (SELECT min(lower(b.period)) < now() FROM booking b
+               WHERE b.ticket_id = t.id AND b.state = 'held') AS expired
+          FROM ticket t WHERE t.id = ${c.id} FOR UPDATE
+        `);
+        const row = r.rows[0];
+        if (!row || row.state !== 'pending_approval') return false;
+        if (row.expired !== true) return false;
+        await this.cancelExpiredWithin(tx, c.id);
+        return true;
+      });
+      if (done) n++;
+    }
+    return n;
+  }
+
+  /**
+   * Expire-on-conflict (AD-9): trong tx submit, giải phóng dòng `held` (pending_approval)
+   * trên máy `assetId` chồng khung [from,to) mà giờ nhận (lower) đã qua. CHỈ held quá giờ —
+   * không đụng booking còn hạn / đang mượn.
+   * THỨ TỰ KHÓA ticket → booking (giống sweep) để KHÔNG deadlock (review Med): tìm ticket_id
+   * (không FOR UPDATE booking) → khóa ticket trước → cancelExpiredWithin update booking sau.
+   */
+  private async expireStaleHoldsForAsset(
+    tx: Pick<Database, 'execute' | 'insert'>,
+    assetId: string,
+    fromIso: string,
+    toIso: string,
+  ): Promise<void> {
+    const stale = await tx.execute<{ ticket_id: string }>(sql`
+      SELECT DISTINCT b.ticket_id FROM booking b
+      WHERE b.asset_id = ${assetId}
+        AND b.state = 'held'
+        AND lower(b.period) < now()
+        AND b.period && tstzrange(${fromIso}, ${toIso}, '[)')
+    `);
+    for (const row of stale.rows) {
+      // Khóa TICKET trước (khớp thứ tự sweep) rồi re-check pending_approval
+      const t = await tx.execute<{ state: string }>(sql`
+        SELECT state FROM ticket WHERE id = ${row.ticket_id} FOR UPDATE
+      `);
+      if (t.rows[0]?.state === 'pending_approval') {
+        await this.cancelExpiredWithin(tx, row.ticket_id);
+      }
     }
   }
 }

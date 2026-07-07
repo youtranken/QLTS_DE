@@ -3,6 +3,7 @@ import { SystemConfigModule } from '../config/config.module';
 import { AdminTicketsController } from './admin-tickets.controller';
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
+import { TicketsSweepRegistrar } from './tickets-sweep.registrar';
 
 /**
  * Chủ vòng đời ticket/booking (AD-4). Story 3.1a đặt nền DB + từ vựng
@@ -13,7 +14,7 @@ import { TicketsService } from './tickets.service';
 @Module({
   imports: [SystemConfigModule],
   controllers: [TicketsController, AdminTicketsController],
-  providers: [TicketsService],
+  providers: [TicketsService, TicketsSweepRegistrar],
   exports: [TicketsService],
 })
 export class TicketsModule {}
