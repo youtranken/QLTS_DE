@@ -14,6 +14,7 @@ import { ApprovalQueuePage } from './approval-queue';
 import { AdminDashboard } from './admin-dashboard';
 import { NotificationsFailedPage } from './notifications-failed';
 import { OffboardingQueuePage } from './offboarding-queue';
+import { ReportsPage } from './reports';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
@@ -317,7 +318,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               path="/bao-cao"
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
-                  <Placeholder titleKey="nav.reports" />
+                  <ReportsPage />
                 </RequireRole>
               }
             />
@@ -368,16 +369,6 @@ function RequireRole({
     return <p>{t('app.noPermission')}</p>;
   }
   return <>{children}</>;
-}
-
-function Placeholder({ titleKey }: { titleKey: string }) {
-  const { t } = useTranslation();
-  return (
-    <>
-      <h1 style={{ fontSize: '1.2rem' }}>{t(titleKey)}</h1>
-      <p>{t('app.underConstruction')}</p>
-    </>
-  );
 }
 
 function AdminPage({ me }: { me: Me }) {

@@ -69,6 +69,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0024_approval_reminder.sql',
       '0025_overdue_reminder.sql',
       '0026_offboarding.sql',
+      '0027_ticket_closed_at.sql',
     ]);
   });
 

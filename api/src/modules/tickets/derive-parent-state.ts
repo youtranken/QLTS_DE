@@ -44,6 +44,8 @@ export async function deriveParentState(
     UPDATE ticket SET state = ${state}, is_overdue = ${c.any_overdue},
       overdue_marked_at = COALESCE(overdue_marked_at,
         CASE WHEN ${c.any_overdue} THEN now() END),
+      closed_at = COALESCE(closed_at,
+        CASE WHEN ${state} = 'closed' THEN now() END),
       version = version + 1, updated_at = now()
     WHERE id = ${ticketId}
   `);

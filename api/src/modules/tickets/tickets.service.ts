@@ -1452,8 +1452,10 @@ export class TicketsService {
       // 4.1 AC5: nhả yêu cầu gia hạn treo (nếu có) trong CÙNG transaction close.
       await this.extension.expireHeldWithin(tx, ticketId);
       // Close → gỡ cờ is_overdue (hết hiển thị) nhưng GIỮ overdue_marked_at (FR-42 "từng quá hạn").
+      // closed_at ghi một lần (marker báo cáo 6.1); returned_at là thời điểm nhận trả.
       await tx.execute(sql`
         UPDATE ticket SET state = 'closed', returned_at = now(),
+          closed_at = COALESCE(closed_at, now()),
           is_overdue = false, version = version + 1, updated_at = now()
         WHERE id = ${ticketId}
       `);
@@ -1614,6 +1616,7 @@ export class TicketsService {
         }
         await tx.execute(sql`
           UPDATE ticket SET state = 'closed', close_reason = 'no_show',
+            closed_at = COALESCE(closed_at, now()),
             version = version + 1, updated_at = now()
           WHERE id = ${c.id}
         `);

@@ -17,6 +17,7 @@ import { BookingModule } from './modules/booking/booking.module';
 import { OutboxModule } from './modules/outbox/outbox.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     OutboxModule,
     QueueModule,
     NotificationsModule,
+    ReportsModule,
   ],
   controllers: [HealthController],
   // Đăng ký SAU AuthModule (imports xử lý trước providers) → chạy sau IdentityGuard,
