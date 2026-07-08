@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { SweepService } from '../queue/sweep.service';
+import { ApprovalReminderService } from './approval-reminder.service';
 import { ExtensionService } from './extension.service';
 import { RecurringLifecycleService } from './recurring-lifecycle.service';
 import { RecurringService } from './recurring.service';
@@ -18,6 +19,7 @@ export class TicketsSweepRegistrar implements OnModuleInit {
     private readonly extension: ExtensionService,
     private readonly recurring: RecurringService,
     private readonly recurringLifecycle: RecurringLifecycleService,
+    private readonly approvalReminder: ApprovalReminderService,
   ) {}
 
   onModuleInit(): void {
@@ -65,6 +67,13 @@ export class TicketsSweepRegistrar implements OnModuleInit {
       name: 'no-show-recurring-session',
       run: async () => {
         await this.recurringLifecycle.autoCloseNoShowRecurringSessions();
+      },
+    });
+    // 5.2: nhắc duyệt request treo quá 4 giờ làm việc (1 mail/ngày VN)
+    this.sweep.register({
+      name: 'approval-reminder',
+      run: async () => {
+        await this.approvalReminder.emitApprovalReminders();
       },
     });
   }

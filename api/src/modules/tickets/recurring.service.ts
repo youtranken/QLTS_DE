@@ -12,6 +12,7 @@ import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
 import { SystemConfigService } from '../config/system-config.service';
+import { OutboxService } from '../outbox/outbox.service';
 import { ACTIVE_TICKET_STATES } from './ticket-states';
 
 export interface RecurringSession {
@@ -49,6 +50,7 @@ export class RecurringService {
     @Inject(DRIZZLE_DB) private readonly db: Database,
     private readonly config: SystemConfigService,
     private readonly audit: AuditWriterService,
+    private readonly outbox: OutboxService,
   ) {}
 
   /**
@@ -227,6 +229,8 @@ export class RecurringService {
           objectId: ticketId,
           detail: { assetId, count: sessions.length },
         });
+        // 5.2: chuỗi định kỳ LUÔN cần duyệt → mail nhóm Admin ngay (cùng tx, AD-11).
+        await this.outbox.enqueueWithin(tx, 'approval_requested', { ticketId });
         return { ticketId, count: sessions.length };
       });
     } catch (error) {

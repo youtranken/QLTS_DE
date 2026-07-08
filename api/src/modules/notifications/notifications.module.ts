@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { SystemConfigModule } from '../config/config.module';
+import { ApprovalMailRegistrar } from './approval-mail.registrar';
 import { MailTransportService } from './mail-transport.service';
+import { NotificationRecipientsService } from './notification-recipients.service';
 import { NotificationsConsumer } from './notifications.consumer';
 import { NotificationsController } from './notifications.controller';
 
@@ -11,7 +13,12 @@ import { NotificationsController } from './notifications.controller';
  */
 @Module({
   imports: [SystemConfigModule],
-  providers: [NotificationsConsumer, MailTransportService],
+  providers: [
+    NotificationsConsumer,
+    MailTransportService,
+    NotificationRecipientsService,
+    ApprovalMailRegistrar,
+  ],
   controllers: [NotificationsController],
   exports: [NotificationsConsumer],
 })

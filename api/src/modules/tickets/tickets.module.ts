@@ -5,6 +5,7 @@ import { FilesModule } from '../files/files.module';
 import { AdminTicketsController } from './admin-tickets.controller';
 import { AssetLifecycleController } from './asset-lifecycle.controller';
 import { TicketsController } from './tickets.controller';
+import { ApprovalReminderService } from './approval-reminder.service';
 import { ExtensionService } from './extension.service';
 import { RecurringLifecycleService } from './recurring-lifecycle.service';
 import { RecurringService } from './recurring.service';
@@ -29,6 +30,7 @@ import { TicketsSweepRegistrar } from './tickets-sweep.registrar';
     ExtensionService,
     RecurringService,
     RecurringLifecycleService,
+    ApprovalReminderService,
     TicketsSweepRegistrar,
   ],
   exports: [
