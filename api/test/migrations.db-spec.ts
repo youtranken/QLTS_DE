@@ -66,6 +66,9 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0021_pickup_reminder.sql',
       '0022_outbox_redrive.sql',
       '0023_ticket_extension_count.sql',
+      '0024_approval_reminder.sql',
+      '0025_overdue_reminder.sql',
+      '0026_offboarding.sql',
     ]);
   });
 
@@ -83,12 +86,12 @@ describe('Migrations + seed config (Postgres thật)', () => {
     expect(res.rows[0].n).toBe(0);
   });
 
-  it('bảng config seed đủ 7 tham số FR-44 đúng giá trị mặc định', async () => {
+  it('bảng config seed đủ 8 tham số FR-44 đúng giá trị mặc định', async () => {
     const res = await pool.query('SELECT key, value FROM config ORDER BY key');
     const byKey = Object.fromEntries(
       res.rows.map((r: { key: string; value: unknown }) => [r.key, r.value]),
     );
-    expect(res.rowCount).toBe(7);
+    expect(res.rowCount).toBe(8);
     expect(byKey).toEqual({
       booking_window_days: 30,
       active_ticket_quota: 2,
@@ -102,6 +105,8 @@ describe('Migrations + seed config (Postgres thật)', () => {
         end: '17:00',
       },
       approval_reminder_working_hours: 4,
+      // 5.5: lịch sync danh bạ định kỳ (0026)
+      directory_sync_interval_minutes: 60,
     });
   });
 
@@ -111,7 +116,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
     });
     expect(appliedAgain).toEqual([]);
     const res = await pool.query('SELECT count(*)::int AS n FROM config');
-    expect(res.rows[0].n).toBe(7);
+    expect(res.rows[0].n).toBe(8);
   });
 
   it('migration đã apply bị sửa nội dung (checksum lệch) → fail to, không im lặng', async () => {
