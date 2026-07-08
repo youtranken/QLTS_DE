@@ -59,6 +59,24 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
       .sign(privateKey);
   }
 
+  /** logout_token BCL: có events backchannel-logout, KHÔNG nonce (docs integration 4.7). */
+  async function signLogoutToken(
+    opts: { withNonce?: boolean; sub?: string } = {},
+  ): Promise<string> {
+    const claims: Record<string, unknown> = {
+      events: { 'http://schemas.openid.net/event/backchannel-logout': {} },
+    };
+    if (opts.withNonce) claims.nonce = 'x';
+    return new jose.SignJWT(claims)
+      .setProtectedHeader({ alg: 'RS256' })
+      .setSubject(opts.sub ?? 'usr_test_01')
+      .setIssuer(ISSUER)
+      .setAudience(CLIENT_ID)
+      .setIssuedAt()
+      .setExpirationTime(Math.floor(Date.now() / 1000) + 120)
+      .sign(privateKey);
+  }
+
   const fakeOidc: OidcProvider = {
     buildAuthUrl: (req) =>
       Promise.resolve(
@@ -286,6 +304,44 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
       "SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.session_revoked'",
     );
     expect(audit.rows[0].n).toBeGreaterThanOrEqual(1);
+  });
+
+  it('BCL: logout_token hợp lệ → đá MỌI phiên user tức thì (docs 4.7)', async () => {
+    const { sidCookie } = await loginFlow();
+    await request(app.getHttpServer())
+      .post('/api/backchannel-logout')
+      .type('form')
+      .send({ logout_token: await signLogoutToken() })
+      .expect(200);
+    await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', sidCookie)
+      .expect(401);
+    const audit = await pool.query(
+      "SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.session_revoked' AND detail->>'via' = 'backchannel_logout'",
+    );
+    expect(audit.rows[0].n).toBeGreaterThanOrEqual(1);
+  });
+
+  it('BCL: token có nonce (id_token dùng nhầm) → 400, phiên còn nguyên', async () => {
+    const { sidCookie } = await loginFlow();
+    await request(app.getHttpServer())
+      .post('/api/backchannel-logout')
+      .type('form')
+      .send({ logout_token: await signLogoutToken({ withNonce: true }) })
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', sidCookie)
+      .expect(200);
+  });
+
+  it('BCL: thiếu logout_token → 400', async () => {
+    await request(app.getHttpServer())
+      .post('/api/backchannel-logout')
+      .type('form')
+      .send({})
+      .expect(400);
   });
 
   it('webhook chữ ký sai → 401, phiên còn nguyên', async () => {

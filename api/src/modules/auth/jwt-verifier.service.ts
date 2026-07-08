@@ -64,6 +64,34 @@ export class JwtVerifierService {
     };
   }
 
+  /**
+   * Verify logout_token của Back-Channel Logout (OIDC BCL, docs integration 4.7):
+   * cùng JWKS/issuer/audience như access token, nhưng BẮT BUỘC có claim `events`
+   * backchannel-logout và KHÔNG có `nonce` (phân biệt với id_token bị dùng nhầm).
+   */
+  async verifyLogoutToken(logoutToken: string): Promise<{ sub: string }> {
+    const jose = await import('jose');
+    const getKey = await this.getKeySource();
+    const { payload } = await jose.jwtVerify(logoutToken, getKey, {
+      issuer: process.env.PMH_ISSUER_URL,
+      audience: process.env.PMH_CLIENT_ID,
+      clockTolerance: 60,
+    });
+    const events = payload.events as Record<string, unknown> | undefined;
+    const isLogout =
+      !!events &&
+      'http://schemas.openid.net/event/backchannel-logout' in events;
+    if (!isLogout || 'nonce' in payload) {
+      throw new Error(
+        'Không phải logout_token hợp lệ (thiếu events backchannel-logout hoặc có nonce)',
+      );
+    }
+    if (!payload.sub || typeof payload.sub !== 'string') {
+      throw new Error('logout_token thiếu claim `sub`');
+    }
+    return { sub: payload.sub };
+  }
+
   private toClaims(payload: JWTPayload): PmhIdClaims {
     return {
       sub: payload.sub as string,

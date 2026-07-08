@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
+import { BackchannelLogoutController } from './backchannel-logout.controller';
 import { CsrfGuard } from './csrf.guard';
 import { IdentityGuard } from './identity.guard';
 import { RolesGuard } from './roles.guard';
@@ -11,7 +12,7 @@ import { WebhookController } from './webhook.controller';
 
 @Module({
   imports: [UsersModule],
-  controllers: [AuthController, WebhookController],
+  controllers: [AuthController, BackchannelLogoutController, WebhookController],
   providers: [
     SessionService,
     SessionAuthService,
