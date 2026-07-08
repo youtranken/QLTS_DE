@@ -11,8 +11,10 @@ cp .env.example .env   # đổi các giá trị CHANGE_ME
 docker compose up --build
 ```
 
-- Web: http://localhost:8080 (đổi qua `WEB_PORT`)
-- API health: http://localhost:8080/api/health
+- Web: https://qlts.pmh.com.vn (nginx phục vụ TLS bằng cert `*.pmh.com.vn`; port 80 redirect → 443)
+- API health: https://qlts.pmh.com.vn/api/health
+- Cert (`fullchain.pem` + `private.key`) mount từ `../pmh.com.vn` vào `/etc/nginx/ssl` (không bake vào image)
+- `qlts.pmh.com.vn` phải phân giải về host chạy Docker (DNS thật hoặc thêm hosts nếu test cục bộ)
 - Migration trong `api/src/migrations/` tự chạy khi `api` khởi động (raw SQL, có thứ tự).
 - `postgres`/`redis` **không** publish cổng ra host; mọi truy cập đi qua nginx (`web`).
 - RAM: tổng ngân sách 2GB, `mem_limit` từng service chỉnh trong `.env`.

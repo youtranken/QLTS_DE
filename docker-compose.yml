@@ -67,8 +67,14 @@ services:
     build: ./web
     restart: unless-stopped
     mem_limit: ${WEB_MEM_LIMIT:-64m}
+    # Cổng vào duy nhất — HTTPS qlts.pmh.com.vn (80 chỉ redirect → 443).
     ports:
-      - '${WEB_PORT:-8080}:80'
+      - '80:80'
+      - '443:443'
+    volumes:
+      # Cert wildcard *.pmh.com.vn (private.key + fullchain.pem) — mount read-only,
+      # KHÔNG bake vào image (private key không nằm trong layer).
+      - ../pmh.com.vn:/etc/nginx/ssl:ro
     depends_on:
       api:
         condition: service_healthy
