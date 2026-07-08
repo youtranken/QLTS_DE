@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { SystemConfigModule } from '../config/config.module';
 import { ApprovalMailRegistrar } from './approval-mail.registrar';
 import { OverdueMailRegistrar } from './overdue-mail.registrar';
+import { CascadeCancelMailRegistrar } from './cascade-cancel-mail.registrar';
 import { MailTransportService } from './mail-transport.service';
 import { NotificationRecipientsService } from './notification-recipients.service';
 import { NotificationsConsumer } from './notifications.consumer';
@@ -20,6 +21,7 @@ import { NotificationsController } from './notifications.controller';
     NotificationRecipientsService,
     ApprovalMailRegistrar,
     OverdueMailRegistrar,
+    CascadeCancelMailRegistrar,
   ],
   controllers: [NotificationsController],
   exports: [NotificationsConsumer],
