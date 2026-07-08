@@ -249,7 +249,9 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
       .set('Cookie', sidCookie)
       .set('X-CSRF-Token', csrfToken)
       .expect(200);
-    expect(res.body.logoutUrl).toContain('https://id.test/oidc/logout');
+    // Local logout: chỉ hủy phiên QLTS, KHÔNG end_session IdP (không đá khỏi portal)
+    expect(res.body.ok).toBe(true);
+    expect(res.body.logoutUrl).toBeUndefined();
 
     await request(app.getHttpServer())
       .get('/api/auth/me')

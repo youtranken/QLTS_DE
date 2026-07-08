@@ -41,6 +41,8 @@ function useIsNarrow(): boolean {
 
 // Chống vòng lặp auto-login: đã thử SSO im lặng 1 lần mà vẫn anonymous → dừng, hiện nút login.
 const SSO_ATTEMPT_KEY = 'qlts_sso_attempt';
+// Vừa logout local (phiên IdP còn sống) → CẤM auto-SSO vào lại; chờ user bấm login.
+const LOGGED_OUT_KEY = 'qlts_logged_out';
 
 function App() {
   const { t } = useTranslation();
@@ -53,6 +55,7 @@ function App() {
       .then(async (res) => {
         if (res.ok) {
           sessionStorage.removeItem(SSO_ATTEMPT_KEY);
+          sessionStorage.removeItem(LOGGED_OUT_KEY);
           setAuth({ kind: 'authenticated', me: (await res.json()) as Me });
         } else if (res.status === 401) {
           setAuth({ kind: 'anonymous' });
@@ -69,7 +72,8 @@ function App() {
   const willAutoLogin =
     auth.kind === 'anonymous' &&
     !loginFailed &&
-    !sessionStorage.getItem(SSO_ATTEMPT_KEY);
+    !sessionStorage.getItem(SSO_ATTEMPT_KEY) &&
+    !sessionStorage.getItem(LOGGED_OUT_KEY);
   useEffect(() => {
     if (willAutoLogin) {
       sessionStorage.setItem(SSO_ATTEMPT_KEY, '1');
@@ -85,8 +89,9 @@ function App() {
         headers: auth.me.csrfToken ? { 'X-CSRF-Token': auth.me.csrfToken } : {},
       });
       if (res.ok) {
-        const body = (await res.json()) as { logoutUrl?: string };
-        window.location.href = body.logoutUrl ?? '/';
+        // Local logout: phiên IdP còn sống → đánh dấu để KHÔNG auto-SSO vào lại
+        sessionStorage.setItem(LOGGED_OUT_KEY, '1');
+        window.location.href = '/';
         return;
       }
     } catch {

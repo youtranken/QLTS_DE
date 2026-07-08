@@ -187,12 +187,8 @@ export class AuthController {
   @HttpCode(200)
   async logout(@Req() req: AuthedRequest, @Res() res: Response): Promise<void> {
     const user = req.user;
-    // Lấy id_token TRƯỚC khi hủy phiên → làm id_token_hint cho end_session (bai-hoc-sso #5)
-    let idTokenHint: string | null = null;
     if (user?.sessionId) {
-      const session = await this.sessions.find(user.sessionId);
-      idTokenHint = session?.idToken ?? null;
-      // Hủy phiên SERVER-side + refresh_token đã lưu (party phiên 7 — không chỉ xóa cookie)
+      // Hủy phiên SERVER-side + refresh_token đã lưu (không chỉ xóa cookie)
       await this.sessions.destroy(user.sessionId);
       await this.audit.append({
         actor: user.sub,
@@ -202,9 +198,10 @@ export class AuthController {
       });
     }
     res.clearCookie(SESSION_COOKIE);
-    // post_logout_redirect_uri PHẢI khớp Y HỆT app_url đã đăng ký (bai-hoc-sso #5) — không thêm query.
-    // Sau logout: IdP hết phiên → về QLTS → auto-redirect login → IdP hiện form (đúng "về login").
-    const logoutUrl = await this.oidc.buildLogoutUrl(appBaseUrl(), idTokenHint);
-    res.json({ ok: true, logoutUrl });
+    // LOCAL logout: chỉ rời QLTS, KHÔNG gọi end_session của IdP. end_session kết thúc
+    // phiên SSO DÙNG CHUNG → portal id.pmh.com.vn + mọi project khác mất đăng nhập.
+    // QLTS là RP dưới portal: đăng xuất 1 project không được đá người dùng khỏi portal.
+    // Muốn thoát hẳn toàn hệ thống → đăng xuất ở portal. FE chặn auto-relogin sau logout.
+    res.json({ ok: true });
   }
 }
