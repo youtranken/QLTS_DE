@@ -20,7 +20,8 @@ const SWEEP_EVERY_MS = 60_000;
 /** AD-13f: lỗi SMTP thường nhúng địa chỉ người nhận (vd "550 <user@corp> rejected") — che
  *  email trước khi log/ghi last_error (hiển thị trên dashboard SA). */
 function redactPii(message: string): string {
-  return message.replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[email]');
+  // TLD tùy chọn (`*`) để che cả email local-domain nội bộ (vd "user@corp" không có dấu chấm).
+  return message.replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)*/g, '[email]');
 }
 
 /**

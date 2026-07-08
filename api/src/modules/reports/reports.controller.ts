@@ -30,7 +30,18 @@ class PagedPeriodDto extends PeriodDto {
   pageSize = 20;
 }
 
+/** Ngày lịch THẬT: regex chỉ chặn định dạng, '2026-02-30' vẫn khớp → phải chặn để không rơi
+ *  xuống Postgres `::date` (ném QueryFailedError → 500). Đây trả 400 sạch. */
+function assertValidDate(s: string): void {
+  const d = new Date(`${s}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) {
+    throw new BadRequestException(`Ngày không hợp lệ: ${s}`);
+  }
+}
+
 function assertOrder(from: string, to: string): void {
+  assertValidDate(from);
+  assertValidDate(to);
   if (to < from) throw new BadRequestException('to phải ≥ from');
 }
 

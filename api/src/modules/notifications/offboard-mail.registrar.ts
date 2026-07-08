@@ -47,6 +47,9 @@ export class OffboardMailRegistrar implements OnModuleInit {
     if (!u) return;
     // Mở khóa về active giữa enqueue-xử lý → cảnh báo tự tắt, không mail lỗi thời (m2).
     if (u.status !== 'locked' && u.status !== 'deleted') return;
+    // M1: guard "còn tài sản/ticket" đặt lúc enqueue có thể lỗi thời — Admin thu hồi xong
+    // trong khe enqueue→xử lý (user vẫn locked). Re-check live để không gửi mail "0 ticket 0 tài sản".
+    if (u.ticketCount === 0 && u.assetCount === 0) return;
     const to = await this.recipients.adminEmails();
     if (to.length === 0) {
       this.logger.warn('không có admin email — bỏ qua cảnh báo nghỉ việc');
