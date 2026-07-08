@@ -7,6 +7,8 @@ export const sessionsTable = pgTable('sessions', {
   refreshToken: text('refresh_token'),
   accessTokenExp: timestamp('access_token_exp', { withTimezone: true }),
   claims: jsonb('claims'),
+  // id_token lúc login — dùng làm id_token_hint khi logout (bai-hoc-sso #5)
+  idToken: text('id_token'),
   csrfToken: text('csrf_token').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()

@@ -67,12 +67,17 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
     exchangeCode: async (): Promise<OidcTokens> => ({
       accessToken: await signAccessToken(),
       refreshToken: 'rt-1',
+      idToken: 'id-token-1',
     }),
     refresh: async (): Promise<OidcTokens> => {
       if (refreshShouldFail) {
         throw new Error('invalid_grant: refresh token revoked');
       }
-      return { accessToken: await signAccessToken(), refreshToken: 'rt-2' };
+      return {
+        accessToken: await signAccessToken(),
+        refreshToken: 'rt-2',
+        idToken: 'id-token-2',
+      };
     },
     buildLogoutUrl: () => Promise.resolve('https://id.test/oidc/logout?post=1'),
     clientCredentialsToken: () => Promise.resolve('m2m-token-test'),

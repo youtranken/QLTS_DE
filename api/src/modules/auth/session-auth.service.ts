@@ -87,6 +87,8 @@ export class SessionAuthService {
         refreshToken: tokens.refreshToken,
         accessTokenExp: verified.expiresAt,
         claims: verified.claims,
+        // refresh có thể không phát id_token mới → giữ cái lúc login (đủ làm hint)
+        idToken: tokens.idToken ?? session.idToken,
       });
       if (!updated) {
         // Phiên bị xóa giữa chừng (webhook đá) — không xác thực bằng dữ liệu đã chết

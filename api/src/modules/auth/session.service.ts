@@ -13,6 +13,7 @@ export interface SessionRecord {
   accessTokenExp: Date | null;
   claims: PmhIdClaims | null;
   csrfToken: string;
+  idToken: string | null;
 }
 
 @Injectable()
@@ -24,6 +25,7 @@ export class SessionService {
     refreshToken: string | null;
     accessTokenExp: Date | null;
     claims: PmhIdClaims;
+    idToken: string | null;
   }): Promise<SessionRecord> {
     // GC opportunistic: dọn phiên mồ côi (user bỏ đi không logout) — chặn bảng phình vô hạn
     await this.db
@@ -36,6 +38,7 @@ export class SessionService {
       accessTokenExp: params.accessTokenExp,
       claims: params.claims,
       csrfToken: randomBytes(32).toString('hex'),
+      idToken: params.idToken,
     };
     await this.db.insert(sessionsTable).values(record);
     return record;
@@ -57,6 +60,7 @@ export class SessionService {
       accessTokenExp: row.accessTokenExp,
       claims: row.claims as PmhIdClaims | null,
       csrfToken: row.csrfToken,
+      idToken: row.idToken,
     };
   }
 
@@ -67,6 +71,7 @@ export class SessionService {
       refreshToken: string | null;
       accessTokenExp: Date | null;
       claims: PmhIdClaims;
+      idToken: string | null;
     },
   ): Promise<boolean> {
     const rows = await this.db
@@ -75,6 +80,7 @@ export class SessionService {
         refreshToken: params.refreshToken,
         accessTokenExp: params.accessTokenExp,
         claims: params.claims,
+        idToken: params.idToken,
         lastSeenAt: new Date(),
       })
       .where(eq(sessionsTable.id, id))

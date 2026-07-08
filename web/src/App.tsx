@@ -39,6 +39,9 @@ function useIsNarrow(): boolean {
   return narrow;
 }
 
+// Chống vòng lặp auto-login: đã thử SSO im lặng 1 lần mà vẫn anonymous → dừng, hiện nút login.
+const SSO_ATTEMPT_KEY = 'qlts_sso_attempt';
+
 function App() {
   const { t } = useTranslation();
   const [auth, setAuth] = useState<AuthState>({ kind: 'loading' });
@@ -49,6 +52,7 @@ function App() {
     fetch('/api/auth/me')
       .then(async (res) => {
         if (res.ok) {
+          sessionStorage.removeItem(SSO_ATTEMPT_KEY);
           setAuth({ kind: 'authenticated', me: (await res.json()) as Me });
         } else if (res.status === 401) {
           setAuth({ kind: 'anonymous' });
@@ -58,6 +62,20 @@ function App() {
       })
       .catch(() => setAuth({ kind: 'error' }));
   }, []);
+
+  // SSO liền mạch: chưa có phiên QLTS → thử /api/auth/login. Đã đăng nhập ở PMH ID (vào từ portal)
+  // → IdP cấp code im lặng, vào thẳng. Chưa đăng nhập (vào link trực tiếp) → IdP hiện form login.
+  // KHÔNG auto khi login=failed (vd access_denied) hoặc đã thử 1 lần (chống lặp).
+  const willAutoLogin =
+    auth.kind === 'anonymous' &&
+    !loginFailed &&
+    !sessionStorage.getItem(SSO_ATTEMPT_KEY);
+  useEffect(() => {
+    if (willAutoLogin) {
+      sessionStorage.setItem(SSO_ATTEMPT_KEY, '1');
+      window.location.href = '/api/auth/login';
+    }
+  }, [willAutoLogin]);
 
   const logout = useCallback(async () => {
     if (auth.kind !== 'authenticated') return;
@@ -77,7 +95,7 @@ function App() {
     window.location.href = '/';
   }, [auth]);
 
-  if (auth.kind === 'loading') {
+  if (auth.kind === 'loading' || willAutoLogin) {
     return (
       <Center>
         <p>{t('app.checkingSession')}</p>

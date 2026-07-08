@@ -89,6 +89,7 @@ export class OpenidClientProvider implements OidcProvider {
     return {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token ?? null,
+      idToken: tokens.id_token ?? null,
     };
   }
 
@@ -98,6 +99,7 @@ export class OpenidClientProvider implements OidcProvider {
     return {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token ?? refreshToken,
+      idToken: tokens.id_token ?? null,
     };
   }
 
@@ -133,11 +135,16 @@ export class OpenidClientProvider implements OidcProvider {
     return this.m2mToken.value;
   }
 
-  async buildLogoutUrl(postLogoutRedirectUri: string): Promise<string | null> {
+  async buildLogoutUrl(
+    postLogoutRedirectUri: string,
+    idTokenHint?: string | null,
+  ): Promise<string | null> {
     try {
       const { lib, config } = await this.getConfig();
       const url = lib.buildEndSessionUrl(config, {
         post_logout_redirect_uri: postLogoutRedirectUri,
+        // id_token_hint: IdP nhận diện phiên → hủy gọn, không trang lỗi (bai-hoc-sso #5)
+        ...(idTokenHint ? { id_token_hint: idTokenHint } : {}),
       });
       return url.href;
     } catch {

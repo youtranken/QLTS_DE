@@ -112,6 +112,7 @@ export class AuthController {
         refreshToken: tokens.refreshToken,
         accessTokenExp: verified.expiresAt,
         claims: verified.claims,
+        idToken: tokens.idToken,
       });
       res.cookie(SESSION_COOKIE, session.id, {
         httpOnly: true,
@@ -186,7 +187,11 @@ export class AuthController {
   @HttpCode(200)
   async logout(@Req() req: AuthedRequest, @Res() res: Response): Promise<void> {
     const user = req.user;
+    // Lấy id_token TRƯỚC khi hủy phiên → làm id_token_hint cho end_session (bai-hoc-sso #5)
+    let idTokenHint: string | null = null;
     if (user?.sessionId) {
+      const session = await this.sessions.find(user.sessionId);
+      idTokenHint = session?.idToken ?? null;
       // Hủy phiên SERVER-side + refresh_token đã lưu (party phiên 7 — không chỉ xóa cookie)
       await this.sessions.destroy(user.sessionId);
       await this.audit.append({
@@ -197,7 +202,9 @@ export class AuthController {
       });
     }
     res.clearCookie(SESSION_COOKIE);
-    const logoutUrl = await this.oidc.buildLogoutUrl(appBaseUrl());
+    // post_logout_redirect_uri PHẢI khớp Y HỆT app_url đã đăng ký (bai-hoc-sso #5) — không thêm query.
+    // Sau logout: IdP hết phiên → về QLTS → auto-redirect login → IdP hiện form (đúng "về login").
+    const logoutUrl = await this.oidc.buildLogoutUrl(appBaseUrl(), idTokenHint);
     res.json({ ok: true, logoutUrl });
   }
 }

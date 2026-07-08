@@ -17,6 +17,7 @@ function makeService(opts: {
           accessTokenExp: new Date(Date.now() - 60_000), // hết hạn
           claims: { sub: 'usr_1', full_name: 'Test', groups: [] },
           csrfToken: 'tok',
+          idToken: 'id-token-1',
           ...opts.session,
         };
   const sessions = {
