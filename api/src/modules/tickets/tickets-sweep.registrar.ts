@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { SweepService } from '../queue/sweep.service';
 import { ApprovalReminderService } from './approval-reminder.service';
+import { OverdueReminderService } from './overdue-reminder.service';
 import { ExtensionService } from './extension.service';
 import { RecurringLifecycleService } from './recurring-lifecycle.service';
 import { RecurringService } from './recurring.service';
@@ -20,6 +21,7 @@ export class TicketsSweepRegistrar implements OnModuleInit {
     private readonly recurring: RecurringService,
     private readonly recurringLifecycle: RecurringLifecycleService,
     private readonly approvalReminder: ApprovalReminderService,
+    private readonly overdueReminder: OverdueReminderService,
   ) {}
 
   onModuleInit(): void {
@@ -74,6 +76,13 @@ export class TicketsSweepRegistrar implements OnModuleInit {
       name: 'approval-reminder',
       run: async () => {
         await this.approvalReminder.emitApprovalReminders();
+      },
+    });
+    // 5.3: nhắc quá hạn hằng ngày (1 mail/ngày VN đến khi ticket close)
+    this.sweep.register({
+      name: 'overdue-reminder',
+      run: async () => {
+        await this.overdueReminder.emitOverdueReminders();
       },
     });
   }
