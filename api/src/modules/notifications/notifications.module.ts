@@ -4,6 +4,7 @@ import { ApprovalMailRegistrar } from './approval-mail.registrar';
 import { OverdueMailRegistrar } from './overdue-mail.registrar';
 import { CascadeCancelMailRegistrar } from './cascade-cancel-mail.registrar';
 import { OffboardMailRegistrar } from './offboard-mail.registrar';
+import { LicenseDigestMailRegistrar } from './license-digest-mail.registrar';
 import { MailTransportService } from './mail-transport.service';
 import { NotificationRecipientsService } from './notification-recipients.service';
 import { NotificationsConsumer } from './notifications.consumer';
@@ -24,6 +25,7 @@ import { NotificationsController } from './notifications.controller';
     OverdueMailRegistrar,
     CascadeCancelMailRegistrar,
     OffboardMailRegistrar,
+    LicenseDigestMailRegistrar,
   ],
   controllers: [NotificationsController],
   exports: [NotificationsConsumer],

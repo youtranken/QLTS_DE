@@ -319,6 +319,8 @@ export class AssetsService {
           assignedUserName: usersTable.fullName,
           // Đỏ (2.5, FR-38): term + đang gắn máy KHÔNG thanh lý + hạn ≤ hôm nay+N
           // (bao gồm đã quá hạn); computed mỗi query → đổi hạn là hết đỏ ngay (FR-29)
+          // ĐỒNG BỘ TAY với common/license-expiry.ts (digest 5.6) — style query khác (drizzle
+          // builder vs raw sql) nên không share trực tiếp; sửa điều kiện phải sửa CẢ HAI.
           // "hôm nay" theo TZ nghiệp vụ VN (convention từ working_hours 0001) —
           // CURRENT_DATE của pg là UTC, đỏ trễ tối đa 7h lúc 00:00-07:00 VN (review 2.5)
           licenseWarning: sql<boolean>`COALESCE((
