@@ -3,6 +3,7 @@ import {
   Controller,
   Headers,
   HttpCode,
+  Inject,
   Logger,
   Post,
   Req,
@@ -10,7 +11,10 @@ import {
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { sql } from 'drizzle-orm';
 import type { Request } from 'express';
+import { DRIZZLE_DB } from '../../database/database.module';
+import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
 import { UsersService } from '../users/users.service';
 import { Public } from './public.decorator';
@@ -20,6 +24,7 @@ interface PmhWebhookEvent {
   type: string;
   user_id: string;
   groups?: string[];
+  event_id?: string;
 }
 
 const KICK_EVENTS = new Set([
@@ -27,6 +32,11 @@ const KICK_EVENTS = new Set([
   'user.deleted',
   'user.password_changed',
 ]);
+/** locked/deleted đổi users.status → scan offboarding (5.5) nhặt cascade + cảnh báo. */
+const STATUS_BY_EVENT: Record<string, 'locked' | 'deleted'> = {
+  'user.locked': 'locked',
+  'user.deleted': 'deleted',
+};
 
 /**
  * Webhook PMH ID (NFR-11): verify HMAC-SHA256 trên RAW body TRƯỚC khi xử lý;
@@ -41,6 +51,7 @@ export class WebhookController {
     private readonly sessions: SessionService,
     private readonly users: UsersService,
     private readonly audit: AuditWriterService,
+    @Inject(DRIZZLE_DB) private readonly db: Database,
   ) {}
 
   @Public()
@@ -66,21 +77,50 @@ export class WebhookController {
     // Chữ ký đúng nhưng payload hỏng → 400 (không 500 — PMH ID sẽ retry giãn dần
     // vào cùng payload hỏng mãi mãi)
     const event = this.parseEvent(rawBody);
+
+    // Idempotent theo event_id (AC2): đã xử xong trước đó (replay) → bỏ qua. Check TRƯỚC + mark
+    // SAU khi xử xong (không phải claim-trước): crash giữa chừng → retry xử lại (mọi mutation
+    // idempotent: setStatus/destroyAllForUser/updateGroups) — không nuốt việc. Thiếu event_id
+    // (payload cũ) → luôn xử, dựa marker offboard_alerted_at chống đúp ở tầng scan.
+    if (event.event_id && (await this.isProcessed(event.event_id))) {
+      return { ok: true };
+    }
+
     if (KICK_EVENTS.has(event.type)) {
       const killed = await this.sessions.destroyAllForUser(event.user_id);
+      // locked/deleted → set status ngay (NFR-11); scan offboarding (5.5) lo cascade + cảnh báo.
+      const status = STATUS_BY_EVENT[event.type];
+      if (status) await this.users.setStatus(event.user_id, status);
       await this.audit.append({
-        actor: 'system',
+        actor: 'system(webhook)',
         action: 'auth.session_revoked',
         objectType: 'user',
         objectId: event.user_id,
-        detail: { event: event.type, sessions_killed: killed },
+        detail: { event: event.type, sessions_killed: killed, status },
       });
     } else if (event.type === 'user.groups_changed' && event.groups) {
       await this.users.updateGroups(event.user_id, event.groups);
     } else {
       this.logger.log(`Webhook event bỏ qua: ${event.type}`);
     }
+    if (event.event_id) await this.markProcessed(event.event_id);
     return { ok: true };
+  }
+
+  /** Đã xử event này chưa (dedup replay sau khi hoàn tất). */
+  private async isProcessed(eventId: string): Promise<boolean> {
+    const r = await this.db.execute<{ event_id: string }>(sql`
+      SELECT event_id FROM processed_webhook_events WHERE event_id = ${eventId}
+    `);
+    return r.rows.length === 1;
+  }
+
+  /** Đánh dấu đã xử xong (gọi SAU mutation). ON CONFLICT: 2 lần chạy song song không lỗi. */
+  private async markProcessed(eventId: string): Promise<void> {
+    await this.db.execute(sql`
+      INSERT INTO processed_webhook_events (event_id) VALUES (${eventId})
+      ON CONFLICT (event_id) DO NOTHING
+    `);
   }
 
   private parseEvent(rawBody: Buffer): PmhWebhookEvent {
@@ -96,7 +136,8 @@ export class WebhookController {
       typeof event !== 'object' ||
       typeof event.type !== 'string' ||
       typeof event.user_id !== 'string' ||
-      (event.groups !== undefined && !Array.isArray(event.groups))
+      (event.groups !== undefined && !Array.isArray(event.groups)) ||
+      (event.event_id !== undefined && typeof event.event_id !== 'string')
     ) {
       throw new BadRequestException({
         code: 'WEBHOOK_PAYLOAD_INVALID',

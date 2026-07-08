@@ -13,6 +13,7 @@ import { MachineCalendarPage } from './machine-calendar';
 import { ApprovalQueuePage } from './approval-queue';
 import { AdminDashboard } from './admin-dashboard';
 import { NotificationsFailedPage } from './notifications-failed';
+import { OffboardingQueuePage } from './offboarding-queue';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
@@ -333,6 +334,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
                   <NotificationsFailedPage me={me} />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/canh-bao-nghi-viec"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <OffboardingQueuePage />
                 </RequireRole>
               }
             />

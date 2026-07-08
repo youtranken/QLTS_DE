@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { SweepService } from '../queue/sweep.service';
 import { ApprovalReminderService } from './approval-reminder.service';
 import { OverdueReminderService } from './overdue-reminder.service';
+import { OffboardingService } from './offboarding.service';
 import { ExtensionService } from './extension.service';
 import { RecurringLifecycleService } from './recurring-lifecycle.service';
 import { RecurringService } from './recurring.service';
@@ -22,6 +23,7 @@ export class TicketsSweepRegistrar implements OnModuleInit {
     private readonly recurringLifecycle: RecurringLifecycleService,
     private readonly approvalReminder: ApprovalReminderService,
     private readonly overdueReminder: OverdueReminderService,
+    private readonly offboarding: OffboardingService,
   ) {}
 
   onModuleInit(): void {
@@ -83,6 +85,13 @@ export class TicketsSweepRegistrar implements OnModuleInit {
       name: 'overdue-reminder',
       run: async () => {
         await this.overdueReminder.emitOverdueReminders();
+      },
+    });
+    // 5.5: cảnh báo nghỉ việc — user disable còn ticket/tài sản (cascade + mail Admin)
+    this.sweep.register({
+      name: 'offboard-scan',
+      run: async () => {
+        await this.offboarding.runOffboardingScan();
       },
     });
   }

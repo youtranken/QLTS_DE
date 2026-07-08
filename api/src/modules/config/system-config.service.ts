@@ -6,6 +6,8 @@ import { configTable } from './config.schema';
 
 /** Key baseline consumer mail (5.1) — mốc bật consumer lần đầu, durable trong config. */
 const MAIL_BASELINE_KEY = 'mail_consumer_baseline_at';
+/** Mốc chạy full-sync danh bạ gần nhất (5.5) — ghi runtime. */
+const DIRECTORY_SYNC_LAST_KEY = 'directory_sync_last_at';
 
 export interface WorkingHours {
   tz: string;
@@ -123,5 +125,29 @@ export class SystemConfigService {
       .where(eq(configTable.key, MAIL_BASELINE_KEY));
     if (rows.length === 0) return null;
     return new Date(Number(rows[0].value));
+  }
+
+  /** Lịch sync danh bạ định kỳ (5.5, AC1) — seed 60 phút ở 0026. */
+  getDirectorySyncIntervalMinutes(): Promise<number> {
+    return this.getInt('directory_sync_interval_minutes');
+  }
+
+  /** Mốc chạy full-sync gần nhất (epoch millis) — derive lịch từ DB, không tin cron slot. */
+  async getDirectorySyncLastAt(): Promise<Date | null> {
+    const rows = await this.db
+      .select({ value: configTable.value })
+      .from(configTable)
+      .where(eq(configTable.key, DIRECTORY_SYNC_LAST_KEY));
+    if (rows.length === 0) return null;
+    return new Date(Number(rows[0].value));
+  }
+
+  async setDirectorySyncLastAt(at: Date): Promise<void> {
+    await this.db.execute(sql`
+      INSERT INTO config (key, value)
+      VALUES (${DIRECTORY_SYNC_LAST_KEY}, to_jsonb(${at.getTime()}::bigint))
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+    `);
+    this.cache.delete(DIRECTORY_SYNC_LAST_KEY);
   }
 }

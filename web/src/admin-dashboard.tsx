@@ -24,6 +24,7 @@ export function AdminDashboard() {
     overdue: null,
     locked: null,
     notifyFailed: null,
+    offboard: null,
   });
 
   useEffect(() => {
@@ -46,8 +47,18 @@ export function AdminDashboard() {
       arrLen('/api/admin/tickets/overdue'),
       totalOf('/api/admin/assets?status=locked_repair&pageSize=1'),
       totalOf('/api/admin/notifications/failed'),
+      totalOf('/api/admin/offboarding'),
     ]).then(
-      ([pending, extension, pickup, inuse, overdue, locked, notifyFailed]) => {
+      ([
+        pending,
+        extension,
+        pickup,
+        inuse,
+        overdue,
+        locked,
+        notifyFailed,
+        offboard,
+      ]) => {
         if (alive)
           setCounts({
             pending,
@@ -57,6 +68,7 @@ export function AdminDashboard() {
             overdue,
             locked,
             notifyFailed,
+            offboard,
           });
       },
     );
@@ -83,7 +95,17 @@ export function AdminDashboard() {
           } as QueueCard,
         ]
       : []),
-    // Epic 5 "cảnh báo nghỉ việc" (5.5) thêm card ở đây — cấu trúc mở (AC2).
+    // Cảnh báo nghỉ việc (5.5) — ẩn khi 0, nổi đỏ khi có user disable còn tài sản/ticket.
+    ...(counts.offboard && counts.offboard > 0
+      ? [
+          {
+            key: 'offboard',
+            count: counts.offboard,
+            to: '/canh-bao-nghi-viec',
+            danger: true,
+          } as QueueCard,
+        ]
+      : []),
   ];
 
   return (
