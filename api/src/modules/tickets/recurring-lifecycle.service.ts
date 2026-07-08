@@ -142,12 +142,16 @@ export class RecurringLifecycleService {
         await tx.execute(
           sql`SELECT 1 FROM ticket WHERE id = ${c.ticket_id} FOR UPDATE`,
         );
-        const r = await tx.execute<{ state: string; expired: boolean | null }>(sql`
+        const r = await tx.execute<{
+          state: string;
+          expired: boolean | null;
+        }>(sql`
           SELECT state, upper(period) < now() AS expired
           FROM booking WHERE id = ${c.id} AND kind = 'recurring' FOR UPDATE
         `);
         const row = r.rows[0];
-        if (!row || row.state !== 'pending' || row.expired !== true) return false;
+        if (!row || row.state !== 'pending' || row.expired !== true)
+          return false;
         await tx.execute(sql`
           UPDATE booking SET state = 'cancelled', version = version + 1, updated_at = now()
           WHERE id = ${c.id}
@@ -201,7 +205,9 @@ export class RecurringLifecycleService {
           message: 'Bạn không có quyền với buổi này.',
         });
       }
-      await tx.execute(sql`SELECT 1 FROM ticket WHERE id = ${ticketId} FOR UPDATE`);
+      await tx.execute(
+        sql`SELECT 1 FROM ticket WHERE id = ${ticketId} FOR UPDATE`,
+      );
       const b = await tx.execute<{
         state: string;
         version: number;
@@ -265,7 +271,11 @@ export class RecurringLifecycleService {
     version: number,
     expectState: string,
   ): Promise<void> {
-    const t = await tx.execute<{ state: string; version: number; kind: string }>(sql`
+    const t = await tx.execute<{
+      state: string;
+      version: number;
+      kind: string;
+    }>(sql`
       SELECT state, version, kind FROM ticket WHERE id = ${ticketId} FOR UPDATE
     `);
     if (t.rows.length === 0) {
@@ -317,7 +327,9 @@ export class RecurringLifecycleService {
         });
       }
       const ticketId = ref.rows[0].ticket_id;
-      await tx.execute(sql`SELECT 1 FROM ticket WHERE id = ${ticketId} FOR UPDATE`);
+      await tx.execute(
+        sql`SELECT 1 FROM ticket WHERE id = ${ticketId} FOR UPDATE`,
+      );
       const b = await tx.execute<{ state: string; version: number }>(sql`
         SELECT state, version FROM booking WHERE id = ${bookingId} FOR UPDATE
       `);

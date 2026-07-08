@@ -138,6 +138,17 @@ export default {
     inuse: 'Đang mượn',
     overdue: 'Quá hạn',
     locked: 'Máy đang khóa',
+    notifyFailed: 'Thông báo gửi lỗi',
+  },
+  notifyFailed: {
+    title: 'Thông báo gửi lỗi',
+    empty: 'Không có thông báo nào gửi lỗi.',
+    topic: 'Loại',
+    failCount: 'Số lần lỗi',
+    lastError: 'Lỗi gần nhất',
+    lastFailedAt: 'Thời điểm lỗi',
+    retry: 'Gửi lại',
+    retryError: 'Gửi lại thất bại — có thể thông báo đã được xử lý. Thử tải lại trang.',
   },
   inusenow: {
     title: 'Máy đang được mượn',

@@ -23,6 +23,7 @@ export function AdminDashboard() {
     inuse: null,
     overdue: null,
     locked: null,
+    notifyFailed: null,
   });
 
   useEffect(() => {
@@ -44,10 +45,21 @@ export function AdminDashboard() {
       arrLen('/api/admin/tickets/in-use'),
       arrLen('/api/admin/tickets/overdue'),
       totalOf('/api/admin/assets?status=locked_repair&pageSize=1'),
-    ]).then(([pending, extension, pickup, inuse, overdue, locked]) => {
-      if (alive)
-        setCounts({ pending, extension, pickup, inuse, overdue, locked });
-    });
+      totalOf('/api/admin/notifications/failed'),
+    ]).then(
+      ([pending, extension, pickup, inuse, overdue, locked, notifyFailed]) => {
+        if (alive)
+          setCounts({
+            pending,
+            extension,
+            pickup,
+            inuse,
+            overdue,
+            locked,
+            notifyFailed,
+          });
+      },
+    );
     return () => {
       alive = false;
     };
@@ -60,7 +72,18 @@ export function AdminDashboard() {
     { key: 'inuse', count: counts.inuse, to: '/xu-ly-muon' },
     { key: 'overdue', count: counts.overdue, to: '/xu-ly-muon', danger: true },
     { key: 'locked', count: counts.locked, to: '/tai-san?status=locked_repair' },
-    // Epic 4 "chờ gia hạn" + Epic 5 "cảnh báo nghỉ việc" thêm card ở đây — cấu trúc mở (AC2).
+    // Ẩn khi count=0 (không hiện mục rỗng chưa build — 3.12 AC2); nổi đỏ khi có lỗi gửi (5.1).
+    ...(counts.notifyFailed && counts.notifyFailed > 0
+      ? [
+          {
+            key: 'notifyFailed',
+            count: counts.notifyFailed,
+            to: '/thong-bao-loi',
+            danger: true,
+          } as QueueCard,
+        ]
+      : []),
+    // Epic 5 "cảnh báo nghỉ việc" (5.5) thêm card ở đây — cấu trúc mở (AC2).
   ];
 
   return (

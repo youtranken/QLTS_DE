@@ -14,7 +14,9 @@ if (!process.env.DATABASE_URL) {
 }
 const dbName = new URL(process.env.DATABASE_URL).pathname.replace(/^\//, '');
 if (!/test/i.test(dbName)) {
-  throw new Error(`[recurring-lifecycle.db-spec] Từ chối chạy trên '${dbName}'.`);
+  throw new Error(
+    `[recurring-lifecycle.db-spec] Từ chối chạy trên '${dbName}'.`,
+  );
 }
 
 const asAdmin = { 'x-dev-user-sub': 'adm-l', 'x-dev-role': 'admin' };
@@ -59,9 +61,10 @@ describe('Vòng đời chuỗi định kỳ (story 4.5a/4.5b)', () => {
       is_overdue: boolean;
       version: number;
       reject_reason: string | null;
-    }>(`SELECT state, is_overdue, version, reject_reason FROM ticket WHERE id=$1`, [
-      id,
-    ]);
+    }>(
+      `SELECT state, is_overdue, version, reject_reason FROM ticket WHERE id=$1`,
+      [id],
+    );
     return r.rows[0];
   };
   const bookingRow = async (id: string) => {
@@ -135,16 +138,40 @@ describe('Vòng đời chuỗi định kỳ (story 4.5a/4.5b)', () => {
     const [s1, s2] = c.bookings;
 
     // giao buổi 1 → có delivered → in_use
-    await life.deliverSession(s1.id, (await bookingRow(s1.id)).version, null, [], 'adm-l');
+    await life.deliverSession(
+      s1.id,
+      (await bookingRow(s1.id)).version,
+      null,
+      [],
+      'adm-l',
+    );
     expect((await ticketState(c.ticketId)).state).toBe('in_use');
 
     // nhận buổi 1 → còn buổi 2 pending → awaiting_pickup
-    await life.returnSession(s1.id, (await bookingRow(s1.id)).version, 'Máy OK', [], 'adm-l');
+    await life.returnSession(
+      s1.id,
+      (await bookingRow(s1.id)).version,
+      'Máy OK',
+      [],
+      'adm-l',
+    );
     expect((await ticketState(c.ticketId)).state).toBe('awaiting_pickup');
 
     // giao & nhận buổi 2 → mọi buổi terminal, có returned → closed
-    await life.deliverSession(s2.id, (await bookingRow(s2.id)).version, null, [], 'adm-l');
-    await life.returnSession(s2.id, (await bookingRow(s2.id)).version, 'Xong', [], 'adm-l');
+    await life.deliverSession(
+      s2.id,
+      (await bookingRow(s2.id)).version,
+      null,
+      [],
+      'adm-l',
+    );
+    await life.returnSession(
+      s2.id,
+      (await bookingRow(s2.id)).version,
+      'Xong',
+      [],
+      'adm-l',
+    );
     expect((await ticketState(c.ticketId)).state).toBe('closed');
   });
 
@@ -153,9 +180,21 @@ describe('Vòng đời chuỗi định kỳ (story 4.5a/4.5b)', () => {
     const c = await seedChain(m, [2]);
     await life.approveChain(c.ticketId, c.version, 'adm-l');
     const s = c.bookings[0];
-    await life.deliverSession(s.id, (await bookingRow(s.id)).version, null, [], 'adm-l');
+    await life.deliverSession(
+      s.id,
+      (await bookingRow(s.id)).version,
+      null,
+      [],
+      'adm-l',
+    );
     await expect(
-      life.returnSession(s.id, (await bookingRow(s.id)).version, '  ', [], 'adm-l'),
+      life.returnSession(
+        s.id,
+        (await bookingRow(s.id)).version,
+        '  ',
+        [],
+        'adm-l',
+      ),
     ).rejects.toMatchObject({ response: { code: 'NOTE_REQUIRED' } });
   });
 
@@ -211,8 +250,20 @@ describe('Vòng đời chuỗi định kỳ (story 4.5a/4.5b)', () => {
     const c = await seedChain(m, [2, 9]);
     await life.approveChain(c.ticketId, c.version, 'adm-l');
     const [s1, s2] = c.bookings;
-    await life.deliverSession(s1.id, (await bookingRow(s1.id)).version, null, [], 'adm-l');
-    await life.deliverSession(s2.id, (await bookingRow(s2.id)).version, null, [], 'adm-l');
+    await life.deliverSession(
+      s1.id,
+      (await bookingRow(s1.id)).version,
+      null,
+      [],
+      'adm-l',
+    );
+    await life.deliverSession(
+      s2.id,
+      (await bookingRow(s2.id)).version,
+      null,
+      [],
+      'adm-l',
+    );
     const v1 = (await bookingRow(s1.id)).version;
     const v2 = (await bookingRow(s2.id)).version;
     // FOR UPDATE cha serial hóa deriveParentState → không lost-update
@@ -235,7 +286,10 @@ describe('Vòng đời chuỗi định kỳ (story 4.5a/4.5b)', () => {
       'adm-l',
     );
     const q = await recurring.listSessionQueue();
-    const ids = q.filter((s) => s.ticketId === c.ticketId).map((s) => s.state).sort();
+    const ids = q
+      .filter((s) => s.ticketId === c.ticketId)
+      .map((s) => s.state)
+      .sort();
     expect(ids).toEqual(['delivered', 'pending']);
   });
 
@@ -326,9 +380,20 @@ describe('Vòng đời chuỗi định kỳ (story 4.5a/4.5b)', () => {
     const c = await seedChain(m, [2, 9]);
     await life.approveChain(c.ticketId, c.version, 'adm-l');
     const s1 = c.bookings[0];
-    await life.deliverSession(s1.id, (await bookingRow(s1.id)).version, null, [], 'adm-l');
+    await life.deliverSession(
+      s1.id,
+      (await bookingRow(s1.id)).version,
+      null,
+      [],
+      'adm-l',
+    );
     await expect(
-      life.cancelSession(s1.id, (await bookingRow(s1.id)).version, 'mem-l', false),
+      life.cancelSession(
+        s1.id,
+        (await bookingRow(s1.id)).version,
+        'mem-l',
+        false,
+      ),
     ).rejects.toMatchObject({ response: { code: 'CANNOT_CANCEL_SESSION' } });
   });
 
@@ -338,7 +403,12 @@ describe('Vòng đời chuỗi định kỳ (story 4.5a/4.5b)', () => {
     await life.approveChain(c.ticketId, c.version, 'adm-l');
     const s = c.bookings[0];
     await expect(
-      life.cancelSession(s.id, (await bookingRow(s.id)).version, 'someone-else', false),
+      life.cancelSession(
+        s.id,
+        (await bookingRow(s.id)).version,
+        'someone-else',
+        false,
+      ),
     ).rejects.toMatchObject({ response: { code: 'NOT_TICKET_OWNER' } });
   });
 
@@ -357,7 +427,12 @@ describe('Vòng đời chuỗi định kỳ (story 4.5a/4.5b)', () => {
         ($1,$2,'recurring','pending', tstzrange(now()+interval '7 days', now()+interval '7 days 2 hours','[)')) RETURNING id`,
       [t.rows[0].id, m],
     );
-    await life.cancelSession(past.rows[0].id, past.rows[0].version, 'adm-l', true);
+    await life.cancelSession(
+      past.rows[0].id,
+      past.rows[0].version,
+      'adm-l',
+      true,
+    );
     expect((await bookingRow(past.rows[0].id)).state).toBe('cancelled');
     expect((await bookingRow(future.rows[0].id)).state).toBe('pending');
   });
@@ -368,10 +443,27 @@ describe('Vòng đời chuỗi định kỳ (story 4.5a/4.5b)', () => {
     await life.approveChain(c.ticketId, c.version, 'adm-l');
     const [s1, s2] = c.bookings;
     // buổi 1 giao rồi nhận (từng delivered → returned)
-    await life.deliverSession(s1.id, (await bookingRow(s1.id)).version, null, [], 'adm-l');
-    await life.returnSession(s1.id, (await bookingRow(s1.id)).version, 'OK', [], 'adm-l');
+    await life.deliverSession(
+      s1.id,
+      (await bookingRow(s1.id)).version,
+      null,
+      [],
+      'adm-l',
+    );
+    await life.returnSession(
+      s1.id,
+      (await bookingRow(s1.id)).version,
+      'OK',
+      [],
+      'adm-l',
+    );
     // hủy buổi 2 (buổi còn lại duy nhất) → mọi buổi terminal, ≥1 returned → closed
-    await life.cancelSession(s2.id, (await bookingRow(s2.id)).version, 'mem-l', false);
+    await life.cancelSession(
+      s2.id,
+      (await bookingRow(s2.id)).version,
+      'mem-l',
+      false,
+    );
     expect((await ticketState(c.ticketId)).state).toBe('closed');
   });
 
@@ -380,7 +472,12 @@ describe('Vòng đời chuỗi định kỳ (story 4.5a/4.5b)', () => {
     const c = await seedChain(m, [2, 9]);
     await life.approveChain(c.ticketId, c.version, 'adm-l');
     for (const s of c.bookings) {
-      await life.cancelSession(s.id, (await bookingRow(s.id)).version, 'mem-l', false);
+      await life.cancelSession(
+        s.id,
+        (await bookingRow(s.id)).version,
+        'mem-l',
+        false,
+      );
     }
     expect((await ticketState(c.ticketId)).state).toBe('cancelled');
     // quota nhả: không còn booking occupying

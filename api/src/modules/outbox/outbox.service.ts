@@ -10,6 +10,21 @@ export interface OutboxEvent {
   payload: Record<string, unknown>;
 }
 
+/** Dữ liệu consumer cần để quyết baseline + gửi (5.1) — payload chỉ ref, tự đọc lại từ DB. */
+export interface OutboxConsumerRow {
+  payload: Record<string, unknown>;
+  createdAt: Date;
+  processedAt: Date | null;
+}
+
+export interface FailedNotification {
+  id: string;
+  topic: string;
+  failCount: number;
+  lastError: string | null;
+  lastFailedAt: Date | null;
+}
+
 @Injectable()
 export class OutboxService {
   private readonly logger = new Logger(OutboxService.name);
@@ -101,5 +116,67 @@ export class OutboxService {
           last_failed_at = now()
       WHERE id = ${eventId}
     `);
+  }
+
+  /** Consumer đọc lại event theo id (5.1): created_at cho baseline, processed_at cho idempotent. */
+  async loadForConsumer(eventId: string): Promise<OutboxConsumerRow | null> {
+    const r = await this.db.execute<{
+      payload: Record<string, unknown>;
+      created_at: Date;
+      processed_at: Date | null;
+    }>(sql`
+      SELECT payload, created_at, processed_at FROM outbox WHERE id = ${eventId}
+    `);
+    if (r.rows.length === 0) return null;
+    const row = r.rows[0];
+    return {
+      payload: row.payload,
+      createdAt: new Date(row.created_at),
+      processedAt: row.processed_at ? new Date(row.processed_at) : null,
+    };
+  }
+
+  /**
+   * Badge SA (AD-11): event gửi lỗi CHƯA xử (fail_count>0, processed_at IS NULL). total = tổng
+   * để đếm badge; items giới hạn để hiển thị danh sách.
+   */
+  async listFailed(): Promise<{ total: number; items: FailedNotification[] }> {
+    const count = await this.db.execute<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM outbox
+      WHERE fail_count > 0 AND processed_at IS NULL
+    `);
+    const r = await this.db.execute<{
+      id: string;
+      topic: string;
+      fail_count: number;
+      last_error: string | null;
+      last_failed_at: Date | null;
+    }>(sql`
+      SELECT id, topic, fail_count, last_error, last_failed_at FROM outbox
+      WHERE fail_count > 0 AND processed_at IS NULL
+      ORDER BY last_failed_at DESC NULLS LAST
+      LIMIT 200
+    `);
+    return {
+      total: count.rows[0]?.n ?? 0,
+      items: r.rows.map((row) => ({
+        id: row.id,
+        topic: row.topic,
+        failCount: row.fail_count,
+        lastError: row.last_error,
+        lastFailedAt: row.last_failed_at ? new Date(row.last_failed_at) : null,
+      })),
+    };
+  }
+
+  /** Requeue tay (AC3): reset marker lỗi + lease → relay re-drive event chưa xử. Trả true nếu có. */
+  async requeue(eventId: string): Promise<boolean> {
+    const r = await this.db.execute<{ id: string }>(sql`
+      UPDATE outbox
+      SET claimed_at = NULL, fail_count = 0, last_error = NULL, last_failed_at = NULL
+      WHERE id = ${eventId} AND processed_at IS NULL
+      RETURNING id
+    `);
+    return r.rows.length === 1;
   }
 }

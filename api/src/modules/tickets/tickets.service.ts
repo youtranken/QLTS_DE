@@ -233,7 +233,11 @@ export class TicketsService {
           action: 'tickets.cascade_cancel',
           objectType: 'ticket',
           objectId: ticket_id,
-          detail: { reason: 'asset_unbookable', bookingId: b.id, notified: notify },
+          detail: {
+            reason: 'asset_unbookable',
+            bookingId: b.id,
+            notified: notify,
+          },
         });
         count++;
       }

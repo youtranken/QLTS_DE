@@ -1,8 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { configTable } from './config.schema';
+
+/** Key baseline consumer mail (5.1) — mốc bật consumer lần đầu, durable trong config. */
+const MAIL_BASELINE_KEY = 'mail_consumer_baseline_at';
 
 export interface WorkingHours {
   tz: string;
@@ -94,5 +97,31 @@ export class SystemConfigService {
 
   getApprovalReminderWorkingHours(): Promise<number> {
     return this.getInt('approval_reminder_working_hours');
+  }
+
+  /**
+   * Baseline consumer mail (5.1, AC2) — ghi MỘT LẦN durable dùng `ON CONFLICT DO NOTHING`
+   * (nhiều worker cùng boot không đè nhau). Lưu epoch millis để new Date() không mơ hồ định dạng.
+   */
+  async ensureMailConsumerBaseline(): Promise<Date> {
+    await this.db.execute(sql`
+      INSERT INTO config (key, value)
+      VALUES (${MAIL_BASELINE_KEY}, to_jsonb((extract(epoch FROM now()) * 1000)::bigint))
+      ON CONFLICT (key) DO NOTHING
+    `);
+    const at = await this.getMailConsumerBaselineAt();
+    if (!at) {
+      throw new Error('Không đọc được baseline consumer sau khi ghi.');
+    }
+    return at;
+  }
+
+  async getMailConsumerBaselineAt(): Promise<Date | null> {
+    const rows = await this.db
+      .select({ value: configTable.value })
+      .from(configTable)
+      .where(eq(configTable.key, MAIL_BASELINE_KEY));
+    if (rows.length === 0) return null;
+    return new Date(Number(rows[0].value));
   }
 }

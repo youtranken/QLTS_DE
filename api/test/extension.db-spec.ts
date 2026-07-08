@@ -49,7 +49,12 @@ describe('Member xin gia hạn (story 4.1)', () => {
     return { ticketId: t.rows[0].id, version: t.rows[0].version };
   };
 
-  const extend = (ticketId: string, newDue: string, version: number, hdr = asMem) =>
+  const extend = (
+    ticketId: string,
+    newDue: string,
+    version: number,
+    hdr = asMem,
+  ) =>
     request(app.getHttpServer())
       .post(`/api/booking/my-tickets/${ticketId}/extension`)
       .set(hdr)
@@ -82,13 +87,23 @@ describe('Member xin gia hạn (story 4.1)', () => {
     const m = await newMachine('EX-1');
     const oldTo = iso(20 * H);
     const tk = await deliverTo(m, 'mem-x', iso(-1 * H), oldTo);
-    const res = await extend(tk.ticketId, iso(20 * H + 1 * D), tk.version).expect(201);
-    const bk = await pool.query<{ state: string; from_ts: string; to_ts: string }>(
+    const res = await extend(
+      tk.ticketId,
+      iso(20 * H + 1 * D),
+      tk.version,
+    ).expect(201);
+    const bk = await pool.query<{
+      state: string;
+      from_ts: string;
+      to_ts: string;
+    }>(
       `SELECT state, lower(period) AS from_ts, upper(period) AS to_ts FROM booking WHERE id=$1`,
       [(res.body as { id: string }).id],
     );
     expect(bk.rows[0].state).toBe('held');
-    expect(new Date(bk.rows[0].from_ts).getTime()).toBe(new Date(oldTo).getTime());
+    expect(new Date(bk.rows[0].from_ts).getTime()).toBe(
+      new Date(oldTo).getTime(),
+    );
     // FR-47: không outbox event nào cho luồng gia hạn
     const ob = await pool.query(`SELECT count(*)::int AS n FROM outbox`);
     expect(ob.rows[0].n).toBe(0);
@@ -97,7 +112,11 @@ describe('Member xin gia hạn (story 4.1)', () => {
   it('AC1: hạn mới vượt số ngày/lần config → 400 EXTENSION_TOO_LONG', async () => {
     const m = await newMachine('EX-2');
     const tk = await deliverTo(m, 'mem-x', iso(-1 * H), iso(20 * H));
-    const res = await extend(tk.ticketId, iso(20 * H + 5 * D), tk.version).expect(400);
+    const res = await extend(
+      tk.ticketId,
+      iso(20 * H + 5 * D),
+      tk.version,
+    ).expect(400);
     expect((res.body as { code: string }).code).toBe('EXTENSION_TOO_LONG');
   });
 
@@ -111,12 +130,18 @@ describe('Member xin gia hạn (story 4.1)', () => {
   it('AC1: đã dùng hết số lần gia hạn → EXTENSION_LIMIT', async () => {
     const m = await newMachine('EX-4');
     const tk = await deliverTo(m, 'mem-x', iso(-1 * H), iso(20 * H));
-    await pool.query(`UPDATE ticket SET extension_count=3 WHERE id=$1`, [tk.ticketId]);
+    await pool.query(`UPDATE ticket SET extension_count=3 WHERE id=$1`, [
+      tk.ticketId,
+    ]);
     const cur = await pool.query<{ version: number }>(
       `SELECT version FROM ticket WHERE id=$1`,
       [tk.ticketId],
     );
-    const res = await extend(tk.ticketId, iso(20 * H + 1 * D), cur.rows[0].version).expect(409);
+    const res = await extend(
+      tk.ticketId,
+      iso(20 * H + 1 * D),
+      cur.rows[0].version,
+    ).expect(409);
     expect((res.body as { code: string }).code).toBe('EXTENSION_LIMIT');
   });
 
@@ -124,7 +149,11 @@ describe('Member xin gia hạn (story 4.1)', () => {
     const m = await newMachine('EX-5');
     const tk = await deliverTo(m, 'mem-x', iso(-1 * H), iso(20 * H));
     await extend(tk.ticketId, iso(20 * H + 1 * D), tk.version).expect(201);
-    const res = await extend(tk.ticketId, iso(20 * H + 2 * H), tk.version).expect(409);
+    const res = await extend(
+      tk.ticketId,
+      iso(20 * H + 2 * H),
+      tk.version,
+    ).expect(409);
     expect((res.body as { code: string }).code).toBe('EXTENSION_PENDING');
   });
 
@@ -140,19 +169,29 @@ describe('Member xin gia hạn (story 4.1)', () => {
       `INSERT INTO booking (ticket_id, asset_id, kind, state, period) VALUES ($1,$2,'normal','pending', tstzrange($3,$4,'[)'))`,
       [ty.rows[0].id, m, iso(20 * H + 2 * H), iso(20 * H + 1 * D)],
     );
-    const res = await extend(tk.ticketId, iso(20 * H + 4 * H), tk.version).expect(409);
+    const res = await extend(
+      tk.ticketId,
+      iso(20 * H + 4 * H),
+      tk.version,
+    ).expect(409);
     expect((res.body as { code: string }).code).toBe('SLOT_TAKEN');
   });
 
   it('AC1: ticket đã quá hạn → TICKET_OVERDUE', async () => {
     const m = await newMachine('EX-7');
     const tk = await deliverTo(m, 'mem-x', iso(-2 * D), iso(-1 * H));
-    await pool.query(`UPDATE ticket SET is_overdue=true WHERE id=$1`, [tk.ticketId]);
+    await pool.query(`UPDATE ticket SET is_overdue=true WHERE id=$1`, [
+      tk.ticketId,
+    ]);
     const cur = await pool.query<{ version: number }>(
       `SELECT version FROM ticket WHERE id=$1`,
       [tk.ticketId],
     );
-    const res = await extend(tk.ticketId, iso(1 * H), cur.rows[0].version).expect(409);
+    const res = await extend(
+      tk.ticketId,
+      iso(1 * H),
+      cur.rows[0].version,
+    ).expect(409);
     expect((res.body as { code: string }).code).toBe('TICKET_OVERDUE');
   });
 
@@ -177,7 +216,11 @@ describe('Member xin gia hạn (story 4.1)', () => {
   it('AC5: trả máy khi có extension treo → extension cancelled + result=expired', async () => {
     const m = await newMachine('EX-9');
     const tk = await deliverTo(m, 'mem-x', iso(-1 * H), iso(20 * H));
-    const ext = await extend(tk.ticketId, iso(20 * H + 1 * D), tk.version).expect(201);
+    const ext = await extend(
+      tk.ticketId,
+      iso(20 * H + 1 * D),
+      tk.version,
+    ).expect(201);
     const cur = await pool.query<{ version: number }>(
       `SELECT version FROM ticket WHERE id=$1`,
       [tk.ticketId],

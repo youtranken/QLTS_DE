@@ -358,7 +358,10 @@ export class ExtensionService {
 
   /** Sweep (4.3): extension held hạn cũ trôi qua → cancelled+result='expired'. Idempotent. */
   async expireStaleExtensions(): Promise<number> {
-    const candidates = await this.db.execute<{ id: string; ticket_id: string }>(sql`
+    const candidates = await this.db.execute<{
+      id: string;
+      ticket_id: string;
+    }>(sql`
       SELECT id, ticket_id FROM booking
       WHERE kind = 'extension' AND state = 'held' AND lower(period) < now()
     `);
@@ -368,7 +371,10 @@ export class ExtensionService {
         await tx.execute(
           sql`SELECT 1 FROM ticket WHERE id = ${c.ticket_id} FOR UPDATE`,
         );
-        const r = await tx.execute<{ state: string; expired: boolean | null }>(sql`
+        const r = await tx.execute<{
+          state: string;
+          expired: boolean | null;
+        }>(sql`
           SELECT state, lower(period) < now() AS expired
           FROM booking WHERE id = ${c.id} AND kind = 'extension' FOR UPDATE
         `);

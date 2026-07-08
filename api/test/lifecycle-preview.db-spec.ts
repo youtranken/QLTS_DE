@@ -74,7 +74,13 @@ describe('Preview cascade + notify (story 3.13)', () => {
 
   it('AC1: preview trả futureCancellations + inUseRecalls, chỉ display name (không sub/email)', async () => {
     const m = await newMachine('PV-1');
-    await mkBooking(m.id, 'awaiting_pickup', 'pending', iso(10 * H), iso(12 * H));
+    await mkBooking(
+      m.id,
+      'awaiting_pickup',
+      'pending',
+      iso(10 * H),
+      iso(12 * H),
+    );
     // delivered khung KHÔNG chồng pending (tránh EXCLUDE 23P01)
     await mkBooking(m.id, 'in_use', 'delivered', iso(-1 * H), iso(5 * H));
     const res = await request(app.getHttpServer())
@@ -111,9 +117,10 @@ describe('Preview cascade + notify (story 3.13)', () => {
     const bk = await pool.query(`SELECT state FROM booking WHERE id=$1`, [
       b.bookingId,
     ]);
-    const a = await pool.query(`SELECT status, version FROM assets WHERE id=$1`, [
-      m.id,
-    ]);
+    const a = await pool.query(
+      `SELECT status, version FROM assets WHERE id=$1`,
+      [m.id],
+    );
     expect(bk.rows[0].state).toBe('pending'); // không hủy
     expect(a.rows[0].status).toBe('in_use'); // không đổi status
     expect(a.rows[0].version).toBe(m.version); // không bump version

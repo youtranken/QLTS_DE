@@ -138,6 +138,17 @@ export default {
     inuse: 'In use',
     overdue: 'Overdue',
     locked: 'Locked machines',
+    notifyFailed: 'Failed notifications',
+  },
+  notifyFailed: {
+    title: 'Failed notifications',
+    empty: 'No failed notifications.',
+    topic: 'Type',
+    failCount: 'Failures',
+    lastError: 'Last error',
+    lastFailedAt: 'Failed at',
+    retry: 'Retry',
+    retryError: 'Retry failed — the notification may already be processed. Try reloading.',
   },
   inusenow: {
     title: 'Machines currently borrowed',

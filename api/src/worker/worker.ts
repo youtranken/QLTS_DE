@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Queue, Worker } from 'bullmq';
 import type { Job } from 'bullmq';
 import { AppModule } from '../app.module';
+import { NotificationsConsumer } from '../modules/notifications/notifications.consumer';
 import { OutboxService } from '../modules/outbox/outbox.service';
 import { SweepService } from '../modules/queue/sweep.service';
 import {
@@ -16,10 +17,16 @@ import {
 const RELAY_INTERVAL_MS = 2_000;
 const SWEEP_EVERY_MS = 60_000;
 
+/** AD-13f: lỗi SMTP thường nhúng địa chỉ người nhận (vd "550 <user@corp> rejected") — che
+ *  email trước khi log/ghi last_error (hiển thị trên dashboard SA). */
+function redactPii(message: string): string {
+  return message.replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[email]');
+}
+
 /**
  * Process THỨ HAI của cùng codebase (AD-9): gọi service module chủ IN-PROCESS qua DI —
- * KHÔNG HTTP nội bộ, KHÔNG token worker. Nhiệm vụ: relay outbox → BullMQ + sweep định kỳ.
- * CHƯA có consumer gửi mail (Epic 5) — EVENTS worker mới là baseline (ack + log).
+ * KHÔNG HTTP nội bộ, KHÔNG token worker. Nhiệm vụ: relay outbox → BullMQ + consumer gửi mail
+ * (5.1) + sweep định kỳ.
  */
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Worker');
@@ -34,6 +41,10 @@ async function bootstrap(): Promise<void> {
   });
   const outbox = app.get(OutboxService);
   const sweep = app.get(SweepService);
+  const notifications = app.get(NotificationsConsumer);
+
+  // Baseline durable MỘT LẦN trước khi nhận job (AC2) — event tồn đọng < baseline không gửi.
+  await notifications.ensureBaseline();
 
   // defaultJobOptions → mọi job relay add đều thừa hưởng attempts/backoff/retention (AD-9).
   const eventsQueue = new Queue(EVENTS_QUEUE, {
@@ -42,24 +53,34 @@ async function bootstrap(): Promise<void> {
   });
   const sweepQueue = new Queue(SWEEP_QUEUE, { connection });
 
-  // EVENTS worker — baseline: đọc lại theo id từ DB rồi xử (Epic 5 gắn consumer mail).
-  // F1: mark processed_at khi xử xong (check-and-set) → relay KHÔNG re-drive vô hạn.
+  // EVENTS worker — consumer mail (5.1): đọc lại theo id từ DB, gửi mail THÀNH CÔNG rồi mới
+  // markProcessed (at-least-once, AD-11). Gửi lỗi → throw → BullMQ retry → cạn thì on('failed').
   const eventsWorker = new Worker(
     EVENTS_QUEUE,
     async (job: Job) => {
       const data = job.data as { id?: string };
-      logger.log(`event '${job.name}' id=${data?.id ?? '?'} (baseline ack)`);
-      if (data?.id) await outbox.markProcessed(data.id);
+      if (data?.id) await notifications.handle(job.name, data.id);
     },
     { connection },
   );
   // F2: job cạn retry → ghi marker BỀN vào Postgres cho dashboard SA (không chết im lặng).
   // removeOnFail:true (queue.constants) xóa job failed ở BullMQ để relay re-drive được;
   // bằng chứng DLQ nằm ở outbox.fail_count/last_error (Postgres là bộ nhớ, Redis là đồng hồ).
+  // BullMQ phát 'failed' MỖI attempt (kể cả retry trung gian) — chỉ ghi DLQ khi CẠN retry,
+  // nếu không fail_count phồng +attempts mỗi chu kỳ và log "cạn retry" sai (review 5.1 M1).
   eventsWorker.on('failed', (job, err) => {
+    const made = job?.attemptsMade ?? 0;
+    const max = job?.opts.attempts ?? 1;
+    const reason = redactPii(err.message);
+    if (made < max) {
+      logger.warn(
+        `EVENTS job ${job?.id} attempt ${made}/${max} lỗi: ${reason}`,
+      );
+      return;
+    }
     const id = (job?.data as { id?: string })?.id;
-    logger.error(`EVENTS job ${job?.id} cạn retry → DLQ: ${err.message}`);
-    if (id) void outbox.markFailed(id, err.message);
+    logger.error(`EVENTS job ${job?.id} cạn retry → DLQ: ${reason}`);
+    if (id) void outbox.markFailed(id, reason);
   });
 
   // SWEEP worker — chạy mọi handler đã đăng ký (registry rỗng ở 3.5a).
