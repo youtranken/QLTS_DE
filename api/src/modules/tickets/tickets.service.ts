@@ -988,6 +988,81 @@ export class TicketsService {
     }));
   }
 
+  /**
+   * Bảng "Máy đang mượn" (7.4) — read-model realtime cho trang chủ.
+   * Trả: MỌI ticket in_use (delivered) toàn hệ + vé chờ nhận/chờ duyệt của CHÍNH caller.
+   * AD-5: read-only join, KHÔNG sub/email — chỉ full_name; borrowerName hiện cho mọi vai
+   * (chốt 2026-07-09, khác in-use-now). Map trạng thái: in_use↔delivered, awaiting_pickup↔pending,
+   * pending_approval(long-term)↔held (AD-16). Department LEFT JOIN theo id (KHÔNG lọc active —
+   * giữ tên phòng ban lịch sử dù đã disabled). is_overdue = cờ reversible (AD-14) cho badge+sort.
+   */
+  async listBoard(callerSub: string): Promise<
+    Array<{
+      ticketId: string;
+      assetCode: string | null;
+      type: string | null;
+      borrowerName: string | null;
+      department: string | null;
+      from: string | null;
+      due: string | null;
+      state: string;
+      isOverdue: boolean;
+      isMine: boolean;
+      note: string | null;
+      recurringCount: number | null;
+    }>
+  > {
+    const rows = await this.db.execute<{
+      ticket_id: string;
+      asset_code: string | null;
+      type: string | null;
+      borrower_name: string | null;
+      department: string | null;
+      from_ts: string | null;
+      due_ts: string | null;
+      state: string;
+      is_overdue: boolean;
+      is_mine: boolean;
+      note: string | null;
+      recurring_count: number | null;
+    }>(sql`
+      SELECT t.id AS ticket_id, a.code AS asset_code, a.type,
+        u.full_name AS borrower_name, d.name AS department,
+        lower(b.period) AS from_ts, upper(b.period) AS due_ts,
+        t.state, t.is_overdue,
+        (t.borrower_sub = ${callerSub}) AS is_mine,
+        b.note,
+        CASE WHEN t.kind = 'recurring'
+          THEN (SELECT count(*)::int FROM booking bb
+                WHERE bb.ticket_id = t.id AND bb.kind = 'recurring')
+          END AS recurring_count
+      FROM ticket t
+      JOIN booking b ON b.ticket_id = t.id
+      LEFT JOIN assets a ON a.id = b.asset_id
+      LEFT JOIN users u ON u.sub = t.borrower_sub
+      LEFT JOIN department d ON d.id = b.department_id
+      WHERE (t.state = 'in_use' AND b.state = 'delivered')
+         OR (t.borrower_sub = ${callerSub}
+             AND ((t.state = 'awaiting_pickup' AND b.state = 'pending')
+                  OR (t.state = 'pending_approval' AND b.state = 'held')))
+      ORDER BY t.is_overdue DESC, (t.state = 'in_use') DESC, upper(b.period) ASC
+    `);
+    return rows.rows.map((r) => ({
+      ticketId: r.ticket_id,
+      assetCode: r.asset_code,
+      type: r.type,
+      borrowerName: r.borrower_name,
+      department: r.department,
+      from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
+      due: r.due_ts ? new Date(r.due_ts).toISOString() : null,
+      state: r.state,
+      isOverdue: r.is_overdue,
+      isMine: r.is_mine,
+      note: r.note,
+      recurringCount: r.recurring_count,
+    }));
+  }
+
   /** Đọc ticket pending_approval trong tx + kiểm version/state chung cho approve+reject. */
   private async lockPendingForDecision(
     tx: Pick<Database, 'execute' | 'insert'>,

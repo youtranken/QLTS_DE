@@ -173,6 +173,13 @@ export class TicketsController {
     );
   }
 
+  /** Bảng "Máy đang mượn" (7.4) — in_use toàn hệ + vé chờ nhận của caller; AD-5 không sub/email. */
+  @Get('board')
+  @Roles('member', 'admin', 'sa')
+  board(@Req() req: AuthedRequest) {
+    return this.tickets.listBoard(requireSub(req));
+  }
+
   /** "Máy đang được mượn" (NFR-2, 3.11) — read-model snapshot, không lộ sub/email (AD-5). */
   @Get('in-use-now')
   @Roles('member', 'admin', 'sa')
