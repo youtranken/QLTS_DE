@@ -60,6 +60,26 @@ export function AssetForm({
       endDate: string | null;
     }>
   >([]);
+  // 8.2: danh mục Loại/Hãng/Cấu hình (chỉ active) → dropdown chọn nhanh
+  const [catType, setCatType] = useState<string[]>([]);
+  const [catBrand, setCatBrand] = useState<string[]>([]);
+  const [catConfig, setCatConfig] = useState<string[]>([]);
+  const [addingConfig, setAddingConfig] = useState(false);
+
+  useEffect(() => {
+    const c = new AbortController();
+    const load = (kind: string, set: (v: string[]) => void) =>
+      fetch(`/api/admin/catalog?kind=${kind}&activeOnly=true`, {
+        signal: c.signal,
+      })
+        .then((r) => (r.ok ? (r.json() as Promise<Array<{ value: string }>>) : []))
+        .then((rows) => set(rows.map((x) => x.value)))
+        .catch(() => undefined);
+    void load('type', setCatType);
+    void load('brand', setCatBrand);
+    void load('configuration', setCatConfig);
+    return () => c.abort();
+  }, []);
 
   useEffect(() => {
     if (!hostQuery) {
@@ -163,6 +183,31 @@ export function AssetForm({
 
   const set = (key: keyof FormState) => (value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  // 8.2: nút (+) thêm nhanh Cấu hình vào danh mục ngay tại form (Loại/Hãng thêm ở trang Danh mục).
+  const addConfig = useCallback(async () => {
+    const v = form.configuration.trim();
+    if (!v || catConfig.includes(v)) return;
+    setAddingConfig(true);
+    try {
+      const res = await fetch('/api/admin/catalog', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+        },
+        body: JSON.stringify({ kind: 'configuration', value: v }),
+      });
+      // 201 mới / 409 đã có (khác hoa-thường) → vẫn coi là có trong danh mục
+      if (res.ok || res.status === 201 || res.status === 409) {
+        setCatConfig((l) => (l.includes(v) ? l : [...l, v].sort()));
+      }
+    } catch {
+      /* im lặng — thêm danh mục là phụ trợ, không chặn lưu tài sản */
+    } finally {
+      setAddingConfig(false);
+    }
+  }, [form.configuration, catConfig, me.csrfToken]);
 
   const submit = useCallback(async () => {
     setError(null);
@@ -366,6 +411,15 @@ export function AssetForm({
 
   const close = () => onDone(transferred);
 
+  // Giữ giá trị hiện hành của tài sản cũ trong dropdown dù đã bị ẩn khỏi danh mục (edit legacy).
+  const withCurrent = (list: string[], cur: string) =>
+    cur && !list.includes(cur) ? [cur, ...list] : list;
+  const typeOptions = withCurrent(
+    catType.filter((v) => v.toLowerCase() !== 'software'),
+    form.type,
+  );
+  const brandOptions = withCurrent(catBrand, form.brand);
+
   const showLifecycle = !!form.id;
   const showInstall = form.isSoftware && form.status !== 'disposed';
 
@@ -477,12 +531,18 @@ export function AssetForm({
                     <span>
                       {t('assets.type')} <span className="field-req">*</span>
                     </span>
-                    <input
+                    <select
                       required
-                      maxLength={100}
                       value={form.type}
                       onChange={(e) => set('type')(e.target.value)}
-                    />
+                    >
+                      <option value="">—</option>
+                      {typeOptions.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 )}
                 {form.isSoftware && (
@@ -521,11 +581,33 @@ export function AssetForm({
                 )}
                 <label className="field span-2">
                   <span>{t('assets.configuration')}</span>
-                  <input
-                    maxLength={2000}
-                    value={form.configuration}
-                    onChange={(e) => set('configuration')(e.target.value)}
-                  />
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input
+                      list="catalog-config-list"
+                      maxLength={2000}
+                      style={{ flex: 1 }}
+                      value={form.configuration}
+                      onChange={(e) => set('configuration')(e.target.value)}
+                    />
+                    <datalist id="catalog-config-list">
+                      {catConfig.map((v) => (
+                        <option key={v} value={v} />
+                      ))}
+                    </datalist>
+                    <button
+                      type="button"
+                      className="sm"
+                      title={t('assets.configAdd')}
+                      disabled={
+                        addingConfig ||
+                        !form.configuration.trim() ||
+                        catConfig.includes(form.configuration.trim())
+                      }
+                      onClick={() => void addConfig()}
+                    >
+                      ＋
+                    </button>
+                  </div>
                 </label>
                 <label className="field">
                   <span>{t('assets.cost')}</span>
@@ -576,11 +658,17 @@ export function AssetForm({
                 </label>
                 <label className="field">
                   <span>{t('assets.brand')}</span>
-                  <input
-                    maxLength={200}
+                  <select
                     value={form.brand}
                     onChange={(e) => set('brand')(e.target.value)}
-                  />
+                  >
+                    <option value="">—</option>
+                    {brandOptions.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="field span-2">
                   <span>{t('assets.note')}</span>

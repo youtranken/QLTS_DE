@@ -17,6 +17,7 @@ import { OffboardingQueuePage } from './offboarding-queue';
 import { ReportsPage } from './reports';
 import { AuditLogPage } from './audit-log';
 import { ConfigPage } from './config-page';
+import { CatalogPage } from './catalog-page';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
@@ -201,6 +202,7 @@ function navGroups(role: string): NavGroup[] {
       label: 'nav.groupSystem',
       items: [
         { to: '/quan-tri', key: 'nav.admin' },
+        { to: '/quan-tri/danh-muc', key: 'nav.catalog' },
         ...(role === 'sa'
           ? [
               { to: '/quan-tri/audit', key: 'nav.audit' },
@@ -354,6 +356,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
                   <AdminPage me={me} />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/quan-tri/danh-muc"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <CatalogPage me={me} />
                 </RequireRole>
               }
             />
