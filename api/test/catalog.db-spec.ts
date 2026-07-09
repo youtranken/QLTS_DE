@@ -171,6 +171,41 @@ describe('Catalog danh mục (story 8.1)', () => {
     await post('/merge', { from: 'abc', to: 'xyz' }).expect(400);
   });
 
+  it('Sửa — rename đổi tên + cascade text tài sản + audit catalog.rename', async () => {
+    const id = await idOf('type', 'monitor');
+    await request(app.getHttpServer())
+      .put(`/api/admin/catalog/${id}`)
+      .set(asSa)
+      .send({ value: 'Monitor' })
+      .expect(200);
+    const c = await pool.query(
+      "SELECT count(*)::int n FROM catalog WHERE kind='type' AND value='Monitor'",
+    );
+    expect(c.rows[0].n).toBe(1);
+    const a = await pool.query(
+      "SELECT count(*)::int n FROM assets WHERE type='Monitor'",
+    );
+    expect(a.rows[0].n).toBe(1); // A3 đổi monitor → Monitor
+    const audit = await pool.query(
+      "SELECT detail FROM audit_log WHERE action='catalog.rename' ORDER BY created_at DESC LIMIT 1",
+    );
+    expect(audit.rows[0].detail).toMatchObject({
+      from: 'monitor',
+      to: 'Monitor',
+      assetsUpdated: 1,
+    });
+  });
+
+  it('Sửa — rename trùng giá trị khác (gợi ý gộp) → 409', async () => {
+    const id = await idOf('type', 'Monitor');
+    // 'Laptop' đã tồn tại → đổi Monitor thành 'LAPTOP' (trùng case-insensitive) → 409
+    await request(app.getHttpServer())
+      .put(`/api/admin/catalog/${id}`)
+      .set(asSa)
+      .send({ value: 'LAPTOP' })
+      .expect(409);
+  });
+
   it('AC3 — gộp VÀO giá trị đang ẩn → tự bật lại active (review M3)', async () => {
     // brand: Dell (asset A1,A2) + HP (tạo ở AC2). Ẩn HP rồi gộp Dell→HP → HP phải active lại.
     const hpId = await idOf('brand', 'HP');

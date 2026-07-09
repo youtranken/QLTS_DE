@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -49,9 +50,16 @@ class CreateCatalogDto {
   value!: string;
 }
 
-class SetActiveDto {
+class UpdateCatalogDto {
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @MaxLength(2000)
+  value?: string;
+
+  @IsOptional()
   @IsBoolean()
-  active!: boolean;
+  active?: boolean;
 }
 
 class MergeDto {
@@ -97,12 +105,21 @@ export class CatalogAdminController {
   }
 
   @Put(':id')
-  setActive(
+  update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: SetActiveDto,
+    @Body() body: UpdateCatalogDto,
     @Req() req: AuthedRequest,
   ) {
-    return this.catalog.setActive(id, body.active, requireSub(req));
+    const sub = requireSub(req);
+    // Sửa tên (rename, cascade tài sản) và ẩn/hiện (active) là hai thao tác khác nhau.
+    if (body.value !== undefined)
+      return this.catalog.rename(id, body.value, sub);
+    if (body.active !== undefined)
+      return this.catalog.setActive(id, body.active, sub);
+    throw new BadRequestException({
+      code: 'BAD_REQUEST',
+      message: 'Phải có value (đổi tên) hoặc active (ẩn/hiện).',
+    });
   }
 }
 

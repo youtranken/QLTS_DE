@@ -808,7 +808,9 @@ button.link.session-toggle {
   flex-shrink: 0;
 }
 .sheet-header {
-  border-bottom: 1px solid var(--border);
+  /* Nền xám nhẹ để thanh tiêu đề tách khỏi thân trắng (feedback: header trùng màu trắng). */
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-2);
 }
 .sheet-title {
   font-size: 1.05rem;
@@ -847,8 +849,8 @@ button.link.session-toggle {
   background: var(--canvas);
 }
 .sheet-footer {
-  border-top: 1px solid var(--border);
-  background: var(--surface);
+  border-top: 1px solid var(--border-2);
+  background: var(--surface-2);
 }
 
 /* Popup cascade nằm TRÊN sheet (mở từ trong form) */

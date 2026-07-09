@@ -138,6 +138,68 @@ export class CatalogService {
     return { ...row, usage: 0 };
   }
 
+  /**
+   * Sửa giá trị (8.2 rename): đổi tên danh mục + cascade text tài sản đang dùng giá trị cũ.
+   * Trùng (case-insensitive) với entry KHÁC cùng kind → 409 (đó là gộp, không phải sửa).
+   */
+  async rename(
+    id: string,
+    value: string,
+    actorSub: string,
+  ): Promise<{ assetsUpdated: number }> {
+    const v = value.trim();
+    if (!v) {
+      throw new BadRequestException({
+        code: 'CATALOG_VALUE_EMPTY',
+        message: 'Giá trị không được rỗng.',
+      });
+    }
+    const cur = await this.db
+      .select({ kind: catalogTable.kind, value: catalogTable.value })
+      .from(catalogTable)
+      .where(eq(catalogTable.id, id));
+    if (cur.length === 0) throw new NotFoundException(NOT_FOUND);
+    const { kind, value: oldValue } = cur[0];
+    if (v === oldValue) return { assetsUpdated: 0 };
+    // Trùng với entry khác (kể cả khác hoa/thường) → gợi ý dùng Gộp
+    const dup = await this.db
+      .select({ id: catalogTable.id })
+      .from(catalogTable)
+      .where(
+        and(
+          eq(catalogTable.kind, kind),
+          sql`lower(${catalogTable.value}) = lower(${v})`,
+          sql`${catalogTable.id} <> ${id}`,
+        ),
+      );
+    if (dup.length > 0) throw new ConflictException(TAKEN);
+
+    const col = ASSET_COLUMN[kind as CatalogKind];
+    const assetsUpdated = await this.db.transaction(async (tx) => {
+      await tx
+        .update(catalogTable)
+        .set({ value: v, updatedAt: new Date() })
+        .where(eq(catalogTable.id, id));
+      const upd = await tx.execute(
+        sql`UPDATE assets SET ${sql.raw(col)} = ${v}, version = version + 1, updated_at = now() WHERE ${sql.raw(col)} = ${oldValue}`,
+      );
+      await this.audit.appendWithin(tx, {
+        actor: actorSub,
+        action: 'catalog.rename',
+        objectType: 'catalog',
+        objectId: id,
+        detail: {
+          kind,
+          from: oldValue,
+          to: v,
+          assetsUpdated: upd.rowCount ?? 0,
+        },
+      });
+      return upd.rowCount ?? 0;
+    });
+    return { assetsUpdated };
+  }
+
   /** Đổi hiển thị trong dropdown (ẩn/hiện) — KHÔNG đụng tài sản đang gắn giá trị cũ. */
   async setActive(
     id: string,

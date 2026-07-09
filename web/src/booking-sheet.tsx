@@ -50,9 +50,13 @@ export function BookingSheet({
   const [borrower, setBorrower] = useState<UserOption | null>(null);
   const [userQuery, setUserQuery] = useState('');
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
-  // Thường/Nâng cao
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  // Thường/Nâng cao — tách Ngày + Giờ cho Nhận/Trả (4 ô), gộp lại thành datetime khi dùng.
+  const [fromDate, setFromDate] = useState('');
+  const [fromTime, setFromTime] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [toTime, setToTime] = useState('');
+  const from = fromDate && fromTime ? `${fromDate}T${fromTime}` : '';
+  const to = toDate && toTime ? `${toDate}T${toTime}` : '';
   const [typeFilter, setTypeFilter] = useState('');
   const [assetTypes, setAssetTypes] = useState<string[]>([]);
   const [machines, setMachines] = useState<FreeMachine[] | null>(null);
@@ -356,19 +360,35 @@ export function BookingSheet({
             <>
               <div className="form-grid" style={{ marginBottom: '0.75rem' }}>
                 <label className="field">
-                  <span>{t('booking.from')}</span>
+                  <span>{t('bookingSheet.pickupDate')}</span>
                   <input
-                    type="datetime-local"
-                    value={from}
-                    onChange={(e) => setFrom(e.target.value)}
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
                   />
                 </label>
                 <label className="field">
-                  <span>{t('booking.to')}</span>
+                  <span>{t('bookingSheet.pickupTime')}</span>
                   <input
-                    type="datetime-local"
-                    value={to}
-                    onChange={(e) => setTo(e.target.value)}
+                    type="time"
+                    value={fromTime}
+                    onChange={(e) => setFromTime(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>{t('bookingSheet.returnDate')}</span>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>{t('bookingSheet.returnTime')}</span>
+                  <input
+                    type="time"
+                    value={toTime}
+                    onChange={(e) => setToTime(e.target.value)}
                   />
                 </label>
               </div>

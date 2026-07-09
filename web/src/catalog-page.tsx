@@ -24,6 +24,9 @@ export function CatalogPage({ me }: { me: Me }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [merge, setMerge] = useState<CatalogItem | null>(null);
+  const [editing, setEditing] = useState<{ id: string; value: string } | null>(
+    null,
+  );
 
   const headers = useMemo(
     () => ({
@@ -73,6 +76,33 @@ export function CatalogPage({ me }: { me: Me }) {
       setBusy(false);
     }
   }, [newValue, kind, headers, load, t]);
+
+  const rename = useCallback(async () => {
+    if (!editing) return;
+    const v = editing.value.trim();
+    if (!v) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/catalog/${editing.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ value: v }),
+      });
+      if (res.ok) {
+        setEditing(null);
+        await load();
+      } else if (res.status === 409) {
+        setError(t('catalog.taken'));
+      } else {
+        setError(t('catalog.saveFailed'));
+      }
+    } catch {
+      setError(t('catalog.saveFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }, [editing, headers, load, t]);
 
   const setActive = useCallback(
     async (item: CatalogItem, active: boolean) => {
@@ -158,37 +188,90 @@ export function CatalogPage({ me }: { me: Me }) {
                 </td>
               </tr>
             ) : (
-              items.map((it) => (
-                <tr key={it.id}>
-                  <td>{it.value}</td>
-                  <td>{it.usage}</td>
-                  <td>
-                    {it.active ? (
-                      <span className="chip">{t('catalog.shown')}</span>
-                    ) : (
-                      <span className="muted">{t('catalog.hidden')}</span>
-                    )}
-                  </td>
-                  <td style={{ display: 'flex', gap: '0.4rem' }}>
-                    <button
-                      type="button"
-                      className="sm"
-                      disabled={busy || items.length < 2}
-                      onClick={() => setMerge(it)}
-                    >
-                      {t('catalog.merge')}
-                    </button>
-                    <button
-                      type="button"
-                      className="sm"
-                      disabled={busy}
-                      onClick={() => void setActive(it, !it.active)}
-                    >
-                      {it.active ? t('catalog.hide') : t('catalog.show')}
-                    </button>
-                  </td>
-                </tr>
-              ))
+              items.map((it) => {
+                const isEditing = editing?.id === it.id;
+                return (
+                  <tr key={it.id}>
+                    <td>
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          maxLength={2000}
+                          value={editing.value}
+                          onChange={(e) =>
+                            setEditing({ id: it.id, value: e.target.value })
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void rename();
+                            if (e.key === 'Escape') setEditing(null);
+                          }}
+                        />
+                      ) : (
+                        it.value
+                      )}
+                    </td>
+                    <td>{it.usage}</td>
+                    <td>
+                      {it.active ? (
+                        <span className="chip">{t('catalog.shown')}</span>
+                      ) : (
+                        <span className="muted">{t('catalog.hidden')}</span>
+                      )}
+                    </td>
+                    <td style={{ display: 'flex', gap: '0.4rem' }}>
+                      {isEditing ? (
+                        <>
+                          <button
+                            type="button"
+                            className="sm primary"
+                            disabled={busy || !editing.value.trim()}
+                            onClick={() => void rename()}
+                          >
+                            {t('catalog.save')}
+                          </button>
+                          <button
+                            type="button"
+                            className="sm"
+                            disabled={busy}
+                            onClick={() => setEditing(null)}
+                          >
+                            {t('catalog.cancel')}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="sm"
+                            disabled={busy}
+                            onClick={() =>
+                              setEditing({ id: it.id, value: it.value })
+                            }
+                          >
+                            {t('catalog.edit')}
+                          </button>
+                          <button
+                            type="button"
+                            className="sm"
+                            disabled={busy || items.length < 2}
+                            onClick={() => setMerge(it)}
+                          >
+                            {t('catalog.merge')}
+                          </button>
+                          <button
+                            type="button"
+                            className="sm"
+                            disabled={busy}
+                            onClick={() => void setActive(it, !it.active)}
+                          >
+                            {it.active ? t('catalog.hide') : t('catalog.show')}
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
