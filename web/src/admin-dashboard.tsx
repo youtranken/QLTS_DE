@@ -25,6 +25,7 @@ export function AdminDashboard() {
     locked: null,
     notifyFailed: null,
     offboard: null,
+    expiring: null,
   });
 
   useEffect(() => {
@@ -39,6 +40,11 @@ export function AdminDashboard() {
         .then((r) => (r.ok ? (r.json() as Promise<{ total: number }>) : { total: 0 }))
         .then((d) => d.total ?? 0)
         .catch(() => 0);
+    const countOf = (url: string) =>
+      fetch(url)
+        .then((r) => (r.ok ? (r.json() as Promise<{ count: number }>) : { count: 0 }))
+        .then((d) => d.count ?? 0)
+        .catch(() => 0);
     void Promise.all([
       arrLen('/api/admin/tickets/pending-approval'),
       arrLen('/api/admin/tickets/extensions'),
@@ -48,6 +54,7 @@ export function AdminDashboard() {
       totalOf('/api/admin/assets?status=locked_repair&pageSize=1'),
       totalOf('/api/admin/notifications/failed'),
       totalOf('/api/admin/offboarding'),
+      countOf('/api/admin/assets/expiring-count'),
     ]).then(
       ([
         pending,
@@ -58,6 +65,7 @@ export function AdminDashboard() {
         locked,
         notifyFailed,
         offboard,
+        expiring,
       ]) => {
         if (alive)
           setCounts({
@@ -69,6 +77,7 @@ export function AdminDashboard() {
             locked,
             notifyFailed,
             offboard,
+            expiring,
           });
       },
     );
@@ -84,6 +93,13 @@ export function AdminDashboard() {
     { key: 'inuse', count: counts.inuse, to: '/xu-ly-muon' },
     { key: 'overdue', count: counts.overdue, to: '/xu-ly-muon', danger: true },
     { key: 'locked', count: counts.locked, to: '/tai-san?status=locked_repair' },
+    // 7.7: sắp hết hạn (gộp thiết bị + license) — nổi đỏ khi >0, dẫn tới danh sách đã lọc
+    {
+      key: 'expiring',
+      count: counts.expiring,
+      to: '/tai-san?expiring=true',
+      danger: true,
+    },
     // Ẩn khi count=0 (không hiện mục rỗng chưa build — 3.12 AC2); nổi đỏ khi có lỗi gửi (5.1).
     ...(counts.notifyFailed && counts.notifyFailed > 0
       ? [

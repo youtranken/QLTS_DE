@@ -140,6 +140,7 @@ export default {
     locked: 'Máy đang khóa',
     notifyFailed: 'Thông báo gửi lỗi',
     offboard: 'Cảnh báo nghỉ việc',
+    expiring: 'Sắp hết hạn',
   },
   offboard: {
     title: 'Cảnh báo nghỉ việc',
@@ -340,6 +341,7 @@ export default {
     filterStatus: 'Trạng thái — tất cả',
     filterFloor: 'Tầng — tất cả',
     clearFilters: 'Xóa lọc',
+    expiringFilter: 'Sắp hết hạn',
     noMatch: 'Không có tài sản nào khớp bộ lọc.',
     exportExcel: 'Export Excel',
     loadFailed: 'Không tải được danh sách tài sản.',

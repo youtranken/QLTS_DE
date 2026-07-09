@@ -35,10 +35,14 @@ export function AssetsPage({ me }: { me: Me }) {
     const s = searchParams.get('status') ?? '';
     return ['in_use', 'locked_repair', 'disposed'].includes(s) ? s : '';
   });
+  // 7.7: badge dashboard dẫn tới ?expiring=true — lọc "sắp hết hạn"
+  const [expiring, setExpiring] = useState(
+    () => searchParams.get('expiring') === 'true',
+  );
   const [meta, setMeta] = useState<{ types: string[] }>({
     types: [],
   });
-  const hasFilter = search !== '' || type !== '' || status !== '';
+  const hasFilter = search !== '' || type !== '' || status !== '' || expiring;
 
   useEffect(() => {
     const value = searchInput.trim();
@@ -80,6 +84,7 @@ export function AssetsPage({ me }: { me: Me }) {
         if (search) params.set('search', search);
         if (type) params.set('type', type);
         if (status) params.set('status', status);
+        if (expiring) params.set('expiring', 'true');
         const res = await fetch(`/api/admin/assets?${params.toString()}`, {
           signal,
         });
@@ -104,7 +109,7 @@ export function AssetsPage({ me }: { me: Me }) {
         }
       }
     },
-    [page, search, type, status, t],
+    [page, search, type, status, expiring, t],
   );
 
   useEffect(() => {
@@ -150,6 +155,7 @@ export function AssetsPage({ me }: { me: Me }) {
             ...(search ? { search } : {}),
             ...(type ? { type } : {}),
             ...(status ? { status } : {}),
+            ...(expiring ? { expiring: 'true' } : {}),
           }).toString()}`}
         >
           {t('assets.exportExcel')}
@@ -198,6 +204,21 @@ export function AssetsPage({ me }: { me: Me }) {
             </option>
           ))}
         </select>
+        {expiring && (
+          <span className="chip">
+            {t('assets.expiringFilter')}
+            <button
+              type="button"
+              aria-label={t('assets.clearFilters')}
+              onClick={() => {
+                setExpiring(false);
+                setPage(1);
+              }}
+            >
+              ✕
+            </button>
+          </span>
+        )}
         {hasFilter && (
           <button
             type="button"
@@ -206,6 +227,7 @@ export function AssetsPage({ me }: { me: Me }) {
               setSearch('');
               setType('');
               setStatus('');
+              setExpiring(false);
               setPage(1);
             }}
           >

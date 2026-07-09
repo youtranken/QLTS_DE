@@ -140,6 +140,7 @@ export default {
     locked: 'Locked machines',
     notifyFailed: 'Failed notifications',
     offboard: 'Offboarding alerts',
+    expiring: 'Expiring soon',
   },
   offboard: {
     title: 'Offboarding alerts',
@@ -342,6 +343,7 @@ export default {
     filterStatus: 'Status — all',
     filterFloor: 'Floor — all',
     clearFilters: 'Clear filters',
+    expiringFilter: 'Expiring soon',
     noMatch: 'No assets match the filters.',
     exportExcel: 'Export Excel',
     loadFailed: 'Could not load the asset list.',

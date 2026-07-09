@@ -863,7 +863,14 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .get('/api/admin/assets?search=SW-DISP')
       .set(asAdmin())
       .expect(200);
-    expect(red.body.items[0].licenseWarning).toBe(true);
+    // 7.7: search theo mã software trả cả máy host — chọn đúng dòng software theo code
+    const redItems = red.body.items as Array<{
+      code: string;
+      licenseWarning: boolean;
+    }>;
+    expect(redItems.find((a) => a.code === 'SW-DISP')?.licenseWarning).toBe(
+      true,
+    );
 
     // thanh lý máy → license TỰ GỠ → hết đỏ NGAY; note + audit đủ
     await request(app.getHttpServer())
@@ -875,7 +882,13 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .get('/api/admin/assets?search=SW-DISP')
       .set(asAdmin())
       .expect(200);
-    expect(after.body.items[0].licenseWarning).toBe(false);
+    const afterItems = after.body.items as Array<{
+      code: string;
+      licenseWarning: boolean;
+    }>;
+    expect(afterItems.find((a) => a.code === 'SW-DISP')?.licenseWarning).toBe(
+      false,
+    );
     const detached = await pool.query(
       "SELECT installed_on_asset_id FROM assets WHERE code = 'SW-DISP'",
     );

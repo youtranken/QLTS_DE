@@ -15,6 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsISO8601,
@@ -169,6 +170,12 @@ class ListAssetsQueryDto {
   @IsOptional()
   @IsIn(['in_use', 'locked_repair', 'disposed'])
   status?: string;
+
+  /** 7.7: lọc "sắp hết hạn" (?expiring=true). */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  expiring?: boolean;
 }
 
 function toInput(body: AssetBodyDto): AssetInput {
@@ -203,6 +210,7 @@ export class AssetsAdminController {
       search: query.search,
       type: query.type,
       status: query.status,
+      expiring: query.expiring,
     });
   }
 
@@ -210,6 +218,12 @@ export class AssetsAdminController {
   @Get('meta')
   filterMeta() {
     return this.assets.filterMeta();
+  }
+
+  /** Badge "Sắp hết hạn" (7.7) — đứng trước ':id' như 'meta'. */
+  @Get('expiring-count')
+  async expiringCount() {
+    return { count: await this.assets.countExpiring() };
   }
 
   /** Export Excel theo bộ lọc (2.10, FR-41) — đứng trước ':id' như 'meta'. */
@@ -226,6 +240,7 @@ export class AssetsAdminController {
         search: query.search,
         type: query.type,
         status: query.status,
+        expiring: query.expiring,
       },
       requireSub(req),
     );

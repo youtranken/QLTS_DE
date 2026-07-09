@@ -43,6 +43,8 @@ export interface AssetListQuery {
   search?: string;
   type?: string;
   status?: string;
+  /** 7.7: lọc "sắp hết hạn" (end_date ≤ ngưỡng) — gộp thiết bị + license. */
+  expiring?: boolean;
 }
 
 // 7.6: model/floor gỡ khỏi form/audit (cột DB giữ nullable, không drop — dữ liệu lịch sử).
@@ -273,21 +275,63 @@ export class AssetsService {
    * join users lấy tên người đứng tên; count(*) áp CÙNG where (join users cho
    * search; KHÔNG cần join host — WHERE không đụng host, join PK không nhân dòng).
    */
-  /** Điều kiện tìm/lọc dùng chung list (2.2) + export (2.10) — MỘT nguồn sự thật. */
+  /** Điều kiện tìm/lọc dùng chung list (2.2) + export (2.10) — MỘT nguồn sự thật.
+   * `expiringBefore` = ngày cắt (VN) cho lọc "sắp hết hạn" (7.7); caller tính từ warningDays. */
   private buildListConditions(
-    query: Pick<AssetListQuery, 'search' | 'type' | 'status'>,
+    query: Pick<AssetListQuery, 'search' | 'type' | 'status' | 'expiring'>,
+    expiringBefore: string | null = null,
   ) {
+    const pat = query.search ? `%${escapeLike(query.search)}%` : null;
     const conditions = [
-      query.search
+      pat
         ? or(
-            ilike(assetsTable.code, `%${escapeLike(query.search)}%`),
-            ilike(usersTable.fullName, `%${escapeLike(query.search)}%`),
+            ilike(assetsTable.code, pat),
+            ilike(usersTable.fullName, pat),
+            // 7.7: tìm theo software — license_name của chính software + software gắn máy
+            ilike(assetsTable.licenseName, pat),
+            sql`EXISTS (SELECT 1 FROM assets sw
+              WHERE sw.installed_on_asset_id = ${assetsTable.id}
+                AND sw.type = 'software'
+                AND (sw.code ILIKE ${pat} OR sw.license_name ILIKE ${pat}))`,
           )
         : undefined,
       query.type ? eq(assetsTable.type, query.type) : undefined,
       query.status ? eq(assetsTable.status, query.status) : undefined,
+      // 7.7 "sắp hết hạn": thiết bị bất kỳ có endDate, HOẶC license term đang gắn máy
+      // (installed IS NOT NULL ⇒ host chưa thanh lý — máy disposed tự detach license 2.5).
+      query.expiring && expiringBefore
+        ? sql`${assetsTable.status} <> 'disposed'
+            AND ${assetsTable.endDate} IS NOT NULL
+            AND ${assetsTable.endDate} <= ${expiringBefore}::date
+            AND (${assetsTable.type} <> 'software'
+                 OR (${assetsTable.licenseType} = 'term'
+                     AND ${assetsTable.installedOnAssetId} IS NOT NULL))`
+        : undefined,
     ].filter((c) => c !== undefined);
     return conditions.length > 0 ? and(...conditions) : undefined;
+  }
+
+  /** Ngày cắt "sắp hết hạn" theo TZ VN + ngưỡng Config (7.7) — dùng cho list/export/count. */
+  private async expiringCutoff(): Promise<string> {
+    const warningDays = await this.config.getLicenseWarningDays();
+    const rows = await this.db.execute<{ d: string }>(
+      sql`SELECT ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + ${warningDays}::int)::text AS d`,
+    );
+    return rows.rows[0].d;
+  }
+
+  /** Badge "Sắp hết hạn" (7.7, AC2) — gộp thiết bị + license term đang gắn; loại disposed. */
+  async countExpiring(): Promise<number> {
+    const before = await this.expiringCutoff();
+    const rows = await this.db.execute<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM assets
+      WHERE status <> 'disposed'
+        AND end_date IS NOT NULL
+        AND end_date <= ${before}::date
+        AND (type <> 'software'
+             OR (license_type = 'term' AND installed_on_asset_id IS NOT NULL))
+    `);
+    return rows.rows[0]?.n ?? 0;
   }
 
   async list(query: AssetListQuery) {
@@ -296,7 +340,10 @@ export class AssetsService {
     // không cần fallback ở đây (||30 sẽ nuốt mất giá trị 0 = tắt cảnh báo).
     const warningDays = await this.config.getLicenseWarningDays();
     const host = alias(assetsTable, 'host');
-    const where = this.buildListConditions(query);
+    const where = this.buildListConditions(
+      query,
+      query.expiring ? await this.expiringCutoff() : null,
+    );
     const [items, totalRows] = await Promise.all([
       this.db
         .select({
@@ -864,10 +911,11 @@ export class AssetsService {
    * 10000 dòng; escape NFR-10 mọi cell chuỗi (dữ liệu lưu raw — defer 2.9).
    */
   async exportExcel(
-    query: Pick<AssetListQuery, 'search' | 'type' | 'status'>,
+    query: Pick<AssetListQuery, 'search' | 'type' | 'status' | 'expiring'>,
     actorSub: string,
   ) {
     const host = alias(assetsTable, 'host');
+    const expiringBefore = query.expiring ? await this.expiringCutoff() : null;
     const rows = await this.db
       .select({
         code: assetsTable.code,
@@ -890,7 +938,7 @@ export class AssetsService {
       .from(assetsTable)
       .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
       .leftJoin(host, eq(assetsTable.installedOnAssetId, host.id))
-      .where(this.buildListConditions(query))
+      .where(this.buildListConditions(query, expiringBefore))
       .orderBy(assetsTable.code)
       .limit(10_001);
     if (rows.length > 10_000) {
@@ -951,6 +999,7 @@ export class AssetsService {
           search: query.search ?? null,
           type: query.type ?? null,
           status: query.status ?? null,
+          expiring: query.expiring ?? false,
         },
         rowCount: rows.length,
       },
