@@ -16,6 +16,7 @@ import { NotificationsFailedPage } from './notifications-failed';
 import { OffboardingQueuePage } from './offboarding-queue';
 import { ReportsPage } from './reports';
 import { AuditLogPage } from './audit-log';
+import { ConfigPage } from './config-page';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
@@ -200,7 +201,12 @@ function navGroups(role: string): NavGroup[] {
       label: 'nav.groupSystem',
       items: [
         { to: '/quan-tri', key: 'nav.admin' },
-        ...(role === 'sa' ? [{ to: '/quan-tri/audit', key: 'nav.audit' }] : []),
+        ...(role === 'sa'
+          ? [
+              { to: '/quan-tri/audit', key: 'nav.audit' },
+              { to: '/quan-tri/cau-hinh', key: 'nav.config' },
+            ]
+          : []),
       ],
     });
   }
@@ -356,6 +362,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               element={
                 <RequireRole me={me} roles={['sa']}>
                   <AuditLogPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/quan-tri/cau-hinh"
+              element={
+                <RequireRole me={me} roles={['sa']}>
+                  <ConfigPage me={me} />
                 </RequireRole>
               }
             />
