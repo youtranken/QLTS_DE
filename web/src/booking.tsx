@@ -148,16 +148,11 @@ export function BookingPage({ me }: { me: Me }) {
           e.preventDefault();
           void search();
         }}
-        style={{
-          display: 'flex',
-          gap: '1rem',
-          flexWrap: 'wrap',
-          alignItems: 'flex-end',
-          marginBottom: '1.25rem',
-        }}
+        className="filter-bar"
+        style={{ alignItems: 'flex-end', gap: '0.85rem' }}
       >
         <label className="field">
-          {t('booking.from')}
+          <span>{t('booking.from')}</span>
           <input
             type="datetime-local"
             value={from}
@@ -166,7 +161,7 @@ export function BookingPage({ me }: { me: Me }) {
           />
         </label>
         <label className="field">
-          {t('booking.to')}
+          <span>{t('booking.to')}</span>
           <input
             type="datetime-local"
             value={to}

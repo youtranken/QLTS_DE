@@ -313,6 +313,7 @@ export default {
   assets: {
     addAsset: 'Add asset',
     editTitle: 'Edit asset {{code}}',
+    sectionGeneral: 'General information',
     code: 'Asset code',
     type: 'Type',
     configuration: 'Configuration',

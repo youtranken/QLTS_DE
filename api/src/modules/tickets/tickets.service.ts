@@ -423,7 +423,9 @@ export class TicketsService {
         } else {
           // 5.2: request CẦN DUYỆT → mail nhóm Admin ngay (cùng tx, AD-11). Auto-approve
           // ≤48h KHÔNG phát → không mail.
-          await this.outbox.enqueueWithin(tx, 'approval_requested', { ticketId });
+          await this.outbox.enqueueWithin(tx, 'approval_requested', {
+            ticketId,
+          });
         }
 
         return {

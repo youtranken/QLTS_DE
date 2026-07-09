@@ -1,0 +1,1094 @@
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Combobox } from './combobox';
+import type { Me } from './panels';
+import {
+  detailToForm,
+  fmtDateTime,
+} from './asset-types';
+import type {
+  AllocationRow,
+  AssetDetail,
+  AssetRow,
+  CascadePreview,
+  FormState,
+  PendingCascade,
+  UserOption,
+} from './asset-types';
+
+/**
+ * Form thêm/sửa tài sản (FR-30) — dạng popup (sheet modal) cho cả Thêm và Sửa.
+ * status/pool KHÔNG sửa ở đây — nghiệp vụ vòng đời 2.6. Đóng: nút ✕ / Hủy / Esc.
+ */
+export function AssetForm({
+  me,
+  initial,
+  onDone,
+}: {
+  me: Me;
+  initial: FormState;
+  onDone: (saved: boolean) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const [form, setForm] = useState(initial);
+  const [userQuery, setUserQuery] = useState('');
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
+  const [busy, setBusy] = useState(false);
+  // 2.5/2.6: đã đổi qua endpoint phụ (transfer/vòng đời) → Hủy vẫn refresh danh sách
+  const [transferred, setTransferred] = useState(false);
+  // 2.6: form khóa máy (lý do bắt buộc + ETA tùy chọn)
+  const [showLockForm, setShowLockForm] = useState(false);
+  const [lockReason, setLockReason] = useState('');
+  const [lockEta, setLockEta] = useState('');
+  // 3.13: popup xác nhận cascade + cờ báo mail (preview trước khi Khóa/Gỡ pool/Thanh lý)
+  const [cascade, setCascade] = useState<PendingCascade | null>(null);
+  const [notifyUsers, setNotifyUsers] = useState(true);
+  // 2.3: ghi chú cấp phát (chỉ dùng khi đổi người) + lịch sử A→B chỉ đọc
+  const [allocationNote, setAllocationNote] = useState('');
+  const [allocations, setAllocations] = useState<AllocationRow[]>([]);
+  // 2.4: picker máy cài (chỉ khi TẠO software) + software đã cài (khi sửa máy)
+  const [hostQuery, setHostQuery] = useState('');
+  const [hostOptions, setHostOptions] = useState<AssetRow[]>([]);
+  const [installedSoftware, setInstalledSoftware] = useState<
+    Array<{
+      id: string;
+      code: string;
+      licenseType: string | null;
+      licenseName: string | null;
+      endDate: string | null;
+    }>
+  >([]);
+
+  useEffect(() => {
+    if (!hostQuery) {
+      setHostOptions([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(
+        `/api/admin/assets?search=${encodeURIComponent(hostQuery)}&page=1&pageSize=20`,
+        { signal: controller.signal },
+      )
+        .then(async (res) => {
+          if (!res.ok) return;
+          const body = (await res.json()) as { items?: AssetRow[] };
+          // chỉ máy: không phải software, không thanh lý (server chặn lại lần cuối);
+          // loại máy ĐANG gắn — transfer vào chính nó là no-op nhiễu audit (review 2.5)
+          setHostOptions(
+            (body.items ?? []).filter(
+              (a) =>
+                a.type !== 'software' &&
+                a.status !== 'disposed' &&
+                a.id !== form.installedOnAssetId,
+            ),
+          );
+        })
+        .catch(() => undefined);
+    }, 300);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [hostQuery, form.installedOnAssetId]);
+
+  useEffect(() => {
+    if (!form.id || form.isSoftware) return;
+    const controller = new AbortController();
+    fetch(`/api/admin/assets/${encodeURIComponent(form.id)}/software`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          setInstalledSoftware((await res.json()) as typeof installedSoftware);
+        }
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [form.id, form.isSoftware]);
+
+  useEffect(() => {
+    if (!form.id) return;
+    const controller = new AbortController();
+    fetch(`/api/admin/assets/${encodeURIComponent(form.id)}/allocations`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (res.ok) setAllocations((await res.json()) as AllocationRow[]);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [form.id]);
+
+  // STALE_VERSION: nạp lại bản mới nhất (version mới) ngay tại form — không mất chỗ đứng
+  const reload = useCallback(async () => {
+    if (!form.id) return;
+    try {
+      const res = await fetch(`/api/admin/assets/${encodeURIComponent(form.id)}`);
+      if (!res.ok) return;
+      setForm(detailToForm((await res.json()) as AssetDetail));
+      setError(null);
+      setStale(false);
+    } catch {
+      setError(t('app.serverUnreachable'));
+    }
+  }, [form.id, t]);
+
+  // tìm người đứng tên server-side (users có thể ~3.000 — không tải hết)
+  useEffect(() => {
+    if (!userQuery) {
+      setUserOptions([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(
+        `/api/admin/users?search=${encodeURIComponent(userQuery)}&page=1&pageSize=20`,
+        { signal: controller.signal },
+      )
+        .then(async (res) => {
+          if (!res.ok) return;
+          const body = (await res.json()) as { items?: UserOption[] };
+          setUserOptions(body.items ?? []);
+        })
+        .catch(() => undefined);
+    }, 300);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [userQuery]);
+
+  const set = (key: keyof FormState) => (value: string) =>
+    setForm((f) => ({ ...f, [key]: value }));
+
+  const submit = useCallback(async () => {
+    setError(null);
+    setBusy(true);
+    const payload: Record<string, unknown> = {
+      code: form.code,
+      type: form.isSoftware ? 'software' : form.type,
+      configuration: form.configuration || null,
+      cost: form.cost === '' ? null : Number(form.cost),
+      startDate: form.startDate || null,
+      // perpetual không có hạn — không gửi endDate còn sót lại trong state
+      endDate:
+        form.isSoftware && form.licenseType === 'perpetual'
+          ? null
+          : form.endDate || null,
+      floor: form.floor || null,
+      note: form.note || null,
+      serial: form.serial || null,
+      brand: form.brand || null,
+      model: form.model || null,
+      assignedUserSub: form.assignedUserSub || null,
+      licenseType: form.isSoftware ? form.licenseType || null : null,
+      // term cũng được có tên license — không xóa ngầm khi sửa (review 2.4)
+      licenseName: form.isSoftware ? form.licenseName || null : null,
+    };
+    if (form.id) {
+      payload.version = form.version;
+      if (allocationNote.trim()) payload.allocationNote = allocationNote.trim();
+    } else if (form.isSoftware && form.installedOnAssetId) {
+      // gắn máy CHỈ khi tạo (AC 3) — đổi/gỡ là chức năng chuyển license (2.5)
+      payload.installedOnAssetId = form.installedOnAssetId;
+    }
+    try {
+      const res = await fetch(
+        form.id
+          ? `/api/admin/assets/${encodeURIComponent(form.id)}`
+          : '/api/admin/assets',
+        {
+          method: form.id ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+      if (res.ok) {
+        onDone(true);
+        return;
+      }
+      const body = (await res.json()) as { code?: string; message?: string };
+      if (body.code === 'STALE_VERSION') {
+        setError(t('assets.staleVersion'));
+        setStale(true);
+      } else if (body.code === 'CODE_TAKEN') {
+        setError(t('assets.codeTaken'));
+      } else {
+        setError(body.message ?? t('assets.saveFailed'));
+      }
+    } catch {
+      setError(t('app.serverUnreachable'));
+    } finally {
+      setBusy(false);
+    }
+  }, [form, allocationNote, me.csrfToken, onDone, t]);
+
+  // 2.6: 4 thao tác vòng đời — chỉ cập nhật version + trường đổi (bài học 2.5)
+  const doLifecycle = useCallback(
+    async (
+      path: string,
+      method: 'POST' | 'PUT',
+      extra: Record<string, unknown>,
+      patch: Partial<FormState>,
+    ) => {
+      if (!form.id) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/admin/assets/${encodeURIComponent(form.id)}/${path}`,
+          {
+            method,
+            headers: {
+              'Content-Type': 'application/json',
+              ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+            },
+            body: JSON.stringify({ ...extra, version: form.version }),
+          },
+        );
+        if (res.ok) {
+          const body = (await res.json()) as { version: number };
+          setTransferred(true);
+          setForm((f) => ({ ...f, ...patch, version: body.version }));
+          setShowLockForm(false);
+          setLockReason('');
+          setLockEta('');
+          if (path === 'dispose') setInstalledSoftware([]); // license đã tự gỡ
+          return;
+        }
+        const body = (await res.json()) as { code?: string; message?: string };
+        if (body.code === 'STALE_VERSION') {
+          setError(t('assets.staleVersion'));
+          setStale(true);
+        } else {
+          setError(body.message ?? t('assets.saveFailed'));
+        }
+      } catch {
+        setError(t('app.serverUnreachable'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [form.id, form.version, me.csrfToken, t],
+  );
+
+  /**
+   * 3.13: Khóa/Gỡ pool/Thanh lý → lấy PREVIEW trước. Có booking/ticket bị ảnh hưởng thì mở
+   * popup cho Admin xem + xác nhận (kèm tick báo mail); không có gì thì chạy thẳng.
+   * Preview lỗi → không chặn thao tác, chạy thẳng (notify mặc định true ở server).
+   */
+  const previewThenRun = useCallback(
+    async (
+      path: string,
+      method: 'POST' | 'PUT',
+      extra: Record<string, unknown>,
+      patch: Partial<FormState>,
+    ) => {
+      if (!form.id) return;
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/admin/assets/${encodeURIComponent(form.id)}/lifecycle-preview`,
+        );
+        if (res.ok) {
+          const data = (await res.json()) as CascadePreview;
+          if (
+            data.futureCancellations.length > 0 ||
+            data.inUseRecalls.length > 0
+          ) {
+            setNotifyUsers(true);
+            setCascade({ path, method, extra, patch, data });
+            return;
+          }
+        }
+      } catch {
+        // preview hỏng → không chặn; chạy thẳng
+      }
+      void doLifecycle(path, method, extra, patch);
+    },
+    [form.id, doLifecycle],
+  );
+
+  // 2.5: chuyển license sang máy khác / gỡ về "chưa gắn máy" — endpoint riêng
+  const transfer = useCallback(
+    async (target: { id: string; code: string } | null) => {
+      if (!form.id) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/admin/assets/${encodeURIComponent(form.id)}/transfer`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+            },
+            body: JSON.stringify({
+              ...(target ? { targetAssetId: target.id } : {}),
+              version: form.version,
+            }),
+          },
+        );
+        if (res.ok) {
+          const body = (await res.json()) as { version: number };
+          setHostQuery('');
+          setHostOptions([]);
+          setTransferred(true);
+          // chỉ cập nhật version + máy — KHÔNG reload cả form (mất dữ liệu đang gõ, review 2.5)
+          setForm((f) => ({
+            ...f,
+            version: body.version,
+            installedOnAssetId: target?.id ?? '',
+            installedOnCode: target?.code ?? '',
+          }));
+          return;
+        }
+        const body = (await res.json()) as { code?: string; message?: string };
+        if (body.code === 'STALE_VERSION') {
+          setError(t('assets.staleVersion'));
+          setStale(true);
+        } else {
+          setError(body.message ?? t('assets.transferFailed'));
+        }
+      } catch {
+        setError(t('app.serverUnreachable'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [form.id, form.version, me.csrfToken, t],
+  );
+
+  const close = () => onDone(transferred);
+
+  const showLifecycle = !!form.id;
+  const showInstall = form.isSoftware && form.status !== 'disposed';
+
+  return (
+    <div
+      className="modal-backdrop"
+      onClick={close}
+      onKeyDown={(e) => {
+        // Esc đóng modal — trừ khi popup cascade đang mở (nó tự xử lý)
+        if (e.key === 'Escape' && !cascade) close();
+      }}
+    >
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sheet-header">
+          <span className="sheet-title">
+            {form.id ? (
+              <>
+                {t('assets.edit')} · <span className="mono">{initial.code}</span>
+              </>
+            ) : (
+              t('assets.addAsset')
+            )}
+          </span>
+          <span className="spacer" />
+          <button
+            type="button"
+            className="sheet-close"
+            aria-label={t('assets.cancel')}
+            disabled={busy}
+            onClick={close}
+          >
+            ✕
+          </button>
+        </div>
+
+        <form
+          style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          <div className="sheet-body">
+            {error && (
+              <p className="alert error">
+                {error}{' '}
+                {stale && (
+                  <button type="button" className="sm" onClick={() => void reload()}>
+                    {t('assets.reload')}
+                  </button>
+                )}
+              </p>
+            )}
+
+            {!form.id && (
+              // chọn bản chất bản ghi khi TẠO — sửa không đổi được (TYPE_SOFTWARE_IMMUTABLE)
+              <div className="segmented" style={{ marginBottom: '1rem' }}>
+                <label>
+                  <input
+                    type="radio"
+                    name="kind"
+                    checked={!form.isSoftware}
+                    onChange={() =>
+                      setForm((f) => ({
+                        ...f,
+                        isSoftware: false,
+                        licenseType: '',
+                        licenseName: '',
+                        installedOnAssetId: '',
+                        installedOnCode: '',
+                      }))
+                    }
+                  />
+                  {t('assets.kindDevice')}
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="kind"
+                    checked={form.isSoftware}
+                    onChange={() => setForm((f) => ({ ...f, isSoftware: true }))}
+                  />
+                  {t('assets.kindSoftware')}
+                </label>
+              </div>
+            )}
+
+            <div className="form-section">
+              <div className="form-section-title">{t('assets.sectionGeneral')}</div>
+              <div className="form-grid">
+                <label className="field">
+                  <span>
+                    {t('assets.code')} <span className="field-req">*</span>
+                  </span>
+                  <input
+                    required
+                    maxLength={100}
+                    value={form.code}
+                    onChange={(e) => set('code')(e.target.value)}
+                  />
+                </label>
+                {!form.isSoftware && (
+                  <label className="field">
+                    <span>
+                      {t('assets.type')} <span className="field-req">*</span>
+                    </span>
+                    <input
+                      required
+                      maxLength={100}
+                      value={form.type}
+                      onChange={(e) => set('type')(e.target.value)}
+                    />
+                  </label>
+                )}
+                {form.isSoftware && (
+                  <label className="field">
+                    <span>
+                      {t('assets.licenseType')} <span className="field-req">*</span>
+                    </span>
+                    <select
+                      required
+                      value={form.licenseType}
+                      onChange={(e) => set('licenseType')(e.target.value)}
+                    >
+                      <option value="">—</option>
+                      <option value="term">{t('assets.licenseTerm')}</option>
+                      <option value="perpetual">
+                        {t('assets.licensePerpetual')}
+                      </option>
+                    </select>
+                  </label>
+                )}
+                {form.isSoftware && form.licenseType && (
+                  <label className="field">
+                    <span>
+                      {t('assets.licenseName')}
+                      {form.licenseType === 'perpetual' && (
+                        <span className="field-req"> *</span>
+                      )}
+                    </span>
+                    <input
+                      required={form.licenseType === 'perpetual'}
+                      maxLength={200}
+                      value={form.licenseName}
+                      onChange={(e) => set('licenseName')(e.target.value)}
+                    />
+                  </label>
+                )}
+                <label className="field span-2">
+                  <span>{t('assets.configuration')}</span>
+                  <input
+                    maxLength={2000}
+                    value={form.configuration}
+                    onChange={(e) => set('configuration')(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>{t('assets.cost')}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={form.cost}
+                    onChange={(e) => set('cost')(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>{t('assets.startDate')}</span>
+                  <input
+                    type="date"
+                    value={form.startDate}
+                    onChange={(e) => set('startDate')(e.target.value)}
+                  />
+                </label>
+                {!(form.isSoftware && form.licenseType === 'perpetual') && (
+                  <label className="field">
+                    <span>
+                      {t('assets.endDate')}
+                      {form.isSoftware && form.licenseType === 'term' && (
+                        <span className="field-req"> *</span>
+                      )}
+                    </span>
+                    <input
+                      type="date"
+                      required={form.isSoftware && form.licenseType === 'term'}
+                      value={form.endDate}
+                      onChange={(e) => set('endDate')(e.target.value)}
+                    />
+                  </label>
+                )}
+                <label className="field">
+                  <span>{t('assets.floor')}</span>
+                  <input
+                    maxLength={50}
+                    value={form.floor}
+                    onChange={(e) => set('floor')(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>{t('assets.statusLabel')}</span>
+                  {/* Chỉ hiển thị (AC 1) — khóa/gỡ pool/thanh lý là nghiệp vụ 2.6 */}
+                  <input disabled value={t(`assets.status.${form.status}`)} />
+                </label>
+                <label className="field">
+                  <span>{t('assets.serial')}</span>
+                  <input
+                    maxLength={200}
+                    value={form.serial}
+                    onChange={(e) => set('serial')(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>{t('assets.brand')}</span>
+                  <input
+                    maxLength={200}
+                    value={form.brand}
+                    onChange={(e) => set('brand')(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>{t('assets.model')}</span>
+                  <input
+                    maxLength={200}
+                    value={form.model}
+                    onChange={(e) => set('model')(e.target.value)}
+                  />
+                </label>
+                <label className="field span-2">
+                  <span>{t('assets.note')}</span>
+                  <input
+                    maxLength={2000}
+                    value={form.note}
+                    onChange={(e) => set('note')(e.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {showLifecycle && (
+              // 2.6: vòng đời — 3 thao tác tách bạch, không đi qua nút Lưu
+              <div className="form-section">
+                <div className="form-section-title">{t('assets.lifecycle')}</div>
+                {form.status === 'disposed' ? (
+                  <p className="muted">{t('assets.disposedTerminal')}</p>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {!form.isSoftware && form.status === 'in_use' && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setShowLockForm((v) => !v)}
+                      >
+                        {t('assets.lockAction')}
+                      </button>
+                    )}
+                    {!form.isSoftware && form.status === 'locked_repair' && (
+                      <button
+                        type="button"
+                        className="primary"
+                        disabled={busy}
+                        onClick={() =>
+                          void doLifecycle('unlock', 'POST', {}, { status: 'in_use' })
+                        }
+                      >
+                        {t('assets.unlockAction')}
+                      </button>
+                    )}
+                    {!form.isSoftware && form.status === 'in_use' && (
+                      // pool toggle CHỈ khi in_use — đụng pool lúc đang khóa phá
+                      // invariant "mở khóa → pool như trước" (review 2.6)
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          const next = !form.isPool;
+                          // Gỡ pool (next=false) → cascade → preview+popup; bật pool → chạy thẳng
+                          const run = next ? doLifecycle : previewThenRun;
+                          void run('pool', 'PUT', { isPool: next }, { isPool: next });
+                        }}
+                      >
+                        {form.isPool ? t('assets.poolOff') : t('assets.poolOn')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={busy}
+                      onClick={() => {
+                        // Thanh lý không đảo ngược → giữ window.confirm (AC2); rồi preview+popup
+                        if (window.confirm(t('assets.disposeConfirm'))) {
+                          void previewThenRun(
+                            'dispose',
+                            'POST',
+                            {},
+                            {
+                              status: 'disposed',
+                              installedOnAssetId: '',
+                              installedOnCode: '',
+                            },
+                          );
+                        }
+                      }}
+                    >
+                      {t('assets.disposeAction')}
+                    </button>
+                  </div>
+                )}
+                {showLockForm && form.status === 'in_use' && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      flexWrap: 'wrap',
+                      alignItems: 'flex-end',
+                      marginTop: '0.75rem',
+                    }}
+                  >
+                    <label className="field">
+                      <span>
+                        {t('assets.lockReason')} <span className="field-req">*</span>
+                      </span>
+                      <input
+                        maxLength={500}
+                        value={lockReason}
+                        onChange={(e) => setLockReason(e.target.value)}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>{t('assets.lockEta')}</span>
+                      <input
+                        type="date"
+                        value={lockEta}
+                        onChange={(e) => setLockEta(e.target.value)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={busy || !lockReason.trim()}
+                      onClick={() =>
+                        void previewThenRun(
+                          'lock',
+                          'POST',
+                          {
+                            reason: lockReason.trim(),
+                            ...(lockEta ? { eta: lockEta } : {}),
+                          },
+                          { status: 'locked_repair' },
+                        )
+                      }
+                    >
+                      {t('assets.confirmLock')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="form-section">
+              <div className="form-section-title">{t('assets.assignee')}</div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  marginBottom: '0.6rem',
+                  flexWrap: 'wrap',
+                }}
+              >
+                {form.assignedUserSub ? (
+                  <span className="chip">
+                    {form.assignedUserName || form.assignedUserSub}
+                    <button
+                      type="button"
+                      aria-label={t('assets.cancel')}
+                      onClick={() => {
+                        set('assignedUserSub')('');
+                        set('assignedUserName')('');
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ) : (
+                  <span className="muted">{t('assets.assigneeEmpty')}</span>
+                )}
+              </div>
+              <Combobox
+                placeholder={t('assets.assigneeSearch')}
+                query={userQuery}
+                onQuery={setUserQuery}
+                options={userOptions}
+                getKey={(u) => u.sub}
+                renderOption={(u) => (
+                  <>
+                    <span>{u.fullName ?? u.sub}</span>
+                    {u.email && <small>{u.email}</small>}
+                  </>
+                )}
+                onSelect={(u) => {
+                  setForm((f) => ({
+                    ...f,
+                    assignedUserSub: u.sub,
+                    assignedUserName: u.fullName ?? u.sub,
+                  }));
+                  setUserQuery('');
+                  setUserOptions([]);
+                }}
+              />
+              {form.id && (
+                <label className="field" style={{ marginTop: '0.75rem' }}>
+                  <span>{t('assets.allocationNote')}</span>
+                  <input
+                    maxLength={500}
+                    placeholder={t('assets.allocationNotePlaceholder')}
+                    value={allocationNote}
+                    onChange={(e) => setAllocationNote(e.target.value)}
+                  />
+                </label>
+              )}
+            </div>
+
+            {/* software disposed: TERMINAL — không gắn/chuyển được nữa (review 2.6) */}
+            {showInstall && (
+              <div className="form-section">
+                <div className="form-section-title">{t('assets.installedOn')}</div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    marginBottom: '0.6rem',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {form.installedOnAssetId ? (
+                    <span className="chip">
+                      {form.installedOnCode || form.installedOnAssetId}
+                      {!form.id && (
+                        <button
+                          type="button"
+                          aria-label={t('assets.cancel')}
+                          onClick={() =>
+                            setForm((f) => ({
+                              ...f,
+                              installedOnAssetId: '',
+                              installedOnCode: '',
+                            }))
+                          }
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="muted">{t('assets.installedNone')}</span>
+                  )}
+                  {form.id && form.installedOnAssetId && (
+                    // 2.5: gỡ về "chưa gắn máy" — thao tác thật, có audit
+                    <button
+                      type="button"
+                      className="sm"
+                      disabled={busy}
+                      onClick={() => void transfer(null)}
+                    >
+                      {t('assets.detach')}
+                    </button>
+                  )}
+                </div>
+                <Combobox
+                  placeholder={
+                    form.id
+                      ? t('assets.transferToSearch')
+                      : t('assets.installedOnSearch')
+                  }
+                  query={hostQuery}
+                  onQuery={setHostQuery}
+                  options={hostOptions}
+                  disabled={busy}
+                  getKey={(a) => a.id}
+                  renderOption={(a) => (
+                    <>
+                      <span>{a.code}</span>
+                      <small>{a.type}</small>
+                    </>
+                  )}
+                  onSelect={(a) => {
+                    if (form.id) {
+                      // sửa: chuyển NGAY qua endpoint transfer (2.5)
+                      void transfer({ id: a.id, code: a.code });
+                      return;
+                    }
+                    setForm((f) => ({
+                      ...f,
+                      installedOnAssetId: a.id,
+                      installedOnCode: a.code,
+                    }));
+                    setHostQuery('');
+                    setHostOptions([]);
+                  }}
+                />
+              </div>
+            )}
+
+            {form.id && !form.isSoftware && installedSoftware.length > 0 && (
+              <div className="form-section">
+                <div className="form-section-title">
+                  {t('assets.installedSoftware')}
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                  {installedSoftware.map((s) => (
+                    <li key={s.id}>
+                      {s.code}
+                      {s.licenseType === 'perpetual'
+                        ? ` — ${s.licenseName ?? ''} (${t('assets.licensePerpetual')})`
+                        : s.endDate
+                          ? ` — ${t('assets.endDate')}: ${s.endDate}`
+                          : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {form.id && allocations.length > 0 && (
+              <div className="form-section">
+                <div className="form-section-title">
+                  {t('assets.allocationHistory')}
+                </div>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>{t('assets.allocDate')}</th>
+                        <th>{t('assets.allocFrom')}</th>
+                        <th>{t('assets.allocTo')}</th>
+                        <th>{t('assets.allocActor')}</th>
+                        <th>{t('assets.note')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allocations.map((h) => (
+                        <tr key={h.id}>
+                          <td>
+                            {/* theo ngôn ngữ UI đang chọn, không phải locale browser (review 2.3) */}
+                            {new Date(h.createdAt).toLocaleString(
+                              i18n.language === 'en' ? 'en-GB' : 'vi-VN',
+                            )}
+                          </td>
+                          <td>
+                            {h.fromUserSub
+                              ? (h.fromUserName ?? h.fromUserSub)
+                              : t('assets.stock')}
+                          </td>
+                          <td>
+                            {h.toUserSub
+                              ? (h.toUserName ?? h.toUserSub)
+                              : t('assets.stock')}
+                          </td>
+                          <td>{h.actorName ?? h.actor}</td>
+                          <td>{h.note}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="sheet-footer">
+            <span className="spacer" />
+            <button type="button" disabled={busy} onClick={close}>
+              {t('assets.cancel')}
+            </button>
+            {/* disposed = hồ sơ đã chốt (F2) — server cũng chặn 409 DISPOSED_TERMINAL */}
+            <button
+              type="submit"
+              className="primary"
+              disabled={busy || (!!form.id && form.status === 'disposed')}
+            >
+              {busy && <span className="spinner" style={{ marginRight: 6 }} />}
+              {t('assets.save')}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* 3.13: popup xác nhận cascade — danh sách bị ảnh hưởng + cờ báo mail. Nằm TRÊN sheet. */}
+      {cascade && (
+        <div
+          className="modal-backdrop stacked"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCascade(null);
+          }}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ marginBottom: '0.75rem' }}>{t('cascade.title')}</h2>
+
+            {cascade.data.futureCancellations.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ marginBottom: '0.4rem' }}>
+                  {t('cascade.willCancel', {
+                    n: cascade.data.futureCancellations.length,
+                  })}
+                </h3>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>{t('cascade.colBorrower')}</th>
+                        <th>{t('cascade.colTime')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cascade.data.futureCancellations.map((r) => (
+                        // key kèm from: ticket recurring (Epic 4) có nhiều booking/máy → tránh trùng key
+                        <tr key={`${r.ticketId}-${r.from ?? ''}`}>
+                          <td>{r.borrowerName ?? '—'}</td>
+                          <td>
+                            {fmtDateTime(r.from)} → {fmtDateTime(r.to)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {cascade.data.inUseRecalls.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ marginBottom: '0.4rem' }}>
+                  {t('cascade.willRecall', {
+                    n: cascade.data.inUseRecalls.length,
+                  })}
+                </h3>
+                <p
+                  className="muted"
+                  style={{ margin: '0 0 0.4rem', fontSize: '0.85rem' }}
+                >
+                  {t('cascade.recallHint')}
+                </p>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>{t('cascade.colBorrower')}</th>
+                        <th>{t('cascade.colTime')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cascade.data.inUseRecalls.map((r) => (
+                        <tr key={`${r.ticketId}-${r.from ?? ''}`}>
+                          <td>{r.borrowerName ?? '—'}</td>
+                          <td>
+                            {fmtDateTime(r.from)} → {fmtDateTime(r.to)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <label
+              style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+                margin: '0.75rem 0 1.25rem',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={notifyUsers}
+                onChange={(e) => setNotifyUsers(e.target.checked)}
+                style={{ width: 'auto' }}
+              />
+              {t('cascade.notify')}
+            </label>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setCascade(null)}>
+                {t('cascade.cancel')}
+              </button>
+              <button
+                type="button"
+                className="danger"
+                disabled={busy}
+                onClick={() => {
+                  const c = cascade;
+                  setCascade(null);
+                  void doLifecycle(
+                    c.path,
+                    c.method,
+                    { ...c.extra, notify: notifyUsers },
+                    c.patch,
+                  );
+                }}
+              >
+                {t('cascade.confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -283,7 +283,10 @@ export class UsersService {
    * Cập nhật trạng thái user từ webhook PMH ID (5.5, AC2). `sub` chưa tồn tại → UPDATE 0 dòng,
    * no-op an toàn (chờ sync/login). Scan offboarding derive từ status này.
    */
-  async setStatus(sub: string, status: 'active' | 'locked' | 'deleted'): Promise<void> {
+  async setStatus(
+    sub: string,
+    status: 'active' | 'locked' | 'deleted',
+  ): Promise<void> {
     await this.db
       .update(usersTable)
       .set({ status, updatedAt: new Date() })

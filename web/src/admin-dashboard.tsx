@@ -113,13 +113,7 @@ export function AdminDashboard() {
       <div className="page-header">
         <h1>{t('dashboard.title')}</h1>
       </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-          gap: '1rem',
-        }}
-      >
+      <div className="stat-grid">
         {cards.map((c) => {
           const isDanger = c.danger && (c.count ?? 0) > 0;
           return (
@@ -127,41 +121,12 @@ export function AdminDashboard() {
               key={c.key}
               type="button"
               onClick={() => navigate(c.to)}
-              className="card"
-              style={{
-                textAlign: 'left',
-                padding: '1.1rem 1.25rem',
-                background: 'var(--surface)',
-                color: 'inherit',
-                cursor: 'pointer',
-                borderColor: isDanger ? 'var(--danger)' : undefined,
-              }}
+              className={isDanger ? 'stat-card critical' : 'stat-card'}
             >
-              <div
-                style={{
-                  fontSize: '1.9rem',
-                  fontWeight: 680,
-                  lineHeight: 1.1,
-                  color: isDanger
-                    ? 'var(--danger)'
-                    : c.count === 0
-                      ? 'var(--ink-3)'
-                      : 'var(--ink)',
-                }}
-              >
+              <div className={`stat-num${c.count === 0 ? ' zero' : ''}`}>
                 {c.count ?? '…'}
               </div>
-              <div
-                className="muted"
-                style={{
-                  marginTop: '0.35rem',
-                  fontSize: '0.85rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.03em',
-                }}
-              >
-                {t(`dashboard.${c.key}`)}
-              </div>
+              <div className="stat-label">{t(`dashboard.${c.key}`)}</div>
             </button>
           );
         })}

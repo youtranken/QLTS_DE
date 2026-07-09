@@ -311,6 +311,7 @@ export default {
   assets: {
     addAsset: 'Thêm tài sản',
     editTitle: 'Sửa tài sản {{code}}',
+    sectionGeneral: 'Thông tin chung',
     code: 'Mã tài sản',
     type: 'Loại',
     configuration: 'Cấu hình',
