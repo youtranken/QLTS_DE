@@ -358,7 +358,14 @@ export function BookingSheet({
             )
           ) : (
             <>
-              <div className="form-grid" style={{ marginBottom: '0.75rem' }}>
+              <div
+                className="form-grid"
+                style={{
+                  marginBottom: '0.75rem',
+                  // Ép 2 cột → mỗi hàng một cặp: Nhận (Ngày|Giờ), Trả (Ngày|Giờ)
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                }}
+              >
                 <label className="field">
                   <span>{t('bookingSheet.pickupDate')}</span>
                   <input
