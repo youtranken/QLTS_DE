@@ -15,6 +15,7 @@ import { ApprovalQueuePage } from './approval-queue';
 import { NotificationsFailedPage } from './notifications-failed';
 import { OffboardingQueuePage } from './offboarding-queue';
 import { ReportsPage } from './reports';
+import { AuditLogPage } from './audit-log';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
@@ -193,10 +194,14 @@ function navGroups(role: string): NavGroup[] {
         { to: '/bao-cao', key: 'nav.reports' },
       ],
     });
-    // Hệ thống — Quản trị (SA đầy đủ; Admin chỉ phần quyền per-user, server enforce)
+    // Hệ thống — Quản trị (SA đầy đủ; Admin chỉ phần quyền per-user, server enforce).
+    // Audit log + Cấu hình CHỈ SA (6.2/6.3) — server @Roles('sa') enforce độc lập.
     groups.push({
       label: 'nav.groupSystem',
-      items: [{ to: '/quan-tri', key: 'nav.admin' }],
+      items: [
+        { to: '/quan-tri', key: 'nav.admin' },
+        ...(role === 'sa' ? [{ to: '/quan-tri/audit', key: 'nav.audit' }] : []),
+      ],
     });
   }
   return groups;
@@ -343,6 +348,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
                   <AdminPage me={me} />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/quan-tri/audit"
+              element={
+                <RequireRole me={me} roles={['sa']}>
+                  <AuditLogPage />
                 </RequireRole>
               }
             />
