@@ -18,6 +18,7 @@ import { ReportsPage } from './reports';
 import { AuditLogPage } from './audit-log';
 import { ConfigPage } from './config-page';
 import { CatalogPage } from './catalog-page';
+import { PoolPage } from './pool-page';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
@@ -192,6 +193,7 @@ function navGroups(role: string): NavGroup[] {
       label: 'nav.groupAssets',
       items: [
         { to: '/tai-san', key: 'nav.assets' },
+        { to: '/pool-may-muon', key: 'nav.pool' },
         { to: '/tai-san/kiem-ke', key: 'nav.inventory' },
         { to: '/bao-cao', key: 'nav.reports' },
       ],
@@ -356,6 +358,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
                   <AdminPage me={me} />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/pool-may-muon"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <PoolPage me={me} />
                 </RequireRole>
               }
             />

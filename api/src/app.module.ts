@@ -20,6 +20,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportsModule } from './modules/reports/reports.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { PoolModule } from './modules/pool/pool.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
     ReportsModule,
     DepartmentsModule,
     CatalogModule,
+    PoolModule,
   ],
   controllers: [HealthController],
   // Đăng ký SAU AuthModule (imports xử lý trước providers) → chạy sau IdentityGuard,
