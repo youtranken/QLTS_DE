@@ -8,10 +8,10 @@ import {
   Routes,
 } from 'react-router-dom';
 import { AssetDetailPage, AssetsPage } from './assets';
-import { BookingPage, InUseNowPanel } from './booking';
+import { InUseNowPanel } from './booking';
+import { BorrowBoardPage } from './borrow-board';
 import { MachineCalendarPage } from './machine-calendar';
 import { ApprovalQueuePage } from './approval-queue';
-import { AdminDashboard } from './admin-dashboard';
 import { NotificationsFailedPage } from './notifications-failed';
 import { OffboardingQueuePage } from './offboarding-queue';
 import { ReportsPage } from './reports';
@@ -206,11 +206,13 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const { t } = useTranslation();
   const narrow = useIsNarrow();
   const [menuOpen, setMenuOpen] = useState(false);
-  const showSidebar = !narrow || menuOpen;
+  // 7.5: member KHÔNG sidebar (board full màn + nút Đặt máy ở topbar). Chỉ admin/sa có sidebar.
+  const isAdmin = me.role === 'admin' || me.role === 'sa';
+  const showSidebar = isAdmin && (!narrow || menuOpen);
 
   return (
     <div className="app-shell">
-      {narrow && menuOpen && (
+      {narrow && menuOpen && isAdmin && (
         // Backdrop: bấm ngoài menu để đóng (nút hamburger bị nav che khi mở)
         <div
           onClick={() => setMenuOpen(false)}
@@ -256,7 +258,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
       )}
       <div className="content">
         <header className="topbar">
-          {narrow && (
+          {narrow && isAdmin && (
             <button
               type="button"
               className="ghost"
@@ -276,17 +278,8 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
         </header>
         <main className="page">
           <Routes>
-            {/* Landing theo vai (3.12, NFR-2): admin/sa → dashboard tác vụ; member → đặt máy. */}
-            <Route
-              path="/"
-              element={
-                me.role === 'admin' || me.role === 'sa' ? (
-                  <AdminDashboard />
-                ) : (
-                  <BookingPage me={me} />
-                )
-              }
-            />
+            {/* Landing 7.5: borrow board cho MỌI vai (thay dashboard/đặt-máy cũ ở '/'). */}
+            <Route path="/" element={<BorrowBoardPage me={me} />} />
             <Route path="/lich-may/:id" element={<MachineCalendarPage />} />
             {/* Máy đang mượn — mục sidebar riêng (tách khỏi trang đặt máy). Member + admin. */}
             <Route

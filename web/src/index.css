@@ -1004,3 +1004,25 @@ input.search {
     transition: none !important;
   }
 }
+
+/* 7.5 Borrow board */
+.board-table tr.row-overdue > td {
+  background: var(--danger-soft);
+}
+.board-table tr.row-overdue .mono {
+  color: var(--danger);
+}
+.text-danger {
+  color: var(--danger);
+}
+.board-table tr.row-flash > td {
+  animation: rowFlash 2.5s ease-out;
+}
+@keyframes rowFlash {
+  0% {
+    background: #fff8d6;
+  }
+  100% {
+    background: transparent;
+  }
+}

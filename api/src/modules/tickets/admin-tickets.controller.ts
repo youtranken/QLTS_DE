@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsIn,
   IsInt,
@@ -23,6 +25,7 @@ import {
   Matches,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -123,6 +126,37 @@ class CreateForDto {
   photoIds?: string[];
 
   /** Phòng ban (7.2) — lưu vào booking.department_id (validate active trong service). */
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+}
+
+class RecurringForSessionDto {
+  @IsISO8601({ strict: true })
+  @Matches(HAS_OFFSET, { message: 'from phải là ISO-8601 có offset' })
+  from!: string;
+
+  @IsISO8601({ strict: true })
+  @Matches(HAS_OFFSET, { message: 'to phải là ISO-8601 có offset' })
+  to!: string;
+}
+
+/** Admin đặt chuỗi định kỳ HỘ member (7.5) — bỏ quota/quyền, vẫn all-or-nothing. */
+class RecurringForDto {
+  @IsString()
+  @Length(1, 255)
+  borrowerSub!: string;
+
+  @IsUUID()
+  assetId!: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => RecurringForSessionDto)
+  sessions!: RecurringForSessionDto[];
+
   @IsOptional()
   @IsUUID()
   departmentId?: string;
@@ -357,6 +391,19 @@ export class AdminTicketsController {
         departmentId: body.departmentId ?? null,
       },
       requireSub(req),
+    );
+  }
+
+  /** Admin đặt chuỗi định kỳ hộ member (7.5) — bỏ quota/quyền, coi như đã duyệt. */
+  @Post('recurring-for')
+  @HttpCode(201)
+  recurringFor(@Body() body: RecurringForDto, @Req() req: AuthedRequest) {
+    return this.recurring.createRecurringForMember(
+      body.assetId,
+      body.sessions,
+      body.borrowerSub,
+      requireSub(req),
+      body.departmentId ?? null,
     );
   }
 

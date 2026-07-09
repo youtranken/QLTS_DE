@@ -105,18 +105,17 @@ export class RecurringService {
     }));
   }
 
-  async submitRecurring(
-    assetId: string,
-    sessions: RecurringSession[],
-    borrowerSub: string,
-  ): Promise<{ ticketId: string; count: number }> {
+  /**
+   * Validate buổi app-level (dùng chung submitRecurring + createRecurringForMember):
+   * cùng ngày VN, 1 buổi/tuần, ≤30 ngày, buổi đầu tương lai + trong window. Throw chỉ rõ index.
+   */
+  private async validateSessions(sessions: RecurringSession[]): Promise<void> {
     if (sessions.length === 0) {
       throw new BadRequestException({
         code: 'RECUR_EMPTY',
         message: 'Chuỗi phải có ít nhất một buổi.',
       });
     }
-    // Validate app-level (trước tx) — chỉ rõ buổi lỗi qua index.
     const weeks = new Set<string>();
     sessions.forEach((s, i) => {
       const fromMs = new Date(s.from).getTime();
@@ -170,6 +169,14 @@ export class RecurringService {
         message: `Buổi đầu chỉ được đặt trong ${windowDays} ngày tới.`,
       });
     }
+  }
+
+  async submitRecurring(
+    assetId: string,
+    sessions: RecurringSession[],
+    borrowerSub: string,
+  ): Promise<{ ticketId: string; count: number }> {
+    await this.validateSessions(sessions);
     const quota = await this.config.getActiveTicketQuota();
 
     try {
@@ -231,6 +238,100 @@ export class RecurringService {
         });
         // 5.2: chuỗi định kỳ LUÔN cần duyệt → mail nhóm Admin ngay (cùng tx, AD-11).
         await this.outbox.enqueueWithin(tx, 'approval_requested', { ticketId });
+        return { ticketId, count: sessions.length };
+      });
+    } catch (error) {
+      const stuck = (error as { stuckSession?: number }).stuckSession;
+      const mapped = mapBookingPgError(error);
+      if (
+        stuck !== undefined &&
+        mapped instanceof ConflictException &&
+        (mapped.getResponse() as { code?: string }).code === 'SLOT_TAKEN'
+      ) {
+        throw new ConflictException({
+          code: 'SLOT_TAKEN',
+          message: `Buổi ${stuck + 1} trùng lịch máy — chọn giờ khác cho buổi này.`,
+          stuckSession: stuck,
+        });
+      }
+      throw mapped;
+    }
+  }
+
+  /**
+   * Admin đặt chuỗi định kỳ HỘ member (7.5) — BỎ QUA quyền can_recurring + quota (như FR-12
+   * create-for), VẪN validate buổi + EXCLUDE all-or-nothing (AD-3). Coi như ĐÃ DUYỆT:
+   * ticket 'awaiting_pickup' + mỗi buổi 'pending' (khác submit: pending_approval/held) — KHÔNG mail duyệt.
+   * borrower phải là member ≠ actor. department (nếu gửi) validate active trong tx.
+   */
+  async createRecurringForMember(
+    assetId: string,
+    sessions: RecurringSession[],
+    borrowerSub: string,
+    actorSub: string,
+    departmentId?: string | null,
+  ): Promise<{ ticketId: string; count: number }> {
+    if (borrowerSub === actorSub) {
+      throw new ForbiddenException({
+        code: 'SELF_CREATE_FORBIDDEN',
+        message: 'Admin không tạo hộ cho chính mình (không đi luồng mượn).',
+      });
+    }
+    await this.validateSessions(sessions);
+    try {
+      return await this.db.transaction(async (tx) => {
+        const u = await tx.execute<{ role: string }>(sql`
+          SELECT role FROM users WHERE sub = ${borrowerSub}
+        `);
+        if (u.rows.length === 0) {
+          throw new NotFoundException({
+            code: 'USER_NOT_FOUND',
+            message: 'Không tìm thấy người mượn.',
+          });
+        }
+        if (u.rows[0].role !== 'member') {
+          throw new ForbiddenException({
+            code: 'BORROWER_NOT_MEMBER',
+            message: 'Chỉ tạo hộ cho member (Admin/SA không đi luồng mượn).',
+          });
+        }
+        if (departmentId) {
+          const d = await tx.execute<{ active: boolean }>(sql`
+            SELECT active FROM department WHERE id = ${departmentId}
+          `);
+          if (d.rows.length === 0 || !d.rows[0].active) {
+            throw new BadRequestException({
+              code: 'DEPARTMENT_INVALID',
+              message: 'Phòng ban không hợp lệ.',
+            });
+          }
+        }
+        const ticketRows = await tx.execute<{ id: string }>(sql`
+          INSERT INTO ticket (kind, state, borrower_sub, created_by_sub)
+          VALUES ('recurring', 'awaiting_pickup', ${borrowerSub}, ${actorSub})
+          RETURNING id
+        `);
+        const ticketId = ticketRows.rows[0].id;
+        for (let i = 0; i < sessions.length; i++) {
+          try {
+            await tx.execute(sql`
+              INSERT INTO booking (ticket_id, asset_id, kind, state, period, department_id)
+              VALUES (${ticketId}, ${assetId}, 'recurring', 'pending',
+                tstzrange(${sessions[i].from}, ${sessions[i].to}, '[)'),
+                ${departmentId ?? null})
+            `);
+          } catch (e) {
+            (e as { stuckSession?: number }).stuckSession = i;
+            throw e;
+          }
+        }
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'tickets.create_recurring_for',
+          objectType: 'ticket',
+          objectId: ticketId,
+          detail: { borrower: borrowerSub, assetId, count: sessions.length },
+        });
         return { ticketId, count: sessions.length };
       });
     } catch (error) {
