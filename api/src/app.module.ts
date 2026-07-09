@@ -18,6 +18,7 @@ import { OutboxModule } from './modules/outbox/outbox.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { DepartmentsModule } from './modules/departments/departments.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     QueueModule,
     NotificationsModule,
     ReportsModule,
+    DepartmentsModule,
   ],
   controllers: [HealthController],
   // Đăng ký SAU AuthModule (imports xử lý trước providers) → chạy sau IdentityGuard,

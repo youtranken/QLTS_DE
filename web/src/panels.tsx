@@ -264,3 +264,215 @@ export function RolesPanel({
     </section>
   );
 }
+
+interface DepartmentRow {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+/** Danh mục Phòng ban (story 7.1) — Admin/SA. Thêm / đổi tên / bật-tắt (soft, không xóa). */
+export function DepartmentsPanel({ csrfToken }: { csrfToken: string | null }) {
+  const { t } = useTranslation();
+  const [rows, setRows] = useState<DepartmentRow[]>([]);
+  const [newName, setNewName] = useState('');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/departments?page=1&pageSize=100');
+      if (res.status === 401) {
+        window.location.href = '/';
+        return;
+      }
+      const body = (await res.json()) as {
+        items?: DepartmentRow[];
+        message?: string;
+      };
+      if (res.ok && Array.isArray(body.items)) {
+        setRows(body.items);
+      } else {
+        setError(body.message ?? t('departments.loadFailed'));
+      }
+    } catch {
+      setError(t('app.serverUnreachable'));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const send = useCallback(
+    async (url: string, method: 'POST' | 'PUT', payload: unknown) => {
+      setError(null);
+      setBusy(true);
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          await load();
+          return true;
+        }
+        const body = (await res.json()) as { message?: string };
+        setError(body.message ?? t('departments.saveFailed'));
+        return false;
+      } catch {
+        setError(t('app.serverUnreachable'));
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [csrfToken, load, t],
+  );
+
+  const add = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    if (await send('/api/admin/departments', 'POST', { name })) setNewName('');
+  };
+
+  const rename = async (id: string) => {
+    const name = editName.trim();
+    if (!name) return;
+    if (
+      await send(`/api/admin/departments/${encodeURIComponent(id)}`, 'PUT', {
+        name,
+      })
+    ) {
+      setEditId(null);
+      setEditName('');
+    }
+  };
+
+  const toggleActive = (d: DepartmentRow) =>
+    send(`/api/admin/departments/${encodeURIComponent(d.id)}`, 'PUT', {
+      active: !d.active,
+    });
+
+  return (
+    <section className="section-gap">
+      <h2>{t('departments.title')}</h2>
+      <div className="toolbar">
+        <input
+          placeholder={t('departments.namePlaceholder')}
+          value={newName}
+          disabled={busy}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void add();
+          }}
+        />
+        <button
+          type="button"
+          className="primary"
+          disabled={busy || !newName.trim()}
+          onClick={() => void add()}
+        >
+          {t('departments.add')}
+        </button>
+      </div>
+      {error && <p className="alert error">{error}</p>}
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>{t('departments.name')}</th>
+              <th>{t('departments.status')}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={3} className="muted">
+                  {t('departments.empty')}
+                </td>
+              </tr>
+            )}
+            {rows.map((d) => (
+              <tr key={d.id}>
+                <td>
+                  {editId === d.id ? (
+                    <input
+                      value={editName}
+                      disabled={busy}
+                      autoFocus
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void rename(d.id);
+                        if (e.key === 'Escape') setEditId(null);
+                      }}
+                    />
+                  ) : (
+                    d.name
+                  )}
+                </td>
+                <td>
+                  <span className={`badge ${d.active ? 'ok' : 'muted'}`}>
+                    {t(d.active ? 'departments.active' : 'departments.disabled')}
+                  </span>
+                </td>
+                <td className="table-actions">
+                  {editId === d.id ? (
+                    <>
+                      <button
+                        type="button"
+                        className="primary sm"
+                        disabled={busy || !editName.trim()}
+                        onClick={() => void rename(d.id)}
+                      >
+                        {t('departments.save')}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost sm"
+                        disabled={busy}
+                        onClick={() => setEditId(null)}
+                      >
+                        {t('departments.cancel')}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="ghost sm"
+                        disabled={busy}
+                        onClick={() => {
+                          setEditId(d.id);
+                          setEditName(d.name);
+                        }}
+                      >
+                        {t('departments.rename')}
+                      </button>
+                      <button
+                        type="button"
+                        className={d.active ? 'danger sm' : 'primary sm'}
+                        disabled={busy}
+                        onClick={() => void toggleActive(d)}
+                      >
+                        {t(d.active ? 'departments.disable' : 'departments.enable')}
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}

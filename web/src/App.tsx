@@ -18,7 +18,7 @@ import { ReportsPage } from './reports';
 import { ImportPage } from './import-page';
 import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
-import { DirectorySyncPanel, RolesPanel } from './panels';
+import { DepartmentsPanel, DirectorySyncPanel, RolesPanel } from './panels';
 import type { Me } from './panels';
 
 type AuthState =
@@ -403,6 +403,7 @@ function AdminPage({ me }: { me: Me }) {
         <DirectorySyncPanel csrfToken={me.csrfToken} />
       )}
       <RolesPanel csrfToken={me.csrfToken} mySub={me.sub} viewerRole={me.role} />
+      <DepartmentsPanel csrfToken={me.csrfToken} />
     </>
   );
 }
