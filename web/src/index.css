@@ -93,14 +93,16 @@ a:hover {
 }
 
 /* --- Animations ----------------------------------------------------------- */
+/* Chỉ fade — KHÔNG transform: .page giữ animation-fill-mode:both nên transform
+   sẽ dính lại vĩnh viễn, biến .page thành containing block cho position:fixed →
+   mọi .modal-backdrop bị giam trong vùng .page thay vì full viewport (popup lệch,
+   header/input bị cắt ở màn rộng). */
 @keyframes pageIn {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 @keyframes rowIn {
