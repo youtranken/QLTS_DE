@@ -58,9 +58,14 @@ export class CatalogService {
   async listByKind(kind: string, activeOnly: boolean): Promise<CatalogItem[]> {
     assertKind(kind);
     const col = ASSET_COLUMN[kind];
-    const where = activeOnly
-      ? and(eq(catalogTable.kind, kind), eq(catalogTable.active, true))
-      : eq(catalogTable.kind, kind);
+    const conds = [eq(catalogTable.kind, kind)];
+    if (activeOnly) conds.push(eq(catalogTable.active, true));
+    // 'software' là loại HỆ THỐNG của phần mềm (đặt tự động) — không phải "Loại thiết bị" admin
+    // chọn/gộp. Ẩn khỏi danh mục Loại (cả dropdown lẫn trang quản trị). Xem loadPair chặn gộp.
+    if (kind === 'type') {
+      conds.push(sql`lower(${catalogTable.value}) <> 'software'`);
+    }
+    const where = and(...conds);
     const rows = await this.db
       .select({
         id: catalogTable.id,
@@ -90,7 +95,10 @@ export class CatalogService {
       });
     }
     // Chặn trùng case-insensitive (đi tới sạch dữ liệu) — seed cũ có thể còn biến thể hoa/thường
-    // để GỘP, nhưng KHÔNG cho tạo MỚI trùng.
+    // để GỘP, nhưng KHÔNG cho tạo MỚI trùng. Không thể ép ở tầng DB bằng UNIQUE(kind,lower(value))
+    // vì index EXACT (kind,value) cố ý cho 'Laptop'/'laptop' cùng tồn tại để gộp. Pre-check này
+    // best-effort (race 2 admin gõ cùng giá trị khác hoa/thường vẫn lọt) — chấp nhận: admin-only,
+    // xác suất cực thấp, và tự chữa được bằng chính chức năng Gộp.
     const dup = await this.db
       .select({ id: catalogTable.id })
       .from(catalogTable)
@@ -184,21 +192,29 @@ export class CatalogService {
         sql`UPDATE assets SET ${sql.raw(col)} = ${to.value}, version = version + 1, updated_at = now() WHERE ${sql.raw(col)} = ${from.value}`,
       );
       await tx.delete(catalogTable).where(eq(catalogTable.id, fromId));
+      // Đích thành giá trị chuẩn → luôn hiện trong dropdown (usage vừa dồn vào đây; nếu nó đang ẩn
+      // thì tài sản sẽ trỏ giá trị không chọn lại được khi tạo mới — review 8.1 M3).
+      await tx
+        .update(catalogTable)
+        .set({ active: true, updatedAt: new Date() })
+        .where(eq(catalogTable.id, toId));
+      // Audit TRONG transaction (merge là thao tác phá hủy — xóa entry nguồn): commit-đổi mà
+      // audit lỗi ngoài tx sẽ để mất vết append-only (AD-10, review 8.1 M5).
+      await this.audit.appendWithin(tx, {
+        actor: actorSub,
+        action: 'catalog.merge',
+        objectType: 'catalog',
+        objectId: toId,
+        detail: {
+          kind: from.kind,
+          from: from.value,
+          to: to.value,
+          assetsUpdated: upd.rowCount ?? 0,
+        },
+      });
       return upd.rowCount ?? 0;
     });
 
-    await this.audit.append({
-      actor: actorSub,
-      action: 'catalog.merge',
-      objectType: 'catalog',
-      objectId: toId,
-      detail: {
-        kind: from.kind,
-        from: from.value,
-        to: to.value,
-        assetsUpdated,
-      },
-    });
     return { assetsUpdated };
   }
 
@@ -230,6 +246,18 @@ export class CatalogService {
       throw new BadRequestException({
         code: 'CATALOG_MERGE_KIND',
         message: 'Chỉ gộp được hai giá trị cùng loại danh mục.',
+      });
+    }
+    // Chặn gộp dính 'software': UPDATE assets.type qua/về 'software' vi phạm CHECK software-fields
+    // (0012) → 23514 rollback → 500 khó hiểu. 'software' vốn đã ẩn khỏi danh mục Loại (listByKind).
+    if (
+      from.kind === 'type' &&
+      (from.value.toLowerCase() === 'software' ||
+        to.value.toLowerCase() === 'software')
+    ) {
+      throw new BadRequestException({
+        code: 'CATALOG_MERGE_SOFTWARE',
+        message: 'Không gộp giá trị loại hệ thống "software".',
       });
     }
     return { from, to };

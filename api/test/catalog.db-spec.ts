@@ -46,17 +46,21 @@ describe('Catalog danh mục (story 8.1)', () => {
     await runMigrations(pool, join(__dirname, '..', 'src', 'migrations'), {
       log: () => undefined,
     });
-    // assets có biến thể trùng hoa/thường + brand → tính usage + gộp
+    // assets có biến thể trùng hoa/thường + brand + 1 software → tính usage + gộp + loại trừ 'software'
     await pool.query(
       `INSERT INTO assets (code, type, brand) VALUES
         ('A1','Laptop','Dell'),
         ('A2','laptop','Dell'),
         ('A3','monitor',NULL)`,
     );
+    await pool.query(
+      `INSERT INTO assets (code, type, license_type, license_name) VALUES
+        ('SW1','software','perpetual','WinX')`,
+    );
     // catalog: seed migration chạy lúc assets rỗng → tự thêm giá trị cho khớp assets trên
     await pool.query(
       `INSERT INTO catalog (kind, value) VALUES
-        ('type','Laptop'),('type','laptop'),('type','monitor'),
+        ('type','Laptop'),('type','laptop'),('type','monitor'),('type','software'),
         ('brand','Dell')`,
     );
     app = await createTestApp();
@@ -77,6 +81,8 @@ describe('Catalog danh mục (story 8.1)', () => {
       ]),
     );
     expect(byValue).toMatchObject({ Laptop: 1, laptop: 1, monitor: 1 });
+    // 'software' là loại hệ thống → KHÔNG lộ trong danh mục Loại (review M1)
+    expect(byValue).not.toHaveProperty('software');
   });
 
   it('AC1 — member → 403', async () => {
@@ -152,5 +158,32 @@ describe('Catalog danh mục (story 8.1)', () => {
     const typeId = await idOf('type', 'Laptop');
     const brandId = await idOf('brand', 'Dell');
     await post('/merge', { from: brandId, to: typeId }).expect(400);
+  });
+
+  it('AC4 — chặn gộp dính loại hệ thống "software" → 400 (không 500)', async () => {
+    const swId = await idOf('type', 'software');
+    const laptopId = await idOf('type', 'Laptop');
+    await post('/merge', { from: swId, to: laptopId }).expect(400);
+    await post('/merge', { from: laptopId, to: swId }).expect(400);
+  });
+
+  it('AC4 — from/to không phải UUID → 400 (không 500)', async () => {
+    await post('/merge', { from: 'abc', to: 'xyz' }).expect(400);
+  });
+
+  it('AC3 — gộp VÀO giá trị đang ẩn → tự bật lại active (review M3)', async () => {
+    // brand: Dell (asset A1,A2) + HP (tạo ở AC2). Ẩn HP rồi gộp Dell→HP → HP phải active lại.
+    const hpId = await idOf('brand', 'HP');
+    await request(app.getHttpServer())
+      .put(`/api/admin/catalog/${hpId}`)
+      .set(asSa)
+      .send({ active: false })
+      .expect(200);
+    const dellId = await idOf('brand', 'Dell');
+    await post('/merge', { from: dellId, to: hpId }).expect(201);
+    const r = await pool.query(
+      "SELECT active FROM catalog WHERE kind='brand' AND value='HP'",
+    );
+    expect(r.rows[0].active).toBe(true);
   });
 });

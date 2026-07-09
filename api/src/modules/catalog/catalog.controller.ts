@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   Put,
   Query,
@@ -15,6 +16,7 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 import { Roles } from '../auth/roles.decorator';
@@ -53,18 +55,18 @@ class SetActiveDto {
 }
 
 class MergeDto {
-  @IsString()
+  @IsUUID()
   from!: string;
 
-  @IsString()
+  @IsUUID()
   to!: string;
 }
 
 class MergePreviewDto {
-  @IsString()
+  @IsUUID()
   from!: string;
 
-  @IsString()
+  @IsUUID()
   to!: string;
 }
 
@@ -96,7 +98,7 @@ export class CatalogAdminController {
 
   @Put(':id')
   setActive(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: SetActiveDto,
     @Req() req: AuthedRequest,
   ) {
