@@ -308,7 +308,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     expect(none.body.items).toEqual([]);
   });
 
-  it('meta trả distinct loại + tầng cho dropdown (story 2.2)', async () => {
+  it('meta trả distinct loại cho dropdown (story 2.2; Tầng gỡ ở 7.6)', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/admin/assets/meta')
       .set(asAdmin())
@@ -316,9 +316,8 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     expect(res.body.types).toEqual(
       expect.arrayContaining(['laptop', 'monitor']),
     );
-    expect(res.body.floors).toEqual(expect.arrayContaining(['3', '5']));
-    // không có null trong floors
-    expect(res.body.floors).not.toContain(null);
+    // 7.6: meta không còn floors
+    expect(res.body.floors).toBeUndefined();
   });
 
   it('lịch sử cấp phát (2.3): seed khi tạo → đổi người → thu hồi; không đổi → không thêm row', async () => {
@@ -999,12 +998,11 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .send({
         code: '=2+5',
         type: 'monitor',
-        floor: '5',
         note: '=HYPERLINK("x")',
       })
       .expect(201);
     const res = await request(app.getHttpServer())
-      .get('/api/admin/assets/export?type=monitor&floor=5')
+      .get('/api/admin/assets/export?type=monitor')
       .set(asAdmin())
       .expect(200)
       .buffer()
@@ -1032,12 +1030,12 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       codes.push(values[0]);
       if (values[0] === "'=2+5") evilRow = values;
     });
-    // đúng các dòng theo bộ lọc type=monitor&floor=5: PAGE-01..05 + máy mới
+    // đúng các dòng theo bộ lọc type=monitor: PAGE-01..05 + máy mới
     expect(codes).toHaveLength(6);
-    expect(codes).not.toContain('3-AA-CT-0042'); // laptop tầng 3 — ngoài bộ lọc
-    // escape NFR-10: cả code lẫn note
+    expect(codes).not.toContain('3-AA-CT-0042'); // laptop — ngoài bộ lọc
+    // escape NFR-10: cả code lẫn note. 7.6 bỏ cột PLACE + MODEL → NOTE dời index 13→11
     expect(evilRow).not.toBeNull();
-    expect(evilRow![13]).toBe(`'=HYPERLINK("x")`);
+    expect(evilRow![11]).toBe(`'=HYPERLINK("x")`);
     // audit FR-43: ai, bộ lọc gì, bao nhiêu dòng
     const audit = await pool.query(
       "SELECT actor, detail FROM audit_log WHERE action = 'assets.export' ORDER BY created_at DESC LIMIT 1",
@@ -1045,7 +1043,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     expect(audit.rows[0].actor).toBe('admin-t');
     expect(audit.rows[0].detail).toMatchObject({
       rowCount: 6,
-      filters: { type: 'monitor', floor: '5', search: null, status: null },
+      filters: { type: 'monitor', search: null, status: null },
     });
   });
 

@@ -4,7 +4,6 @@ export interface AssetRow {
   id: string;
   code: string;
   type: string;
-  floor: string | null;
   status: string;
   isPool: boolean;
   assignedUserSub: string | null;
@@ -21,7 +20,6 @@ export interface AssetDetail extends AssetRow {
   note: string | null;
   serial: string | null;
   brand: string | null;
-  model: string | null;
   licenseType: string | null;
   licenseName: string | null;
   installedOnAssetId: string | null;
@@ -40,11 +38,9 @@ export interface FormState {
   cost: string;
   startDate: string;
   endDate: string;
-  floor: string;
   note: string;
   serial: string;
   brand: string;
-  model: string;
   assignedUserSub: string;
   assignedUserName: string;
   // Software (2.4): isSoftware quyết định type='software' cứng + các trường license
@@ -66,11 +62,9 @@ export const EMPTY_FORM: FormState = {
   cost: '',
   startDate: '',
   endDate: '',
-  floor: '',
   note: '',
   serial: '',
   brand: '',
-  model: '',
   assignedUserSub: '',
   assignedUserName: '',
   isSoftware: false,
@@ -153,11 +147,9 @@ export function detailToForm(a: AssetDetail): FormState {
     cost: a.cost == null ? '' : String(a.cost),
     startDate: a.startDate ?? '',
     endDate: a.endDate ?? '',
-    floor: a.floor ?? '',
     note: a.note ?? '',
     serial: a.serial ?? '',
     brand: a.brand ?? '',
-    model: a.model ?? '',
     assignedUserSub: a.assignedUserSub ?? '',
     assignedUserName: a.assignedUserName ?? '',
     isSoftware: a.type === 'software',

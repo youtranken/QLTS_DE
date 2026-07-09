@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, desc, eq, ilike, isNotNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import * as ExcelJS from 'exceljs';
 import { DRIZZLE_DB } from '../../database/database.module';
@@ -27,11 +27,9 @@ export interface AssetInput {
   cost: number | null;
   startDate: string | null;
   endDate: string | null;
-  floor: string | null;
   note: string | null;
   serial: string | null;
   brand: string | null;
-  model: string | null;
   assignedUserSub: string | null;
   /** Software (2.4): term|perpetual; non-software phải null. */
   licenseType: string | null;
@@ -45,9 +43,9 @@ export interface AssetListQuery {
   search?: string;
   type?: string;
   status?: string;
-  floor?: string;
 }
 
+// 7.6: model/floor gỡ khỏi form/audit (cột DB giữ nullable, không drop — dữ liệu lịch sử).
 const EDITABLE_FIELDS = [
   'code',
   'type',
@@ -55,11 +53,9 @@ const EDITABLE_FIELDS = [
   'cost',
   'start_date',
   'end_date',
-  'floor',
   'note',
   'serial',
   'brand',
-  'model',
   'assigned_user_sub',
   'license_type',
   'license_name',
@@ -120,11 +116,9 @@ export class AssetsService {
             cost: input.cost,
             startDate: input.startDate,
             endDate: input.endDate,
-            floor: input.floor,
             note: input.note,
             serial: input.serial,
             brand: input.brand,
-            model: input.model,
             assignedUserSub: input.assignedUserSub,
             licenseType: input.licenseType,
             licenseName: input.licenseName,
@@ -205,11 +199,9 @@ export class AssetsService {
               cost = ${input.cost},
               start_date = ${input.startDate},
               end_date = ${input.endDate},
-              floor = ${input.floor},
               note = ${input.note},
               serial = ${input.serial},
               brand = ${input.brand},
-              model = ${input.model},
               assigned_user_sub = ${input.assignedUserSub},
               license_type = ${input.licenseType},
               license_name = ${input.licenseName},
@@ -283,7 +275,7 @@ export class AssetsService {
    */
   /** Điều kiện tìm/lọc dùng chung list (2.2) + export (2.10) — MỘT nguồn sự thật. */
   private buildListConditions(
-    query: Pick<AssetListQuery, 'search' | 'type' | 'status' | 'floor'>,
+    query: Pick<AssetListQuery, 'search' | 'type' | 'status'>,
   ) {
     const conditions = [
       query.search
@@ -294,7 +286,6 @@ export class AssetsService {
         : undefined,
       query.type ? eq(assetsTable.type, query.type) : undefined,
       query.status ? eq(assetsTable.status, query.status) : undefined,
-      query.floor ? eq(assetsTable.floor, query.floor) : undefined,
     ].filter((c) => c !== undefined);
     return conditions.length > 0 ? and(...conditions) : undefined;
   }
@@ -312,7 +303,6 @@ export class AssetsService {
           id: assetsTable.id,
           code: assetsTable.code,
           type: assetsTable.type,
-          floor: assetsTable.floor,
           status: assetsTable.status,
           isPool: assetsTable.isPool,
           assignedUserSub: assetsTable.assignedUserSub,
@@ -874,7 +864,7 @@ export class AssetsService {
    * 10000 dòng; escape NFR-10 mọi cell chuỗi (dữ liệu lưu raw — defer 2.9).
    */
   async exportExcel(
-    query: Pick<AssetListQuery, 'search' | 'type' | 'status' | 'floor'>,
+    query: Pick<AssetListQuery, 'search' | 'type' | 'status'>,
     actorSub: string,
   ) {
     const host = alias(assetsTable, 'host');
@@ -888,12 +878,10 @@ export class AssetsService {
         cost: assetsTable.cost,
         startDate: assetsTable.startDate,
         endDate: assetsTable.endDate,
-        floor: assetsTable.floor,
         status: assetsTable.status,
         isPool: assetsTable.isPool,
         serial: assetsTable.serial,
         brand: assetsTable.brand,
-        model: assetsTable.model,
         note: assetsTable.note,
         licenseType: assetsTable.licenseType,
         licenseName: assetsTable.licenseName,
@@ -921,12 +909,10 @@ export class AssetsService {
       'COST',
       'START DATE',
       'END DATE',
-      'PLACE',
       'STATUS',
       'POOL',
       'SERIAL',
       'BRAND',
-      'MODEL',
       'NOTE',
       'LICENSE TYPE',
       'LICENSE NAME',
@@ -943,13 +929,11 @@ export class AssetsService {
         r.cost ?? '',
         r.startDate ?? '',
         r.endDate ?? '',
-        esc(r.floor),
         // enum bị CHECK khóa nhưng vẫn esc — "mọi ô chuỗi" không dựa invariant file khác
         esc(r.status),
         r.isPool ? 'x' : '',
         esc(r.serial),
         esc(r.brand),
-        esc(r.model),
         esc(r.note),
         esc(r.licenseType),
         esc(r.licenseName),
@@ -967,7 +951,6 @@ export class AssetsService {
           search: query.search ?? null,
           type: query.type ?? null,
           status: query.status ?? null,
-          floor: query.floor ?? null,
         },
         rowCount: rows.length,
       },
@@ -978,22 +961,14 @@ export class AssetsService {
     };
   }
 
-  /** Giá trị distinct cho dropdown lọc (story 2.2) — loại + tầng đang có trong sổ. */
+  /** Giá trị distinct cho dropdown lọc (story 2.2) — loại đang có trong sổ (Tầng gỡ ở 7.6). */
   async filterMeta() {
-    const [types, floors] = await Promise.all([
-      this.db
-        .selectDistinct({ v: assetsTable.type })
-        .from(assetsTable)
-        .orderBy(assetsTable.type),
-      this.db
-        .selectDistinct({ v: assetsTable.floor })
-        .from(assetsTable)
-        .where(isNotNull(assetsTable.floor))
-        .orderBy(assetsTable.floor),
-    ]);
+    const types = await this.db
+      .selectDistinct({ v: assetsTable.type })
+      .from(assetsTable)
+      .orderBy(assetsTable.type);
     return {
       types: types.map((r) => r.v),
-      floors: floors.map((r) => r.v),
     };
   }
 
@@ -1008,12 +983,10 @@ export class AssetsService {
         cost: assetsTable.cost,
         startDate: assetsTable.startDate,
         endDate: assetsTable.endDate,
-        floor: assetsTable.floor,
         status: assetsTable.status,
         note: assetsTable.note,
         serial: assetsTable.serial,
         brand: assetsTable.brand,
-        model: assetsTable.model,
         assignedUserSub: assetsTable.assignedUserSub,
         assignedUserName: usersTable.fullName,
         licenseType: assetsTable.licenseType,
@@ -1090,11 +1063,9 @@ export function diffChanged(
     cost: input.cost,
     start_date: input.startDate,
     end_date: input.endDate,
-    floor: input.floor,
     note: input.note,
     serial: input.serial,
     brand: input.brand,
-    model: input.model,
     assigned_user_sub: input.assignedUserSub,
     license_type: input.licenseType,
     license_name: input.licenseName,

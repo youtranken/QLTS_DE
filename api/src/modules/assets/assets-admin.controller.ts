@@ -77,11 +77,6 @@ class AssetBodyDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(50)
-  floor?: string | null;
-
-  @IsOptional()
-  @IsString()
   @MaxLength(2000)
   note?: string | null;
 
@@ -94,11 +89,6 @@ class AssetBodyDto {
   @IsString()
   @MaxLength(200)
   brand?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  model?: string | null;
 
   @IsOptional()
   @IsString()
@@ -179,11 +169,6 @@ class ListAssetsQueryDto {
   @IsOptional()
   @IsIn(['in_use', 'locked_repair', 'disposed'])
   status?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  floor?: string;
 }
 
 function toInput(body: AssetBodyDto): AssetInput {
@@ -194,13 +179,10 @@ function toInput(body: AssetBodyDto): AssetInput {
     cost: body.cost ?? null,
     startDate: body.startDate ?? null,
     endDate: body.endDate ?? null,
-    // '' → null: floor rỗng không được thành option "ma" trong meta dropdown (review 2.2)
-    floor: body.floor?.trim() || null,
     note: body.note ?? null,
     serial: body.serial ?? null,
     brand: body.brand ?? null,
-    model: body.model ?? null,
-    // trim + '' → null: nhất quán code/type/floor; '  ' = thu hồi chứ không phải 400 khó hiểu
+    // trim + '' → null: '  ' = thu hồi chứ không phải 400 khó hiểu
     assignedUserSub: body.assignedUserSub?.trim() || null,
     licenseType: body.licenseType ?? null,
     licenseName: body.licenseName?.trim() || null,
@@ -221,7 +203,6 @@ export class AssetsAdminController {
       search: query.search,
       type: query.type,
       status: query.status,
-      floor: query.floor,
     });
   }
 
@@ -245,7 +226,6 @@ export class AssetsAdminController {
         search: query.search,
         type: query.type,
         status: query.status,
-        floor: query.floor,
       },
       requireSub(req),
     );

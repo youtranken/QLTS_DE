@@ -178,11 +178,9 @@ export function AssetForm({
         form.isSoftware && form.licenseType === 'perpetual'
           ? null
           : form.endDate || null,
-      floor: form.floor || null,
       note: form.note || null,
       serial: form.serial || null,
       brand: form.brand || null,
-      model: form.model || null,
       assignedUserSub: form.assignedUserSub || null,
       licenseType: form.isSoftware ? form.licenseType || null : null,
       // term cũng được có tên license — không xóa ngầm khi sửa (review 2.4)
@@ -564,14 +562,6 @@ export function AssetForm({
                   </label>
                 )}
                 <label className="field">
-                  <span>{t('assets.floor')}</span>
-                  <input
-                    maxLength={50}
-                    value={form.floor}
-                    onChange={(e) => set('floor')(e.target.value)}
-                  />
-                </label>
-                <label className="field">
                   <span>{t('assets.statusLabel')}</span>
                   {/* Chỉ hiển thị (AC 1) — khóa/gỡ pool/thanh lý là nghiệp vụ 2.6 */}
                   <input disabled value={t(`assets.status.${form.status}`)} />
@@ -590,14 +580,6 @@ export function AssetForm({
                     maxLength={200}
                     value={form.brand}
                     onChange={(e) => set('brand')(e.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>{t('assets.model')}</span>
-                  <input
-                    maxLength={200}
-                    value={form.model}
-                    onChange={(e) => set('model')(e.target.value)}
                   />
                 </label>
                 <label className="field span-2">

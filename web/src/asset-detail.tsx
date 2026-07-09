@@ -161,10 +161,8 @@ export function AssetDetailPage({ me }: { me: Me }) {
     ],
     [t('assets.startDate'), detail.startDate],
     [t('assets.endDate'), detail.endDate],
-    [t('assets.floor'), detail.floor],
     [t('assets.serial'), detail.serial],
     [t('assets.brand'), detail.brand],
-    [t('assets.model'), detail.model],
     [
       t('assets.assignee'),
       detail.assignedUserSub

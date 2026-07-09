@@ -35,12 +35,10 @@ export function AssetsPage({ me }: { me: Me }) {
     const s = searchParams.get('status') ?? '';
     return ['in_use', 'locked_repair', 'disposed'].includes(s) ? s : '';
   });
-  const [floor, setFloor] = useState('');
-  const [meta, setMeta] = useState<{ types: string[]; floors: string[] }>({
+  const [meta, setMeta] = useState<{ types: string[] }>({
     types: [],
-    floors: [],
   });
-  const hasFilter = search !== '' || type !== '' || status !== '' || floor !== '';
+  const hasFilter = search !== '' || type !== '' || status !== '';
 
   useEffect(() => {
     const value = searchInput.trim();
@@ -56,14 +54,12 @@ export function AssetsPage({ me }: { me: Me }) {
     try {
       const res = await fetch('/api/admin/assets/meta');
       if (!res.ok) return;
-      const body = (await res.json()) as { types?: string[]; floors?: string[] };
+      const body = (await res.json()) as { types?: string[] };
       const types = body.types ?? [];
-      const floors = body.floors ?? [];
-      setMeta({ types, floors });
+      setMeta({ types });
       // filter mồ côi (giá trị vừa biến mất khỏi sổ) → reset, tránh dropdown
       // trông như "tất cả" nhưng danh sách vẫn bị lọc (review 2.2)
       setType((v) => (v && !types.includes(v) ? '' : v));
-      setFloor((v) => (v && !floors.includes(v) ? '' : v));
     } catch {
       // dropdown thiếu lựa chọn không chặn màn hình — danh sách vẫn dùng được
     }
@@ -84,7 +80,6 @@ export function AssetsPage({ me }: { me: Me }) {
         if (search) params.set('search', search);
         if (type) params.set('type', type);
         if (status) params.set('status', status);
-        if (floor) params.set('floor', floor);
         const res = await fetch(`/api/admin/assets?${params.toString()}`, {
           signal,
         });
@@ -109,7 +104,7 @@ export function AssetsPage({ me }: { me: Me }) {
         }
       }
     },
-    [page, search, type, status, floor, t],
+    [page, search, type, status, t],
   );
 
   useEffect(() => {
@@ -155,7 +150,6 @@ export function AssetsPage({ me }: { me: Me }) {
             ...(search ? { search } : {}),
             ...(type ? { type } : {}),
             ...(status ? { status } : {}),
-            ...(floor ? { floor } : {}),
           }).toString()}`}
         >
           {t('assets.exportExcel')}
@@ -204,20 +198,6 @@ export function AssetsPage({ me }: { me: Me }) {
             </option>
           ))}
         </select>
-        <select
-          value={floor}
-          onChange={(e) => {
-            setFloor(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">{t('assets.filterFloor')}</option>
-          {meta.floors.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
         {hasFilter && (
           <button
             type="button"
@@ -226,7 +206,6 @@ export function AssetsPage({ me }: { me: Me }) {
               setSearch('');
               setType('');
               setStatus('');
-              setFloor('');
               setPage(1);
             }}
           >
@@ -241,7 +220,6 @@ export function AssetsPage({ me }: { me: Me }) {
               <th>{t('assets.code')}</th>
               <th>{t('assets.type')}</th>
               <th>{t('assets.assignee')}</th>
-              <th>{t('assets.floor')}</th>
               <th>{t('assets.statusLabel')}</th>
               <th>{t('assets.pool')}</th>
               <th></th>
@@ -269,7 +247,6 @@ export function AssetsPage({ me }: { me: Me }) {
                 </td>
                 <td>{a.type === 'software' ? t('assets.kindSoftware') : a.type}</td>
                 <td>{a.assignedUserName ?? a.assignedUserSub ?? '—'}</td>
-                <td>{a.floor ?? '—'}</td>
                 <td>
                   <span className={`badge ${STATUS_BADGE[a.status] ?? 'muted'}`}>
                     {t(`assets.status.${a.status}`)}
