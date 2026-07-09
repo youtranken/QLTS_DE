@@ -53,6 +53,7 @@ export class BookingService {
   async availableMachines(
     fromIso: string,
     toIso: string,
+    typeFilter?: string | null,
   ): Promise<AvailableMachine[]> {
     const windowDays = await this.config.getBookingWindowDays();
     parseBookingWindow(fromIso, toIso, windowDays);
@@ -62,6 +63,8 @@ export class BookingService {
       OCCUPYING_STATES.map((s) => sql`${s}`),
       sql`, `,
     );
+    // 7.3: lọc loại (tùy chọn) — bind param, chỉ thêm điều kiện HIỂN THỊ, không đổi occupy core.
+    const typeCond = typeFilter ? sql`AND a.type = ${typeFilter}` : sql``;
     const rows = await this.db.execute<{
       id: string;
       code: string;
@@ -84,6 +87,7 @@ export class BookingService {
       LEFT JOIN assets s
         ON s.installed_on_asset_id = a.id AND s.status <> 'disposed'
       WHERE a.is_pool = true AND a.status = 'in_use'
+        ${typeCond}
         AND NOT EXISTS (
           SELECT 1 FROM booking b
           WHERE b.asset_id = a.id
@@ -103,6 +107,19 @@ export class BookingService {
       floor: r.floor,
       software: r.software,
     }));
+  }
+
+  /**
+   * Distinct loại máy pool đang dùng (7.3) — nguồn cho dropdown lọc loại ở popup đặt máy.
+   * Chỉ máy is_pool + in_use (loại thực sự đặt được). Read-model công khai nội bộ (AD-5).
+   */
+  async assetTypes(): Promise<string[]> {
+    const rows = await this.db.execute<{ type: string }>(sql`
+      SELECT DISTINCT type FROM assets
+      WHERE is_pool = true AND status = 'in_use'
+      ORDER BY type
+    `);
+    return rows.rows.map((r) => r.type);
   }
 
   /**

@@ -1,5 +1,11 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
-import { IsISO8601, IsOptional, Matches } from 'class-validator';
+import {
+  IsISO8601,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import { Roles } from '../auth/roles.decorator';
 import { BookingService } from './booking.service';
 
@@ -20,6 +26,12 @@ class AvailabilityQueryDto {
     message: 'to phải là ISO-8601 có offset (Z hoặc ±HH:MM)',
   })
   to!: string;
+
+  /** Lọc loại tài sản (7.3) — chuỗi tự do trong assets, không enum cứng. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  type?: string;
 }
 
 class CalendarQueryDto {
@@ -41,7 +53,17 @@ export class BookingController {
 
   @Get('availability')
   availability(@Query() query: AvailabilityQueryDto) {
-    return this.booking.availableMachines(query.from, query.to);
+    return this.booking.availableMachines(
+      query.from,
+      query.to,
+      query.type ?? null,
+    );
+  }
+
+  /** Distinct loại máy pool đang dùng (7.3) — dropdown lọc loại ở popup đặt máy. */
+  @Get('asset-types')
+  assetTypes() {
+    return this.booking.assetTypes();
   }
 
   /** Lịch tuần busy/free của một máy (FR-10) — AD-5: không lộ người mượn. */
