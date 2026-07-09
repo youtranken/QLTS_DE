@@ -72,6 +72,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0027_ticket_closed_at.sql',
       '0028_session_id_token.sql',
       '0029_department.sql',
+      '0030_booking_note_department.sql',
     ]);
   });
 

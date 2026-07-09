@@ -10,15 +10,18 @@ import {
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsISO8601,
   IsInt,
+  IsOptional,
+  IsString,
   IsUUID,
   Matches,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -44,6 +47,18 @@ class SubmitBookingDto {
   @IsISO8601({ strict: true })
   @Matches(HAS_OFFSET, { message: 'to phải là ISO-8601 có offset' })
   to!: string;
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
 }
 
 class RecurringSessionDto {
@@ -105,7 +120,13 @@ export class TicketsController {
   @Post()
   submit(@Body() body: SubmitBookingDto, @Req() req: AuthedRequest) {
     return this.tickets.submitOwnBooking(
-      { assetId: body.assetId, from: body.from, to: body.to },
+      {
+        assetId: body.assetId,
+        from: body.from,
+        to: body.to,
+        note: body.note ?? null,
+        departmentId: body.departmentId ?? null,
+      },
       requireSub(req),
     );
   }

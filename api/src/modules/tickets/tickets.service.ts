@@ -30,6 +30,8 @@ export interface SubmitBookingInput {
   assetId: string;
   from: string;
   to: string;
+  note?: string | null;
+  departmentId?: string | null;
 }
 
 export interface MyTicket {
@@ -380,6 +382,12 @@ export class TicketsService {
         `);
         const ticketId = ticketRows.rows[0].id;
 
+        // 7.2: phòng ban (nếu gửi) phải tồn tại & active — validate trong tx trước INSERT.
+        if (input.departmentId) {
+          await this.assertDepartmentActive(tx, input.departmentId);
+        }
+        const note = input.note?.trim() ? input.note.trim() : null;
+
         // Expire-on-conflict (AD-9, 3.5b): giải phóng dòng held CŨ đã quá giờ nhận trên máy
         // này chồng khung — member không phải chờ sweep. Nếu vẫn còn booking hợp lệ chồng
         // → INSERT dưới đây 23P01 → SLOT_TAKEN thật.
@@ -391,9 +399,10 @@ export class TicketsService {
         );
 
         const bookingRows = await tx.execute<{ id: string }>(sql`
-          INSERT INTO booking (ticket_id, asset_id, kind, state, period)
+          INSERT INTO booking (ticket_id, asset_id, kind, state, period, note, department_id)
           VALUES (${ticketId}, ${input.assetId}, 'normal', ${bookingState},
-                  tstzrange(${input.from}, ${input.to}, '[)'))
+                  tstzrange(${input.from}, ${input.to}, '[)'),
+                  ${note}, ${input.departmentId ?? null})
           RETURNING id
         `);
         const bookingId = bookingRows.rows[0].id;
@@ -455,6 +464,7 @@ export class TicketsService {
       mode: 'now' | 'schedule';
       note: string | null;
       photoIds: string[];
+      departmentId?: string | null;
     },
     actorSub: string,
   ): Promise<{ ticketId: string; ticketState: string }> {
@@ -533,6 +543,12 @@ export class TicketsService {
         `);
         const ticketId = ticketRows.rows[0].id;
 
+        // 7.2: phòng ban (nếu gửi) phải tồn tại & active. booking.note KHÔNG set ở luồng tạo hộ
+        // (note của createForMember là note tình trạng handover → asset_note; borrow-note chỉ member).
+        if (input.departmentId) {
+          await this.assertDepartmentActive(tx, input.departmentId);
+        }
+
         // Expire-on-conflict (nhất quán submitOwnBooking): nhả held cũ quá giờ chồng khung
         // → tránh SLOT_TAKEN giả trước khi sweep chạy (review Low1).
         await this.expireStaleHoldsForAsset(
@@ -543,9 +559,9 @@ export class TicketsService {
         );
 
         await tx.execute(sql`
-          INSERT INTO booking (ticket_id, asset_id, kind, state, period)
+          INSERT INTO booking (ticket_id, asset_id, kind, state, period, department_id)
           VALUES (${ticketId}, ${input.assetId}, 'normal', ${bookingState},
-                  tstzrange(${input.from}, ${input.to}, '[)'))
+                  tstzrange(${input.from}, ${input.to}, '[)'), ${input.departmentId ?? null})
         `);
 
         // giao ngay → gắn note/ảnh tình trạng đầu (reuse 3.6, kiểm file tồn tại)
@@ -1203,6 +1219,26 @@ export class TicketsService {
    * THỨ TỰ KHÓA ticket → booking (giống sweep) để KHÔNG deadlock (review Med): tìm ticket_id
    * (không FOR UPDATE booking) → khóa ticket trước → cancelExpiredWithin update booking sau.
    */
+  /**
+   * Validate phòng ban (7.2) tồn tại & active trong CÙNG tx. Đọc bảng department (leaf catalog,
+   * chiều tickets→departments hợp lệ AD-1) bằng raw SQL — không inject DepartmentsService (giữ tx).
+   * 400 gộp "không tồn tại" + "đã tắt": FE dropdown chỉ show active nên chỉ xảy ra khi race.
+   */
+  private async assertDepartmentActive(
+    tx: Pick<Database, 'execute'>,
+    departmentId: string,
+  ): Promise<void> {
+    const rows = await tx.execute<{ active: boolean }>(sql`
+      SELECT active FROM department WHERE id = ${departmentId}
+    `);
+    if (rows.rows.length === 0 || !rows.rows[0].active) {
+      throw new BadRequestException({
+        code: 'DEPARTMENT_INVALID',
+        message: 'Phòng ban không hợp lệ.',
+      });
+    }
+  }
+
   private async expireStaleHoldsForAsset(
     tx: Pick<Database, 'execute' | 'insert'>,
     assetId: string,
