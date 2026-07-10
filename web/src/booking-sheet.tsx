@@ -8,6 +8,8 @@ const MAX_DURATION_AUTO_MS = 48 * 60 * 60 * 1000;
 // Khung giờ làm việc (9.8): chỉ cho đặt 07:00–18:00, T2–T7 (CN khóa). Giờ VN (UTC+7 cố định).
 const WORK_START = '07:00';
 const WORK_END = '18:00';
+// #3: khung giờ nhận nhanh (chip) trong giờ làm việc.
+const PICKUP_SLOTS = ['08:00', '09:00', '10:00', '13:30', '14:00', '15:00', '16:00'];
 /** Ngày local (YYYY-MM-DD) theo tz máy — dùng cho default + min của input date. */
 const todayLocal = (): string => new Date().toLocaleDateString('en-CA');
 /** HH:MM local hiện tại — chặn chọn giờ đã qua trong hôm nay. */
@@ -415,6 +417,26 @@ export function BookingSheet({
                   />
                 </label>
               </div>
+              {/* #3: chọn nhanh giờ nhận bằng chip (vẫn giữ ô giờ để tùy chỉnh). */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  flexWrap: 'wrap',
+                  marginBottom: '0.6rem',
+                }}
+              >
+                {PICKUP_SLOTS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={fromTime === s ? 'primary sm' : 'ghost sm'}
+                    onClick={() => setFromTime(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
               {weekendBlocked && (
                 <p className="alert warn">{t('bookingSheet.errWeekend')}</p>
               )}
@@ -476,6 +498,23 @@ export function BookingSheet({
                     </tbody>
                   </table>
                 </div>
+              )}
+
+              {/* #3: báo policy duyệt theo thời lượng (≤2 ngày tự duyệt / >2 ngày Admin). */}
+              {assetId && from && to && !weekendBlocked && (
+                <p
+                  style={{
+                    marginTop: '0.7rem',
+                    marginBottom: 0,
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    color: isLong ? 'var(--warn)' : 'var(--ok)',
+                  }}
+                >
+                  {isLong
+                    ? `⏳ ${t('bookingSheet.hintAdmin', 'Mượn hơn 2 ngày — cần Admin duyệt trước khi nhận.')}`
+                    : `✔ ${t('bookingSheet.hintAuto', 'Mượn ≤ 2 ngày — tự duyệt, nhận ngay.')}`}
+                </p>
               )}
             </>
           )}
