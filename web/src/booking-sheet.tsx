@@ -19,6 +19,17 @@ const nowTimeLocal = (): string =>
 /** true nếu chuỗi YYYY-MM-DD rơi vào Chủ nhật (local). */
 const isSunday = (d: string): boolean =>
   d ? new Date(`${d}T00:00`).getDay() === 0 : false;
+/**
+ * Ngày NHẬN mặc định khi mở popup: hôm nay nếu còn trong giờ làm; nếu đã quá 18:00
+ * (hoặc Chủ nhật) thì nhảy sang ngày làm kế — tránh mở popup ngoài giờ mà ô Giờ nhận
+ * hôm nay bị min>max không chọn được (user phải tự đổi ngày).
+ */
+const nextBookableDate = (): string => {
+  const d = new Date();
+  if (nowTimeLocal() >= WORK_END) d.setDate(d.getDate() + 1); // hết giờ hôm nay → mai
+  while (d.getDay() === 0) d.setDate(d.getDate() + 1); // bỏ qua Chủ nhật
+  return d.toLocaleDateString('en-CA');
+};
 
 interface FreeMachine {
   id: string;
@@ -66,9 +77,9 @@ export function BookingSheet({
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   // Thường/Nâng cao — tách Ngày + Giờ cho Nhận/Trả (4 ô), gộp lại thành datetime khi dùng.
   // Ngày mặc định = hôm nay (9.8); giờ để trống buộc người dùng chọn trong khung làm việc.
-  const [fromDate, setFromDate] = useState(todayLocal);
+  const [fromDate, setFromDate] = useState(nextBookableDate);
   const [fromTime, setFromTime] = useState('');
-  const [toDate, setToDate] = useState(todayLocal);
+  const [toDate, setToDate] = useState(nextBookableDate);
   const [toTime, setToTime] = useState('');
   const from = fromDate && fromTime ? `${fromDate}T${fromTime}` : '';
   const to = toDate && toTime ? `${toDate}T${toTime}` : '';
