@@ -136,9 +136,11 @@ describe('Borrow board (story 7.4)', () => {
     await mkBooking(t3, assetIds[2], 'delivered', -1 * H, 20 * H, {
       deptId: deptActive,
     });
-    // 4: awaiting_pickup CALLER (pending), due +30h → thấy
+    // 4: awaiting_pickup CALLER (pending), due +30h → thấy; có note của CHÍNH caller
     const t4 = await mkTicket('awaiting_pickup', 'mem-bd');
-    await mkBooking(t4, assetIds[3], 'pending', 28 * H, 30 * H);
+    await mkBooking(t4, assetIds[3], 'pending', 28 * H, 30 * H, {
+      note: 'Ghi chú của tôi',
+    });
     // 5: awaiting_pickup OTHER (pending) → KHÔNG thấy
     const t5 = await mkTicket('awaiting_pickup', 'mem-o');
     await mkBooking(t5, assetIds[4], 'pending', 28 * H, 30 * H);
@@ -164,9 +166,11 @@ describe('Borrow board (story 7.4)', () => {
     expect(r1.borrowerName).toBe('Other O');
     expect(r1.isMine).toBe(false);
     expect(r1.department).toBe('Cũ'); // disabled vẫn hiện tên
-    expect(r1.note).toBe('Ghi chú 1');
+    // Note của người khác KHÔNG public trên board — chỉ chủ vé thấy (P0 3.1, AD-5)
+    expect(r1.note).toBeNull();
     const r4 = rows.find((r) => r.ticketId === t4)!;
     expect(r4.isMine).toBe(true);
+    expect(r4.note).toBe('Ghi chú của tôi'); // chủ vé VẪN thấy note của mình
 
     // AD-5: không lộ sub/email
     for (const r of rows) {

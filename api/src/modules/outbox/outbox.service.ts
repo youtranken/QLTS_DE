@@ -25,6 +25,13 @@ export interface FailedNotification {
   lastFailedAt: Date | null;
 }
 
+/**
+ * Trần re-drive (review P0 3.2): mỗi chu kỳ relay cạn retry tăng fail_count +1. Chạm trần →
+ * relay NGỪNG chọn lại row (row vẫn `processed_at IS NULL`, còn hiện ở listFailed cho SA); chỉ
+ * requeue tay (reset fail_count=0) mới hồi sinh. Chặn poison message re-drive vô hạn mỗi 5'.
+ */
+const MAX_RELAY_ATTEMPTS = 10;
+
 @Injectable()
 export class OutboxService {
   private readonly logger = new Logger(OutboxService.name);
@@ -66,6 +73,7 @@ export class OutboxService {
       }>(sql`
         SELECT id, topic, payload FROM outbox
         WHERE processed_at IS NULL
+          AND fail_count < ${MAX_RELAY_ATTEMPTS}
           AND (claimed_at IS NULL OR claimed_at < now() - interval '5 minutes')
         ORDER BY created_at
         FOR UPDATE SKIP LOCKED
@@ -107,7 +115,8 @@ export class OutboxService {
   /**
    * Job cạn retry (DLQ) → ghi marker BỀN vào Postgres (F2): tăng fail_count + last_error để
    * dashboard SA đếm "X thông báo gửi lỗi" (AD-9/AD-11 — không chết im lặng). Row vẫn
-   * `processed_at IS NULL` nên relay tiếp tục re-drive (backstop cho lỗi tạm thời).
+   * `processed_at IS NULL` nên relay re-drive tiếp (backstop lỗi tạm thời) CHO ĐẾN khi
+   * fail_count chạm MAX_RELAY_ATTEMPTS thì dừng (điểm terminal, review P0 3.2).
    */
   async markFailed(eventId: string, error: string): Promise<void> {
     await this.db.execute(sql`

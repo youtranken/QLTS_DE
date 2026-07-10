@@ -222,4 +222,72 @@ export class FilesService {
       .values({ roundId, fileId: file.id });
     return file;
   }
+
+  /** Xóa 1 biên bản khỏi đợt (9.4): gỡ link + row file + file trên đĩa. */
+  async deleteRoundFile(roundId: string, fileId: string, actorSub: string) {
+    const link = await this.db
+      .select({ fileId: inventoryRoundFilesTable.fileId })
+      .from(inventoryRoundFilesTable)
+      .where(eq(inventoryRoundFilesTable.roundId, roundId));
+    if (!link.some((l) => l.fileId === fileId)) {
+      throw new NotFoundException({
+        code: 'FILE_NOT_IN_ROUND',
+        message: 'File không thuộc đợt kiểm kê này.',
+      });
+    }
+    await this.db
+      .delete(inventoryRoundFilesTable)
+      .where(eq(inventoryRoundFilesTable.fileId, fileId));
+    await this.db.delete(filesTable).where(eq(filesTable.id, fileId));
+    await unlink(join(storageDir(), fileId)).catch(() => undefined);
+    await this.audit.append({
+      actor: actorSub,
+      action: 'inventory.file_delete',
+      objectType: 'inventory_round',
+      objectId: roundId,
+      detail: { fileId },
+    });
+    return { ok: true };
+  }
+
+  /** Xóa cả đợt kiểm kê (9.4): xóa mọi file đính kèm (row + đĩa) rồi xóa đợt. */
+  async deleteRound(roundId: string, actorSub: string) {
+    const round = await this.db
+      .select({ id: inventoryRoundsTable.id })
+      .from(inventoryRoundsTable)
+      .where(eq(inventoryRoundsTable.id, roundId));
+    if (round.length === 0) {
+      throw new NotFoundException({
+        code: 'ROUND_NOT_FOUND',
+        message: 'Không tìm thấy đợt kiểm kê này.',
+      });
+    }
+    const links = await this.db
+      .select({ fileId: inventoryRoundFilesTable.fileId })
+      .from(inventoryRoundFilesTable)
+      .where(eq(inventoryRoundFilesTable.roundId, roundId));
+    const fileIds = links.map((l) => l.fileId);
+    await this.db
+      .delete(inventoryRoundFilesTable)
+      .where(eq(inventoryRoundFilesTable.roundId, roundId));
+    if (fileIds.length > 0) {
+      await this.db.delete(filesTable).where(inArray(filesTable.id, fileIds));
+      await Promise.all(
+        fileIds.map((id) =>
+          unlink(join(storageDir(), id)).catch(() => undefined),
+        ),
+      );
+    }
+    await this.db
+      .delete(inventoryRoundsTable)
+      .where(eq(inventoryRoundsTable.id, roundId));
+    await this.audit.append({
+      actor: actorSub,
+      action: 'inventory.round_delete',
+      objectType: 'inventory_round',
+      objectId: roundId,
+      detail: { deletedFiles: fileIds.length },
+    });
+    return { ok: true };
+  }
 }

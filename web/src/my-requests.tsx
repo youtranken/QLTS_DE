@@ -169,6 +169,48 @@ export function MyRequestsPanel({
     cancelled: 'muted',
   };
 
+  // Pipeline 4 bước: Chờ duyệt → Chờ giao → Đang mượn → Đã trả.
+  // ≤2 ngày tự duyệt vào thẳng awaiting_pickup → bước "Chờ duyệt" vẫn tính done.
+  // Trạng thái terminal (rejected/cancelled) không nằm trong map → không vẽ pipeline.
+  const pipeSteps = [
+    t('myreq.step1', 'Chờ duyệt'),
+    t('myreq.step2', 'Chờ giao'),
+    t('myreq.step3', 'Đang mượn'),
+    t('myreq.step4', 'Đã trả'),
+  ];
+  const stepIndex: Record<string, number> = {
+    pending_approval: 0,
+    awaiting_pickup: 1,
+    in_use: 2,
+    returned: 3,
+    closed: 3,
+  };
+  const renderPipe = (state: string) => {
+    const cur = stepIndex[state];
+    if (cur === undefined) return null;
+    return (
+      <div className="pipe" style={{ marginTop: 8 }}>
+        {pipeSteps.map((label, i) => (
+          <Fragment key={label}>
+            {i > 0 && (
+              <div className={`pbar${i <= cur ? ' done' : ''}`} />
+            )}
+            <div
+              className={`pnode${
+                i < cur ? ' done' : i === cur ? ' cur' : ''
+              }`}
+            >
+              <div className="pc">
+                {i < cur ? '✓' : i === cur ? '●' : ''}
+              </div>
+              <div className="plb">{label}</div>
+            </div>
+          </Fragment>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <section style={{ marginTop: '2rem' }}>
       <h2>{t('myreq.title')}</h2>
@@ -245,6 +287,7 @@ export function MyRequestsPanel({
                         })}
                       </span>
                     )}
+                    {renderPipe(tk.state)}
                   </td>
                   <td className="table-actions">
                     {tk.cancellable && (

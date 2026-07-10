@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BrowserRouter,
@@ -7,23 +7,58 @@ import {
   Route,
   Routes,
 } from 'react-router-dom';
-import { AssetDetailPage, AssetsPage } from './assets';
 import { InUseNowPanel } from './booking';
 import { BorrowBoardPage } from './borrow-board';
-import { MachineCalendarPage } from './machine-calendar';
-import { ApprovalQueuePage } from './approval-queue';
-import { NotificationsFailedPage } from './notifications-failed';
-import { OffboardingQueuePage } from './offboarding-queue';
-import { ReportsPage } from './reports';
-import { AuditLogPage } from './audit-log';
-import { ConfigPage } from './config-page';
-import { CatalogPage } from './catalog-page';
-import { PoolPage } from './pool-page';
-import { ImportPage } from './import-page';
-import { InventoryPage } from './inventory';
 import { savedLanguage, setLanguage } from './i18n';
-import { DepartmentsPanel, DirectorySyncPanel, RolesPanel } from './panels';
+import { currentTheme, toggleTheme } from './theme';
+import { DirectorySyncPanel, RolesPanel } from './panels';
 import type { Me } from './panels';
+
+// Code-splitting theo route (perf): mỗi trang thành 1 chunk tải khi điều hướng tới, giảm
+// bundle khởi động. Landing (BorrowBoard) + panel nhỏ giữ eager để trang đầu không chớp fallback.
+const AssetsPage = lazy(() =>
+  import('./assets').then((m) => ({ default: m.AssetsPage })),
+);
+const AssetDetailPage = lazy(() =>
+  import('./assets').then((m) => ({ default: m.AssetDetailPage })),
+);
+const MachineCalendarPage = lazy(() =>
+  import('./machine-calendar').then((m) => ({ default: m.MachineCalendarPage })),
+);
+const ApprovalQueuePage = lazy(() =>
+  import('./approval-queue').then((m) => ({ default: m.ApprovalQueuePage })),
+);
+const NotificationsFailedPage = lazy(() =>
+  import('./notifications-failed').then((m) => ({
+    default: m.NotificationsFailedPage,
+  })),
+);
+const OffboardingQueuePage = lazy(() =>
+  import('./offboarding-queue').then((m) => ({
+    default: m.OffboardingQueuePage,
+  })),
+);
+const ReportsPage = lazy(() =>
+  import('./reports').then((m) => ({ default: m.ReportsPage })),
+);
+const AuditLogPage = lazy(() =>
+  import('./audit-log').then((m) => ({ default: m.AuditLogPage })),
+);
+const ConfigPage = lazy(() =>
+  import('./config-page').then((m) => ({ default: m.ConfigPage })),
+);
+const CatalogPage = lazy(() =>
+  import('./catalog-page').then((m) => ({ default: m.CatalogPage })),
+);
+const PoolPage = lazy(() =>
+  import('./pool-page').then((m) => ({ default: m.PoolPage })),
+);
+const ImportPage = lazy(() =>
+  import('./import-page').then((m) => ({ default: m.ImportPage })),
+);
+const InventoryPage = lazy(() =>
+  import('./inventory').then((m) => ({ default: m.InventoryPage })),
+);
 
 type AuthState =
   | { kind: 'loading' }
@@ -138,7 +173,10 @@ function App() {
             {t('app.login')}
           </button>
         </a>
-        <LanguageSwitch />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <ThemeSwitch />
+          <LanguageSwitch />
+        </div>
       </Center>
     );
   }
@@ -154,6 +192,16 @@ function Center({ children }: { children: React.ReactNode }) {
   return <main className="center">{children}</main>;
 }
 
+/** Fallback khi chunk trang lazy đang tải — skeleton nhẹ để không chớp trắng. */
+function PageFallback() {
+  return (
+    <div className="page-fallback" aria-busy="true" aria-live="polite">
+      <div className="skeleton skeleton-title" />
+      <div className="skeleton skeleton-block" />
+    </div>
+  );
+}
+
 function LanguageSwitch() {
   const [lang, setLang] = useState(savedLanguage());
   const toggle = () => {
@@ -164,6 +212,21 @@ function LanguageSwitch() {
   return (
     <button type="button" className="ghost sm" onClick={toggle}>
       {lang === 'vi' ? 'EN' : 'VI'}
+    </button>
+  );
+}
+
+function ThemeSwitch() {
+  const [theme, setThemeState] = useState(currentTheme());
+  return (
+    <button
+      type="button"
+      className="ghost sm"
+      onClick={() => setThemeState(toggleTheme())}
+      title={theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'}
+      aria-label={theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'}
+    >
+      {theme === 'dark' ? '☀' : '🌙'}
     </button>
   );
 }
@@ -193,6 +256,7 @@ function navGroups(role: string): NavGroup[] {
       label: 'nav.groupAssets',
       items: [
         { to: '/tai-san', key: 'nav.assets' },
+        { to: '/phan-mem', key: 'nav.software' },
         { to: '/pool-may-muon', key: 'nav.pool' },
         { to: '/tai-san/kiem-ke', key: 'nav.inventory' },
         { to: '/bao-cao', key: 'nav.reports' },
@@ -251,14 +315,21 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
           <div className="brand">
             <span className="brand-mark">QL</span> QLTS
           </div>
-          {navGroups(me.role).map((group) => (
+          {(() => {
+            const groups = navGroups(me.role);
+            // Item là TIỀN TỐ của item khác (vd /quan-tri của /quan-tri/danh-muc) phải khớp
+            // chính xác, nếu không NavLink sẽ sáng CẢ cha lẫn con cùng lúc.
+            const allTos = groups.flatMap((g) => g.items.map((i) => i.to));
+            const isPrefix = (to: string) =>
+              to === '/' || allTos.some((o) => o !== to && o.startsWith(`${to}/`));
+            return groups.map((group) => (
             <div key={group.label}>
               <div className="nav-label">{t(group.label)}</div>
               {group.items.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={item.to === '/'}
+                  end={isPrefix(item.to)}
                   onClick={() => setMenuOpen(false)}
                   className={({ isActive }) =>
                     isActive ? 'nav-item active' : 'nav-item'
@@ -268,7 +339,8 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 </NavLink>
               ))}
             </div>
-          ))}
+          ));
+          })()}
         </nav>
       )}
       <div className="content">
@@ -286,12 +358,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
           <span className="hello">
             {t('app.hello')} <strong>{me.fullName ?? me.sub}</strong>
           </span>
+          <ThemeSwitch />
           <LanguageSwitch />
           <button type="button" className="ghost sm" onClick={onLogout}>
             {t('app.logout')}
           </button>
         </header>
         <main className="page">
+          <Suspense fallback={<PageFallback />}>
           <Routes>
             {/* Landing 7.5: borrow board cho MỌI vai (thay dashboard/đặt-máy cũ ở '/'). */}
             <Route path="/" element={<BorrowBoardPage me={me} />} />
@@ -318,6 +392,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
                   <AssetsPage me={me} />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/phan-mem"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <AssetsPage me={me} softwareOnly />
                 </RequireRole>
               }
             />
@@ -411,6 +493,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </main>
       </div>
     </div>
@@ -443,7 +526,6 @@ function AdminPage({ me }: { me: Me }) {
         <DirectorySyncPanel csrfToken={me.csrfToken} />
       )}
       <RolesPanel csrfToken={me.csrfToken} mySub={me.sub} viewerRole={me.role} />
-      <DepartmentsPanel csrfToken={me.csrfToken} />
     </>
   );
 }

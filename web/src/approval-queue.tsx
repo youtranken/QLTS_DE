@@ -118,10 +118,7 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
       </div>
       {error && <p className="alert error">{error}</p>}
       {items === null && <p>{t('approval.loading')}</p>}
-      {items !== null && items.length === 0 && (
-        <p className="empty">{t('approval.empty')}</p>
-      )}
-      {items !== null && items.length > 0 && (
+      {items !== null && (
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -133,6 +130,13 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
               </tr>
             </thead>
             <tbody>
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="muted">
+                    {t('approval.empty')}
+                  </td>
+                </tr>
+              )}
               {items.map((req) => (
                 <tr key={req.id}>
                   <td>{req.borrowerName ?? req.borrowerSub}</td>

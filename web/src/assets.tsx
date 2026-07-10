@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ColumnDef, OnChangeFn, SortingState } from '@tanstack/react-table';
 import { AssetForm } from './asset-form';
+import { apiFetch } from './api-client';
+import { DataTable } from './ui/data-table';
 import {
   EMPTY_FORM,
   STATUS_BADGE,
@@ -15,16 +19,24 @@ export { AssetDetailPage } from './asset-detail';
 
 const PAGE_SIZE = 20;
 
-/** Sổ tài sản (story 2.1) — danh sách phân trang + form thêm/sửa (popup). Admin/SA. */
-export function AssetsPage({ me }: { me: Me }) {
+/**
+ * Sổ tài sản (story 2.1) — danh sách phân trang + form thêm/sửa (popup). Admin/SA.
+ * softwareOnly (9.1): tab "Phần mềm" — lọc cứng type=software, thêm/copy phần mềm.
+ */
+export function AssetsPage({
+  me,
+  softwareOnly = false,
+}: {
+  me: Me;
+  softwareOnly?: boolean;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   // F7: khởi tạo lọc status từ URL (?status=locked_repair) — card dashboard "Máy đang khóa"
   // (3.12 AC1 ≤2 click) dẫn thẳng vào danh sách đã lọc, không rơi vào list không lọc.
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [items, setItems] = useState<AssetRow[]>([]);
-  const [total, setTotal] = useState(0);
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Tìm/lọc server-side (2.2): searchInput gõ tự do → search sau debounce 300ms
@@ -42,6 +54,14 @@ export function AssetsPage({ me }: { me: Me }) {
   const [meta, setMeta] = useState<{ types: string[] }>({
     types: [],
   });
+  // Sắp xếp server-side (P1): DataTable controlled → map sang ?sort=&dir= → refetch.
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
+    setSorting((prev) =>
+      typeof updater === 'function' ? updater(prev) : updater,
+    );
+    setPage(1);
+  };
   const hasFilter = search !== '' || type !== '' || status !== '' || expiring;
 
   useEffect(() => {
@@ -73,50 +93,45 @@ export function AssetsPage({ me }: { me: Me }) {
     void loadMeta();
   }, [loadMeta]);
 
-  const load = useCallback(
-    async (signal?: AbortSignal) => {
-      setError(null);
-      try {
-        const params = new URLSearchParams({
-          page: String(page),
-          pageSize: String(PAGE_SIZE),
-        });
-        if (search) params.set('search', search);
-        if (type) params.set('type', type);
-        if (status) params.set('status', status);
-        if (expiring) params.set('expiring', 'true');
-        const res = await fetch(`/api/admin/assets?${params.toString()}`, {
-          signal,
-        });
-        if (res.status === 401) {
-          window.location.href = '/';
-          return;
-        }
-        const body = (await res.json()) as {
-          items?: AssetRow[];
-          total?: number;
-          message?: string;
-        };
-        if (res.ok && Array.isArray(body.items)) {
-          setItems(body.items);
-          setTotal(body.total ?? 0);
-        } else {
-          setError(body.message ?? t('assets.loadFailed'));
-        }
-      } catch (e) {
-        if ((e as Error).name !== 'AbortError') {
-          setError(t('app.serverUnreachable'));
-        }
+  // Danh sách qua TanStack Query: cache/dedup/hủy tự động; 401 xử lý tập trung ở apiFetch.
+  const { data: listData, isError: listError } = useQuery({
+    queryKey: [
+      'assets',
+      {
+        page,
+        search,
+        type,
+        status,
+        expiring,
+        softwareOnly,
+        sort: sorting[0]?.id ?? null,
+        dir: sorting[0]?.desc ? 'desc' : 'asc',
+      },
+    ],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(PAGE_SIZE),
+      });
+      if (search) params.set('search', search);
+      // Tab Phần mềm: khóa cứng type=software (bỏ qua dropdown loại).
+      if (softwareOnly) params.set('type', 'software');
+      else if (type) params.set('type', type);
+      if (status) params.set('status', status);
+      if (expiring) params.set('expiring', 'true');
+      if (sorting.length > 0) {
+        params.set('sort', sorting[0].id);
+        params.set('dir', sorting[0].desc ? 'desc' : 'asc');
       }
+      return apiFetch<{ items: AssetRow[]; total: number }>(
+        `/api/admin/assets?${params.toString()}`,
+      );
     },
-    [page, search, type, status, expiring, t],
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+    // giữ trang cũ khi đổi trang/sort → không nháy trắng giữa các lần fetch
+    placeholderData: (prev) => prev,
+  });
+  const items = listData?.items ?? [];
+  const total = listData?.total ?? 0;
 
   const openEdit = useCallback(
     async (id: string) => {
@@ -136,39 +151,157 @@ export function AssetsPage({ me }: { me: Me }) {
     [t],
   );
 
+  // 9.1: Copy phần mềm — nhân bản 1 bản ghi gần giống sang form TẠO MỚI (mã trống, chưa gắn máy).
+  const copyFrom = useCallback(
+    async (id: string) => {
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/assets/${encodeURIComponent(id)}`);
+        if (!res.ok) {
+          setError(t('assets.loadFailed'));
+          return;
+        }
+        const a = (await res.json()) as AssetDetail;
+        setForm({
+          ...detailToForm(a),
+          id: null,
+          version: 1,
+          status: 'in_use',
+          code: '',
+          installedOnAssetId: '',
+          installedOnCode: '',
+        });
+      } catch {
+        setError(t('app.serverUnreachable'));
+      }
+    },
+    [t],
+  );
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // id cột KHỚP whitelist BE (code/type/status/assignee) → map thẳng sang ?sort=.
+  const columns = useMemo<ColumnDef<AssetRow, unknown>[]>(
+    () => [
+      {
+        id: 'code',
+        accessorKey: 'code',
+        header: t('assets.code'),
+        cell: ({ row }) => <span className="mono">{row.original.code}</span>,
+      },
+      {
+        id: 'type',
+        accessorKey: 'type',
+        header: t('assets.type'),
+        cell: ({ row }) =>
+          row.original.type === 'software'
+            ? t('assets.kindSoftware')
+            : row.original.type,
+      },
+      {
+        id: 'assignee',
+        accessorKey: 'assignedUserName',
+        header: t('assets.assignee'),
+        cell: ({ row }) =>
+          row.original.assignedUserName ?? row.original.assignedUserSub ?? '—',
+      },
+      {
+        id: 'status',
+        accessorKey: 'status',
+        header: t('assets.statusLabel'),
+        cell: ({ row }) => (
+          <span className={`badge ${STATUS_BADGE[row.original.status] ?? 'muted'}`}>
+            {t(`assets.status.${row.original.status}`)}
+          </span>
+        ),
+      },
+      {
+        id: 'pool',
+        header: t('assets.pool'),
+        enableSorting: false,
+        cell: ({ row }) =>
+          row.original.isPool ? (
+            <span className="badge ok plain">{t('assets.pool')}</span>
+          ) : (
+            <span className="muted">—</span>
+          ),
+      },
+      {
+        id: 'actions',
+        header: '',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="table-actions">
+            <button
+              type="button"
+              className="sm"
+              onClick={(e) => {
+                e.stopPropagation(); // dòng có onRowClick — không mở 2 lần
+                void openEdit(row.original.id);
+              }}
+            >
+              {t('assets.edit')}
+            </button>
+            {softwareOnly && (
+              <button
+                type="button"
+                className="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void copyFrom(row.original.id);
+                }}
+              >
+                {t('software.copy')}
+              </button>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [t, softwareOnly, openEdit, copyFrom],
+  );
 
   return (
     <>
       <div className="page-header">
-        <h1>{t('nav.assets')}</h1>
-        <Link className="linkbtn" to="/tai-san/kiem-ke">
-          {t('inventory.link')}
-        </Link>
-        <Link className="linkbtn" to="/tai-san/import">
-          {t('importx.link')}
-        </Link>
-        {/* 2.10: export theo bộ lọc ĐANG áp — <a> điều hướng thật, cookie đi kèm */}
-        <a
-          className="linkbtn"
-          href={`/api/admin/assets/export?${new URLSearchParams({
-            ...(search ? { search } : {}),
-            ...(type ? { type } : {}),
-            ...(status ? { status } : {}),
-            ...(expiring ? { expiring: 'true' } : {}),
-          }).toString()}`}
-        >
-          {t('assets.exportExcel')}
-        </a>
+        <h1>{softwareOnly ? t('software.title') : t('nav.assets')}</h1>
+        {!softwareOnly && (
+          <>
+            <Link className="linkbtn" to="/tai-san/kiem-ke">
+              {t('inventory.link')}
+            </Link>
+            <Link className="linkbtn" to="/tai-san/import">
+              {t('importx.link')}
+            </Link>
+            {/* 2.10: export theo bộ lọc ĐANG áp — <a> điều hướng thật, cookie đi kèm */}
+            <a
+              className="linkbtn"
+              href={`/api/admin/assets/export?${new URLSearchParams({
+                ...(search ? { search } : {}),
+                ...(type ? { type } : {}),
+                ...(status ? { status } : {}),
+                ...(expiring ? { expiring: 'true' } : {}),
+              }).toString()}`}
+            >
+              {t('assets.exportExcel')}
+            </a>
+          </>
+        )}
         <button
           type="button"
           className="primary"
-          onClick={() => setForm(EMPTY_FORM)}
+          onClick={() =>
+            setForm(
+              softwareOnly ? { ...EMPTY_FORM, isSoftware: true } : EMPTY_FORM,
+            )
+          }
         >
-          {t('assets.addAsset')}
+          {softwareOnly ? t('software.add') : t('assets.addAsset')}
         </button>
       </div>
-      {error && <p className="alert error">{error}</p>}
+      {(error || listError) && (
+        <p className="alert error">{error ?? t('assets.loadFailed')}</p>
+      )}
       <div className="filter-bar">
         <input
           className="grow search"
@@ -176,20 +309,22 @@ export function AssetsPage({ me }: { me: Me }) {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
         />
-        <select
-          value={type}
-          onChange={(e) => {
-            setType(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">{t('assets.filterType')}</option>
-          {meta.types.map((v) => (
-            <option key={v} value={v}>
-              {v === 'software' ? t('assets.kindSoftware') : v}
-            </option>
-          ))}
-        </select>
+        {!softwareOnly && (
+          <select
+            value={type}
+            onChange={(e) => {
+              setType(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">{t('assets.filterType')}</option>
+            {meta.types.map((v) => (
+              <option key={v} value={v}>
+                {v === 'software' ? t('assets.kindSoftware') : v}
+              </option>
+            ))}
+          </select>
+        )}
         <select
           value={status}
           onChange={(e) => {
@@ -235,74 +370,21 @@ export function AssetsPage({ me }: { me: Me }) {
           </button>
         )}
       </div>
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>{t('assets.code')}</th>
-              <th>{t('assets.type')}</th>
-              <th>{t('assets.assignee')}</th>
-              <th>{t('assets.statusLabel')}</th>
-              <th>{t('assets.pool')}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((a) => (
-              // click dòng → xem chi tiết (AC 1; trang 3 tab là 2.7)
-              <tr
-                key={a.id}
-                // FR-38: license sắp hết hạn → viền trái đỏ (class overdue)
-                className={a.licenseWarning ? 'overdue' : undefined}
-                onClick={() => {
-                  // đang bôi đen copy mã → không phải ý định mở trang (review 2.2)
-                  if (window.getSelection()?.toString()) return;
-                  navigate(`/tai-san/${a.id}`);
-                }}
-                title={
-                  a.licenseWarning ? t('assets.licenseWarningHint') : undefined
-                }
-                style={{ cursor: 'pointer' }}
-              >
-                <td>
-                  <span className="mono">{a.code}</span>
-                </td>
-                <td>{a.type === 'software' ? t('assets.kindSoftware') : a.type}</td>
-                <td>{a.assignedUserName ?? a.assignedUserSub ?? '—'}</td>
-                <td>
-                  <span className={`badge ${STATUS_BADGE[a.status] ?? 'muted'}`}>
-                    {t(`assets.status.${a.status}`)}
-                  </span>
-                </td>
-                <td>
-                  {a.isPool ? (
-                    <span className="badge ok plain">{t('assets.pool')}</span>
-                  ) : (
-                    <span className="muted">—</span>
-                  )}
-                </td>
-                <td className="table-actions">
-                  <button
-                    type="button"
-                    className="sm"
-                    onClick={(e) => {
-                      e.stopPropagation(); // tr đã có onClick — không mở 2 lần
-                      void openEdit(a.id);
-                    }}
-                  >
-                    {t('assets.edit')}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {items.length === 0 && (
-        <p className="empty">
-          {hasFilter ? t('assets.noMatch') : t('assets.empty')}
-        </p>
-      )}
+      <DataTable
+        data={items}
+        columns={columns}
+        emptyText={hasFilter ? t('assets.noMatch') : t('assets.empty')}
+        manualSorting
+        sorting={sorting}
+        onSortingChange={onSortingChange}
+        rowClassName={(a) => (a.licenseWarning ? 'overdue' : '')}
+        onRowClick={(a) => {
+          // đang bôi đen copy mã → không phải ý định mở trang (review 2.2)
+          if (window.getSelection()?.toString()) return;
+          navigate(`/tai-san/${a.id}`);
+        }}
+      />
+      {items.length > 0 && (
       <div
         style={{
           marginTop: '0.75rem',
@@ -329,6 +411,7 @@ export function AssetsPage({ me }: { me: Me }) {
           {t('assets.next')} ›
         </button>
       </div>
+      )}
 
       {form && (
         <AssetForm
@@ -337,7 +420,7 @@ export function AssetsPage({ me }: { me: Me }) {
           onDone={(saved) => {
             setForm(null);
             if (saved) {
-              void load();
+              void queryClient.invalidateQueries({ queryKey: ['assets'] });
               void loadMeta();
             }
           }}

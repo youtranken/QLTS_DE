@@ -45,6 +45,9 @@ export interface AssetListQuery {
   status?: string;
   /** 7.7: lọc "sắp hết hạn" (end_date ≤ ngưỡng) — gộp thiết bị + license. */
   expiring?: boolean;
+  /** Sắp xếp server-side (P1): cột (whitelist ở DTO) + hướng. Mặc định code asc. */
+  sort?: string;
+  dir?: string;
 }
 
 // 7.6: model/floor gỡ khỏi form/audit (cột DB giữ nullable, không drop — dữ liệu lịch sử).
@@ -344,6 +347,16 @@ export class AssetsService {
       query,
       query.expiring ? await this.expiringCutoff() : null,
     );
+    // Sắp xếp server-side: cột đã whitelist ở DTO; id làm tiebreaker → phân trang ổn định.
+    const sortCol =
+      query.sort === 'type'
+        ? assetsTable.type
+        : query.sort === 'status'
+          ? assetsTable.status
+          : query.sort === 'assignee'
+            ? usersTable.fullName
+            : assetsTable.code;
+    const orderExpr = query.dir === 'desc' ? desc(sortCol) : sortCol;
     const [items, totalRows] = await Promise.all([
       this.db
         .select({
@@ -373,7 +386,7 @@ export class AssetsService {
         .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
         .leftJoin(host, eq(assetsTable.installedOnAssetId, host.id))
         .where(where)
-        .orderBy(assetsTable.code)
+        .orderBy(orderExpr, assetsTable.id)
         .limit(query.pageSize)
         .offset((query.page - 1) * query.pageSize),
       this.db

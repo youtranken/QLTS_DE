@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { fetchJson } from './fetch-json';
+import { LoadError } from './load-state';
 import type { Me } from './panels';
 
 interface FailedItem {
@@ -19,13 +21,19 @@ export function NotificationsFailedPage({ me }: { me: Me }) {
   const [items, setItems] = useState<FailedItem[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Lỗi TẢI danh sách (tách khỏi err của requeue): !ok trước đây thành "rỗng" giả (P0).
+  const [loadErr, setLoadErr] = useState(false);
 
   const load = useCallback(async () => {
-    const r = await fetch('/api/admin/notifications/failed');
-    const data = (r.ok ? await r.json() : { items: [] }) as {
-      items: FailedItem[];
-    };
-    setItems(data.items);
+    setLoadErr(false);
+    try {
+      const data = await fetchJson<{ items: FailedItem[] }>(
+        '/api/admin/notifications/failed',
+      );
+      setItems(data.items);
+    } catch {
+      setLoadErr(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -59,12 +67,15 @@ export function NotificationsFailedPage({ me }: { me: Me }) {
         <h1>{t('notifyFailed.title')}</h1>
       </div>
       {err && <p style={{ color: 'var(--danger)' }}>{err}</p>}
-      {items === null ? (
+      {loadErr ? (
+        <LoadError onRetry={() => void load()} />
+      ) : items === null ? (
         <p className="muted">…</p>
       ) : items.length === 0 ? (
         <p className="muted">{t('notifyFailed.empty')}</p>
       ) : (
-        <table className="data-table">
+        <div className="table-wrap">
+        <table className="table">
           <thead>
             <tr>
               <th>{t('notifyFailed.topic')}</th>
@@ -99,6 +110,7 @@ export function NotificationsFailedPage({ me }: { me: Me }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );

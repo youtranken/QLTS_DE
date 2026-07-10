@@ -161,6 +161,17 @@ export class CatalogService {
     if (cur.length === 0) throw new NotFoundException(NOT_FOUND);
     const { kind, value: oldValue } = cur[0];
     if (v === oldValue) return { assetsUpdated: 0 };
+    // Chặn đổi tên dính 'software' (đối xứng loadPair/merge): cascade UPDATE assets.type qua/về
+    // 'software' vi phạm CHECK software-fields (0012) → 23514 rollback → 500 khó hiểu (review P0 3.5).
+    if (
+      kind === 'type' &&
+      (oldValue.toLowerCase() === 'software' || v.toLowerCase() === 'software')
+    ) {
+      throw new BadRequestException({
+        code: 'CATALOG_RENAME_SOFTWARE',
+        message: 'Không đổi tên qua/về loại hệ thống "software".',
+      });
+    }
     // Trùng với entry khác (kể cả khác hoa/thường) → gợi ý dùng Gộp
     const dup = await this.db
       .select({ id: catalogTable.id })

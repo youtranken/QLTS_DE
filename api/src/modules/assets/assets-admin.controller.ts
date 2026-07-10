@@ -176,6 +176,15 @@ class ListAssetsQueryDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   expiring?: boolean;
+
+  /** Sắp xếp server-side (P1): whitelist cột — chặn SQL injection qua tên cột. */
+  @IsOptional()
+  @IsIn(['code', 'type', 'status', 'assignee'])
+  sort?: string;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  dir?: string;
 }
 
 function toInput(body: AssetBodyDto): AssetInput {
@@ -211,6 +220,8 @@ export class AssetsAdminController {
       type: query.type,
       status: query.status,
       expiring: query.expiring,
+      sort: query.sort,
+      dir: query.dir,
     });
   }
 

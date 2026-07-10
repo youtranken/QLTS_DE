@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -182,5 +183,24 @@ export class InventoryController {
       decodeOriginalName(f.originalname),
       requireSub(req),
     );
+  }
+
+  /** Xóa 1 biên bản khỏi đợt (9.4). */
+  @Delete(':id/files/:fileId')
+  deleteFile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('fileId', ParseUUIDPipe) fileId: string,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.files.deleteRoundFile(id, fileId, requireSub(req));
+  }
+
+  /** Xóa cả đợt kiểm kê kèm file (9.4). */
+  @Delete(':id')
+  deleteRound(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.files.deleteRound(id, requireSub(req));
   }
 }

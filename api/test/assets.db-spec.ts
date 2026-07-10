@@ -215,6 +215,27 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     expect(assigned?.assignedUserName).toBe('Trần Thị Bình');
   });
 
+  it('sắp xếp server-side theo cột whitelist + hướng; giá trị lạ → 400 (P1)', async () => {
+    const asc = await request(app.getHttpServer())
+      .get('/api/admin/assets?page=1&pageSize=100&sort=code&dir=asc')
+      .set(asAdmin())
+      .expect(200);
+    const codesAsc = (asc.body.items as { code: string }[]).map((a) => a.code);
+    const desc = await request(app.getHttpServer())
+      .get('/api/admin/assets?page=1&pageSize=100&sort=code&dir=desc')
+      .set(asAdmin())
+      .expect(200);
+    const codesDesc = (desc.body.items as { code: string }[]).map((a) => a.code);
+    // desc là đảo ngược asc (cùng collation PG cả 2 chiều) → chứng minh dir đổi hướng thật
+    expect(codesDesc).toEqual([...codesAsc].reverse());
+    expect(codesAsc.length).toBeGreaterThan(1);
+    // sort ngoài whitelist → 400 (chặn injection qua tên cột)
+    await request(app.getHttpServer())
+      .get('/api/admin/assets?sort=code;DROP%20TABLE&dir=asc')
+      .set(asAdmin())
+      .expect(400);
+  });
+
   it('chi tiết theo id: đủ trường FR-30 + version cho form sửa', async () => {
     const { rows } = await pool.query(
       "SELECT id FROM assets WHERE code = '3-AA-CT-0042'",

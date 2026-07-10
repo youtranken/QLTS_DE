@@ -1,0 +1,183 @@
+import { useEffect, useState } from 'react';
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type OnChangeFn,
+  type SortingState,
+} from '@tanstack/react-table';
+
+interface DataTableProps<T> {
+  data: T[];
+  columns: ColumnDef<T, unknown>[];
+  emptyText: string;
+  /** Có giá trị → hiện ô tìm kiếm toàn bảng (lọc client, debounce). */
+  searchPlaceholder?: string;
+  initialSort?: SortingState;
+  /** Class cho từng <tr> theo dữ liệu dòng (vd dòng quá hạn tô đỏ). */
+  rowClassName?: (row: T) => string;
+  /** Class thêm cho <table> (giữ style riêng của trang, vd 'board-table'). */
+  tableClassName?: string;
+  /** Sort server-side: không sắp client, parent giữ `sorting` + refetch qua `onSortingChange`. */
+  manualSorting?: boolean;
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
+  /** Bấm cả dòng (vd mở chi tiết). Kèm bàn phím (Enter/Space) cho a11y. */
+  onRowClick?: (row: T) => void;
+}
+
+/**
+ * Bảng dùng chung (design-system, review nguyên tắc #3): sort theo cột (asc→desc→bỏ),
+ * search toàn bảng, trạng thái rỗng — headless TanStack Table, GIỮ nguyên CSS `.table`.
+ * Thay các <table> tự viết không sort được ("0 bảng sort được" — review mục 5.1).
+ */
+export function DataTable<T>({
+  data,
+  columns,
+  emptyText,
+  searchPlaceholder,
+  initialSort = [],
+  rowClassName,
+  tableClassName,
+  manualSorting,
+  sorting: controlledSorting,
+  onSortingChange: controlledOnSortingChange,
+  onRowClick,
+}: DataTableProps<T>) {
+  const [internalSort, setInternalSort] = useState<SortingState>(initialSort);
+  const [globalFilter, setGlobalFilter] = useState('');
+  // Controlled (server-side) nếu parent truyền sorting; ngược lại tự giữ state (client).
+  const sorting = controlledSorting ?? internalSort;
+  const onSortingChange = controlledOnSortingChange ?? setInternalSort;
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: { sorting, globalFilter },
+    onSortingChange,
+    onGlobalFilterChange: setGlobalFilter,
+    // asc-first nhất quán mọi cột (mặc định TanStack sort số theo desc-first — khó đoán cho user).
+    sortDescFirst: false,
+    globalFilterFn: 'includesString',
+    manualSorting: manualSorting ?? false,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+  });
+
+  const rows = table.getRowModel().rows;
+
+  return (
+    <>
+      {searchPlaceholder !== undefined && (
+        <SearchBox onChange={setGlobalFilter} placeholder={searchPlaceholder} />
+      )}
+      <div className="table-wrap">
+        <table className={tableClassName ? `table ${tableClassName}` : 'table'}>
+          <thead>
+            {table.getHeaderGroups().map((hg) => (
+              <tr key={hg.id}>
+                {hg.headers.map((h) => {
+                  const sorted = h.column.getIsSorted();
+                  return (
+                    <th
+                      key={h.id}
+                      aria-sort={
+                        sorted === 'asc'
+                          ? 'ascending'
+                          : sorted === 'desc'
+                            ? 'descending'
+                            : undefined
+                      }
+                    >
+                      {h.isPlaceholder ? null : h.column.getCanSort() ? (
+                        <button
+                          type="button"
+                          className="th-sort"
+                          onClick={h.column.getToggleSortingHandler()}
+                        >
+                          {flexRender(h.column.columnDef.header, h.getContext())}
+                          <span aria-hidden="true" className="sort-arrow">
+                            {sorted === 'asc' ? ' ▲' : sorted === 'desc' ? ' ▼' : ''}
+                          </span>
+                        </button>
+                      ) : (
+                        flexRender(h.column.columnDef.header, h.getContext())
+                      )}
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={table.getAllLeafColumns().length} className="muted">
+                  {emptyText}
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className={rowClassName?.(row.original) || undefined}
+                  onClick={
+                    onRowClick ? () => onRowClick(row.original) : undefined
+                  }
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onRowClick(row.original);
+                          }
+                        }
+                      : undefined
+                  }
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? 'button' : undefined}
+                  style={onRowClick ? { cursor: 'pointer' } : undefined}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/** Ô search debounce 200ms — không lọc lại mỗi phím, giữ gõ mượt trên bảng lớn. */
+function SearchBox({
+  onChange,
+  placeholder,
+}: {
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [text, setText] = useState('');
+  useEffect(() => {
+    const id = setTimeout(() => onChange(text), 200);
+    return () => clearTimeout(id);
+  }, [text, onChange]);
+  return (
+    <input
+      className="table-search"
+      type="search"
+      value={text}
+      placeholder={placeholder}
+      aria-label={placeholder}
+      onChange={(e) => setText(e.target.value)}
+    />
+  );
+}

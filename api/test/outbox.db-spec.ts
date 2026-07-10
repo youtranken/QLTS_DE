@@ -98,6 +98,22 @@ describe('Outbox + relay (story 3.5a)', () => {
     expect(claimed.rows[0].claimed_at).not.toBeNull();
   });
 
+  it('relay NGỪNG re-drive khi fail_count chạm trần MAX_RELAY_ATTEMPTS=10 (điểm terminal, P0 3.2)', async () => {
+    await db.transaction(async (tx) => {
+      await service.enqueueWithin(tx, 'ev.dead', {});
+    });
+    // fail_count = 9 (< trần) → vẫn re-drive
+    await pool.query(`UPDATE outbox SET fail_count = 9, claimed_at = NULL`);
+    expect(await service.relayBatch(queue)).toBe(1);
+    // = trần (10) → relay bỏ qua (chặn poison re-drive vô hạn)
+    await pool.query(`UPDATE outbox SET fail_count = 10, claimed_at = NULL`);
+    expect(await service.relayBatch(queue)).toBe(0);
+    // requeue tay reset fail_count=0 → hồi sinh
+    const ev = await pool.query<{ id: string }>(`SELECT id FROM outbox`);
+    await service.requeue(ev.rows[0].id);
+    expect(await service.relayBatch(queue)).toBe(1);
+  });
+
   it('relay 2 lần KHÔNG sinh job đúp (jobId dedup — AC 2/4)', async () => {
     await db.transaction(async (tx) => {
       await service.enqueueWithin(tx, 'ev.b', {});

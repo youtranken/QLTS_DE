@@ -327,7 +327,7 @@ export function InUseNowPanel({ standalone = false }: { standalone?: boolean }) 
       ) : (
         <h2 style={{ marginBottom: '0.75rem' }}>{t('inusenow.title')}</h2>
       )}
-      {rows !== null && rows.length > 0 ? (
+      {rows !== null && (rows.length > 0 || standalone) && (
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -338,6 +338,13 @@ export function InUseNowPanel({ standalone = false }: { standalone?: boolean }) 
               </tr>
             </thead>
             <tbody>
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="muted">
+                    {t('inusenow.empty')}
+                  </td>
+                </tr>
+              )}
               {rows.map((r, i) => (
                 <tr key={i}>
                   <td>{r.borrowerName ?? '—'}</td>
@@ -352,8 +359,6 @@ export function InUseNowPanel({ standalone = false }: { standalone?: boolean }) 
             </tbody>
           </table>
         </div>
-      ) : (
-        standalone && <p className="empty">{t('inusenow.empty')}</p>
       )}
     </section>
   );

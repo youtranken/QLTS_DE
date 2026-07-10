@@ -123,6 +123,38 @@ export class BookingService {
   }
 
   /**
+   * Máy pool đang RẢNH ngay bây giờ (9.5) — nguồn cho bảng "Máy có thể mượn" ở trang chủ.
+   * = is_pool + in_use, không có booking chiếm chỗ chồng lên thời điểm hiện tại.
+   * Read-model công khai nội bộ (AD-5) — không lộ người mượn.
+   */
+  async poolFreeNow(): Promise<
+    Array<{ id: string; code: string; type: string; configuration: string | null }>
+  > {
+    const occupying = sql.join(
+      OCCUPYING_STATES.map((s) => sql`${s}`),
+      sql`, `,
+    );
+    const rows = await this.db.execute<{
+      id: string;
+      code: string;
+      type: string;
+      configuration: string | null;
+    }>(sql`
+      SELECT a.id, a.code, a.type, a.configuration
+      FROM assets a
+      WHERE a.is_pool = true AND a.status = 'in_use'
+        AND NOT EXISTS (
+          SELECT 1 FROM booking b
+          WHERE b.asset_id = a.id
+            AND b.state IN (${occupying})
+            AND b.period @> now()
+        )
+      ORDER BY a.code
+    `);
+    return rows.rows;
+  }
+
+  /**
    * Lịch tuần của MỘT máy (FR-10): các khối busy = booking OCCUPYING chồng tuần đó.
    * AD-5 NGHIÊM NGẶT: payload chỉ khung giờ + kind — TUYỆT ĐỐI không borrower/lý do.
    * weekStart chuẩn hóa về Thứ 2 00:00 giờ VN (date_trunc('week') — tuần Postgres bắt đầu

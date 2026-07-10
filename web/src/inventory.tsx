@@ -124,6 +124,33 @@ export function InventoryPage({ me }: { me: Me }) {
     [me.csrfToken, load, t],
   );
 
+  const del = useCallback(
+    async (url: string, confirmMsg: string) => {
+      if (!window.confirm(confirmMsg)) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await fetch(url, {
+          method: 'DELETE',
+          headers: me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {},
+        });
+        if (res.ok) {
+          await load();
+        } else {
+          const body = (await res.json().catch(() => ({}))) as {
+            message?: string;
+          };
+          setError(body.message ?? t('inventory.deleteFailed'));
+        }
+      } catch {
+        setError(t('app.serverUnreachable'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [me.csrfToken, load, t],
+  );
+
   const fmtDateTime = (v: string) =>
     new Date(v).toLocaleString(i18n.language === 'en' ? 'en-GB' : 'vi-VN');
 
@@ -183,9 +210,32 @@ export function InventoryPage({ me }: { me: Me }) {
             marginBottom: '0.75rem',
           }}
         >
-          <h2 style={{ fontSize: '1rem', margin: '0 0 0.25rem' }}>
-            {t('inventory.roundTitle', { year: r.year })}
-          </h2>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              margin: '0 0 0.25rem',
+            }}
+          >
+            <h2 style={{ fontSize: '1rem', margin: 0 }}>
+              {t('inventory.roundTitle', { year: r.year })}
+            </h2>
+            <span style={{ flex: 1 }} />
+            <button
+              type="button"
+              className="danger sm"
+              disabled={busy}
+              onClick={() =>
+                void del(
+                  `/api/admin/inventory-rounds/${encodeURIComponent(r.id)}`,
+                  t('inventory.deleteRoundConfirm', { year: r.year }),
+                )
+              }
+            >
+              {t('inventory.deleteRound')}
+            </button>
+          </div>
           <p style={{ fontSize: '0.85rem', color: '#555', margin: '0 0 0.5rem' }}>
             {fmtDateTime(r.createdAt)}
             {r.note ? ` — ${r.note}` : ''}
@@ -201,13 +251,32 @@ export function InventoryPage({ me }: { me: Me }) {
                   </a>{' '}
                   <span style={{ color: '#555', fontSize: '0.85rem' }}>
                     ({formatSize(f.sizeBytes)})
-                  </span>
+                  </span>{' '}
+                  <button
+                    type="button"
+                    className="ghost sm"
+                    disabled={busy}
+                    title={t('inventory.deleteFile')}
+                    onClick={() =>
+                      void del(
+                        `/api/admin/inventory-rounds/${encodeURIComponent(r.id)}/files/${encodeURIComponent(f.id)}`,
+                        t('inventory.deleteFileConfirm', {
+                          name: f.originalName,
+                        }),
+                      )
+                    }
+                  >
+                    ✕
+                  </button>
                 </li>
               ))}
             </ul>
           )}
-          <label style={{ fontSize: '0.9rem' }}>
-            {t('inventory.uploadFile')}{' '}
+          <label className="dropzone" style={{ cursor: busy ? 'default' : 'pointer' }}>
+            📎{' '}
+            {t('inventory.dropzoneBefore', 'Kéo-thả hoặc ')}
+            <b>{t('inventory.dropzonePick', 'chọn tệp')}</b>
+            {t('inventory.dropzoneAfter', ' biên bản (pdf / xlsx / ảnh)')}
             <input
               type="file"
               accept=".pdf,.xlsx,.jpg,.jpeg,.png,.webp"

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { fetchJson } from './fetch-json';
+import { LoadError } from './load-state';
 
 interface QueueCard {
   key: string;
@@ -27,25 +29,20 @@ export function AdminDashboard() {
     offboard: null,
     expiring: null,
   });
+  // Phân biệt lỗi tải với "0": nuốt lỗi thành 0 khiến server chết trông như hết việc (P0).
+  const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    setError(false);
     const arrLen = (url: string) =>
-      fetch(url)
-        .then((r) => (r.ok ? (r.json() as Promise<unknown[]>) : []))
-        .then((d) => (Array.isArray(d) ? d.length : 0))
-        .catch(() => 0);
+      fetchJson<unknown[]>(url).then((d) => (Array.isArray(d) ? d.length : 0));
     const totalOf = (url: string) =>
-      fetch(url)
-        .then((r) => (r.ok ? (r.json() as Promise<{ total: number }>) : { total: 0 }))
-        .then((d) => d.total ?? 0)
-        .catch(() => 0);
+      fetchJson<{ total: number }>(url).then((d) => d.total ?? 0);
     const countOf = (url: string) =>
-      fetch(url)
-        .then((r) => (r.ok ? (r.json() as Promise<{ count: number }>) : { count: 0 }))
-        .then((d) => d.count ?? 0)
-        .catch(() => 0);
-    void Promise.all([
+      fetchJson<{ count: number }>(url).then((d) => d.count ?? 0);
+    Promise.all([
       arrLen('/api/admin/tickets/pending-approval'),
       arrLen('/api/admin/tickets/extensions'),
       arrLen('/api/admin/tickets/awaiting-pickup'),
@@ -55,36 +52,40 @@ export function AdminDashboard() {
       totalOf('/api/admin/notifications/failed'),
       totalOf('/api/admin/offboarding'),
       countOf('/api/admin/assets/expiring-count'),
-    ]).then(
-      ([
-        pending,
-        extension,
-        pickup,
-        inuse,
-        overdue,
-        locked,
-        notifyFailed,
-        offboard,
-        expiring,
-      ]) => {
-        if (alive)
-          setCounts({
-            pending,
-            extension,
-            pickup,
-            inuse,
-            overdue,
-            locked,
-            notifyFailed,
-            offboard,
-            expiring,
-          });
-      },
-    );
+    ])
+      .then(
+        ([
+          pending,
+          extension,
+          pickup,
+          inuse,
+          overdue,
+          locked,
+          notifyFailed,
+          offboard,
+          expiring,
+        ]) => {
+          if (alive)
+            setCounts({
+              pending,
+              extension,
+              pickup,
+              inuse,
+              overdue,
+              locked,
+              notifyFailed,
+              offboard,
+              expiring,
+            });
+        },
+      )
+      .catch(() => {
+        if (alive) setError(true);
+      });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   const cards: QueueCard[] = [
     { key: 'pending', count: counts.pending, to: '/xu-ly-muon' },
@@ -129,8 +130,11 @@ export function AdminDashboard() {
       <div className="page-header">
         <h1>{t('dashboard.title')}</h1>
       </div>
-      <div className="stat-grid">
-        {cards.map((c) => {
+      {error ? (
+        <LoadError onRetry={() => setReloadKey((k) => k + 1)} />
+      ) : (
+        <div className="stat-grid">
+          {cards.map((c) => {
           const isDanger = c.danger && (c.count ?? 0) > 0;
           return (
             <button
@@ -145,8 +149,9 @@ export function AdminDashboard() {
               <div className="stat-label">{t(`dashboard.${c.key}`)}</div>
             </button>
           );
-        })}
-      </div>
+          })}
+        </div>
+      )}
     </section>
   );
 }

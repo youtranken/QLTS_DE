@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { fetchJson } from './fetch-json';
+import { LoadError } from './load-state';
 
 interface Alert {
   sub: string;
@@ -26,19 +28,23 @@ interface Queue {
 export function OffboardingQueuePage() {
   const { t } = useTranslation();
   const [data, setData] = useState<Queue | null>(null);
+  const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/admin/offboarding')
-      .then((r) => (r.ok ? (r.json() as Promise<Queue>) : null))
+    setError(false);
+    fetchJson<Queue>('/api/admin/offboarding')
       .then((d) => {
         if (alive) setData(d);
       })
-      .catch(() => setData(null));
+      .catch(() => {
+        if (alive) setError(true);
+      });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   const statusText = (s: string) =>
     s === 'deleted' ? t('offboard.deleted') : t('offboard.locked');
@@ -48,7 +54,9 @@ export function OffboardingQueuePage() {
       <div className="page-header">
         <h1>{t('offboard.title')}</h1>
       </div>
-      {data === null ? (
+      {error ? (
+        <LoadError onRetry={() => setReloadKey((k) => k + 1)} />
+      ) : data === null ? (
         <p className="muted">…</p>
       ) : (
         <>
@@ -56,7 +64,8 @@ export function OffboardingQueuePage() {
           {data.alerts.length === 0 ? (
             <p className="muted">{t('offboard.noAlerts')}</p>
           ) : (
-            <table className="data-table">
+            <div className="table-wrap">
+            <table className="table">
               <thead>
                 <tr>
                   <th>{t('offboard.name')}</th>
@@ -78,6 +87,7 @@ export function OffboardingQueuePage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           <h2 style={{ marginTop: '1.5rem' }}>
@@ -86,7 +96,8 @@ export function OffboardingQueuePage() {
           {data.needsMatch.length === 0 ? (
             <p className="muted">{t('offboard.noNeedsMatch')}</p>
           ) : (
-            <table className="data-table">
+            <div className="table-wrap">
+            <table className="table">
               <thead>
                 <tr>
                   <th>{t('offboard.assetCode')}</th>
@@ -102,6 +113,7 @@ export function OffboardingQueuePage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </>
       )}

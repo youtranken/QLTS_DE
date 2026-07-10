@@ -5,11 +5,18 @@ import { RecurringBuilder } from './recurring-builder';
 import type { Me } from './panels';
 
 const MAX_DURATION_AUTO_MS = 48 * 60 * 60 * 1000;
+// Khung giờ làm việc (9.8): chỉ cho đặt 07:00–18:00, T2–T7 (CN khóa). Giờ VN (UTC+7 cố định).
+const WORK_START = '07:00';
+const WORK_END = '18:00';
+/** Ngày local (YYYY-MM-DD) theo tz máy — dùng cho default + min của input date. */
+const todayLocal = (): string => new Date().toLocaleDateString('en-CA');
+/** HH:MM local hiện tại — chặn chọn giờ đã qua trong hôm nay. */
+const nowTimeLocal = (): string =>
+  new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+/** true nếu chuỗi YYYY-MM-DD rơi vào Chủ nhật (local). */
+const isSunday = (d: string): boolean =>
+  d ? new Date(`${d}T00:00`).getDay() === 0 : false;
 
-interface Department {
-  id: string;
-  name: string;
-}
 interface FreeMachine {
   id: string;
   code: string;
@@ -32,10 +39,13 @@ export function BookingSheet({
   me,
   onClose,
   onBooked,
+  presetAssetId,
 }: {
   me: Me;
   onClose: () => void;
   onBooked: () => void;
+  /** 9.5: mở từ bảng "Máy có thể mượn" → tự chọn đúng máy khi nó xuất hiện trong danh sách rảnh. */
+  presetAssetId?: string;
 }) {
   const { t } = useTranslation();
   const isAdmin = me.role === 'admin' || me.role === 'sa';
@@ -43,17 +53,16 @@ export function BookingSheet({
   const canRecur = isAdmin || (me.permissions?.canRecurring ?? false);
 
   const [mode, setMode] = useState<Mode>('normal');
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [departmentId, setDepartmentId] = useState('');
   const [note, setNote] = useState('');
   // Admin tạo hộ: người mượn
   const [borrower, setBorrower] = useState<UserOption | null>(null);
   const [userQuery, setUserQuery] = useState('');
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   // Thường/Nâng cao — tách Ngày + Giờ cho Nhận/Trả (4 ô), gộp lại thành datetime khi dùng.
-  const [fromDate, setFromDate] = useState('');
+  // Ngày mặc định = hôm nay (9.8); giờ để trống buộc người dùng chọn trong khung làm việc.
+  const [fromDate, setFromDate] = useState(todayLocal);
   const [fromTime, setFromTime] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [toDate, setToDate] = useState(todayLocal);
   const [toTime, setToTime] = useState('');
   const from = fromDate && fromTime ? `${fromDate}T${fromTime}` : '';
   const to = toDate && toTime ? `${toDate}T${toTime}` : '';
@@ -67,12 +76,10 @@ export function BookingSheet({
   const durationMs =
     from && to ? new Date(to).getTime() - new Date(from).getTime() : 0;
   const isLong = durationMs > MAX_DURATION_AUTO_MS;
+  // 9.8: CN khóa (cả ngày nhận lẫn ngày trả). Ngoài khung giờ để BE + min/max input chặn.
+  const weekendBlocked = isSunday(fromDate) || isSunday(toDate);
 
   useEffect(() => {
-    fetch('/api/departments')
-      .then((r) => (r.ok ? (r.json() as Promise<Department[]>) : []))
-      .then(setDepartments)
-      .catch(() => setDepartments([]));
     fetch('/api/booking/asset-types')
       .then((r) => (r.ok ? (r.json() as Promise<string[]>) : []))
       .then(setAssetTypes)
@@ -110,7 +117,10 @@ export function BookingSheet({
   }, [isAdmin, userQuery]);
 
   // Availability tự gợi ý (debounce) khi đổi giờ/loại — chỉ mode Thường/Nâng cao
-  const searchKey = mode !== 'recurring' && from && to ? `${from}|${to}|${typeFilter}` : '';
+  const searchKey =
+    mode !== 'recurring' && from && to && !weekendBlocked
+      ? `${from}|${to}|${typeFilter}`
+      : '';
   useEffect(() => {
     // Đổi khung/loại → bỏ máy đã chọn (chống đặt máy chỉ rảnh ở khung cũ — guard stale, review 7.5)
     setAssetId('');
@@ -128,7 +138,12 @@ export function BookingSheet({
         { signal: c.signal },
       )
         .then(async (r) => {
-          setMachines(r.ok ? ((await r.json()) as FreeMachine[]) : []);
+          const list = r.ok ? ((await r.json()) as FreeMachine[]) : [];
+          setMachines(list);
+          // 9.5: mở từ bảng máy trống → tự chọn đúng máy nếu nó còn rảnh ở khung vừa chọn.
+          if (presetAssetId && list.some((m) => m.id === presetAssetId)) {
+            setAssetId(presetAssetId);
+          }
         })
         .catch(() => undefined);
     }, 350);
@@ -136,7 +151,7 @@ export function BookingSheet({
       c.abort();
       clearTimeout(timer);
     };
-  }, [searchKey, from, to, typeFilter]);
+  }, [searchKey, from, to, typeFilter, presetAssetId]);
 
   const longBlocked = mode === 'normal' && isLong; // Thường không được >2 ngày
 
@@ -144,6 +159,10 @@ export function BookingSheet({
     setError(null);
     if (!assetId || !from || !to) {
       setError(t('bookingSheet.errMissing'));
+      return;
+    }
+    if (weekendBlocked) {
+      setError(t('bookingSheet.errWeekend'));
       return;
     }
     if (isAdmin && !borrower) {
@@ -156,7 +175,6 @@ export function BookingSheet({
         assetId,
         from: new Date(from).toISOString(),
         to: new Date(to).toISOString(),
-        ...(departmentId ? { departmentId } : {}),
       };
       let url = '/api/booking';
       if (isAdmin) {
@@ -188,7 +206,7 @@ export function BookingSheet({
         ASSET_UNAVAILABLE: t('booking.errAssetUnavailable'),
         QUOTA_EXCEEDED: t('booking.errQuota'),
         LONG_TERM_REQUIRED: t('booking.errLongTerm'),
-        DEPARTMENT_INVALID: t('bookingSheet.errDept'),
+        OUTSIDE_WORK_HOURS: t('bookingSheet.errWorkHours'),
       };
       setError((b.code && map[b.code]) || b.message || t('booking.errGeneric'));
     } catch {
@@ -200,7 +218,7 @@ export function BookingSheet({
     assetId,
     from,
     to,
-    departmentId,
+    weekendBlocked,
     note,
     isAdmin,
     borrower,
@@ -308,23 +326,9 @@ export function BookingSheet({
             </div>
           )}
 
-          {/* Phòng ban + Ghi chú (chung mọi loại) */}
-          <div className="form-grid" style={{ marginBottom: '1rem' }}>
-            <label className="field">
-              <span>{t('bookingSheet.department')}</span>
-              <select
-                value={departmentId}
-                onChange={(e) => setDepartmentId(e.target.value)}
-              >
-                <option value="">{t('bookingSheet.noDepartment')}</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {mode !== 'recurring' && !isAdmin && (
+          {/* Ghi chú (member; admin không có ô này) — phòng ban đã ẩn (9.7). */}
+          {mode !== 'recurring' && !isAdmin && (
+            <div className="form-grid" style={{ marginBottom: '1rem' }}>
               <label className="field span-2">
                 <span>{t('bookingSheet.note')}</span>
                 <input
@@ -333,15 +337,15 @@ export function BookingSheet({
                   onChange={(e) => setNote(e.target.value)}
                 />
               </label>
-            )}
-          </div>
+            </div>
+          )}
 
           {mode === 'recurring' ? (
             isAdmin ? (
               <RecurringAdminBuilder
                 me={me}
                 borrowerSub={borrower?.sub ?? ''}
-                departmentId={departmentId}
+                departmentId=""
                 onBooked={() => {
                   onBooked();
                   onClose();
@@ -370,6 +374,7 @@ export function BookingSheet({
                   <span>{t('bookingSheet.pickupDate')}</span>
                   <input
                     type="date"
+                    min={todayLocal()}
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
                   />
@@ -378,6 +383,14 @@ export function BookingSheet({
                   <span>{t('bookingSheet.pickupTime')}</span>
                   <input
                     type="time"
+                    min={
+                      fromDate === todayLocal()
+                        ? nowTimeLocal() > WORK_START
+                          ? nowTimeLocal()
+                          : WORK_START
+                        : WORK_START
+                    }
+                    max={WORK_END}
                     value={fromTime}
                     onChange={(e) => setFromTime(e.target.value)}
                   />
@@ -386,6 +399,7 @@ export function BookingSheet({
                   <span>{t('bookingSheet.returnDate')}</span>
                   <input
                     type="date"
+                    min={fromDate || todayLocal()}
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
                   />
@@ -394,11 +408,16 @@ export function BookingSheet({
                   <span>{t('bookingSheet.returnTime')}</span>
                   <input
                     type="time"
+                    min={WORK_START}
+                    max={WORK_END}
                     value={toTime}
                     onChange={(e) => setToTime(e.target.value)}
                   />
                 </label>
               </div>
+              {weekendBlocked && (
+                <p className="alert warn">{t('bookingSheet.errWeekend')}</p>
+              )}
               {longBlocked && (
                 <p className="alert warn">{t('bookingSheet.needAdvanced')}</p>
               )}
@@ -471,7 +490,7 @@ export function BookingSheet({
             <button
               type="button"
               className="primary"
-              disabled={busy || longBlocked || !assetId}
+              disabled={busy || longBlocked || weekendBlocked || !assetId}
               onClick={() => void submit()}
             >
               {busy && <span className="spinner" style={{ marginRight: 6 }} />}

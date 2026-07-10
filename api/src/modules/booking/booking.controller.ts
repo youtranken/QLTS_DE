@@ -66,6 +66,12 @@ export class BookingController {
     return this.booking.assetTypes();
   }
 
+  /** Máy pool đang rảnh ngay bây giờ (9.5) — bảng "Máy có thể mượn" ở trang chủ. */
+  @Get('pool-machines')
+  poolMachines() {
+    return this.booking.poolFreeNow();
+  }
+
   /** Lịch tuần busy/free của một máy (FR-10) — AD-5: không lộ người mượn. */
   @Get('machines/:id/calendar')
   calendar(

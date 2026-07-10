@@ -103,16 +103,34 @@ export function ReportsPage() {
         <h1>{t('reports.title')}</h1>
       </div>
 
-      <div className="tabs" style={{ display: 'flex', gap: '.5rem', marginBottom: '1rem' }}>
-        <button disabled={tab === 'asset'} onClick={() => switchTab('asset')}>
+      <div className="segmented" style={{ marginBottom: '1rem' }}>
+        <label>
+          <input
+            type="radio"
+            name="reportTab"
+            checked={tab === 'asset'}
+            onChange={() => switchTab('asset')}
+          />
           {t('reports.tabAsset')}
-        </button>
-        <button disabled={tab === 'user'} onClick={() => switchTab('user')}>
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="reportTab"
+            checked={tab === 'user'}
+            onChange={() => switchTab('user')}
+          />
           {t('reports.tabUser')}
-        </button>
-        <button disabled={tab === 'overdue'} onClick={() => switchTab('overdue')}>
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="reportTab"
+            checked={tab === 'overdue'}
+            onChange={() => switchTab('overdue')}
+          />
           {t('reports.tabOverdue')}
-        </button>
+        </label>
       </div>
 
       <div style={{ display: 'flex', gap: '.75rem', alignItems: 'flex-end', marginBottom: '1rem' }}>
@@ -183,24 +201,26 @@ function AssetTable({
   if (data.items.length === 0) return <p className="muted">{t('reports.empty')}</p>;
   return (
     <>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>{t('reports.colAsset')}</th>
-            <th>{t('reports.colType')}</th>
-            <th>{t('reports.colCount')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.items.map((r) => (
-            <tr key={r.assetId}>
-              <td>{r.code}</td>
-              <td>{r.type}</td>
-              <td>{r.count}</td>
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>{t('reports.colAsset')}</th>
+              <th>{t('reports.colType')}</th>
+              <th>{t('reports.colCount')}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.items.map((r) => (
+              <tr key={r.assetId}>
+                <td>{r.code}</td>
+                <td>{r.type}</td>
+                <td>{r.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <Pager page={page} setPage={setPage} hasNext={page * data.pageSize < data.total} />
     </>
   );
@@ -220,22 +240,24 @@ function UserTable({
   if (data.items.length === 0) return <p className="muted">{t('reports.empty')}</p>;
   return (
     <>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>{t('reports.colUser')}</th>
-            <th>{t('reports.colCount')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.items.map((r) => (
-            <tr key={r.borrowerSub}>
-              <td>{r.fullName ?? r.borrowerSub}</td>
-              <td>{r.count}</td>
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>{t('reports.colUser')}</th>
+              <th>{t('reports.colCount')}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.items.map((r) => (
+              <tr key={r.borrowerSub}>
+                <td>{r.fullName ?? r.borrowerSub}</td>
+                <td>{r.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <Pager page={page} setPage={setPage} hasNext={page * data.pageSize < data.total} />
     </>
   );
@@ -252,25 +274,27 @@ function MonthTable({
   if (data === null) return <p className="muted">…</p>;
   if (data.length === 0) return <p className="muted">{t('reports.empty')}</p>;
   return (
-    <table className="data-table">
-      <thead>
-        <tr>
-          <th>{t('reports.colMonth')}</th>
-          <th>{t('reports.colTotal')}</th>
-          <th>{t('reports.colOverdue')}</th>
-          <th>{t('reports.colRatio')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((r) => (
-          <tr key={r.month}>
-            <td>{r.month}</td>
-            <td>{r.total}</td>
-            <td>{r.overdue}</td>
-            <td>{pct(r.ratio)}</td>
+    <div className="table-wrap">
+      <table className="table">
+        <thead>
+          <tr>
+            <th>{t('reports.colMonth')}</th>
+            <th>{t('reports.colTotal')}</th>
+            <th>{t('reports.colOverdue')}</th>
+            <th>{t('reports.colRatio')}</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {data.map((r) => (
+            <tr key={r.month}>
+              <td>{r.month}</td>
+              <td>{r.total}</td>
+              <td>{r.overdue}</td>
+              <td>{pct(r.ratio)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

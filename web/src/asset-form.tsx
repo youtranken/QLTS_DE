@@ -60,6 +60,10 @@ export function AssetForm({
       endDate: string | null;
     }>
   >([]);
+  // 9.4: gắn phần mềm vào máy đang sửa — tìm software để gắn + đếm để reload danh sách sau khi gắn/gỡ.
+  const [swQuery, setSwQuery] = useState('');
+  const [swOptions, setSwOptions] = useState<AssetRow[]>([]);
+  const [swReload, setSwReload] = useState(0);
   // 8.2: danh mục Loại/Hãng/Cấu hình (chỉ active) → dropdown chọn nhanh
   const [catType, setCatType] = useState<string[]>([]);
   const [catBrand, setCatBrand] = useState<string[]>([]);
@@ -127,7 +131,34 @@ export function AssetForm({
       })
       .catch(() => undefined);
     return () => controller.abort();
-  }, [form.id, form.isSoftware]);
+  }, [form.id, form.isSoftware, swReload]);
+
+  // 9.4: tìm phần mềm (software chưa thanh lý) để gắn vào máy đang sửa.
+  useEffect(() => {
+    if (!swQuery) {
+      setSwOptions([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(
+        `/api/admin/assets?search=${encodeURIComponent(swQuery)}&type=software&page=1&pageSize=20`,
+        { signal: controller.signal },
+      )
+        .then(async (res) => {
+          if (!res.ok) return;
+          const body = (await res.json()) as { items?: AssetRow[] };
+          setSwOptions(
+            (body.items ?? []).filter((a) => a.status !== 'disposed'),
+          );
+        })
+        .catch(() => undefined);
+    }, 300);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [swQuery]);
 
   useEffect(() => {
     if (!form.id) return;
@@ -409,6 +440,53 @@ export function AssetForm({
     [form.id, form.version, me.csrfToken, t],
   );
 
+  // 9.4: gắn/gỡ phần mềm vào MÁY đang sửa — tái dùng endpoint transfer của chính software
+  // (đọc version của software rồi PUT). targetAssetId có = gắn vào máy này; bỏ trống = gỡ.
+  const moveSoftware = useCallback(
+    async (softwareId: string, targetAssetId: string | null) => {
+      if (!form.id) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const detailRes = await fetch(
+          `/api/admin/assets/${encodeURIComponent(softwareId)}`,
+        );
+        if (!detailRes.ok) {
+          setError(t('assets.saveFailed'));
+          return;
+        }
+        const sw = (await detailRes.json()) as AssetDetail;
+        const res = await fetch(
+          `/api/admin/assets/${encodeURIComponent(softwareId)}/transfer`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+            },
+            body: JSON.stringify({
+              ...(targetAssetId ? { targetAssetId } : {}),
+              version: sw.version,
+            }),
+          },
+        );
+        if (res.ok) {
+          setSwQuery('');
+          setSwOptions([]);
+          setSwReload((n) => n + 1);
+          return;
+        }
+        const body = (await res.json()) as { message?: string };
+        setError(body.message ?? t('assets.transferFailed'));
+      } catch {
+        setError(t('app.serverUnreachable'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [form.id, me.csrfToken, t],
+  );
+
   const close = () => onDone(transferred);
 
   // Giữ giá trị hiện hành của tài sản cũ trong dropdown dù đã bị ẩn khỏi danh mục (edit legacy).
@@ -679,6 +757,71 @@ export function AssetForm({
                   />
                 </label>
               </div>
+
+              {/* 9.3: Người đứng tên đưa vào ngay Thông tin chung (trước là section riêng dưới cùng). */}
+              <div className="form-subsection">
+                <div className="form-section-title">{t('assets.assignee')}</div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    marginBottom: '0.6rem',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {form.assignedUserSub ? (
+                    <span className="chip">
+                      {form.assignedUserName || form.assignedUserSub}
+                      <button
+                        type="button"
+                        aria-label={t('assets.cancel')}
+                        onClick={() => {
+                          set('assignedUserSub')('');
+                          set('assignedUserName')('');
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="muted">{t('assets.assigneeEmpty')}</span>
+                  )}
+                </div>
+                <Combobox
+                  placeholder={t('assets.assigneeSearch')}
+                  query={userQuery}
+                  onQuery={setUserQuery}
+                  options={userOptions}
+                  getKey={(u) => u.sub}
+                  renderOption={(u) => (
+                    <>
+                      <span>{u.fullName ?? u.sub}</span>
+                      {u.email && <small>{u.email}</small>}
+                    </>
+                  )}
+                  onSelect={(u) => {
+                    setForm((f) => ({
+                      ...f,
+                      assignedUserSub: u.sub,
+                      assignedUserName: u.fullName ?? u.sub,
+                    }));
+                    setUserQuery('');
+                    setUserOptions([]);
+                  }}
+                />
+                {form.id && (
+                  <label className="field" style={{ marginTop: '0.75rem' }}>
+                    <span>{t('assets.allocationNote')}</span>
+                    <input
+                      maxLength={500}
+                      placeholder={t('assets.allocationNotePlaceholder')}
+                      value={allocationNote}
+                      onChange={(e) => setAllocationNote(e.target.value)}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
 
             {showLifecycle && (
@@ -808,70 +951,6 @@ export function AssetForm({
               </div>
             )}
 
-            <div className="form-section">
-              <div className="form-section-title">{t('assets.assignee')}</div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.6rem',
-                  marginBottom: '0.6rem',
-                  flexWrap: 'wrap',
-                }}
-              >
-                {form.assignedUserSub ? (
-                  <span className="chip">
-                    {form.assignedUserName || form.assignedUserSub}
-                    <button
-                      type="button"
-                      aria-label={t('assets.cancel')}
-                      onClick={() => {
-                        set('assignedUserSub')('');
-                        set('assignedUserName')('');
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ) : (
-                  <span className="muted">{t('assets.assigneeEmpty')}</span>
-                )}
-              </div>
-              <Combobox
-                placeholder={t('assets.assigneeSearch')}
-                query={userQuery}
-                onQuery={setUserQuery}
-                options={userOptions}
-                getKey={(u) => u.sub}
-                renderOption={(u) => (
-                  <>
-                    <span>{u.fullName ?? u.sub}</span>
-                    {u.email && <small>{u.email}</small>}
-                  </>
-                )}
-                onSelect={(u) => {
-                  setForm((f) => ({
-                    ...f,
-                    assignedUserSub: u.sub,
-                    assignedUserName: u.fullName ?? u.sub,
-                  }));
-                  setUserQuery('');
-                  setUserOptions([]);
-                }}
-              />
-              {form.id && (
-                <label className="field" style={{ marginTop: '0.75rem' }}>
-                  <span>{t('assets.allocationNote')}</span>
-                  <input
-                    maxLength={500}
-                    placeholder={t('assets.allocationNotePlaceholder')}
-                    value={allocationNote}
-                    onChange={(e) => setAllocationNote(e.target.value)}
-                  />
-                </label>
-              )}
-            </div>
-
             {/* software disposed: TERMINAL — không gắn/chuyển được nữa (review 2.6) */}
             {showInstall && (
               <div className="form-section">
@@ -954,23 +1033,53 @@ export function AssetForm({
               </div>
             )}
 
-            {form.id && !form.isSoftware && installedSoftware.length > 0 && (
+            {form.id && !form.isSoftware && form.status !== 'disposed' && (
               <div className="form-section">
                 <div className="form-section-title">
                   {t('assets.installedSoftware')}
                 </div>
-                <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
-                  {installedSoftware.map((s) => (
-                    <li key={s.id}>
-                      {s.code}
-                      {s.licenseType === 'perpetual'
-                        ? ` — ${s.licenseName ?? ''} (${t('assets.licensePerpetual')})`
-                        : s.endDate
-                          ? ` — ${t('assets.endDate')}: ${s.endDate}`
-                          : ''}
-                    </li>
-                  ))}
-                </ul>
+                {installedSoftware.length === 0 ? (
+                  <p className="muted" style={{ margin: '0 0 0.6rem' }}>
+                    {t('assets.installedSoftwareNone')}
+                  </p>
+                ) : (
+                  <ul style={{ margin: '0 0 0.6rem', paddingLeft: '1.25rem' }}>
+                    {installedSoftware.map((s) => (
+                      <li key={s.id}>
+                        {s.code}
+                        {s.licenseType === 'perpetual'
+                          ? ` — ${s.licenseName ?? ''} (${t('assets.licensePerpetual')})`
+                          : s.endDate
+                            ? ` — ${t('assets.endDate')}: ${s.endDate}`
+                            : ''}{' '}
+                        <button
+                          type="button"
+                          className="ghost sm"
+                          disabled={busy}
+                          onClick={() => void moveSoftware(s.id, null)}
+                        >
+                          {t('assets.detachSoftware')}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {/* 9.4: gắn nhanh phần mềm đã có vào máy này (tạo mới ở tab Phần mềm). */}
+                <Combobox
+                  placeholder={t('assets.attachSoftwareSearch')}
+                  query={swQuery}
+                  onQuery={setSwQuery}
+                  options={swOptions}
+                  disabled={busy}
+                  getKey={(a) => a.id}
+                  renderOption={(a) => (
+                    <>
+                      <span>{a.code}</span>
+                      <small>{t('assets.kindSoftware')}</small>
+                    </>
+                  )}
+                  onSelect={(a) => void moveSoftware(a.id, form.id)}
+                />
               </div>
             )}
 

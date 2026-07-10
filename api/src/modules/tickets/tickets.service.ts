@@ -928,7 +928,10 @@ export class TicketsService {
           ELSE NULL END AS overdue_minutes
       FROM ticket t
       LEFT JOIN users u ON u.sub = t.borrower_sub
+      -- 9.10: CHỈ booking mượn chính (kind='normal'). Bỏ 'extension' state='held' —
+      -- nếu không, ticket đang gia hạn khớp cả booking delivered LẪN extension → nhân đôi dòng.
       LEFT JOIN booking b ON b.ticket_id = t.id
+        AND b.kind = 'normal'
         AND b.state IN (${sql.join(
           OCCUPYING_STATES.map((s) => sql`${s}`),
           sql`, `,
@@ -1031,7 +1034,9 @@ export class TicketsService {
         lower(b.period) AS from_ts, upper(b.period) AS due_ts,
         t.state, t.is_overdue,
         (t.borrower_sub = ${callerSub}) AS is_mine,
-        b.note,
+        -- Note do member tự nhập là RIÊNG TƯ: chỉ chủ ticket thấy, không public trên board
+        -- (AD-5 read-model công khai chỉ tên+máy+khung giờ; review P0 3.1).
+        CASE WHEN t.borrower_sub = ${callerSub} THEN b.note END AS note,
         CASE WHEN t.kind = 'recurring'
           THEN (SELECT count(*)::int FROM booking bb
                 WHERE bb.ticket_id = t.id AND bb.kind = 'recurring')

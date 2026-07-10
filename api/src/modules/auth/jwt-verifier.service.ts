@@ -89,6 +89,12 @@ export class JwtVerifierService {
     if (!payload.sub || typeof payload.sub !== 'string') {
       throw new Error('logout_token thiếu claim `sub`');
     }
+    // Bắt buộc `exp`: jose chỉ enforce hết hạn NẾU claim có mặt; thiếu `exp` → token
+    // replay được vô thời hạn để đá phiên nạn nhân (review P0 3.4). Chống replay trong
+    // cửa sổ còn hạn (dedup `jti`) là việc bổ sung — cần bảng dedup (nợ đã ghi).
+    if (!payload.exp) {
+      throw new Error('logout_token thiếu claim `exp`');
+    }
     return { sub: payload.sub };
   }
 

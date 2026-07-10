@@ -171,6 +171,23 @@ describe('Catalog danh mục (story 8.1)', () => {
     await post('/merge', { from: 'abc', to: 'xyz' }).expect(400);
   });
 
+  it('Sửa — chặn rename qua/về loại hệ thống "software" → 400 (không 500)', async () => {
+    const swId = await idOf('type', 'software');
+    const laptopId = await idOf('type', 'Laptop');
+    // rename TỪ software (cascade assets.type='software'→X có thể phá CHECK 0012)
+    await request(app.getHttpServer())
+      .put(`/api/admin/catalog/${swId}`)
+      .set(asSa)
+      .send({ value: 'SoftwareX' })
+      .expect(400);
+    // rename VỀ software (đưa máy không license sang type='software' → 23514)
+    await request(app.getHttpServer())
+      .put(`/api/admin/catalog/${laptopId}`)
+      .set(asSa)
+      .send({ value: 'software' })
+      .expect(400);
+  });
+
   it('Sửa — rename đổi tên + cascade text tài sản + audit catalog.rename', async () => {
     const id = await idOf('type', 'monitor');
     await request(app.getHttpServer())

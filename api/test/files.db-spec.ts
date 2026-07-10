@@ -214,16 +214,47 @@ describe('Module file + kiểm kê trên DB thật (story 2.8)', () => {
       .expect(500);
   });
 
-  it('KHÔNG có chức năng xóa: DELETE đợt/file → 404 (AC 3)', async () => {
-    const list = await request(app.getHttpServer())
-      .get('/api/admin/inventory-rounds')
+  // 9.4 (đảo AC 2.8 cũ): cho xóa file trong đợt + xóa cả đợt. /admin/files/:id vẫn KHÔNG có DELETE.
+  it('9.4: xóa file khỏi đợt + xóa cả đợt kiểm kê', async () => {
+    type Round = { id: string; files: Array<{ id: string }> };
+    const listRounds = () =>
+      request(app.getHttpServer())
+        .get('/api/admin/inventory-rounds')
+        .set(asAdmin());
+
+    const before = await listRounds().expect(200);
+    const round = (before.body as Round[]).find((r) => r.files.length > 0);
+    expect(round).toBeDefined();
+    const roundId = round!.id;
+    const roundFileId = round!.files[0].id;
+    const fileCount = round!.files.length;
+
+    // member không được xóa
+    await request(app.getHttpServer())
+      .delete(`/api/admin/inventory-rounds/${roundId}`)
+      .set({ 'x-dev-user-sub': 'mem-z', 'x-dev-role': 'member' })
+      .expect(403);
+
+    // xóa 1 biên bản khỏi đợt → 200 + rời khỏi danh sách + đĩa
+    await request(app.getHttpServer())
+      .delete(`/api/admin/inventory-rounds/${roundId}/files/${roundFileId}`)
       .set(asAdmin())
       .expect(200);
-    const roundId = (list.body as Array<{ id: string }>)[0].id;
+    expect(readdirSync(storageDir)).not.toContain(roundFileId);
+    const mid = await listRounds().expect(200);
+    const r2 = (mid.body as Round[]).find((r) => r.id === roundId)!;
+    expect(r2.files).toHaveLength(fileCount - 1);
+    expect(r2.files.some((f) => f.id === roundFileId)).toBe(false);
+
+    // xóa cả đợt → 200 + biến mất khỏi list
     await request(app.getHttpServer())
       .delete(`/api/admin/inventory-rounds/${roundId}`)
       .set(asAdmin())
-      .expect(404);
+      .expect(200);
+    const after = await listRounds().expect(200);
+    expect((after.body as Round[]).some((r) => r.id === roundId)).toBe(false);
+
+    // generic /admin/files/:id vẫn không có DELETE (chỉ đợt kiểm kê mới cho xóa) → 404
     await request(app.getHttpServer())
       .delete(`/api/admin/files/${fileId}`)
       .set(asAdmin())

@@ -110,4 +110,31 @@ describe('JwtVerifierService — verify offline RS256 (AC 3)', () => {
       .sign(otherPair.privateKey);
     await expect(verifier.verify(forged)).rejects.toThrow();
   });
+
+  const BCL_EVENT = 'http://schemas.openid.net/event/backchannel-logout';
+
+  it('verifyLogoutToken hợp lệ (events + exp, không nonce) → sub', async () => {
+    const token = await new jose.SignJWT({ events: { [BCL_EVENT]: {} } })
+      .setProtectedHeader({ alg: 'RS256' })
+      .setSubject('usr_test_01')
+      .setIssuer(ISSUER)
+      .setAudience(CLIENT_ID)
+      .setIssuedAt()
+      .setExpirationTime('2m')
+      .sign(privateKey);
+    await expect(verifier.verifyLogoutToken(token)).resolves.toEqual({
+      sub: 'usr_test_01',
+    });
+  });
+
+  it('verifyLogoutToken thiếu exp → fail (chống replay vô thời hạn, P0 3.4)', async () => {
+    const token = await new jose.SignJWT({ events: { [BCL_EVENT]: {} } })
+      .setProtectedHeader({ alg: 'RS256' })
+      .setSubject('usr_test_01')
+      .setIssuer(ISSUER)
+      .setAudience(CLIENT_ID)
+      .setIssuedAt()
+      .sign(privateKey); // không setExpirationTime
+    await expect(verifier.verifyLogoutToken(token)).rejects.toThrow(/exp/);
+  });
 });

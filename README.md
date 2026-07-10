@@ -41,17 +41,20 @@ npm run test:db   # integration DB thật — cần DATABASE_URL
 npm run lint
 ```
 
-Test DB với Postgres tạm:
+Test DB dùng CHUNG một Postgres với dev (không container test riêng): db-spec chạy trên
+database `qlts_test` NẰM TRONG `qlts-postgres-1`. Mỗi suite `DROP TABLE ... CASCADE` rồi migrate
+lại — chốt chặn `if (!/test/i.test(dbName)) throw` bảo đảm KHÔNG bao giờ đụng database `qlts`.
+`docker-compose.override.yml` (dev-only) expose port 54329→postgres, 63799→redis ra host.
 
 ```bash
-docker run -d --name qlts-test-pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=qlts_test -p 54329:5432 postgres:18-alpine
-# Story 3.5a: outbox.db-spec cần Redis (BullMQ). REDIS_TEST_URL mặc định trỏ container này.
-docker run -d --name qlts-test-redis -p 63799:6379 redis:8-alpine redis-server --requirepass test
-DATABASE_URL=postgresql://postgres:test@localhost:54329/qlts_test npm run test:db
-docker rm -f qlts-test-pg qlts-test-redis
+# 1 lần: tạo database test trong container postgres đang chạy
+docker exec qlts-postgres-1 psql -U qlts -d qlts -c "CREATE DATABASE qlts_test OWNER qlts;"
+# chạy (bash)
+DATABASE_URL=postgresql://qlts:qlts_dev_pg_2026@localhost:54329/qlts_test \
+REDIS_TEST_URL=redis://:qlts_dev_redis_2026@localhost:63799 npm run test:db
 ```
 
-(PowerShell: `$env:DATABASE_URL='postgresql://postgres:test@localhost:54329/qlts_test'; npm run test:db`)
+(PowerShell: `$env:DATABASE_URL='postgresql://qlts:qlts_dev_pg_2026@localhost:54329/qlts_test'; $env:REDIS_TEST_URL='redis://:qlts_dev_redis_2026@localhost:63799'; npm run test:db`)
 
 ## AUTH_DEV_MODE (seam test — AC 9 story 1.1)
 

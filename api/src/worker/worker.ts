@@ -81,7 +81,14 @@ async function bootstrap(): Promise<void> {
     }
     const id = (job?.data as { id?: string })?.id;
     logger.error(`EVENTS job ${job?.id} cạn retry → DLQ: ${reason}`);
-    if (id) void outbox.markFailed(id, reason);
+    // markFailed fire-and-forget: PHẢI .catch (như relayTimer) — reject không bắt sẽ thành
+    // unhandledRejection có thể hạ tiến trình worker + mất marker DLQ (review P0 3.3).
+    if (id)
+      void outbox
+        .markFailed(id, reason)
+        .catch((e) =>
+          logger.error(`markFailed lỗi: ${(e as Error).message}`),
+        );
   });
 
   // SWEEP worker — chạy mọi handler đã đăng ký (registry rỗng ở 3.5a).

@@ -12,21 +12,37 @@ interface CatalogItem {
   usage: number;
 }
 
+type ByKind<T> = Record<Kind, T>;
+const emptyItems = (): ByKind<CatalogItem[]> => ({
+  type: [],
+  brand: [],
+  configuration: [],
+});
+const emptyStrings = (): ByKind<string> => ({
+  type: '',
+  brand: '',
+  configuration: '',
+});
+
 /**
  * Quản trị → Danh mục (8.2): quản lý giá trị Loại/Hãng/Cấu hình cho form Thêm tài sản.
- * Thêm mới, ẩn/hiện (không đụng tài sản), và GỘP giá trị trùng (có xác nhận + số tài sản đổi).
+ * 3 cột song song — mỗi kind một cột — thêm/sửa/gộp/ẩn tại chỗ (menu "⋯").
  */
 export function CatalogPage({ me }: { me: Me }) {
   const { t } = useTranslation();
-  const [kind, setKind] = useState<Kind>('type');
-  const [items, setItems] = useState<CatalogItem[]>([]);
-  const [newValue, setNewValue] = useState('');
+  const [items, setItems] = useState<ByKind<CatalogItem[]>>(emptyItems);
+  const [newValues, setNewValues] = useState<ByKind<string>>(emptyStrings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [merge, setMerge] = useState<CatalogItem | null>(null);
-  const [editing, setEditing] = useState<{ id: string; value: string } | null>(
+  const [merge, setMerge] = useState<{ kind: Kind; item: CatalogItem } | null>(
     null,
   );
+  const [editing, setEditing] = useState<{
+    kind: Kind;
+    id: string;
+    value: string;
+  } | null>(null);
+  const [menu, setMenu] = useState<{ kind: Kind; id: string } | null>(null);
 
   const headers = useMemo(
     () => ({
@@ -36,46 +52,56 @@ export function CatalogPage({ me }: { me: Me }) {
     [me.csrfToken],
   );
 
-  const load = useCallback(async () => {
+  const loadKind = useCallback(async (k: Kind): Promise<boolean> => {
+    const res = await fetch(`/api/admin/catalog?kind=${k}`);
+    if (!res.ok) return false;
+    const list = (await res.json()) as CatalogItem[];
+    setItems((prev) => ({ ...prev, [k]: list }));
+    return true;
+  }, []);
+
+  const loadAll = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch(`/api/admin/catalog?kind=${kind}`);
-      if (res.ok) setItems((await res.json()) as CatalogItem[]);
-      else setError(t('catalog.loadFailed'));
+      const oks = await Promise.all(KINDS.map((k) => loadKind(k)));
+      if (oks.some((ok) => !ok)) setError(t('catalog.loadFailed'));
     } catch {
       setError(t('catalog.loadFailed'));
     }
-  }, [kind, t]);
+  }, [loadKind, t]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadAll();
+  }, [loadAll]);
 
-  const create = useCallback(async () => {
-    const v = newValue.trim();
-    if (!v) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/admin/catalog', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ kind, value: v }),
-      });
-      if (res.ok || res.status === 201) {
-        setNewValue('');
-        await load();
-      } else if (res.status === 409) {
-        setError(t('catalog.taken'));
-      } else {
+  const create = useCallback(
+    async (k: Kind) => {
+      const v = newValues[k].trim();
+      if (!v) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await fetch('/api/admin/catalog', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ kind: k, value: v }),
+        });
+        if (res.ok || res.status === 201) {
+          setNewValues((prev) => ({ ...prev, [k]: '' }));
+          await loadKind(k);
+        } else if (res.status === 409) {
+          setError(t('catalog.taken'));
+        } else {
+          setError(t('catalog.saveFailed'));
+        }
+      } catch {
         setError(t('catalog.saveFailed'));
+      } finally {
+        setBusy(false);
       }
-    } catch {
-      setError(t('catalog.saveFailed'));
-    } finally {
-      setBusy(false);
-    }
-  }, [newValue, kind, headers, load, t]);
+    },
+    [newValues, headers, loadKind, t],
+  );
 
   const rename = useCallback(async () => {
     if (!editing) return;
@@ -90,8 +116,9 @@ export function CatalogPage({ me }: { me: Me }) {
         body: JSON.stringify({ value: v }),
       });
       if (res.ok) {
+        const k = editing.kind;
         setEditing(null);
-        await load();
+        await loadKind(k);
       } else if (res.status === 409) {
         setError(t('catalog.taken'));
       } else {
@@ -102,10 +129,10 @@ export function CatalogPage({ me }: { me: Me }) {
     } finally {
       setBusy(false);
     }
-  }, [editing, headers, load, t]);
+  }, [editing, headers, loadKind, t]);
 
   const setActive = useCallback(
-    async (item: CatalogItem, active: boolean) => {
+    async (k: Kind, item: CatalogItem, active: boolean) => {
       setBusy(true);
       try {
         await fetch(`/api/admin/catalog/${item.id}`, {
@@ -113,13 +140,16 @@ export function CatalogPage({ me }: { me: Me }) {
           headers,
           body: JSON.stringify({ active }),
         });
-        await load();
+        await loadKind(k);
       } finally {
         setBusy(false);
       }
     },
-    [headers, load],
+    [headers, loadKind],
   );
+
+  const countLabel = (n: number) =>
+    n > 0 ? t('catalog.count', { n, defaultValue: '{{n}} máy' }) : '0';
 
   return (
     <section>
@@ -130,162 +160,211 @@ export function CatalogPage({ me }: { me: Me }) {
         {t('catalog.subtitle')}
       </p>
 
-      <div className="segmented" style={{ marginBottom: '1rem' }}>
+      {error && (
+        <p className="alert error" style={{ marginBottom: '0.75rem' }}>
+          {error}
+        </p>
+      )}
+
+      <div className="dmboard">
         {KINDS.map((k) => (
-          <label key={k}>
-            <input
-              type="radio"
-              name="catalogKind"
-              checked={kind === k}
-              onChange={() => setKind(k)}
-            />
-            {t(`catalog.kind.${k}`)}
-          </label>
-        ))}
-      </div>
+          <div className="dmcol" key={k}>
+            <div className="dm-h">
+              <span>{t(`catalog.kind.${k}`)}</span>
+              <span className="badge muted plain">{items[k].length}</span>
+            </div>
 
-      {error && <p className="alert error">{error}</p>}
-
-      <div
-        className="filter-bar"
-        style={{ marginBottom: '0.75rem', display: 'flex', gap: '0.5rem' }}
-      >
-        <input
-          placeholder={t('catalog.newPlaceholder')}
-          maxLength={2000}
-          value={newValue}
-          style={{ flex: 1, maxWidth: 360 }}
-          onChange={(e) => setNewValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void create();
-          }}
-        />
-        <button
-          type="button"
-          className="primary"
-          disabled={busy || !newValue.trim()}
-          onClick={() => void create()}
-        >
-          {t('catalog.add')}
-        </button>
-      </div>
-
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>{t('catalog.colValue')}</th>
-              <th>{t('catalog.colUsage')}</th>
-              <th>{t('catalog.colActive')}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="muted">
-                  {t('catalog.empty')}
-                </td>
-              </tr>
-            ) : (
-              items.map((it) => {
-                const isEditing = editing?.id === it.id;
-                return (
-                  <tr key={it.id}>
-                    <td>
-                      {isEditing ? (
-                        <input
-                          autoFocus
-                          maxLength={2000}
-                          value={editing.value}
-                          onChange={(e) =>
-                            setEditing({ id: it.id, value: e.target.value })
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') void rename();
-                            if (e.key === 'Escape') setEditing(null);
-                          }}
-                        />
-                      ) : (
-                        it.value
-                      )}
-                    </td>
-                    <td>{it.usage}</td>
-                    <td>
-                      {it.active ? (
-                        <span className="chip">{t('catalog.shown')}</span>
-                      ) : (
-                        <span className="muted">{t('catalog.hidden')}</span>
-                      )}
-                    </td>
-                    <td style={{ display: 'flex', gap: '0.4rem' }}>
-                      {isEditing ? (
-                        <>
-                          <button
-                            type="button"
-                            className="sm primary"
-                            disabled={busy || !editing.value.trim()}
-                            onClick={() => void rename()}
-                          >
-                            {t('catalog.save')}
-                          </button>
-                          <button
-                            type="button"
-                            className="sm"
-                            disabled={busy}
-                            onClick={() => setEditing(null)}
-                          >
-                            {t('catalog.cancel')}
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            className="sm"
-                            disabled={busy}
-                            onClick={() =>
-                              setEditing({ id: it.id, value: it.value })
-                            }
-                          >
-                            {t('catalog.edit')}
-                          </button>
-                          <button
-                            type="button"
-                            className="sm"
-                            disabled={busy || items.length < 2}
-                            onClick={() => setMerge(it)}
-                          >
-                            {t('catalog.merge')}
-                          </button>
-                          <button
-                            type="button"
-                            className="sm"
-                            disabled={busy}
-                            onClick={() => void setActive(it, !it.active)}
-                          >
-                            {it.active ? t('catalog.hide') : t('catalog.show')}
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
+            {items[k].length === 0 && (
+              <div className="dmrow">
+                <span className="dm-g muted">{t('catalog.empty')}</span>
+              </div>
             )}
-          </tbody>
-        </table>
+
+            {items[k].map((it) => {
+              const isEditing = editing?.id === it.id;
+              const isMenu = menu?.kind === k && menu.id === it.id;
+              return (
+                <div
+                  className={`dmrow${it.usage === 0 ? ' is-empty' : ''}`}
+                  key={it.id}
+                >
+                  {isEditing ? (
+                    <input
+                      className="dm-g"
+                      autoFocus
+                      maxLength={2000}
+                      value={editing.value}
+                      onChange={(e) =>
+                        setEditing({
+                          kind: k,
+                          id: it.id,
+                          value: e.target.value,
+                        })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void rename();
+                        if (e.key === 'Escape') setEditing(null);
+                      }}
+                    />
+                  ) : (
+                    <span className="dm-g">
+                      {it.value}
+                      {!it.active && (
+                        <span className="muted"> · {t('catalog.hidden')}</span>
+                      )}
+                    </span>
+                  )}
+
+                  {isEditing ? (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        className="sm primary"
+                        disabled={busy || !editing.value.trim()}
+                        onClick={() => void rename()}
+                      >
+                        {t('catalog.save')}
+                      </button>
+                      <button
+                        type="button"
+                        className="sm"
+                        disabled={busy}
+                        onClick={() => setEditing(null)}
+                      >
+                        {t('catalog.cancel')}
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="dm-ct">{countLabel(it.usage)}</span>
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          type="button"
+                          className="sm"
+                          aria-label={t('catalog.actions', {
+                            defaultValue: 'Thao tác',
+                          })}
+                          disabled={busy}
+                          onClick={() =>
+                            setMenu(isMenu ? null : { kind: k, id: it.id })
+                          }
+                        >
+                          ⋯
+                        </button>
+                        {isMenu && (
+                          <>
+                            <div
+                              style={{ position: 'fixed', inset: 0, zIndex: 20 }}
+                              onClick={() => setMenu(null)}
+                            />
+                            <div
+                              style={{
+                                position: 'absolute',
+                                right: 0,
+                                top: 'calc(100% + 4px)',
+                                zIndex: 21,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 2,
+                                minWidth: 120,
+                                padding: 4,
+                                background: 'var(--surface)',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--r)',
+                                boxShadow: '0 8px 24px rgba(0,0,0,.14)',
+                              }}
+                            >
+                              <button
+                                type="button"
+                                className="sm ghost"
+                                style={{ justifyContent: 'flex-start' }}
+                                disabled={busy}
+                                onClick={() => {
+                                  setMenu(null);
+                                  setEditing({
+                                    kind: k,
+                                    id: it.id,
+                                    value: it.value,
+                                  });
+                                }}
+                              >
+                                {t('catalog.edit')}
+                              </button>
+                              <button
+                                type="button"
+                                className="sm ghost"
+                                style={{ justifyContent: 'flex-start' }}
+                                disabled={busy || items[k].length < 2}
+                                onClick={() => {
+                                  setMenu(null);
+                                  setMerge({ kind: k, item: it });
+                                }}
+                              >
+                                {t('catalog.merge')}
+                              </button>
+                              <button
+                                type="button"
+                                className="sm ghost"
+                                style={{ justifyContent: 'flex-start' }}
+                                disabled={busy}
+                                onClick={() => {
+                                  setMenu(null);
+                                  void setActive(k, it, !it.active);
+                                }}
+                              >
+                                {it.active
+                                  ? t('catalog.hide')
+                                  : t('catalog.show')}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="dm-add">
+              <input
+                style={{ flex: 1 }}
+                maxLength={2000}
+                placeholder={t('catalog.addPlaceholder', {
+                  kind: t(`catalog.kind.${k}`).toLowerCase(),
+                  defaultValue: '+ Thêm {{kind}}…',
+                })}
+                value={newValues[k]}
+                onChange={(e) =>
+                  setNewValues((prev) => ({ ...prev, [k]: e.target.value }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void create(k);
+                }}
+              />
+              <button
+                type="button"
+                className="primary sm"
+                disabled={busy || !newValues[k].trim()}
+                onClick={() => void create(k)}
+              >
+                {t('catalog.add')}
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
 
       {merge && (
         <MergeDialog
-          from={merge}
-          candidates={items.filter((x) => x.id !== merge.id)}
+          from={merge.item}
+          candidates={items[merge.kind].filter((x) => x.id !== merge.item.id)}
           headers={headers}
           onClose={() => setMerge(null)}
           onDone={() => {
+            const k = merge.kind;
             setMerge(null);
-            void load();
+            void loadKind(k);
           }}
         />
       )}

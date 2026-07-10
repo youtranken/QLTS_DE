@@ -178,4 +178,22 @@ describe('Admin duyệt/từ chối gia hạn (story 4.2)', () => {
       'x-dev-role': 'member',
     }).expect(403);
   });
+
+  // 9.10: ticket đang mượn có yêu cầu gia hạn (extension held) — queue /in-use chỉ 1 dòng,
+  // KHÔNG nhân đôi (trước đây JOIN OCCUPYING_STATES khớp cả delivered lẫn extension held).
+  it('9.10: đang mượn + gia hạn treo → queue in-use hiện ĐÚNG 1 dòng', async () => {
+    const m = await newMachine('DEDUP-1');
+    const oldDue = iso(20 * H);
+    const s = await setup(m, iso(-1 * H), oldDue, iso(20 * H + 1 * D));
+    const res = await request(app.getHttpServer())
+      .get('/api/admin/tickets/in-use')
+      .set(asAdmin)
+      .expect(200);
+    const mine = (res.body as Array<{ id: string; to: string }>).filter(
+      (r) => r.id === s.ticketId,
+    );
+    expect(mine).toHaveLength(1);
+    // dòng còn lại phải là booking mượn (delivered) tới HẠN CŨ, không phải khung gia hạn
+    expect(new Date(mine[0].to).getTime()).toBe(new Date(oldDue).getTime());
+  });
 });

@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Combobox } from './combobox';
 import type { Me } from './panels';
+
+interface AssetOption {
+  id: string;
+  code: string;
+  type: string;
+  status: string;
+  isPool: boolean;
+}
 
 interface PoolItem {
   id: string;
@@ -13,15 +22,29 @@ interface PoolItem {
   assignedUserName: string | null;
 }
 
+const typeIcon = (type: string | null): string => {
+  const ty = (type ?? '').toLowerCase();
+  if (ty.includes('laptop')) return '💻';
+  if (ty.includes('desktop') || ty.includes('pc')) return '🖥️';
+  if (ty.includes('printer') || ty.includes('máy in')) return '🖨️';
+  if (ty.includes('monitor') || ty.includes('màn')) return '🖥️';
+  if (ty.includes('phone') || ty.includes('điện thoại')) return '📱';
+  return '📦';
+};
+
 /**
  * Pool máy cho mượn (8.4): admin thêm máy vào pool bằng MTS (mã tài sản) — thông tin kéo từ QLTS.
  * Đây là nguồn máy member thấy khi Đặt máy (availability lọc is_pool + in_use). Gỡ khỏi pool
  * dùng endpoint pool sẵn có (cascade hủy booking tương lai + báo mail).
+ *
+ * GET /api/admin/pool KHÔNG trả trạng thái rảnh/đang mượn (chỉ asset.status = in_use + chủ máy),
+ * nên summary chỉ hiện tổng số máy và thẻ máy không gắn badge rảnh/bận.
  */
 export function PoolPage({ me }: { me: Me }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<PoolItem[]>([]);
-  const [code, setCode] = useState('');
+  const [query, setQuery] = useState('');
+  const [options, setOptions] = useState<AssetOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -48,32 +71,65 @@ export function PoolPage({ me }: { me: Me }) {
     void load();
   }, [load]);
 
-  const add = useCallback(async () => {
-    const c = code.trim();
-    if (!c) return;
-    setBusy(true);
-    setError(null);
-    setOk(null);
-    try {
-      const res = await fetch('/api/admin/pool', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ code: c }),
-      });
-      if (res.ok || res.status === 201) {
-        setCode('');
-        setOk(t('pool.added', { code: c }));
-        await load();
-      } else {
-        const b = (await res.json().catch(() => ({}))) as { message?: string };
-        setError(b.message ?? t('pool.addFailed'));
-      }
-    } catch {
-      setError(t('pool.addFailed'));
-    } finally {
-      setBusy(false);
+  // Gợi ý mã máy (9.6): chỉ thiết bị đang dùng, chưa nằm trong pool (server chặn lại lần cuối).
+  useEffect(() => {
+    if (!query.trim()) {
+      setOptions([]);
+      return;
     }
-  }, [code, headers, load, t]);
+    const c = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(
+        `/api/admin/assets?search=${encodeURIComponent(query)}&page=1&pageSize=20`,
+        { signal: c.signal },
+      )
+        .then(async (r) => {
+          if (!r.ok) return;
+          const body = (await r.json()) as { items?: AssetOption[] };
+          setOptions(
+            (body.items ?? []).filter(
+              (a) => a.type !== 'software' && a.status === 'in_use' && !a.isPool,
+            ),
+          );
+        })
+        .catch(() => undefined);
+    }, 300);
+    return () => {
+      c.abort();
+      clearTimeout(timer);
+    };
+  }, [query]);
+
+  const add = useCallback(
+    async (codeArg: string) => {
+      const c = codeArg.trim();
+      if (!c) return;
+      setBusy(true);
+      setError(null);
+      setOk(null);
+      try {
+        const res = await fetch('/api/admin/pool', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ code: c }),
+        });
+        if (res.ok || res.status === 201) {
+          setQuery('');
+          setOptions([]);
+          setOk(t('pool.added', { code: c }));
+          await load();
+        } else {
+          const b = (await res.json().catch(() => ({}))) as { message?: string };
+          setError(b.message ?? t('pool.addFailed'));
+        }
+      } catch {
+        setError(t('pool.addFailed'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [headers, load, t],
+  );
 
   const remove = useCallback(
     async (it: PoolItem) => {
@@ -119,75 +175,76 @@ export function PoolPage({ me }: { me: Me }) {
       {error && <p className="alert error">{error}</p>}
       {ok && <p className="alert ok">{ok}</p>}
 
-      <div
-        className="filter-bar"
-        style={{ marginBottom: '0.75rem', display: 'flex', gap: '0.5rem' }}
-      >
-        <input
-          placeholder={t('pool.codePlaceholder')}
-          maxLength={100}
-          value={code}
-          style={{ flex: 1, maxWidth: 320 }}
-          onChange={(e) => setCode(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void add();
-          }}
-        />
+      {/* API pool không trả rảnh/bận → chỉ hiện tổng số máy trong pool. */}
+      <div className="stat-grid" style={{ marginBottom: '1rem' }}>
+        <div className="stat-card" style={{ cursor: 'default' }}>
+          <div className="stat-num">{items.length}</div>
+          <div className="stat-label">{t('pool.statTotal', 'Máy trong pool')}</div>
+        </div>
+      </div>
+
+      <div className="catalog-toolbar">
+        <div style={{ flex: 1, minWidth: 240, maxWidth: 420 }}>
+          <Combobox
+            placeholder={t('pool.codePlaceholder')}
+            query={query}
+            onQuery={setQuery}
+            options={options}
+            disabled={busy}
+            getKey={(a) => a.id}
+            renderOption={(a) => (
+              <>
+                <span className="mono">{a.code}</span>
+                <small>{a.type}</small>
+              </>
+            )}
+            onSelect={(a) => void add(a.code)}
+          />
+        </div>
         <button
           type="button"
           className="primary"
-          disabled={busy || !code.trim()}
-          onClick={() => void add()}
+          disabled={busy || !query.trim()}
+          onClick={() => void add(query)}
         >
-          {t('pool.add')}
+          {t('pool.add', 'Thêm vào pool')}
         </button>
       </div>
 
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>{t('pool.colCode')}</th>
-              <th>{t('pool.colType')}</th>
-              <th>{t('pool.colConfig')}</th>
-              <th>{t('pool.colBrand')}</th>
-              <th>{t('pool.colAssignee')}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="muted">
-                  {t('pool.empty')}
-                </td>
-              </tr>
-            ) : (
-              items.map((it) => (
-                <tr key={it.id}>
-                  <td>
-                    <span className="mono">{it.code}</span>
-                  </td>
-                  <td>{it.type}</td>
-                  <td>{it.configuration ?? '—'}</td>
-                  <td>{it.brand ?? '—'}</td>
-                  <td>{it.assignedUserName ?? '—'}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="sm danger"
-                      disabled={busy}
-                      onClick={() => void remove(it)}
-                    >
-                      {t('pool.remove')}
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {items.length === 0 ? (
+        <p className="muted">{t('pool.empty')}</p>
+      ) : (
+        <div className="mcatalog">
+          {items.map((it) => (
+            <div key={it.id} className="mcard">
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}
+              >
+                <div className="mc-ico">{typeIcon(it.type)}</div>
+                <button
+                  type="button"
+                  className="sm danger"
+                  disabled={busy}
+                  onClick={() => void remove(it)}
+                >
+                  {t('pool.remove')}
+                </button>
+              </div>
+              <div className="mc-code">{it.code}</div>
+              <div className="mc-spec">
+                {it.type}
+                {it.configuration ? ` · ${it.configuration}` : ''}
+                {it.brand ? ` · ${it.brand}` : ''}
+              </div>
+              {it.assignedUserName && (
+                <div className="mc-spec mc-foot">
+                  {t('pool.owner', 'Chủ máy')}: {it.assignedUserName}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
