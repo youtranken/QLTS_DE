@@ -64,6 +64,8 @@ export function AssetForm({
   const [swQuery, setSwQuery] = useState('');
   const [swOptions, setSwOptions] = useState<AssetRow[]>([]);
   const [swReload, setSwReload] = useState(0);
+  // #2: phần mềm chọn sẵn khi TẠO máy — attach sau khi tạo (cần id máy mới).
+  const [pendingSw, setPendingSw] = useState<AssetRow[]>([]);
   // 8.2: danh mục Loại/Hãng/Cấu hình (chỉ active) → dropdown chọn nhanh
   const [catType, setCatType] = useState<string[]>([]);
   const [catBrand, setCatBrand] = useState<string[]>([]);
@@ -284,6 +286,19 @@ export function AssetForm({
         },
       );
       if (res.ok) {
+        // #2: tạo máy xong + có phần mềm chọn sẵn → gắn từng cái vào máy vừa tạo.
+        if (!form.id && !form.isSoftware && pendingSw.length > 0) {
+          const created = (await res
+            .json()
+            .catch(() => null)) as { id?: string } | null;
+          if (created?.id) {
+            for (const sw of pendingSw) {
+              await attachSoftwareToMachine(sw.id, created.id).catch(
+                () => undefined,
+              );
+            }
+          }
+        }
         onDone(true);
         return;
       }
@@ -301,7 +316,9 @@ export function AssetForm({
     } finally {
       setBusy(false);
     }
-  }, [form, allocationNote, me.csrfToken, onDone, t]);
+    // attachSoftwareToMachine cố ý không đưa vào deps (khai báo sau, ổn định theo csrfToken).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, allocationNote, pendingSw, me.csrfToken, onDone, t]);
 
   // 2.6: 4 thao tác vòng đời — chỉ cập nhật version + trường đổi (bài học 2.5)
   const doLifecycle = useCallback(
@@ -485,6 +502,29 @@ export function AssetForm({
       }
     },
     [form.id, me.csrfToken, t],
+  );
+
+  // #2: gắn 1 phần mềm vào máy MỚI tạo (dùng lại endpoint transfer, không cần form.id).
+  const attachSoftwareToMachine = useCallback(
+    async (softwareId: string, machineId: string) => {
+      const detailRes = await fetch(
+        `/api/admin/assets/${encodeURIComponent(softwareId)}`,
+      );
+      if (!detailRes.ok) return;
+      const sw = (await detailRes.json()) as AssetDetail;
+      await fetch(
+        `/api/admin/assets/${encodeURIComponent(softwareId)}/transfer`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+          },
+          body: JSON.stringify({ targetAssetId: machineId, version: sw.version }),
+        },
+      );
+    },
+    [me.csrfToken],
   );
 
   const close = () => onDone(transferred);
@@ -1028,6 +1068,56 @@ export function AssetForm({
                     }));
                     setHostQuery('');
                     setHostOptions([]);
+                  }}
+                />
+              </div>
+            )}
+
+            {/* #2: chọn phần mềm cài sẵn NGAY khi tạo máy — gắn sau khi tạo. */}
+            {!form.id && !form.isSoftware && (
+              <div className="form-section">
+                <div className="form-section-title">
+                  {t('assets.installedSoftware')}
+                </div>
+                {pendingSw.length > 0 && (
+                  <div className="swpick" style={{ marginBottom: '0.6rem' }}>
+                    {pendingSw.map((s) => (
+                      <span className="swchip" key={s.id}>
+                        {s.code}
+                        <button
+                          type="button"
+                          aria-label={t('assets.detachSoftware')}
+                          onClick={() =>
+                            setPendingSw((prev) =>
+                              prev.filter((x) => x.id !== s.id),
+                            )
+                          }
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <Combobox
+                  placeholder={t('assets.attachSoftwareSearch')}
+                  query={swQuery}
+                  onQuery={setSwQuery}
+                  options={swOptions.filter(
+                    (o) => !pendingSw.some((p) => p.id === o.id),
+                  )}
+                  disabled={busy}
+                  getKey={(a) => a.id}
+                  renderOption={(a) => (
+                    <>
+                      <span>{a.code}</span>
+                      <small>{t('assets.kindSoftware')}</small>
+                    </>
+                  )}
+                  onSelect={(a) => {
+                    setPendingSw((prev) => [...prev, a]);
+                    setSwQuery('');
+                    setSwOptions([]);
                   }}
                 />
               </div>
