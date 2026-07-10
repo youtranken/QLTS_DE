@@ -11,7 +11,13 @@ import {
   STATUS_BADGE,
   detailToForm,
 } from './asset-types';
-import type { AssetDetail, AssetRow, FormState } from './asset-types';
+import type {
+  AllocationRow,
+  AssetDetail,
+  AssetRow,
+  NoteRow,
+  FormState,
+} from './asset-types';
 import type { Me } from './panels';
 
 // Re-export để App.tsx tiếp tục import cả hai từ './assets' (route không đổi).
@@ -383,6 +389,7 @@ export function AssetsPage({
           if (window.getSelection()?.toString()) return;
           navigate(`/tai-san/${a.id}`);
         }}
+        renderExpanded={(a) => <AssetExpanded asset={a} />}
       />
       {items.length > 0 && (
       <div
@@ -427,5 +434,110 @@ export function AssetsPage({
         />
       )}
     </>
+  );
+}
+
+/**
+ * Panel bung in-context ở Danh sách tài sản (▸ của DataTable) — xem nhanh lịch sử cấp
+ * phát / phần mềm / ghi chú mà KHÔNG rời trang. Chỉ fetch khi hàng được mở (mount).
+ */
+function AssetExpanded({ asset }: { asset: AssetRow }) {
+  const { t } = useTranslation();
+  const isMachine = asset.type !== 'software';
+  const [loading, setLoading] = useState(true);
+  const [allocations, setAllocations] = useState<AllocationRow[]>([]);
+  const [notes, setNotes] = useState<NoteRow[]>([]);
+  const [software, setSoftware] = useState<
+    Array<{ id: string; code: string; licenseName: string | null }>
+  >([]);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    const id = encodeURIComponent(asset.id);
+    void Promise.all([
+      apiFetch<AllocationRow[]>(`/api/admin/assets/${id}/allocations`).catch(
+        () => [] as AllocationRow[],
+      ),
+      apiFetch<NoteRow[]>(`/api/admin/assets/${id}/notes`).catch(
+        () => [] as NoteRow[],
+      ),
+      isMachine
+        ? apiFetch<Array<{ id: string; code: string; licenseName: string | null }>>(
+            `/api/admin/assets/${id}/software`,
+          ).catch(() => [])
+        : Promise.resolve(
+            [] as Array<{ id: string; code: string; licenseName: string | null }>,
+          ),
+    ]).then(([al, nt, sw]) => {
+      if (!alive) return;
+      setAllocations(al);
+      setNotes(nt);
+      setSoftware(sw);
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [asset.id, isMachine]);
+
+  if (loading) {
+    return (
+      <div className="panel">
+        <span className="muted-empty">…</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel">
+      <div>
+        <h5>{t('assets.expAlloc', 'Lịch sử cấp phát')}</h5>
+        {allocations.length === 0 ? (
+          <div className="muted-empty">—</div>
+        ) : (
+          allocations.slice(0, 3).map((a) => (
+            <div className="row" key={a.id}>
+              {a.toUserName ?? a.toUserSub ?? t('assets.expStore', 'Kho')}
+              {a.fromUserName ? ` ← ${a.fromUserName}` : ''}
+            </div>
+          ))
+        )}
+      </div>
+      {isMachine && (
+        <div>
+          <h5>{t('assets.installedSoftware', 'Phần mềm cài sẵn')}</h5>
+          {software.length === 0 ? (
+            <div className="muted-empty">
+              {t('assets.expNoSw', 'Chưa gắn phần mềm.')}
+            </div>
+          ) : (
+            software.map((s) => (
+              <div className="row" key={s.id}>
+                <span className="mono">{s.code}</span>
+                {s.licenseName ? ` — ${s.licenseName}` : ''}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+      <div>
+        <h5>{t('assets.expNotes', 'Ghi chú gần đây')}</h5>
+        {notes.length === 0 ? (
+          <div className="muted-empty">—</div>
+        ) : (
+          notes.slice(0, 3).map((n) => (
+            <div className="row" key={n.id}>
+              {n.note ?? ''}
+            </div>
+          ))
+        )}
+        <div style={{ marginTop: 6 }}>
+          <Link to={`/tai-san/${asset.id}`}>
+            {t('assets.expDetail', 'Xem chi tiết →')}
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

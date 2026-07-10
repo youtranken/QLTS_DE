@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -27,6 +27,11 @@ interface DataTableProps<T> {
   onSortingChange?: OnChangeFn<SortingState>;
   /** Bấm cả dòng (vd mở chi tiết). Kèm bàn phím (Enter/Space) cho a11y. */
   onRowClick?: (row: T) => void;
+  /**
+   * Có giá trị → thêm cột ▸ để BUNG 1 hàng chi tiết in-context ngay dưới dòng
+   * (trang Tài sản). Không truyền → bảng giữ nguyên như cũ (mọi trang khác).
+   */
+  renderExpanded?: (row: T) => ReactNode;
 }
 
 /**
@@ -46,9 +51,11 @@ export function DataTable<T>({
   sorting: controlledSorting,
   onSortingChange: controlledOnSortingChange,
   onRowClick,
+  renderExpanded,
 }: DataTableProps<T>) {
   const [internalSort, setInternalSort] = useState<SortingState>(initialSort);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   // Controlled (server-side) nếu parent truyền sorting; ngược lại tự giữ state (client).
   const sorting = controlledSorting ?? internalSort;
   const onSortingChange = controlledOnSortingChange ?? setInternalSort;
@@ -80,6 +87,9 @@ export function DataTable<T>({
           <thead>
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
+                {renderExpanded && (
+                  <th aria-hidden="true" style={{ width: 34 }} />
+                )}
                 {hg.headers.map((h) => {
                   const sorted = h.column.getIsSorted();
                   return (
@@ -116,39 +126,74 @@ export function DataTable<T>({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={table.getAllLeafColumns().length} className="muted">
+                <td
+                  colSpan={
+                    table.getAllLeafColumns().length + (renderExpanded ? 1 : 0)
+                  }
+                  className="muted"
+                >
                   {emptyText}
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className={rowClassName?.(row.original) || undefined}
-                  onClick={
-                    onRowClick ? () => onRowClick(row.original) : undefined
-                  }
-                  onKeyDown={
-                    onRowClick
-                      ? (e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onRowClick(row.original);
-                          }
-                        }
-                      : undefined
-                  }
-                  tabIndex={onRowClick ? 0 : undefined}
-                  role={onRowClick ? 'button' : undefined}
-                  style={onRowClick ? { cursor: 'pointer' } : undefined}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              rows.map((row) => {
+                const expanded = !!renderExpanded && expandedId === row.id;
+                return (
+                  <Fragment key={row.id}>
+                    <tr
+                      className={rowClassName?.(row.original) || undefined}
+                      onClick={
+                        onRowClick ? () => onRowClick(row.original) : undefined
+                      }
+                      onKeyDown={
+                        onRowClick
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                onRowClick(row.original);
+                              }
+                            }
+                          : undefined
+                      }
+                      tabIndex={onRowClick ? 0 : undefined}
+                      role={onRowClick ? 'button' : undefined}
+                      style={onRowClick ? { cursor: 'pointer' } : undefined}
+                    >
+                      {renderExpanded && (
+                        <td className="caret">
+                          <button
+                            type="button"
+                            className="caret-btn"
+                            aria-expanded={expanded}
+                            aria-label={expanded ? 'Thu gọn' : 'Mở rộng'}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedId(expanded ? null : row.id);
+                            }}
+                          >
+                            {expanded ? '▾' : '▸'}
+                          </button>
+                        </td>
+                      )}
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    {expanded && renderExpanded && (
+                      <tr className="exp">
+                        <td colSpan={row.getVisibleCells().length + 1}>
+                          {renderExpanded(row.original)}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
