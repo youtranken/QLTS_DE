@@ -492,7 +492,7 @@ table.table tbody tr {
   transition: background 0.12s var(--ease);
 }
 table.table tbody tr:nth-child(even) td {
-  background: rgba(246, 247, 250, 0.5);
+  background: var(--surface-2);
 }
 table.table tbody tr:hover td {
   background: var(--primary-soft);
