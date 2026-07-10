@@ -155,6 +155,52 @@ export class BookingService {
   }
 
   /**
+   * TẤT CẢ máy pool + trạng thái (Phase 1b) — catalog Mượn máy hiện cả máy RẢNH lẫn máy
+   * BẬN kèm "bận đến …". busyUntil = giờ kết thúc booking đang chiếm chỗ (null = rảnh ngay).
+   * Read-model công khai nội bộ (AD-5) — KHÔNG lộ người mượn, chỉ khung giờ.
+   */
+  async poolAllWithStatus(): Promise<
+    Array<{
+      id: string;
+      code: string;
+      type: string;
+      configuration: string | null;
+      busyUntil: string | null;
+    }>
+  > {
+    const occupying = sql.join(
+      OCCUPYING_STATES.map((s) => sql`${s}`),
+      sql`, `,
+    );
+    const rows = await this.db.execute<{
+      id: string;
+      code: string;
+      type: string;
+      configuration: string | null;
+      busy_until: string | null;
+    }>(sql`
+      SELECT a.id, a.code, a.type, a.configuration,
+        (SELECT upper(b.period)
+           FROM booking b
+          WHERE b.asset_id = a.id
+            AND b.state IN (${occupying})
+            AND b.period @> now()
+          ORDER BY upper(b.period) DESC
+          LIMIT 1) AS busy_until
+      FROM assets a
+      WHERE a.is_pool = true AND a.status = 'in_use'
+      ORDER BY busy_until NULLS FIRST, a.code
+    `);
+    return rows.rows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      type: r.type,
+      configuration: r.configuration,
+      busyUntil: r.busy_until,
+    }));
+  }
+
+  /**
    * Lịch tuần của MỘT máy (FR-10): các khối busy = booking OCCUPYING chồng tuần đó.
    * AD-5 NGHIÊM NGẶT: payload chỉ khung giờ + kind — TUYỆT ĐỐI không borrower/lý do.
    * weekStart chuẩn hóa về Thứ 2 00:00 giờ VN (date_trunc('week') — tuần Postgres bắt đầu

@@ -30,6 +30,8 @@ interface FreePoolMachine {
   code: string;
   type: string;
   configuration: string | null;
+  // Phase 1b: null = rảnh ngay; else ISO giờ máy hết bận ("bận đến …").
+  busyUntil?: string | null;
 }
 
 const POLL_MS = 30_000;
@@ -78,8 +80,9 @@ export function BorrowBoardPage({ me }: { me: Me }) {
   });
   const rows = rowsData ?? null;
   const { data: freeData } = useQuery({
-    queryKey: ['pool-machines'],
-    queryFn: () => apiFetch<FreePoolMachine[]>('/api/booking/pool-machines'),
+    queryKey: ['pool-all-machines'],
+    // Phase 1b: cả máy rảnh + máy bận (busyUntil) để catalog hiện "Bận đến …".
+    queryFn: () => apiFetch<FreePoolMachine[]>('/api/booking/pool-all-machines'),
     refetchInterval: POLL_MS,
     placeholderData: (prev) => prev,
   });
@@ -115,7 +118,7 @@ export function BorrowBoardPage({ me }: { me: Me }) {
     setFlash(true);
     setReloadMine((n) => n + 1);
     void queryClient.invalidateQueries({ queryKey: ['board'] });
-    void queryClient.invalidateQueries({ queryKey: ['pool-machines'] });
+    void queryClient.invalidateQueries({ queryKey: ['pool-all-machines'] });
     setTimeout(() => setFlash(false), 2500);
   }, [queryClient]);
 
@@ -315,26 +318,39 @@ export function BorrowBoardPage({ me }: { me: Me }) {
             </p>
           ) : (
             <div className="mcatalog">
-              {freeFiltered.map((m) => (
-                <div key={m.id} className="mcard">
-                  <div className="mc-ico">{typeIcon(m.type)}</div>
-                  <div className="mc-code">{m.code}</div>
-                  <div className="mc-spec">
-                    {m.type}
-                    {m.configuration ? ` · ${m.configuration}` : ''}
+              {freeFiltered.map((m) => {
+                const busy = m.busyUntil != null;
+                return (
+                  <div key={m.id} className="mcard">
+                    <div className="mc-ico">{typeIcon(m.type)}</div>
+                    <div className="mc-code">{m.code}</div>
+                    <div className="mc-spec">
+                      {m.type}
+                      {m.configuration ? ` · ${m.configuration}` : ''}
+                    </div>
+                    {busy ? (
+                      <span className="avail busy">
+                        {t('board.catalogBusyUntil', 'Bận đến {{time}}', {
+                          time: fmt(m.busyUntil ?? null),
+                        })}
+                      </span>
+                    ) : (
+                      <span className="avail free">
+                        {t('board.catalogFree', 'Rảnh ngay')}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className={busy ? 'mc-foot' : 'primary mc-foot'}
+                      onClick={() => openBooking(m.id)}
+                    >
+                      {busy
+                        ? t('board.catalogSchedule', 'Đặt lịch')
+                        : t('board.catalogBorrow', 'Mượn')}
+                    </button>
                   </div>
-                  <span className="avail free">
-                    {t('board.catalogFree', 'Rảnh ngay')}
-                  </span>
-                  <button
-                    type="button"
-                    className="primary mc-foot"
-                    onClick={() => openBooking(m.id)}
-                  >
-                    {t('board.catalogBorrow', 'Mượn')}
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

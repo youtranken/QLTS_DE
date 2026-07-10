@@ -128,7 +128,18 @@ export function AdminDashboard() {
   return (
     <section>
       <div className="page-header">
-        <h1>{t('dashboard.title')}</h1>
+        <div>
+          <h1>{t('dashboard.title')}</h1>
+          <p
+            className="muted"
+            style={{ margin: '0.3rem 0 0', fontSize: '0.85rem' }}
+          >
+            {t(
+              'dashboard.subtitle',
+              'Số đếm dẫn thẳng tới hàng đợi cần xử lý — bấm để mở',
+            )}
+          </p>
+        </div>
       </div>
       {error ? (
         <LoadError onRetry={() => setReloadKey((k) => k + 1)} />
@@ -141,6 +152,7 @@ export function AdminDashboard() {
               key={c.key}
               type="button"
               onClick={() => navigate(c.to)}
+              aria-label={`${t(`dashboard.${c.key}`)}: ${c.count ?? '—'}`}
               className={isDanger ? 'stat-card critical' : 'stat-card'}
             >
               <div className={`stat-num${c.count === 0 ? ' zero' : ''}`}>

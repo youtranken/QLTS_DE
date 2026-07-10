@@ -72,6 +72,12 @@ export class BookingController {
     return this.booking.poolFreeNow();
   }
 
+  /** TẤT CẢ máy pool + trạng thái rảnh/bận (Phase 1b) — catalog Mượn máy hiện cả máy bận. */
+  @Get('pool-all-machines')
+  poolAllMachines() {
+    return this.booking.poolAllWithStatus();
+  }
+
   /** Lịch tuần busy/free của một máy (FR-10) — AD-5: không lộ người mượn. */
   @Get('machines/:id/calendar')
   calendar(

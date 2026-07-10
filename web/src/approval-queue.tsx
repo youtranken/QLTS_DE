@@ -25,6 +25,9 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
+  // Đếm số cho dải summary chips — lấy từ dữ liệu các queue con báo lên (không fetch thêm)
+  const [extCount, setExtCount] = useState(0);
+  const [hoCounts, setHoCounts] = useState({ pickup: 0, inUse: 0, overdue: 0 });
 
   const load = useCallback(async () => {
     setError(null);
@@ -115,6 +118,38 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
     <section>
       <div className="page-header">
         <h1>{t('approval.title')}</h1>
+      </div>
+      <div className="stat-grid" style={{ marginBottom: 16 }}>
+        <div className="stat-card">
+          <div className={`stat-num${(items?.length ?? 0) === 0 ? ' zero' : ''}`}>
+            {items?.length ?? 0}
+          </div>
+          <div className="stat-label">{t('approval.kpiPending', 'Chờ duyệt')}</div>
+        </div>
+        <div className="stat-card">
+          <div className={`stat-num${hoCounts.pickup === 0 ? ' zero' : ''}`}>
+            {hoCounts.pickup}
+          </div>
+          <div className="stat-label">{t('handover.kpiPickup', 'Chờ giao')}</div>
+        </div>
+        <div className="stat-card">
+          <div className={`stat-num${hoCounts.inUse === 0 ? ' zero' : ''}`}>
+            {hoCounts.inUse}
+          </div>
+          <div className="stat-label">{t('handover.kpiInUse', 'Chờ nhận')}</div>
+        </div>
+        <div className="stat-card">
+          <div className={`stat-num${extCount === 0 ? ' zero' : ''}`}>
+            {extCount}
+          </div>
+          <div className="stat-label">{t('extapprove.kpiExt', 'Gia hạn')}</div>
+        </div>
+        <div className={hoCounts.overdue > 0 ? 'stat-card critical' : 'stat-card'}>
+          <div className={`stat-num${hoCounts.overdue === 0 ? ' zero' : ''}`}>
+            {hoCounts.overdue}
+          </div>
+          <div className="stat-label">{t('handover.kpiOverdue', 'Quá hạn')}</div>
+        </div>
       </div>
       {error && <p className="alert error">{error}</p>}
       {items === null && <p>{t('approval.loading')}</p>}
@@ -219,8 +254,8 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
         </div>
       )}
 
-      <ExtensionQueue me={me} />
-      <HandoverQueues me={me} />
+      <ExtensionQueue me={me} onCount={setExtCount} />
+      <HandoverQueues me={me} onCounts={setHoCounts} />
       <RecurringSessionQueue me={me} />
       <CreateForForm me={me} />
     </section>
@@ -238,7 +273,13 @@ interface ExtensionRow {
 }
 
 /** Hàng đợi Chờ gia hạn (4.2) — duyệt/từ chối, đọc kết cục qua result (AD-16). */
-function ExtensionQueue({ me }: { me: Me }) {
+function ExtensionQueue({
+  me,
+  onCount,
+}: {
+  me: Me;
+  onCount?: (n: number) => void;
+}) {
   const { t, i18n } = useTranslation();
   const [rows, setRows] = useState<ExtensionRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -259,6 +300,10 @@ function ExtensionQueue({ me }: { me: Me }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    onCount?.(rows.length);
+  }, [rows.length, onCount]);
 
   const act = useCallback(
     async (row: ExtensionRow, kind: 'approve' | 'reject', rej?: string) => {
@@ -421,7 +466,13 @@ interface QueueRow {
 }
 
 /** Hàng đợi chờ giao (Đã giao) + đang mượn (Đã nhận) — story 3.6. */
-function HandoverQueues({ me }: { me: Me }) {
+function HandoverQueues({
+  me,
+  onCounts,
+}: {
+  me: Me;
+  onCounts?: (c: { pickup: number; inUse: number; overdue: number }) => void;
+}) {
   const { t, i18n } = useTranslation();
   const [pickup, setPickup] = useState<QueueRow[]>([]);
   const [inUse, setInUse] = useState<QueueRow[]>([]);
@@ -448,6 +499,14 @@ function HandoverQueues({ me }: { me: Me }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    onCounts?.({
+      pickup: pickup.length,
+      inUse: inUse.length,
+      overdue: inUse.filter((r) => r.isOverdue).length,
+    });
+  }, [pickup, inUse, onCounts]);
 
   const uploadPhoto = useCallback(
     async (file: File): Promise<string | null> => {
