@@ -35,6 +35,8 @@ interface FreePoolMachine {
 }
 
 const POLL_MS = 30_000;
+// #1: catalog "Máy có thể mượn" chỉ hiện tối đa 5 thẻ; còn lại bung qua "Xem tất cả".
+const CATALOG_CAP = 5;
 
 const typeIcon = (type: string | null): string => {
   const ty = (type ?? '').toLowerCase();
@@ -54,27 +56,41 @@ interface CalBusy {
 interface MachineCal {
   busy: CalBusy[];
 }
+interface SlotInfo {
+  /** 0 = hôm nay, 1 = ngày mai, … (-1 = kín cả tuần). */
+  dayOffset: number;
+  slots: string[];
+}
 
-/** Giờ trống HÔM NAY của 1 máy: giờ làm 07–18, mỗi khung 1 giờ, bỏ khung đã qua & bận. */
-function freeSlotsToday(busy: CalBusy[]): string[] {
+/**
+ * Giờ trống của 1 máy ở NGÀY LÀM GẦN NHẤT có khung rảnh (07–18, T2–T7, bỏ khung đã qua
+ * & bận). Buổi tối/CN thì hôm nay hết → tự nhảy sang ngày làm kế (khỏi hiện "hết giờ" trơ).
+ * Lịch busy chỉ có trong tuần fetch → ngày sang tuần sau chưa chắc chính xác (BE chốt khi Đặt).
+ */
+function freeSlotsSoon(busy: CalBusy[]): SlotInfo {
   const now = Date.now();
-  const base = new Date();
-  base.setHours(0, 0, 0, 0);
-  const out: string[] = [];
-  for (let h = 7; h < 18; h++) {
-    const s = new Date(base);
-    s.setHours(h);
-    const e = new Date(base);
-    e.setHours(h + 1);
-    if (e.getTime() <= now) continue;
-    const clash = busy.some((b) => {
-      const bf = new Date(b.from).getTime();
-      const bt = new Date(b.to).getTime();
-      return bf < e.getTime() && bt > s.getTime();
-    });
-    if (!clash) out.push(`${String(h).padStart(2, '0')}:00`);
+  for (let off = 0; off < 7; off++) {
+    const base = new Date();
+    base.setHours(0, 0, 0, 0);
+    base.setDate(base.getDate() + off);
+    if (base.getDay() === 0) continue; // CN nghỉ
+    const out: string[] = [];
+    for (let h = 7; h < 18; h++) {
+      const s = new Date(base);
+      s.setHours(h);
+      const e = new Date(base);
+      e.setHours(h + 1);
+      if (e.getTime() <= now) continue;
+      const clash = busy.some((b) => {
+        const bf = new Date(b.from).getTime();
+        const bt = new Date(b.to).getTime();
+        return bf < e.getTime() && bt > s.getTime();
+      });
+      if (!clash) out.push(`${String(h).padStart(2, '0')}:00`);
+    }
+    if (out.length > 0) return { dayOffset: off, slots: out };
   }
-  return out;
+  return { dayOffset: -1, slots: [] };
 }
 
 /**
@@ -88,17 +104,21 @@ export function BorrowBoardPage({ me }: { me: Me }) {
   const queryClient = useQueryClient();
   const [now, setNow] = useState(() => Date.now());
   const [sheetOpen, setSheetOpen] = useState(false);
-  // 9.5: mở popup đặt máy với máy chọn sẵn từ bảng "Máy có thể mượn".
-  const [presetAsset, setPresetAsset] = useState<string | undefined>(undefined);
+  // Máy chọn sẵn khi mở popup từ thẻ "Máy có thể mượn" (undefined = mở từ nút "Đặt máy").
+  const [presetMachine, setPresetMachine] = useState<FreePoolMachine | undefined>(
+    undefined,
+  );
   const [showMine, setShowMine] = useState(false);
   const [flash, setFlash] = useState(false);
   const [reloadMine, setReloadMine] = useState(0);
   // 9.5+: catalog máy-first — search client-side + lọc theo loại (distinct từ pool rảnh).
   const [catalogSearch, setCatalogSearch] = useState('');
   const [catalogType, setCatalogType] = useState('all');
-  // Part 2: xem giờ trống HÔM NAY của 1 máy ngay trên card (trước khi mở popup đặt).
+  // #1: nhiều máy → chỉ hiện CATALOG_CAP thẻ đầu, còn lại bung khi bấm "Xem tất cả".
+  const [showAllCatalog, setShowAllCatalog] = useState(false);
+  // Part 2: xem giờ trống ngày làm gần nhất của 1 máy ngay trên card (trước khi mở popup đặt).
   const [slotMachine, setSlotMachine] = useState<string | null>(null);
-  const [slots, setSlots] = useState<string[] | null>(null);
+  const [slots, setSlots] = useState<SlotInfo | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const toggleSlots = useCallback(
     async (id: string) => {
@@ -114,9 +134,9 @@ export function BorrowBoardPage({ me }: { me: Me }) {
         const cal = await apiFetch<MachineCal>(
           `/api/booking/machines/${encodeURIComponent(id)}/calendar`,
         );
-        setSlots(freeSlotsToday(cal.busy ?? []));
+        setSlots(freeSlotsSoon(cal.busy ?? []));
       } catch {
-        setSlots([]);
+        setSlots({ dayOffset: -1, slots: [] });
       } finally {
         setSlotsLoading(false);
       }
@@ -167,8 +187,8 @@ export function BorrowBoardPage({ me }: { me: Me }) {
     return () => clearInterval(tick);
   }, []);
 
-  const openBooking = (assetId?: string) => {
-    setPresetAsset(assetId);
+  const openBooking = (machine?: FreePoolMachine) => {
+    setPresetMachine(machine);
     setSheetOpen(true);
   };
 
@@ -204,6 +224,18 @@ export function BorrowBoardPage({ me }: { me: Me }) {
     if (d > 0) return `${d}${t('board.dUnit')} ${h}${t('board.hUnit')}`;
     if (h > 0) return `${h}${t('board.hUnit')} ${m % 60}${t('board.mUnit')}`;
     return `${m}${t('board.mUnit')}`;
+  };
+  // Nhãn ngày cho khối "giờ trống": Hôm nay / Ngày mai / thứ+ngày (khi phải nhảy ngày).
+  const slotDayLabel = (off: number): string => {
+    if (off <= 0) return t('board.today', 'Hôm nay');
+    if (off === 1) return t('board.tomorrow', 'Ngày mai');
+    const d = new Date();
+    d.setDate(d.getDate() + off);
+    return d.toLocaleDateString(i18n.language === 'vi' ? 'vi-VN' : 'en-US', {
+      weekday: 'short',
+      day: '2-digit',
+      month: '2-digit',
+    });
   };
 
   // Cột board: giữ nguyên nội dung ô cũ; sort/search qua DataTable. Rebuild mỗi tick `now`
@@ -375,72 +407,116 @@ export function BorrowBoardPage({ me }: { me: Me }) {
               {t('board.catalogEmpty', 'Không có máy khớp bộ lọc.')}
             </p>
           ) : (
-            <div className="mcatalog">
-              {freeFiltered.map((m) => {
-                const busy = m.busyUntil != null;
-                return (
-                  <div key={m.id} className="mcard">
-                    <div className="mc-ico">{typeIcon(m.type)}</div>
-                    <div className="mc-code">{m.code}</div>
-                    <div className="mc-spec">
-                      {m.type}
-                      {m.configuration ? ` · ${m.configuration}` : ''}
-                    </div>
-                    {busy ? (
-                      <span className="avail busy">
-                        {t('board.catalogBusyUntil', 'Bận đến {{time}}', {
-                          time: fmt(m.busyUntil ?? null),
-                        })}
-                      </span>
-                    ) : (
-                      <span className="avail free">
-                        {t('board.catalogFree', 'Rảnh ngay')}
-                      </span>
-                    )}
-                    {!busy && (
-                      <button
-                        type="button"
-                        className="btn sm"
-                        onClick={() => void toggleSlots(m.id)}
-                      >
-                        {slotMachine === m.id
-                          ? t('board.hideSlots', 'Ẩn giờ trống')
-                          : t('board.showSlots', 'Giờ trống hôm nay ▾')}
-                      </button>
-                    )}
-                    {slotMachine === m.id && (
-                      <div className="slot-row">
-                        {slotsLoading ? (
-                          <span className="muted">…</span>
-                        ) : slots && slots.length > 0 ? (
-                          slots.map((s) => (
-                            <span key={s} className="slotchip">
-                              {s}
-                            </span>
-                          ))
+            <>
+              <div className="mcatalog dense">
+                {(showAllCatalog
+                  ? freeFiltered
+                  : freeFiltered.slice(0, CATALOG_CAP)
+                ).map((m) => {
+                  const busy = m.busyUntil != null;
+                  const slotsOpen = slotMachine === m.id;
+                  return (
+                    <div key={m.id} className="mcard mcard-sm">
+                      <div className="mc-head">
+                        <span className="mc-ico">{typeIcon(m.type)}</span>
+                        <span className="mc-code">{m.code}</span>
+                        {busy ? (
+                          <span className="avail busy">
+                            {t('board.catalogBusyShort', 'Bận')}
+                          </span>
                         ) : (
-                          <span
-                            className="muted"
-                            style={{ fontSize: '0.8rem' }}
-                          >
-                            {t('board.noSlotsToday', 'Hết giờ trống hôm nay')}
+                          <span className="avail free">
+                            {t('board.catalogFree', 'Rảnh ngay')}
                           </span>
                         )}
                       </div>
-                    )}
-                    <button
-                      type="button"
-                      className={busy ? 'mc-foot' : 'primary mc-foot'}
-                      onClick={() => openBooking(m.id)}
-                    >
-                      {busy
-                        ? t('board.catalogSchedule', 'Đặt lịch')
-                        : t('board.catalogBook', 'Đặt')}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+                      <div className="mc-spec">
+                        {m.type}
+                        {m.configuration ? ` · ${m.configuration}` : ''}
+                        {busy && (
+                          <span className="muted">
+                            {' · '}
+                            {t('board.catalogBusyUntil', 'Bận đến {{time}}', {
+                              time: fmt(m.busyUntil ?? null),
+                            })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mc-actions">
+                        {!busy && (
+                          <button
+                            type="button"
+                            className="ghost sm"
+                            aria-expanded={slotsOpen}
+                            onClick={() => void toggleSlots(m.id)}
+                          >
+                            {slotsOpen
+                              ? t('board.hideSlots', 'Ẩn giờ')
+                              : t('board.showSlots', 'Giờ trống ▾')}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className={busy ? 'sm' : 'primary sm'}
+                          onClick={() => openBooking(m)}
+                        >
+                          {busy
+                            ? t('board.catalogSchedule', 'Đặt lịch')
+                            : t('board.catalogBook', 'Đặt')}
+                        </button>
+                      </div>
+                      {slotsOpen && (
+                        <div className="slot-row">
+                          {slotsLoading ? (
+                            <span className="muted">…</span>
+                          ) : slots && slots.slots.length > 0 ? (
+                            <>
+                              <span className="slot-day">
+                                {slotDayLabel(slots.dayOffset)}
+                              </span>
+                              {slots.slots.map((s) => (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  className="slotchip"
+                                  onClick={() => openBooking(m)}
+                                  title={t('board.bookAt', 'Đặt máy này lúc {{s}}', {
+                                    s,
+                                  })}
+                                >
+                                  {s}
+                                </button>
+                              ))}
+                            </>
+                          ) : (
+                            <span className="muted" style={{ fontSize: '0.8rem' }}>
+                              {t(
+                                'board.noSlotsWeek',
+                                'Kín lịch tuần này — bấm Đặt để chọn ngày khác',
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {freeFiltered.length > CATALOG_CAP && (
+                <button
+                  type="button"
+                  className="ghost sm"
+                  style={{ marginTop: '0.5rem' }}
+                  onClick={() => setShowAllCatalog((v) => !v)}
+                >
+                  {showAllCatalog
+                    ? t('board.catalogCollapse', 'Thu gọn')
+                    : t('board.catalogShowAll', 'Xem tất cả ({{n}}) →', {
+                        n: freeFiltered.length,
+                      })}
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -471,7 +547,7 @@ export function BorrowBoardPage({ me }: { me: Me }) {
       {sheetOpen && (
         <BookingSheet
           me={me}
-          presetAssetId={presetAsset}
+          presetMachine={presetMachine}
           onClose={() => setSheetOpen(false)}
           onBooked={onBooked}
         />
