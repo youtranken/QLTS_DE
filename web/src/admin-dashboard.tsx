@@ -42,7 +42,9 @@ export function AdminDashboard() {
       fetchJson<{ total: number }>(url).then((d) => d.total ?? 0);
     const countOf = (url: string) =>
       fetchJson<{ count: number }>(url).then((d) => d.count ?? 0);
-    Promise.all([
+    // allSettled (không Promise.all): 1 endpoint đếm lỗi KHÔNG được che sạch cả dashboard.
+    // Card lỗi để null (hiện "đang tải"), chỉ báo LoadError khi TẤT CẢ endpoint fail.
+    Promise.allSettled([
       arrLen('/api/admin/tickets/pending-approval'),
       arrLen('/api/admin/tickets/extensions'),
       arrLen('/api/admin/tickets/awaiting-pickup'),
@@ -52,36 +54,28 @@ export function AdminDashboard() {
       totalOf('/api/admin/notifications/failed'),
       totalOf('/api/admin/offboarding'),
       countOf('/api/admin/assets/expiring-count'),
-    ])
-      .then(
-        ([
-          pending,
-          extension,
-          pickup,
-          inuse,
-          overdue,
-          locked,
-          notifyFailed,
-          offboard,
-          expiring,
-        ]) => {
-          if (alive)
-            setCounts({
-              pending,
-              extension,
-              pickup,
-              inuse,
-              overdue,
-              locked,
-              notifyFailed,
-              offboard,
-              expiring,
-            });
-        },
-      )
-      .catch(() => {
-        if (alive) setError(true);
+    ]).then((results) => {
+      if (!alive) return;
+      if (results.every((r) => r.status === 'rejected')) {
+        setError(true);
+        return;
+      }
+      const at = (i: number): number | null =>
+        results[i].status === 'fulfilled'
+          ? (results[i] as PromiseFulfilledResult<number>).value
+          : null;
+      setCounts({
+        pending: at(0),
+        extension: at(1),
+        pickup: at(2),
+        inuse: at(3),
+        overdue: at(4),
+        locked: at(5),
+        notifyFailed: at(6),
+        offboard: at(7),
+        expiring: at(8),
       });
+    });
     return () => {
       alive = false;
     };

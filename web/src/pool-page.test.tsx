@@ -5,13 +5,11 @@ import {
   jsonResponse,
   renderWithI18n,
   screen,
-  within,
-  waitFor,
-  userEvent,
 } from './test/test-utils';
 
 const ME = { sub: 'admin', role: 'admin', csrfToken: null } as unknown as Me;
 
+// Pool là lưới thẻ máy (.mcatalog/.mcard) — không còn bảng sort/search.
 const POOL = [
   { id: '1', code: 'PC-002', type: 'laptop', configuration: 'i5', brand: 'Dell', status: 'in_use', version: 1, assignedUserName: 'An' },
   { id: '2', code: 'PC-001', type: 'desktop', configuration: 'i7', brand: 'HP', status: 'in_use', version: 1, assignedUserName: null },
@@ -28,40 +26,25 @@ function stubPool() {
   );
 }
 
-function codeColumn(): (string | null)[] {
-  return screen
-    .getAllByRole('row')
-    .slice(1)
-    .map((r) => within(r).getAllByRole('cell')[0].textContent);
-}
-
-describe('PoolPage — dùng DataTable (sort + search)', () => {
-  it('nạp danh sách pool và hiển thị', async () => {
+describe('PoolPage — lưới thẻ máy', () => {
+  it('nạp và hiển thị các máy trong pool', async () => {
     stubPool();
     renderWithI18n(<PoolPage me={ME} />);
     expect(await screen.findByText('PC-002')).toBeInTheDocument();
     expect(await screen.findByText('PC-001')).toBeInTheDocument();
   });
 
-  it('bấm header "Mã tài sản" sắp xếp tăng dần', async () => {
+  it('mỗi thẻ có nút Gỡ', async () => {
     stubPool();
     renderWithI18n(<PoolPage me={ME} />);
     await screen.findByText('PC-002');
-    await userEvent.click(screen.getByRole('button', { name: /Mã tài sản/ }));
-    expect(codeColumn()).toEqual(['PC-001', 'PC-002']);
+    expect(screen.getAllByRole('button', { name: 'Gỡ' })).toHaveLength(2);
   });
 
-  it('gõ ô lọc thu hẹp theo hãng', async () => {
+  it('hiện chủ máy khi có người đứng tên', async () => {
     stubPool();
     renderWithI18n(<PoolPage me={ME} />);
     await screen.findByText('PC-002');
-    await userEvent.type(
-      screen.getByLabelText('Lọc theo mã / loại / hãng…'),
-      'HP',
-    );
-    await waitFor(() =>
-      expect(screen.queryByText('PC-002')).not.toBeInTheDocument(),
-    );
-    expect(codeColumn()).toEqual(['PC-001']); // chỉ máy hãng HP
+    expect(screen.getByText(/Chủ máy/)).toBeInTheDocument();
   });
 });

@@ -70,12 +70,24 @@ export function DataTable<T>({
     sortDescFirst: false,
     globalFilterFn: 'includesString',
     manualSorting: manualSorting ?? false,
+    // ID ổn định theo dữ liệu (không phải index): tránh hàng bung ▸ "dính" sai bản ghi
+    // khi phân trang/sort/refetch thay đổi thứ tự (trang Tài sản dùng renderExpanded).
+    getRowId: (row, index) => {
+      const r = row as { id?: string | number };
+      return r.id != null ? String(r.id) : String(index);
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
 
   const rows = table.getRowModel().rows;
+  // Dữ liệu đổi (sang trang/lọc) mà dòng đang bung không còn → thu gọn để không hiện nhầm.
+  useEffect(() => {
+    if (expandedId && !rows.some((r) => r.id === expandedId)) {
+      setExpandedId(null);
+    }
+  }, [rows, expandedId]);
 
   return (
     <>

@@ -13,6 +13,8 @@ export default {
     noPermission: 'Bạn không có quyền truy cập trang này.',
     serverUnreachable: 'Không gọi được máy chủ.',
     loadError: 'Không tải được dữ liệu — thử lại.',
+    chunkError: 'Có bản cập nhật mới hoặc lỗi tải trang — hãy tải lại.',
+    reload: 'Tải lại',
   },
   nav: {
     groupBorrow: 'Mượn tài sản',
@@ -458,6 +460,8 @@ export default {
     saveFailed: 'Lưu không thành công.',
     codeTaken: 'Mã tài sản đã tồn tại — mã phải duy nhất.',
     staleVersion: 'Trạng thái đã thay đổi, tải lại rồi sửa tiếp.',
+    attachAfterCreate:
+      'Đã tạo máy nhưng chưa gắn được {{n}} phần mềm — mở "Sửa máy" để gắn lại.',
     reload: 'Tải lại',
     allocationNote: 'Ghi chú cấp phát (khi đổi người)',
     allocationNotePlaceholder: 'Vd: bàn giao kèm sạc + túi',

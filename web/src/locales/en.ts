@@ -13,6 +13,8 @@ export default {
     noPermission: 'You do not have permission to access this page.',
     serverUnreachable: 'Cannot reach the server.',
     loadError: 'Could not load data — try again.',
+    chunkError: 'A new version is available or the page failed to load — please reload.',
+    reload: 'Reload',
   },
   nav: {
     groupBorrow: 'Borrowing',
@@ -460,6 +462,8 @@ export default {
     saveFailed: 'Save failed.',
     codeTaken: 'Asset code already exists — codes must be unique.',
     staleVersion: 'The record has changed — reload and edit again.',
+    attachAfterCreate:
+      'Machine created but {{n}} software item(s) could not be attached — open "Edit machine" to attach again.',
     reload: 'Reload',
     allocationNote: 'Allocation note (when reassigning)',
     allocationNotePlaceholder: 'E.g. handed over with charger + bag',

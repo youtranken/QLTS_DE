@@ -5,13 +5,13 @@ import {
   jsonResponse,
   renderWithI18n,
   screen,
-  within,
-  waitFor,
   userEvent,
 } from './test/test-utils';
 
 const ME = { sub: 'sa', role: 'sa', csrfToken: null } as unknown as Me;
 
+// Danh mục là bảng 3 cột (Loại/Hãng/Cấu hình). Chỉ nạp cột "type" để giá trị
+// không lặp giữa các cột (tránh nhập nhằng khi query theo text).
 const ITEMS = [
   { id: '1', value: 'Laptop', active: true, usage: 5 },
   { id: '2', value: 'Desktop', active: true, usage: 12 },
@@ -22,46 +22,36 @@ function stub() {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string) =>
-      typeof url === 'string' && url.includes('/api/admin/catalog')
+      typeof url === 'string' && url.includes('kind=type')
         ? Promise.resolve(jsonResponse(200, ITEMS))
         : Promise.resolve(jsonResponse(200, [])),
     ),
   );
 }
 
-function valueColumn(): (string | null)[] {
-  return screen
-    .getAllByRole('row')
-    .slice(1)
-    .map((r) => within(r).getAllByRole('cell')[0].textContent);
-}
-
-describe('CatalogPage — dùng DataTable', () => {
-  it('sắp xếp theo "Số tài sản" tăng dần', async () => {
+describe('CatalogPage — bảng 3 cột', () => {
+  it('hiển thị các giá trị trong cột Loại', async () => {
     stub();
     renderWithI18n(<CatalogPage me={ME} />);
-    await screen.findByText('Laptop');
-    await userEvent.click(screen.getByRole('button', { name: /Số tài sản/ }));
-    expect(valueColumn()).toEqual(['Monitor', 'Laptop', 'Desktop']); // 0,5,12
+    expect(await screen.findByText('Laptop')).toBeInTheDocument();
+    expect(screen.getByText('Desktop')).toBeInTheDocument();
+    expect(screen.getByText('Monitor')).toBeInTheDocument();
   });
 
-  it('lọc thu hẹp danh sách', async () => {
+  it('giá trị đang ẩn có nhãn "Đã ẩn"', async () => {
     stub();
     renderWithI18n(<CatalogPage me={ME} />);
-    await screen.findByText('Laptop');
-    await userEvent.type(screen.getByLabelText('Lọc giá trị…'), 'Desk');
-    await waitFor(() =>
-      expect(screen.queryByText('Laptop')).not.toBeInTheDocument(),
-    );
-    expect(valueColumn()).toEqual(['Desktop']);
+    await screen.findByText('Monitor'); // active:false
+    expect(screen.getByText(/Đã ẩn/)).toBeInTheDocument();
   });
 
-  it('inline-edit vẫn hoạt động qua DataTable (bấm Sửa → ô nhập)', async () => {
+  it('menu ⋯ → Sửa mở ô nhập inline', async () => {
     stub();
     renderWithI18n(<CatalogPage me={ME} />);
     await screen.findByText('Laptop');
-    // Sửa dòng đầu (Laptop) → ô value thành input
-    await userEvent.click(screen.getAllByRole('button', { name: 'Sửa' })[0]);
+    // ⋯ của hàng đầu (Laptop) → Sửa → input hiện giá trị hiện tại
+    await userEvent.click(screen.getAllByLabelText('Thao tác')[0]);
+    await userEvent.click(screen.getByRole('button', { name: 'Sửa' }));
     expect(screen.getByDisplayValue('Laptop')).toBeInTheDocument();
   });
 });

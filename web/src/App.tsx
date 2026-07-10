@@ -6,9 +6,11 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
 } from 'react-router-dom';
 import { InUseNowPanel } from './booking';
 import { BorrowBoardPage } from './borrow-board';
+import { ChunkErrorBoundary } from './chunk-error-boundary';
 import { savedLanguage, setLanguage } from './i18n';
 import { currentTheme, toggleTheme } from './theme';
 import { DirectorySyncPanel, RolesPanel } from './panels';
@@ -283,6 +285,7 @@ function navGroups(role: string): NavGroup[] {
 
 function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const { t } = useTranslation();
+  const { pathname } = useLocation();
   const narrow = useIsNarrow();
   const [menuOpen, setMenuOpen] = useState(false);
   // 7.5: member KHÔNG sidebar (board full màn + nút Đặt máy ở topbar). Chỉ admin/sa có sidebar.
@@ -317,11 +320,26 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
           </div>
           {(() => {
             const groups = navGroups(me.role);
-            // Item là TIỀN TỐ của item khác (vd /quan-tri của /quan-tri/danh-muc) phải khớp
-            // chính xác, nếu không NavLink sẽ sáng CẢ cha lẫn con cùng lúc.
+            // "Prefix dài nhất thắng": sáng ĐÚNG một mục — mục con khớp cả path con
+            // (vd /tai-san/import, /tai-san/:id vẫn sáng "Tài sản"), nhưng khi có mục
+            // con cụ thể hơn (/tai-san/kiem-ke) thì mục đó thắng, cha không sáng kèm.
             const allTos = groups.flatMap((g) => g.items.map((i) => i.to));
-            const isPrefix = (to: string) =>
-              to === '/' || allTos.some((o) => o !== to && o.startsWith(`${to}/`));
+            let activeTo: string | null = null;
+            let bestLen = 0;
+            for (const to of allTos) {
+              const len =
+                to === '/'
+                  ? pathname === '/'
+                    ? 1
+                    : 0
+                  : pathname === to || pathname.startsWith(`${to}/`)
+                    ? to.length
+                    : 0;
+              if (len > bestLen) {
+                bestLen = len;
+                activeTo = to;
+              }
+            }
             return groups.map((group) => (
             <div key={group.label}>
               <div className="nav-label">{t(group.label)}</div>
@@ -329,10 +347,10 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={isPrefix(item.to)}
+                  end
                   onClick={() => setMenuOpen(false)}
-                  className={({ isActive }) =>
-                    isActive ? 'nav-item active' : 'nav-item'
+                  className={
+                    item.to === activeTo ? 'nav-item active' : 'nav-item'
                   }
                 >
                   {t(item.key)}
@@ -365,6 +383,25 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
           </button>
         </header>
         <main className="page">
+          <ChunkErrorBoundary
+            fallback={
+              <div
+                className="load-error"
+                style={{ padding: '2rem 0', textAlign: 'center' }}
+              >
+                <p style={{ color: 'var(--danger)', marginBottom: '.75rem' }}>
+                  {t('app.chunkError')}
+                </p>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => window.location.reload()}
+                >
+                  {t('app.reload')}
+                </button>
+              </div>
+            }
+          >
           <Suspense fallback={<PageFallback />}>
           <Routes>
             {/* Landing 7.5: borrow board cho MỌI vai (thay dashboard/đặt-máy cũ ở '/'). */}
@@ -494,6 +531,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </Suspense>
+          </ChunkErrorBoundary>
         </main>
       </div>
     </div>

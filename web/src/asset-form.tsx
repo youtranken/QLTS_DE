@@ -291,12 +291,23 @@ export function AssetForm({
           const created = (await res
             .json()
             .catch(() => null)) as { id?: string } | null;
+          let failed = 0;
           if (created?.id) {
             for (const sw of pendingSw) {
-              await attachSoftwareToMachine(sw.id, created.id).catch(
-                () => undefined,
-              );
+              const ok = await attachSoftwareToMachine(sw.id, created.id)
+                .then(() => true)
+                .catch(() => false);
+              if (!ok) failed++;
             }
+          } else {
+            failed = pendingSw.length; // thiếu id máy trong response → không gắn được cái nào
+          }
+          if (failed > 0) {
+            // Máy ĐÃ tạo nhưng gắn phần mềm lỗi — báo rõ (giữ modal) thay vì im lặng
+            // báo thành công. Người dùng gắn lại qua "Sửa máy" khi thấy máy trong danh sách.
+            setError(t('assets.attachAfterCreate', { n: failed }));
+            setBusy(false);
+            return;
           }
         }
         onDone(true);

@@ -9,7 +9,7 @@ import { createReadStream } from 'node:fs';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ReadStream } from 'node:fs';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
@@ -235,11 +235,30 @@ export class FilesService {
         message: 'File không thuộc đợt kiểm kê này.',
       });
     }
-    await this.db
-      .delete(inventoryRoundFilesTable)
-      .where(eq(inventoryRoundFilesTable.fileId, fileId));
-    await this.db.delete(filesTable).where(eq(filesTable.id, fileId));
-    await unlink(join(storageDir(), fileId)).catch(() => undefined);
+    // Atomic: gỡ link CHỈ của đợt này (scope round+file), và chỉ xóa row file khi
+    // KHÔNG còn đợt nào khác tham chiếu → tránh phá blob dùng chung / orphan khi lỗi giữa chừng.
+    const removedRow = await this.db.transaction(async (tx) => {
+      await tx
+        .delete(inventoryRoundFilesTable)
+        .where(
+          and(
+            eq(inventoryRoundFilesTable.roundId, roundId),
+            eq(inventoryRoundFilesTable.fileId, fileId),
+          ),
+        );
+      const others = await tx
+        .select({ fileId: inventoryRoundFilesTable.fileId })
+        .from(inventoryRoundFilesTable)
+        .where(eq(inventoryRoundFilesTable.fileId, fileId));
+      if (others.length === 0) {
+        await tx.delete(filesTable).where(eq(filesTable.id, fileId));
+        return true;
+      }
+      return false;
+    });
+    if (removedRow) {
+      await unlink(join(storageDir(), fileId)).catch(() => undefined);
+    }
     await this.audit.append({
       actor: actorSub,
       action: 'inventory.file_delete',
@@ -267,20 +286,32 @@ export class FilesService {
       .from(inventoryRoundFilesTable)
       .where(eq(inventoryRoundFilesTable.roundId, roundId));
     const fileIds = links.map((l) => l.fileId);
-    await this.db
-      .delete(inventoryRoundFilesTable)
-      .where(eq(inventoryRoundFilesTable.roundId, roundId));
-    if (fileIds.length > 0) {
-      await this.db.delete(filesTable).where(inArray(filesTable.id, fileIds));
-      await Promise.all(
-        fileIds.map((id) =>
-          unlink(join(storageDir(), id)).catch(() => undefined),
-        ),
-      );
-    }
-    await this.db
-      .delete(inventoryRoundsTable)
-      .where(eq(inventoryRoundsTable.id, roundId));
+    // Atomic: gỡ link + xóa đợt trong 1 transaction; chỉ xóa row file (và trả về để
+    // unlink đĩa sau khi commit) với file không còn đợt nào khác tham chiếu.
+    const orphaned = await this.db.transaction(async (tx) => {
+      await tx
+        .delete(inventoryRoundFilesTable)
+        .where(eq(inventoryRoundFilesTable.roundId, roundId));
+      await tx
+        .delete(inventoryRoundsTable)
+        .where(eq(inventoryRoundsTable.id, roundId));
+      if (fileIds.length === 0) return [] as string[];
+      const stillUsed = await tx
+        .select({ fileId: inventoryRoundFilesTable.fileId })
+        .from(inventoryRoundFilesTable)
+        .where(inArray(inventoryRoundFilesTable.fileId, fileIds));
+      const usedSet = new Set(stillUsed.map((r) => r.fileId));
+      const toDelete = fileIds.filter((id) => !usedSet.has(id));
+      if (toDelete.length > 0) {
+        await tx.delete(filesTable).where(inArray(filesTable.id, toDelete));
+      }
+      return toDelete;
+    });
+    await Promise.all(
+      orphaned.map((id) =>
+        unlink(join(storageDir(), id)).catch(() => undefined),
+      ),
+    );
     await this.audit.append({
       actor: actorSub,
       action: 'inventory.round_delete',
