@@ -667,6 +667,7 @@ export default {
     errNoBorrower: 'Vui lòng chọn người mượn.',
     errDept: 'Phòng ban không hợp lệ.',
     errWeekend: 'Chủ nhật không cho đặt máy — chọn ngày làm việc (T2–T7).',
+    errOrder: 'Giờ trả phải sau giờ nhận.',
     errWorkHours: 'Chỉ đặt trong giờ làm việc 07:00–18:00, T2–T7.',
     recurringSessions: 'Các buổi (mỗi tuần 1 buổi)',
     addSession: '+ Thêm buổi',

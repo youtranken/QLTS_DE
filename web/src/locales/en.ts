@@ -669,6 +669,7 @@ export default {
     errNoBorrower: 'Please select a borrower.',
     errDept: 'Invalid department.',
     errWeekend: 'Sunday is not bookable — pick a working day (Mon–Sat).',
+    errOrder: 'Return time must be after pickup time.',
     errWorkHours: 'Bookings are allowed only 07:00–18:00, Mon–Sat.',
     recurringSessions: 'Sessions (one per week)',
     addSession: '+ Add session',

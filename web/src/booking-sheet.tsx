@@ -9,7 +9,7 @@ const MAX_DURATION_AUTO_MS = 48 * 60 * 60 * 1000;
 const WORK_START = '07:00';
 const WORK_END = '18:00';
 // #3: khung giờ nhận nhanh (chip) trong giờ làm việc.
-const PICKUP_SLOTS = ['08:00', '09:00', '10:00', '13:30', '14:00', '15:00', '16:00'];
+const PICKUP_SLOTS = ['08:00', '09:00', '10:00', '13:00', '14:00', '15:00'];
 /** Ngày local (YYYY-MM-DD) theo tz máy — dùng cho default + min của input date. */
 const todayLocal = (): string => new Date().toLocaleDateString('en-CA');
 /** HH:MM local hiện tại — chặn chọn giờ đã qua trong hôm nay. */
@@ -85,6 +85,8 @@ export function BookingSheet({
   const durationMs =
     from && to ? new Date(to).getTime() - new Date(from).getTime() : 0;
   const isLong = durationMs > MAX_DURATION_AUTO_MS;
+  // Giờ trả PHẢI sau giờ nhận (chặn nhận 10:00 → trả 08:00 cùng ngày, duration ≤ 0).
+  const invalidRange = !!from && !!to && durationMs <= 0;
   // 9.8: CN khóa (cả ngày nhận lẫn ngày trả). Ngoài khung giờ để BE + min/max input chặn.
   const weekendBlocked = isSunday(fromDate) || isSunday(toDate);
 
@@ -127,7 +129,7 @@ export function BookingSheet({
 
   // Availability tự gợi ý (debounce) khi đổi giờ/loại — chỉ mode Thường/Nâng cao
   const searchKey =
-    mode !== 'recurring' && from && to && !weekendBlocked
+    mode !== 'recurring' && from && to && !weekendBlocked && !invalidRange
       ? `${from}|${to}|${typeFilter}`
       : '';
   useEffect(() => {
@@ -166,6 +168,7 @@ export function BookingSheet({
     !!from &&
     !!to &&
     !weekendBlocked &&
+    !invalidRange &&
     !machines.some((m) => m.id === presetMachine.id);
 
   const longBlocked = mode === 'normal' && isLong; // Thường không được >2 ngày
@@ -178,6 +181,10 @@ export function BookingSheet({
     }
     if (weekendBlocked) {
       setError(t('bookingSheet.errWeekend'));
+      return;
+    }
+    if (invalidRange) {
+      setError(t('bookingSheet.errOrder', 'Giờ trả phải sau giờ nhận.'));
       return;
     }
     if (isAdmin && !borrower) {
@@ -234,6 +241,7 @@ export function BookingSheet({
     from,
     to,
     weekendBlocked,
+    invalidRange,
     note,
     isAdmin,
     borrower,
@@ -457,7 +465,9 @@ export function BookingSheet({
                   <span>{t('bookingSheet.returnTime')}</span>
                   <input
                     type="time"
-                    min={WORK_START}
+                    min={
+                      toDate === fromDate && fromTime ? fromTime : WORK_START
+                    }
                     max={WORK_END}
                     value={toTime}
                     onFocus={() => setSlotTarget('to')}
@@ -492,6 +502,11 @@ export function BookingSheet({
               </div>
               {weekendBlocked && (
                 <p className="alert warn">{t('bookingSheet.errWeekend')}</p>
+              )}
+              {invalidRange && (
+                <p className="alert warn">
+                  {t('bookingSheet.errOrder', 'Giờ trả phải sau giờ nhận.')}
+                </p>
               )}
               {longBlocked && (
                 <p className="alert warn">{t('bookingSheet.needAdvanced')}</p>
@@ -568,7 +583,7 @@ export function BookingSheet({
               )}
 
               {/* #3: báo policy duyệt theo thời lượng (≤2 ngày tự duyệt / >2 ngày Admin). */}
-              {assetId && from && to && !weekendBlocked && (
+              {assetId && from && to && !weekendBlocked && !invalidRange && (
                 <p
                   style={{
                     marginTop: '0.7rem',
@@ -597,7 +612,12 @@ export function BookingSheet({
               type="button"
               className="primary"
               disabled={
-                busy || longBlocked || weekendBlocked || !assetId || presetUnavailable
+                busy ||
+                longBlocked ||
+                weekendBlocked ||
+                invalidRange ||
+                !assetId ||
+                presetUnavailable
               }
               onClick={() => void submit()}
             >
