@@ -1476,3 +1476,18 @@ table.table tbody tr.exp:hover td {
   color: var(--ink-3);
   font-size: 0.83rem;
 }
+
+/* Part 2: chip giờ trống hôm nay trên card máy (catalog Mượn máy) */
+.slot-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.slotchip {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ok-soft);
+  color: var(--ok);
+}

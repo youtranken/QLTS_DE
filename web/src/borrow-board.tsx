@@ -46,6 +46,37 @@ const typeIcon = (type: string | null): string => {
   return '📦';
 };
 
+interface CalBusy {
+  from: string;
+  to: string;
+  kind: string;
+}
+interface MachineCal {
+  busy: CalBusy[];
+}
+
+/** Giờ trống HÔM NAY của 1 máy: giờ làm 07–18, mỗi khung 1 giờ, bỏ khung đã qua & bận. */
+function freeSlotsToday(busy: CalBusy[]): string[] {
+  const now = Date.now();
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  const out: string[] = [];
+  for (let h = 7; h < 18; h++) {
+    const s = new Date(base);
+    s.setHours(h);
+    const e = new Date(base);
+    e.setHours(h + 1);
+    if (e.getTime() <= now) continue;
+    const clash = busy.some((b) => {
+      const bf = new Date(b.from).getTime();
+      const bt = new Date(b.to).getTime();
+      return bf < e.getTime() && bt > s.getTime();
+    });
+    if (!clash) out.push(`${String(h).padStart(2, '0')}:00`);
+  }
+  return out;
+}
+
 /**
  * Trang chủ Borrow Board (7.5) — bảng máy đang mượn realtime cho member + admin.
  * Member: full màn + nút Đặt máy/Request của tôi ở đây (không sidebar). Admin: + dải thẻ số.
@@ -65,6 +96,33 @@ export function BorrowBoardPage({ me }: { me: Me }) {
   // 9.5+: catalog máy-first — search client-side + lọc theo loại (distinct từ pool rảnh).
   const [catalogSearch, setCatalogSearch] = useState('');
   const [catalogType, setCatalogType] = useState('all');
+  // Part 2: xem giờ trống HÔM NAY của 1 máy ngay trên card (trước khi mở popup đặt).
+  const [slotMachine, setSlotMachine] = useState<string | null>(null);
+  const [slots, setSlots] = useState<string[] | null>(null);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const toggleSlots = useCallback(
+    async (id: string) => {
+      if (slotMachine === id) {
+        setSlotMachine(null);
+        setSlots(null);
+        return;
+      }
+      setSlotMachine(id);
+      setSlots(null);
+      setSlotsLoading(true);
+      try {
+        const cal = await apiFetch<MachineCal>(
+          `/api/booking/machines/${encodeURIComponent(id)}/calendar`,
+        );
+        setSlots(freeSlotsToday(cal.busy ?? []));
+      } catch {
+        setSlots([]);
+      } finally {
+        setSlotsLoading(false);
+      }
+    },
+    [slotMachine],
+  );
 
   // Board + pool-machines qua TanStack Query: refetch mỗi POLL_MS; placeholderData giữ dữ liệu
   // cũ khi 1 lần fetch lỗi (P0 — chỉ báo lỗi khi CHƯA từng tải). 401 xử lý ở apiFetch.
@@ -339,6 +397,37 @@ export function BorrowBoardPage({ me }: { me: Me }) {
                         {t('board.catalogFree', 'Rảnh ngay')}
                       </span>
                     )}
+                    {!busy && (
+                      <button
+                        type="button"
+                        className="btn sm"
+                        onClick={() => void toggleSlots(m.id)}
+                      >
+                        {slotMachine === m.id
+                          ? t('board.hideSlots', 'Ẩn giờ trống')
+                          : t('board.showSlots', 'Giờ trống hôm nay ▾')}
+                      </button>
+                    )}
+                    {slotMachine === m.id && (
+                      <div className="slot-row">
+                        {slotsLoading ? (
+                          <span className="muted">…</span>
+                        ) : slots && slots.length > 0 ? (
+                          slots.map((s) => (
+                            <span key={s} className="slotchip">
+                              {s}
+                            </span>
+                          ))
+                        ) : (
+                          <span
+                            className="muted"
+                            style={{ fontSize: '0.8rem' }}
+                          >
+                            {t('board.noSlotsToday', 'Hết giờ trống hôm nay')}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <button
                       type="button"
                       className={busy ? 'mc-foot' : 'primary mc-foot'}
@@ -346,7 +435,7 @@ export function BorrowBoardPage({ me }: { me: Me }) {
                     >
                       {busy
                         ? t('board.catalogSchedule', 'Đặt lịch')
-                        : t('board.catalogBorrow', 'Mượn')}
+                        : t('board.catalogBook', 'Đặt')}
                     </button>
                   </div>
                 );
