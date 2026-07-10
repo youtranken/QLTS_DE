@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { AdminDashboard } from './admin-dashboard';
 import { apiFetch } from './api-client';
-import { BookingSheet } from './booking-sheet';
+import { BookingSheet, PICKUP_SLOTS } from './booking-sheet';
 import { LoadError } from './load-state';
 import { MyRequestsPanel } from './my-requests';
 import type { Me } from './panels';
@@ -63,30 +63,29 @@ interface SlotInfo {
 }
 
 /**
- * Giờ trống của 1 máy ở NGÀY LÀM GẦN NHẤT có khung rảnh (07–18, T2–T7, bỏ khung đã qua
- * & bận). Buổi tối/CN thì hôm nay hết → tự nhảy sang ngày làm kế (khỏi hiện "hết giờ" trơ).
- * Lịch busy chỉ có trong tuần fetch → ngày sang tuần sau chưa chắc chính xác (BE chốt khi Đặt).
+ * Giờ trống của 1 máy ở NGÀY LÀM GẦN NHẤT còn khung rảnh — tính trên ĐÚNG 6 khung gợi ý
+ * (PICKUP_SLOTS, nhất quán với popup Đặt): bỏ khung đã qua & khung đang bận. Buổi tối/CN
+ * hôm nay hết → tự nhảy sang ngày làm kế. Lịch busy chỉ có trong tuần fetch (BE chốt khi Đặt).
  */
 function freeSlotsSoon(busy: CalBusy[]): SlotInfo {
   const now = Date.now();
+  const ranges = busy.map(
+    (b) => [new Date(b.from).getTime(), new Date(b.to).getTime()] as const,
+  );
   for (let off = 0; off < 7; off++) {
     const base = new Date();
     base.setHours(0, 0, 0, 0);
     base.setDate(base.getDate() + off);
     if (base.getDay() === 0) continue; // CN nghỉ
     const out: string[] = [];
-    for (let h = 7; h < 18; h++) {
-      const s = new Date(base);
-      s.setHours(h);
-      const e = new Date(base);
-      e.setHours(h + 1);
-      if (e.getTime() <= now) continue;
-      const clash = busy.some((b) => {
-        const bf = new Date(b.from).getTime();
-        const bt = new Date(b.to).getTime();
-        return bf < e.getTime() && bt > s.getTime();
-      });
-      if (!clash) out.push(`${String(h).padStart(2, '0')}:00`);
+    for (const slot of PICKUP_SLOTS) {
+      const [h, mm] = slot.split(':').map(Number);
+      const t = new Date(base);
+      t.setHours(h, mm, 0, 0);
+      const ms = t.getTime();
+      if (ms <= now) continue; // đã qua
+      const busyAt = ranges.some(([bf, bt]) => bf <= ms && ms < bt);
+      if (!busyAt) out.push(slot);
     }
     if (out.length > 0) return { dayOffset: off, slots: out };
   }
@@ -120,6 +119,9 @@ export function BorrowBoardPage({ me }: { me: Me }) {
   const [slotMachine, setSlotMachine] = useState<string | null>(null);
   const [slots, setSlots] = useState<SlotInfo | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  // Cache lịch busy theo máy (session): bấm lại "Giờ trống" hiện NGAY, khỏi fetch lại.
+  // Tính lại slot từ busy mỗi lần mở (giờ hiện tại trôi) — recompute rẻ, tránh network.
+  const busyCache = useRef<Map<string, CalBusy[]>>(new Map());
   const toggleSlots = useCallback(
     async (id: string) => {
       if (slotMachine === id) {
@@ -128,13 +130,21 @@ export function BorrowBoardPage({ me }: { me: Me }) {
         return;
       }
       setSlotMachine(id);
+      const cached = busyCache.current.get(id);
+      if (cached) {
+        setSlots(freeSlotsSoon(cached));
+        setSlotsLoading(false);
+        return;
+      }
       setSlots(null);
       setSlotsLoading(true);
       try {
         const cal = await apiFetch<MachineCal>(
           `/api/booking/machines/${encodeURIComponent(id)}/calendar`,
         );
-        setSlots(freeSlotsSoon(cal.busy ?? []));
+        const busy = cal.busy ?? [];
+        busyCache.current.set(id, busy);
+        setSlots(freeSlotsSoon(busy));
       } catch {
         setSlots({ dayOffset: -1, slots: [] });
       } finally {
@@ -195,6 +205,7 @@ export function BorrowBoardPage({ me }: { me: Me }) {
   const onBooked = useCallback(() => {
     setFlash(true);
     setReloadMine((n) => n + 1);
+    busyCache.current.clear(); // đặt mới → lịch busy đổi, bỏ cache để tính lại
     void queryClient.invalidateQueries({ queryKey: ['board'] });
     void queryClient.invalidateQueries({ queryKey: ['pool-all-machines'] });
     setTimeout(() => setFlash(false), 2500);

@@ -8,8 +8,9 @@ const MAX_DURATION_AUTO_MS = 48 * 60 * 60 * 1000;
 // Khung giờ làm việc (9.8): chỉ cho đặt 07:00–18:00, T2–T7 (CN khóa). Giờ VN (UTC+7 cố định).
 const WORK_START = '07:00';
 const WORK_END = '18:00';
-// #3: khung giờ nhận nhanh (chip) trong giờ làm việc.
-const PICKUP_SLOTS = ['08:00', '09:00', '10:00', '13:00', '14:00', '15:00'];
+// #3: khung giờ nhận nhanh (chip) trong giờ làm việc. Export để catalog (borrow-board)
+// tính "giờ trống" trên ĐÚNG các khung này — nhất quán giữa thẻ máy và popup.
+export const PICKUP_SLOTS = ['08:00', '09:00', '10:00', '13:00', '14:00', '15:00'];
 /** Ngày local (YYYY-MM-DD) theo tz máy — dùng cho default + min của input date. */
 const todayLocal = (): string => new Date().toLocaleDateString('en-CA');
 /** HH:MM local hiện tại — chặn chọn giờ đã qua trong hôm nay. */
