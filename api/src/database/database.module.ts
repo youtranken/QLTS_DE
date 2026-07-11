@@ -5,7 +5,11 @@ import { Pool } from 'pg';
 export const PG_POOL = 'PG_POOL';
 export const DRIZZLE_DB = 'DRIZZLE_DB';
 
-export type Database = NodePgDatabase;
+// Khớp KIỂU THỰC drizzle(pool) trả về ở phiên bản hiện tại (schema param `Record<string,unknown>`,
+// kèm `$client`). Bare `NodePgDatabase` default về `Record<string,never>` → db-spec truyền
+// `drizzle(pool)` vào service báo lệch kiểu (hygiene). Dùng schemaless (select/insert(table)/execute)
+// nên schema param không ảnh hưởng runtime.
+export type Database = NodePgDatabase<Record<string, unknown>>;
 
 @Global()
 @Module({

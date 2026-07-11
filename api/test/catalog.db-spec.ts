@@ -23,7 +23,7 @@ describe('Catalog danh mục (story 8.1)', () => {
 
   const get = (qs: string, headers = asSa) =>
     request(app.getHttpServer()).get(`/api/admin/catalog${qs}`).set(headers);
-  const post = (path: string, body: unknown, headers = asSa) =>
+  const post = (path: string, body: object, headers = asSa) =>
     request(app.getHttpServer())
       .post(`/api/admin/catalog${path}`)
       .set(headers)

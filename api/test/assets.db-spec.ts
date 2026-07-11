@@ -1050,7 +1050,8 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     // parse lại buffer — nội dung là nguồn sự thật
     const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(res.body as Buffer);
+    // @types/node Buffer là generic (Buffer<ArrayBufferLike>) — exceljs khai Buffer non-generic
+    await wb.xlsx.load(res.body as unknown as Parameters<typeof wb.xlsx.load>[0]);
     const sheet = wb.worksheets[0];
     const codes: string[] = [];
     let evilRow: string[] | null = null;
