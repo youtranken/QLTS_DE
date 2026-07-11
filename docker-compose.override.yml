@@ -12,8 +12,10 @@ services:
   # Test dùng database qlts_test (tách khỏi qlts) trong CÙNG server — không cần container test riêng.
   # PROD KHÔNG nạp file này nên port DB/redis không lộ ra ngoài.
   postgres:
+    # Host port 5491 (đổi từ 54329) — dễ nhớ, tránh nhầm với DB project khác trên máy.
+    # db-spec (jest trên host) set DATABASE_URL=...@localhost:5491/qlts_test.
     ports:
-      - '54329:5432'
+      - '5491:5432'
   redis:
     ports:
       - '63799:6379'
