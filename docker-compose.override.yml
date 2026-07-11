@@ -8,6 +8,11 @@ services:
     extra_hosts:
       - 'id.pmh.com.vn:host-gateway'
 
+  # Worker gọi PMH ID (M2M directory-sync định kỳ) → cũng cần resolve id.pmh.com.vn dev
+  worker:
+    extra_hosts:
+      - 'id.pmh.com.vn:host-gateway'
+
   # DEV-ONLY: expose port ra host để chạy db-spec (jest trên host) nối vào chính container này.
   # Test dùng database qlts_test (tách khỏi qlts) trong CÙNG server — không cần container test riêng.
   # PROD KHÔNG nạp file này nên port DB/redis không lộ ra ngoài.

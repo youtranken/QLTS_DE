@@ -51,6 +51,11 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # PMH ID M2M (client_credentials) — worker chạy directory-sync ĐỊNH KỲ (5.5) +
+      # cập nhật authorized_groups cho gate login (10.2). Thiếu → scheduler lỗi mỗi chu kỳ.
+      PMH_ISSUER_URL: ${PMH_ISSUER_URL:-}
+      PMH_CLIENT_ID: ${PMH_CLIENT_ID:-}
+      PMH_CLIENT_SECRET: ${PMH_CLIENT_SECRET:-}
       # SMTP gửi mail nền (story 5.1) — credential chỉ từ env (NFR-12)
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
