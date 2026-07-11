@@ -233,6 +233,24 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
     expect(audit.rows[0].n).toBeGreaterThanOrEqual(1);
   });
 
+  it('callback ?error=access_denied (user bị gỡ group/xóa) → /?login=forbidden, audit denied_idp (KHÔNG "thử lại")', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/auth/callback?error=access_denied')
+      .expect(302);
+    expect(res.headers.location).toBe('/?login=forbidden');
+    const audit = await pool.query(
+      "SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.login_denied_idp'",
+    );
+    expect(audit.rows[0].n).toBeGreaterThanOrEqual(1);
+  });
+
+  it('callback ?error khác access_denied → /?login=failed (lỗi hệ thống, cho thử lại)', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/auth/callback?error=server_error')
+      .expect(302);
+    expect(res.headers.location).toBe('/?login=failed');
+  });
+
   it('access token hết hạn → refresh ngầm, user không nhận ra', async () => {
     const { sidCookie } = await loginFlow();
     await pool.query(
@@ -295,6 +313,27 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
       "SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.logout'",
     );
     expect(audit.rows[0].n).toBeGreaterThanOrEqual(1);
+  });
+
+  it('switch-account (không phiên) → redirect end_session PMH ID', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/auth/switch-account')
+      .expect(302);
+    expect(res.headers.location).toBe('https://id.test/oidc/logout?post=1');
+  });
+
+  it('switch-account (có phiên) → hủy phiên local + redirect end_session', async () => {
+    const { sidCookie } = await loginFlow();
+    const res = await request(app.getHttpServer())
+      .get('/api/auth/switch-account')
+      .set('Cookie', sidCookie)
+      .expect(302);
+    expect(res.headers.location).toBe('https://id.test/oidc/logout?post=1');
+    // phiên đã hủy → cookie cũ vô hiệu
+    await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', sidCookie)
+      .expect(401);
   });
 
   it('webhook user.locked (HMAC đúng) → MỌI phiên user chết tức thì', async () => {

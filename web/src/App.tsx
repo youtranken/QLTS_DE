@@ -145,6 +145,14 @@ function App() {
     window.location.href = '/';
   }, [auth]);
 
+  // "Đăng nhập bằng tài khoản khác" (trang forbidden): xóa cờ chặn auto-SSO để sau khi PMH ID
+  // kết thúc phiên SSO, app tự đưa về form login PMH ID; rồi chuyển tới endpoint end_session.
+  const switchAccount = useCallback(() => {
+    sessionStorage.removeItem(LOGGED_OUT_KEY);
+    sessionStorage.removeItem(SSO_ATTEMPT_KEY);
+    window.location.href = '/api/auth/switch-account';
+  }, []);
+
   if (auth.kind === 'loading' || willAutoLogin) {
     return (
       <Center>
@@ -173,17 +181,27 @@ function App() {
             {t('app.loginFailed')}
           </p>
         )}
-        {loginForbidden && (
-          <p className="alert error" style={{ margin: 0 }}>
-            {t('app.loginForbidden')}
-          </p>
+        {loginForbidden ? (
+          // Bị chặn (bị xóa/gỡ group): bấm "Đăng nhập" thường sẽ silent re-auth ra đúng
+          // access_denied → lặp. Lối thoát DUY NHẤT là đổi tài khoản (kết thúc phiên SSO).
+          <>
+            <p className="alert error" style={{ margin: 0 }}>
+              {t('app.loginForbidden')}
+            </p>
+            <button type="button" className="primary" onClick={switchAccount}>
+              {t('app.loginOtherAccount')}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="muted">{t('app.loginPrompt')}</p>
+            <a href="/api/auth/login">
+              <button type="button" className="primary">
+                {t('app.login')}
+              </button>
+            </a>
+          </>
         )}
-        <p className="muted">{t('app.loginPrompt')}</p>
-        <a href="/api/auth/login">
-          <button type="button" className="primary">
-            {t('app.login')}
-          </button>
-        </a>
         <SaLoginForm />
         <div style={{ display: 'flex', gap: 8 }}>
           <ThemeSwitch />

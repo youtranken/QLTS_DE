@@ -8,6 +8,7 @@ export default {
     loginFailed: 'Sign-in failed — please try again.',
     loginForbidden:
       'This account is not allowed to access QLTS (not in an authorized group). Please contact an administrator.',
+    loginOtherAccount: 'Sign in with a different account',
     login: 'Sign in',
     logout: 'Sign out',
     hello: 'Hello',

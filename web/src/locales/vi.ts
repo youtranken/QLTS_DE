@@ -8,6 +8,7 @@ export default {
     loginFailed: 'Đăng nhập không thành công — vui lòng thử lại.',
     loginForbidden:
       'Tài khoản không có quyền truy cập QLTS (không thuộc nhóm được phép). Vui lòng liên hệ quản trị.',
+    loginOtherAccount: 'Đăng nhập bằng tài khoản khác',
     login: 'Đăng nhập',
     logout: 'Đăng xuất',
     hello: 'Xin chào',

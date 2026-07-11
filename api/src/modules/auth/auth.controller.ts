@@ -164,6 +164,35 @@ export class AuthController {
     res.redirect(url);
   }
 
+  /**
+   * "Đăng nhập bằng tài khoản khác" (dùng ở trang ?login=forbidden): kết thúc PHIÊN SSO ở
+   * PMH ID (end_session) rồi để auto-SSO đưa tới FORM login. Bắt buộc qua PMH ID vì QLTS
+   * không tự hủy phiên SSO được. @Public: user bị chặn KHÔNG có phiên QLTS; nếu tình cờ
+   * còn phiên (user chủ động đổi) → hủy local + dùng id_token làm hint cho logout gọn.
+   */
+  @Public()
+  @Get('switch-account')
+  async switchAccount(
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const sid = (req.cookies as Record<string, string> | undefined)?.[
+      SESSION_COOKIE
+    ];
+    let idTokenHint: string | null = null;
+    if (sid) {
+      const session = await this.sessions.find(sid);
+      idTokenHint = session?.idToken ?? null;
+      await this.sessions.destroy(sid);
+    }
+    res.clearCookie(SESSION_COOKIE);
+    // post_logout_redirect_uri PHẢI khớp hệt app_url (docs integration 4.5)
+    const logoutUrl = await this.oidc.buildLogoutUrl(appBaseUrl(), idTokenHint);
+    // Không có end-session endpoint → best-effort: về login (phiên SSO còn sống có thể
+    // silent lại, nhưng không kẹt). Có → PMH ID hủy phiên SSO → về app_url → auto-SSO → form.
+    res.redirect(logoutUrl ?? '/api/auth/login');
+  }
+
   @Public()
   @Get('callback')
   async callback(
@@ -175,13 +204,32 @@ export class AuthController {
     ];
     res.clearCookie(OIDC_TX_COOKIE, { path: '/api/auth' });
     try {
+      const currentUrl = new URL(req.originalUrl, appBaseUrl());
+      // PMH ID từ chối NGAY ở IdP: callback nhận `?error=` thay vì `?code=` (README mục 4).
+      // `access_denied` = user bị xóa/khóa hoặc GỠ khỏi group được cấp cho QLTS — KHÔNG phải
+      // lỗi hệ thống. Tách riêng → báo "không có quyền" thay vì "thử lại" (phiên SSO còn sống
+      // sẽ silent re-auth ra đúng access_denied → lặp vô tận thông báo sai). Bắt TRƯỚC cookie
+      // giao dịch để vẫn đúng kể cả khi tx hết hạn.
+      const idpError = currentUrl.searchParams.get('error');
+      if (idpError) {
+        const denied = idpError === 'access_denied';
+        await this.audit.append({
+          actor: 'system',
+          action: denied ? 'auth.login_denied_idp' : 'auth.login_failed',
+          detail: {
+            error: idpError,
+            error_description: currentUrl.searchParams.get('error_description'),
+          },
+        });
+        res.redirect(denied ? '/?login=forbidden' : '/?login=failed');
+        return;
+      }
       if (!txRaw) {
         throw new Error(
           'Thiếu cookie giao dịch OIDC (hết hạn 10 phút hoặc cookie bị chặn)',
         );
       }
       const tx = JSON.parse(txRaw) as { codeVerifier: string; state: string };
-      const currentUrl = new URL(req.originalUrl, appBaseUrl());
       const tokens = await this.oidc.exchangeCode({
         currentUrl,
         redirectUri: redirectUri(),
