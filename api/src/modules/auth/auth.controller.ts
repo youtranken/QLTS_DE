@@ -38,11 +38,14 @@ class SaLoginDto {
   password!: string;
 }
 
-/** IP client sau nginx (trust proxy = 1) — dùng cho lockout SA login. */
+/**
+ * IP client cho lockout SA login. Dùng `req.ip` — với `trust proxy=1` (app.setup),
+ * Express lấy entry X-Forwarded-For do nginx THÊM (client thật, bên phải), KHÔNG phải
+ * entry trái do client tự đặt. Tự parse XFF-trái sẽ để attacker đổi header mỗi request
+ * → mỗi lần thử thành "IP khác" → khoá 5-lần/IP vô hiệu. Một nguồn với UserThrottlerGuard.
+ */
 function clientIp(req: AuthedRequest): string {
-  const fwd = req.headers['x-forwarded-for'];
-  const first = Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0];
-  return first?.trim() || req.ip || req.socket.remoteAddress || 'unknown';
+  return req.ip || req.socket.remoteAddress || 'unknown';
 }
 
 const OIDC_TX_COOKIE = 'qlts_oidc_tx';

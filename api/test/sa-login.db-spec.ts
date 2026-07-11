@@ -133,4 +133,20 @@ describe('SA local break-glass login (story 10.1)', () => {
       200,
     );
   });
+
+  it('lockout đếm theo req.ip THẬT — đổi X-Forwarded-For trái không né được khoá (chống spoof)', async () => {
+    // Mô phỏng nginx: attacker đặt entry TRÁI (giả), nginx THÊM client thật bên PHẢI.
+    // trust proxy=1 → req.ip = entry phải (203.0.113.9), ổn định dù trái đổi mỗi request.
+    const realIp = '203.0.113.9';
+    const spoofed = (n: number) =>
+      request(app.getHttpServer())
+        .post('/api/auth/sa-login')
+        .set('X-Forwarded-For', `10.7.${n}.${n}, ${realIp}`)
+        .send({ username: SA_USER, password: 'bad' });
+    for (let i = 0; i < 4; i += 1) {
+      await spoofed(i).expect(401);
+    }
+    // Lần thứ 5 vẫn khoá dù mỗi lần "IP giả" bên trái khác nhau
+    await spoofed(4).expect(429);
+  });
 });
