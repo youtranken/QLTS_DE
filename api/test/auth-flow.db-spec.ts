@@ -11,6 +11,9 @@ import type {
   OidcProvider,
   OidcTokens,
 } from '../src/modules/auth/oidc-provider';
+import { AuthorizedGroupsService } from '../src/modules/users/authorized-groups.service';
+import { DIRECTORY_CLIENT } from '../src/modules/users/directory.client';
+import type { DirectoryClientApi } from '../src/modules/users/directory.client';
 import { createTestApp } from './test-app.helper';
 
 /**
@@ -101,6 +104,16 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
     clientCredentialsToken: () => Promise.resolve('m2m-token-test'),
   };
 
+  // Directory client giả cho test self-heal (10.3) — fetchGroups trả danh sách MUTABLE
+  let fakeDirectoryGroups: string[] = ['Developers'];
+  const fakeDirectory: DirectoryClientApi = {
+    fetchUsers: () => Promise.resolve([]),
+    fetchGroups: () =>
+      Promise.resolve(
+        fakeDirectoryGroups.map((name, i) => ({ id: String(i), name })),
+      ),
+  };
+
   /** Đăng nhập hoàn chỉnh, trả cookie phiên + csrf token. */
   async function loginFlow(): Promise<{
     sidCookie: string;
@@ -152,7 +165,10 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
 
     app = await createTestApp(
       [],
-      [{ token: OIDC_PROVIDER, useValue: fakeOidc }],
+      [
+        { token: OIDC_PROVIDER, useValue: fakeOidc },
+        { token: DIRECTORY_CLIENT, useValue: fakeDirectory },
+      ],
     );
     app
       .get(JwtVerifierService)
@@ -377,6 +393,11 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
       await pool.query("DELETE FROM config WHERE key = 'authorized_groups'");
     });
 
+    beforeEach(() => {
+      fakeDirectoryGroups = ['Developers'];
+      app.get(AuthorizedGroupsService).clearCache(); // tránh cache self-heal rớt qua test
+    });
+
     /** callback tới bước redirect, trả location + cookie phiên (nếu có). */
     async function callbackOnce(): Promise<{
       location: string;
@@ -414,6 +435,20 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
         "SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.login_denied_group'",
       );
       expect(audit.rows[0].n).toBeGreaterThanOrEqual(1);
+    });
+
+    it('SELF-HEAL: group vừa được cấp (config chưa sync) → fetch tươi → cho vào + cập nhật config', async () => {
+      await setAllowed(['Developers']); // authorized_groups CŨ, thiếu 'IT'
+      fakeDirectoryGroups = ['Developers', 'IT']; // PMH ID vừa gán 'IT' cho client QLTS
+      const res = await callbackOnce(); // token test có groups ['IT']
+      expect(res.location).toBe('/'); // self-heal fetch thấy 'IT' → CHO vào (không chờ sync)
+      expect(res.hasSid).toBe(true);
+      const cfg = await pool.query(
+        "SELECT value FROM config WHERE key = 'authorized_groups'",
+      );
+      expect(cfg.rows[0].value).toEqual(
+        expect.arrayContaining(['Developers', 'IT']),
+      );
     });
 
     it('group khớp KHÔNG phân biệt hoa/thường → login OK', async () => {
