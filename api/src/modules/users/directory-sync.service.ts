@@ -169,9 +169,19 @@ export class DirectorySyncService {
       });
     }
 
-    // Ghi group được phép vào QLTS (10.2) — nguồn gate login. Chỉ chạy khi sync
-    // thành công (transaction đã commit). fetchGroups() trả group gán cho client QLTS.
-    await this.systemConfig.setAuthorizedGroups(groups.map((g) => g.name));
+    // Ghi group được phép vào QLTS (10.2) — nguồn gate login. Chỉ chạy khi sync thành công
+    // (transaction đã commit). P1 (review): fetch RỖNG (rỗng thật/lệch-shape của extractItems)
+    // = KHÔNG tín hiệu → KHÔNG ghi đè danh sách cũ, tránh persist [] → tắt gate toàn cục.
+    const authorizedGroupNames = groups
+      .map((g) => g.name)
+      .filter((n): n is string => typeof n === 'string' && n.length > 0);
+    if (authorizedGroupNames.length > 0) {
+      await this.systemConfig.setAuthorizedGroups(authorizedGroupNames);
+    } else {
+      this.logger.warn(
+        'directory fetchGroups trả rỗng — giữ authorized_groups cũ, KHÔNG ghi đè (tránh tắt gate)',
+      );
+    }
 
     if (deletedSubs.length > 0) {
       // Phiên của user deleted tự chết trong ≤5' (PMH ID thu hồi refresh token);

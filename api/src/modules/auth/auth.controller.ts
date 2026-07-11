@@ -6,6 +6,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
+  Logger,
   Post,
   Req,
   Res,
@@ -81,6 +82,8 @@ function cookieSecure(): boolean {
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     @Inject(OIDC_PROVIDER) private readonly oidc: OidcProvider,
     private readonly jwtVerifier: JwtVerifierService,
@@ -188,9 +191,11 @@ export class AuthController {
     res.clearCookie(SESSION_COOKIE);
     // post_logout_redirect_uri PHẢI khớp hệt app_url (docs integration 4.5)
     const logoutUrl = await this.oidc.buildLogoutUrl(appBaseUrl(), idTokenHint);
-    // Không có end-session endpoint → best-effort: về login (phiên SSO còn sống có thể
-    // silent lại, nhưng không kẹt). Có → PMH ID hủy phiên SSO → về app_url → auto-SSO → form.
-    res.redirect(logoutUrl ?? '/api/auth/login');
+    // Có end-session → PMH ID hủy phiên SSO → về app_url → auto-SSO → form login.
+    // KHÔNG có (IdP chưa cấu hình end_session) → KHÔNG đẩy về /api/auth/login: phiên SSO còn
+    // sống sẽ silent re-auth ra access_denied → lặp forbidden (review P4). Về trang lỗi terminal
+    // (login=failed chặn auto-SSO) để user không kẹt vòng lặp.
+    res.redirect(logoutUrl ?? '/?login=failed');
   }
 
   @Public()
@@ -205,11 +210,16 @@ export class AuthController {
     res.clearCookie(OIDC_TX_COOKIE, { path: '/api/auth' });
     try {
       const currentUrl = new URL(req.originalUrl, appBaseUrl());
+      // Cookie giao dịch bắt buộc — chặn callback ẩn danh (không round-trip thật) spam/forge
+      // audit + điều khiển thông báo bảo mật (review P2). Đặt TRƯỚC nhánh xử lý `?error`.
+      if (!txRaw) {
+        throw new Error(
+          'Thiếu cookie giao dịch OIDC (hết hạn 10 phút hoặc cookie bị chặn)',
+        );
+      }
       // PMH ID từ chối NGAY ở IdP: callback nhận `?error=` thay vì `?code=` (README mục 4).
-      // `access_denied` = user bị xóa/khóa hoặc GỠ khỏi group được cấp cho QLTS — KHÔNG phải
-      // lỗi hệ thống. Tách riêng → báo "không có quyền" thay vì "thử lại" (phiên SSO còn sống
-      // sẽ silent re-auth ra đúng access_denied → lặp vô tận thông báo sai). Bắt TRƯỚC cookie
-      // giao dịch để vẫn đúng kể cả khi tx hết hạn.
+      // `access_denied` = user bị xóa/khóa/GỠ khỏi group được cấp — KHÔNG phải lỗi hệ thống →
+      // báo "không có quyền" thay vì "thử lại". error/error_description cắt ngắn để không phình audit.
       const idpError = currentUrl.searchParams.get('error');
       if (idpError) {
         const denied = idpError === 'access_denied';
@@ -217,17 +227,14 @@ export class AuthController {
           actor: 'system',
           action: denied ? 'auth.login_denied_idp' : 'auth.login_failed',
           detail: {
-            error: idpError,
-            error_description: currentUrl.searchParams.get('error_description'),
+            error: idpError.slice(0, 100),
+            error_description:
+              currentUrl.searchParams.get('error_description')?.slice(0, 200) ??
+              null,
           },
         });
         res.redirect(denied ? '/?login=forbidden' : '/?login=failed');
         return;
-      }
-      if (!txRaw) {
-        throw new Error(
-          'Thiếu cookie giao dịch OIDC (hết hạn 10 phút hoặc cookie bị chặn)',
-        );
       }
       const tx = JSON.parse(txRaw) as { codeVerifier: string; state: string };
       const tokens = await this.oidc.exchangeCode({
@@ -240,12 +247,14 @@ export class AuthController {
       const verified = await this.jwtVerifier.verify(tokens.accessToken);
 
       // Gate access theo group (10.2): danh sách được phép LẤY ĐỘNG từ PMH ID (directory-sync
-      // ghi vào config). Rỗng = chưa biết → gate TẮT (fail-open trước lần sync đầu).
+      // ghi vào config). Rỗng = chưa biết → gate TẮT (fail-open trước lần sync đầu, AC4).
       let allowedGroups = await this.authorizedGroups.current();
-      if (
-        allowedGroups.length > 0 &&
-        !intersectsCI(verified.claims.groups, allowedGroups)
-      ) {
+      if (allowedGroups.length === 0) {
+        // AC4: gate tắt cần quan sát được — WARN mỗi login để vận hành biết đang chạy KHÔNG gate.
+        this.logger.warn(
+          'authorized_groups rỗng — gate group TẮT: mọi tài khoản SSO hợp lệ vào được. Chạy directory-sync để bật gate.',
+        );
+      } else if (!intersectsCI(verified.claims.groups, allowedGroups)) {
         // Self-heal (10.3): admin có thể vừa gán group mới cho client mà authorized_groups
         // chưa kịp sync → fetch tươi 1 lần (cache TTL chống lạm dụng) rồi kiểm lại trước khi chặn.
         allowedGroups = await this.authorizedGroups.refreshForLogin();
@@ -256,6 +265,11 @@ export class AuthController {
             detail: {
               groups: verified.claims.groups ?? [],
               allowed: allowedGroups,
+              // AC6: phân biệt token thiếu groups vs groups không khớp danh sách
+              reason:
+                (verified.claims.groups?.length ?? 0) === 0
+                  ? 'missing_groups'
+                  : 'no_match',
             },
           });
           res.redirect('/?login=forbidden');

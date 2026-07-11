@@ -131,6 +131,15 @@ describe('DirectorySyncService (story 1.3 — sau review)', () => {
     ]);
   });
 
+  it('fetchGroups RỖNG → KHÔNG ghi authorized_groups (P1 review — tránh tắt gate)', async () => {
+    const { service, systemConfig, directory } = makeService({
+      users: [user('a')],
+    });
+    directory.fetchGroups.mockResolvedValue([]);
+    await service.sync('sa-1');
+    expect(systemConfig.setAuthorizedGroups).not.toHaveBeenCalled();
+  });
+
   it('sync THẤT BẠI (transaction rollback) → KHÔNG ghi authorized_groups', async () => {
     const { service, systemConfig } = makeService({
       users: [user('a')],

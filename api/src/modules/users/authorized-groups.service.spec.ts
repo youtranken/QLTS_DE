@@ -36,6 +36,24 @@ describe('AuthorizedGroupsService (self-heal, story 10.3)', () => {
     expect(stored.value).toEqual(['Developers', 'Kế toán']);
   });
 
+  it('refreshForLogin: fetch RỖNG → KHÔNG ghi đè config, trả bản đã lưu (P1 review)', async () => {
+    const { svc, config } = make({ stored: ['Developers'], fetch: [] });
+    const r = await svc.refreshForLogin();
+    expect(r).toEqual(['Developers']);
+    expect(config.setAuthorizedGroups).not.toHaveBeenCalled();
+  });
+
+  it('refreshForLogin: group thiếu `name` → lọc bỏ, chỉ persist group hợp lệ (P3 review)', async () => {
+    const { svc, directory, config } = make({});
+    directory.fetchGroups.mockResolvedValue([
+      { id: '1', name: undefined },
+      { id: '2', name: 'Developers' },
+    ]);
+    const r = await svc.refreshForLogin();
+    expect(r).toEqual(['Developers']);
+    expect(config.setAuthorizedGroups).toHaveBeenCalledWith(['Developers']);
+  });
+
   it('cache TTL: 2 lần liên tiếp chỉ fetch 1 lần (chống lạm dụng)', async () => {
     const { svc, fetchGroups } = make({});
     await svc.refreshForLogin();

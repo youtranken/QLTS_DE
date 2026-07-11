@@ -38,7 +38,21 @@ export class AuthorizedGroupsService {
       return this.cached.groups;
     }
     try {
-      const names = (await this.directory.fetchGroups()).map((g) => g.name);
+      // P3 (review): lọc phần tử non-string/rỗng — 1 group hỏng (thiếu `name`) không giết cả
+      // self-heal (setAuthorizedGroups sẽ ném ở n.trim()) và không chặn oan user hợp lệ.
+      const names = (await this.directory.fetchGroups())
+        .map((g) => g.name)
+        .filter((n): n is string => typeof n === 'string' && n.length > 0);
+      if (names.length === 0) {
+        // P1 (review): fetch RỖNG (rỗng thật/lệch-shape) = KHÔNG tín hiệu → KHÔNG ghi đè danh
+        // sách cũ (tránh persist [] → vô hiệu hoá gate toàn cục). Giữ bản đã lưu.
+        this.logger.warn(
+          'self-heal fetchGroups trả rỗng — giữ authorized_groups cũ, KHÔNG ghi đè (tránh tắt gate)',
+        );
+        const fallback = await this.config.getAuthorizedGroups();
+        this.setCache(fallback);
+        return fallback;
+      }
       await this.config.setAuthorizedGroups(names);
       this.setCache(names);
       return names;

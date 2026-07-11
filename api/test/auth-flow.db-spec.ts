@@ -100,9 +100,11 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
         idToken: 'id-token-2',
       };
     },
-    buildLogoutUrl: () => Promise.resolve('https://id.test/oidc/logout?post=1'),
+    buildLogoutUrl: () => Promise.resolve(fakeLogoutUrl),
     clientCredentialsToken: () => Promise.resolve('m2m-token-test'),
   };
+  // MUTABLE cho test P4 (buildLogoutUrl null → switch-account không được lặp)
+  let fakeLogoutUrl: string | null = 'https://id.test/oidc/logout?post=1';
 
   // Directory client giả cho test self-heal (10.3) — fetchGroups trả danh sách MUTABLE
   let fakeDirectoryGroups: string[] = ['Developers'];
@@ -233,9 +235,19 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
     expect(audit.rows[0].n).toBeGreaterThanOrEqual(1);
   });
 
-  it('callback ?error=access_denied (user bị gỡ group/xóa) → /?login=forbidden, audit denied_idp (KHÔNG "thử lại")', async () => {
+  async function txCookie(): Promise<string> {
+    const loginRes = await request(app.getHttpServer())
+      .get('/api/auth/login')
+      .expect(302);
+    return (loginRes.headers['set-cookie'] as unknown as string[])
+      .find((c: string) => c.startsWith('qlts_oidc_tx='))!
+      .split(';')[0];
+  }
+
+  it('callback ?error=access_denied + cookie tx → /?login=forbidden + audit denied_idp', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/auth/callback?error=access_denied')
+      .set('Cookie', await txCookie())
       .expect(302);
     expect(res.headers.location).toBe('/?login=forbidden');
     const audit = await pool.query(
@@ -244,9 +256,17 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
     expect(audit.rows[0].n).toBeGreaterThanOrEqual(1);
   });
 
-  it('callback ?error khác access_denied → /?login=failed (lỗi hệ thống, cho thử lại)', async () => {
+  it('callback ?error=access_denied KHÔNG cookie tx → /?login=failed (chống spam/forge ẩn danh, review P2)', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/auth/callback?error=access_denied')
+      .expect(302);
+    expect(res.headers.location).toBe('/?login=failed');
+  });
+
+  it('callback ?error khác access_denied (có tx) → /?login=failed', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/auth/callback?error=server_error')
+      .set('Cookie', await txCookie())
       .expect(302);
     expect(res.headers.location).toBe('/?login=failed');
   });
@@ -334,6 +354,18 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
       .get('/api/auth/me')
       .set('Cookie', sidCookie)
       .expect(401);
+  });
+
+  it('switch-account khi buildLogoutUrl null → /?login=failed (không lặp forbidden, review P4)', async () => {
+    fakeLogoutUrl = null;
+    try {
+      const res = await request(app.getHttpServer())
+        .get('/api/auth/switch-account')
+        .expect(302);
+      expect(res.headers.location).toBe('/?login=failed');
+    } finally {
+      fakeLogoutUrl = 'https://id.test/oidc/logout?post=1';
+    }
   });
 
   it('webhook user.locked (HMAC đúng) → MỌI phiên user chết tức thì', async () => {
