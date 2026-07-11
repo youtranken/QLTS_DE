@@ -15,7 +15,9 @@ import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Response } from 'express';
 import { AuditWriterService } from '../audit/audit-writer.service';
+import { SystemConfigService } from '../config/system-config.service';
 import { UsersService } from '../users/users.service';
+import { intersectsCI } from './group-access';
 import { JwtVerifierService } from './jwt-verifier.service';
 import { LOCAL_SA_SUB } from './local-sa-env';
 import { LocalSaService } from './local-sa.service';
@@ -86,6 +88,7 @@ export class AuthController {
     private readonly users: UsersService,
     private readonly audit: AuditWriterService,
     private readonly localSa: LocalSaService,
+    private readonly systemConfig: SystemConfigService,
   ) {}
 
   /**
@@ -187,6 +190,27 @@ export class AuthController {
       });
       // Verify OFFLINE (AD-8) — không tin token chưa kiểm chữ ký
       const verified = await this.jwtVerifier.verify(tokens.accessToken);
+
+      // Gate access theo group (story 10.2): danh sách được phép LẤY ĐỘNG từ PMH ID
+      // (directory-sync ghi vào config). Rỗng = chưa biết → gate TẮT (fail-open trước
+      // lần sync đầu). Không giao (case-insensitive) → CHẶN: không tạo phiên, không upsert.
+      const allowedGroups = await this.systemConfig.getAuthorizedGroups();
+      if (
+        allowedGroups.length > 0 &&
+        !intersectsCI(verified.claims.groups, allowedGroups)
+      ) {
+        await this.audit.append({
+          actor: verified.claims.sub,
+          action: 'auth.login_denied_group',
+          detail: {
+            groups: verified.claims.groups ?? [],
+            allowed: allowedGroups,
+          },
+        });
+        res.redirect('/?login=forbidden');
+        return;
+      }
+
       await this.users.upsertFromClaims(verified.claims);
       const session = await this.sessions.create({
         userSub: verified.claims.sub,

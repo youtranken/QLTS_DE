@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { eq, ilike, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, or, sql } from 'drizzle-orm';
 import { escapeLike } from '../../common/sql';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
@@ -54,12 +54,18 @@ export class UsersService {
     page: number;
     pageSize: number;
   }> {
+    // Chỉ hiện user đang active (10.2): user bị PMH ID khoá/xoá (webhook/directory-sync
+    // set status locked/deleted) không còn trơ trong màn Quản trị như "member" nữa.
+    const activeOnly = eq(usersTable.status, 'active');
     const where = query.search
-      ? or(
-          ilike(usersTable.fullName, `%${escapeLike(query.search)}%`),
-          ilike(usersTable.email, `%${escapeLike(query.search)}%`),
+      ? and(
+          activeOnly,
+          or(
+            ilike(usersTable.fullName, `%${escapeLike(query.search)}%`),
+            ilike(usersTable.email, `%${escapeLike(query.search)}%`),
+          ),
         )
-      : undefined;
+      : activeOnly;
     const [items, totalRows] = await Promise.all([
       this.db
         .select({

@@ -361,4 +361,73 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
       .set('Cookie', sidCookie)
       .expect(200);
   });
+
+  // Story 10.2 — gate access theo group (token test có groups: ['IT'])
+  describe('gate access theo group', () => {
+    async function setAllowed(groups: string[]): Promise<void> {
+      await pool.query(
+        `INSERT INTO config (key, value) VALUES ('authorized_groups', $1::jsonb)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+        [JSON.stringify(groups)],
+      );
+    }
+
+    afterEach(async () => {
+      // Trả gate về TẮT để các test khác (config rỗng → không gate) không bị ảnh hưởng
+      await pool.query("DELETE FROM config WHERE key = 'authorized_groups'");
+    });
+
+    /** callback tới bước redirect, trả location + cookie phiên (nếu có). */
+    async function callbackOnce(): Promise<{
+      location: string;
+      hasSid: boolean;
+    }> {
+      const loginRes = await request(app.getHttpServer())
+        .get('/api/auth/login')
+        .expect(302);
+      const txCookie = (loginRes.headers['set-cookie'] as unknown as string[])
+        .find((c: string) => c.startsWith('qlts_oidc_tx='))!
+        .split(';')[0];
+      const cb = await request(app.getHttpServer())
+        .get('/api/auth/callback?code=fake&state=x')
+        .set('Cookie', txCookie)
+        .expect(302);
+      const cookies =
+        (cb.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
+      return {
+        location: cb.headers.location as string,
+        hasSid: cookies.some((c: string) => c.startsWith('qlts_sid=')),
+      };
+    }
+
+    it('group KHÔNG khớp → /?login=forbidden, KHÔNG tạo phiên, KHÔNG upsert user, audit', async () => {
+      await pool.query("DELETE FROM users WHERE sub = 'usr_test_01'");
+      await setAllowed(['Developers']); // token có ['IT'] → không giao
+      const res = await callbackOnce();
+      expect(res.location).toBe('/?login=forbidden');
+      expect(res.hasSid).toBe(false);
+      const u = await pool.query(
+        "SELECT count(*)::int AS n FROM users WHERE sub = 'usr_test_01'",
+      );
+      expect(u.rows[0].n).toBe(0);
+      const audit = await pool.query(
+        "SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.login_denied_group'",
+      );
+      expect(audit.rows[0].n).toBeGreaterThanOrEqual(1);
+    });
+
+    it('group khớp KHÔNG phân biệt hoa/thường → login OK', async () => {
+      await setAllowed(['it']); // token ['IT'] khớp
+      const res = await callbackOnce();
+      expect(res.location).toBe('/');
+      expect(res.hasSid).toBe(true);
+    });
+
+    it('gate TẮT (config authorized_groups rỗng) → vào được như cũ', async () => {
+      // afterEach test trước đã xoá config → gate tắt
+      const res = await callbackOnce();
+      expect(res.location).toBe('/');
+      expect(res.hasSid).toBe(true);
+    });
+  });
 });

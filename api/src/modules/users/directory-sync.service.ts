@@ -8,6 +8,7 @@ import { inArray, sql } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
+import { SystemConfigService } from '../config/system-config.service';
 import { DIRECTORY_CLIENT } from './directory.client';
 import type {
   DirectoryClientApi,
@@ -48,6 +49,7 @@ export class DirectorySyncService {
     @Inject(DRIZZLE_DB) private readonly db: Database,
     @Inject(DIRECTORY_CLIENT) private readonly directory: DirectoryClientApi,
     private readonly audit: AuditWriterService,
+    private readonly systemConfig: SystemConfigService,
   ) {}
 
   async sync(actor: string): Promise<DirectorySyncResult> {
@@ -166,6 +168,10 @@ export class DirectorySyncService {
           'Đồng bộ thất bại — mọi thay đổi đã được hoàn tác, vui lòng thử lại.',
       });
     }
+
+    // Ghi group được phép vào QLTS (10.2) — nguồn gate login. Chỉ chạy khi sync
+    // thành công (transaction đã commit). fetchGroups() trả group gán cho client QLTS.
+    await this.systemConfig.setAuthorizedGroups(groups.map((g) => g.name));
 
     if (deletedSubs.length > 0) {
       // Phiên của user deleted tự chết trong ≤5' (PMH ID thu hồi refresh token);

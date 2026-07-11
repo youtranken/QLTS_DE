@@ -6,6 +6,8 @@ export default {
     retry: 'Retry',
     loginPrompt: 'Sign in with your company PMH ID account.',
     loginFailed: 'Sign-in failed — please try again.',
+    loginForbidden:
+      'This account is not allowed to access QLTS (not in an authorized group). Please contact an administrator.',
     login: 'Sign in',
     logout: 'Sign out',
     hello: 'Hello',

@@ -238,4 +238,23 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5 + delegation 10
       .set({ 'x-dev-user-sub': 'member-1', 'x-dev-role': 'member' })
       .expect(403);
   });
+
+  it('list KHÔNG hiện user bị khoá/xoá — chỉ status=active (story 10.2)', async () => {
+    await pool.query(
+      `INSERT INTO users (sub, email, full_name, status) VALUES
+       ('sub-locked', 'locked@pmh.com.vn', 'Người Khoá', 'locked'),
+       ('sub-del', 'del@pmh.com.vn', 'Người Xoá', 'deleted')`,
+    );
+    // search khớp cả 2 tên trên nhưng đều non-active → total 0
+    const locked = await request(app.getHttpServer())
+      .get('/api/admin/users?search=Người&page=1&pageSize=10')
+      .set(asSa())
+      .expect(200);
+    expect(
+      locked.body.items.some((u: { sub: string }) =>
+        ['sub-locked', 'sub-del'].includes(u.sub),
+      ),
+    ).toBe(false);
+    await pool.query("DELETE FROM users WHERE sub IN ('sub-locked', 'sub-del')");
+  });
 });

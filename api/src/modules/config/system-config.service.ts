@@ -8,6 +8,8 @@ import { configTable } from './config.schema';
 const MAIL_BASELINE_KEY = 'mail_consumer_baseline_at';
 /** Mốc chạy full-sync danh bạ gần nhất (5.5) — ghi runtime. */
 const DIRECTORY_SYNC_LAST_KEY = 'directory_sync_last_at';
+/** Danh sách group được PMH ID gán cho client QLTS (10.2) — nguồn gate login, ghi từ directory-sync. */
+const AUTHORIZED_GROUPS_KEY = 'authorized_groups';
 
 export interface WorkingHours {
   tz: string;
@@ -149,5 +151,34 @@ export class SystemConfigService {
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
     `);
     this.cache.delete(DIRECTORY_SYNC_LAST_KEY);
+  }
+
+  /**
+   * Group được phép vào QLTS (10.2) — nguồn động từ PMH ID `fetchGroups()`, ghi bởi
+   * directory-sync. Đọc THẲNG (không cache/không throw): rỗng/chưa có → `[]` = gate TẮT
+   * (fail-open trước lần sync đầu). An ninh cần tươi → không cache TTL.
+   */
+  async getAuthorizedGroups(): Promise<string[]> {
+    const rows = await this.db
+      .select({ value: configTable.value })
+      .from(configTable)
+      .where(eq(configTable.key, AUTHORIZED_GROUPS_KEY));
+    if (rows.length === 0) {
+      return [];
+    }
+    const value = rows[0].value;
+    return Array.isArray(value)
+      ? value.filter((x): x is string => typeof x === 'string')
+      : [];
+  }
+
+  async setAuthorizedGroups(names: string[]): Promise<void> {
+    const clean = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+    await this.db.execute(sql`
+      INSERT INTO config (key, value)
+      VALUES (${AUTHORIZED_GROUPS_KEY}, ${JSON.stringify(clean)}::jsonb)
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+    `);
+    this.cache.delete(AUTHORIZED_GROUPS_KEY);
   }
 }

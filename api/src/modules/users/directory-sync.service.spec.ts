@@ -57,12 +57,24 @@ function makeService(opts: {
       .mockResolvedValue([{ id: 'g1', name: 'Developers' }]),
   };
   const audit = { append: jest.fn().mockResolvedValue(undefined) };
+  const systemConfig = {
+    setAuthorizedGroups: jest.fn().mockResolvedValue(undefined),
+  };
   const service = new DirectorySyncService(
     db as never,
     directory,
     audit as never,
+    systemConfig as never,
   );
-  return { service, db, directory, audit, inserted, updatedSubs };
+  return {
+    service,
+    db,
+    directory,
+    audit,
+    systemConfig,
+    inserted,
+    updatedSubs,
+  };
 }
 
 const user = (
@@ -109,6 +121,23 @@ describe('DirectorySyncService (story 1.3 — sau review)', () => {
     expect(audit.append).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'users.directory_sync' }),
     );
+  });
+
+  it('ghi authorized_groups từ fetchGroups (nguồn gate login 10.2)', async () => {
+    const { service, systemConfig } = makeService({ users: [user('a')] });
+    await service.sync('sa-1');
+    expect(systemConfig.setAuthorizedGroups).toHaveBeenCalledWith([
+      'Developers',
+    ]);
+  });
+
+  it('sync THẤT BẠI (transaction rollback) → KHÔNG ghi authorized_groups', async () => {
+    const { service, systemConfig } = makeService({
+      users: [user('a')],
+      txError: new Error('boom'),
+    });
+    await expect(service.sync('sa-1')).rejects.toThrow();
+    expect(systemConfig.setAuthorizedGroups).not.toHaveBeenCalled();
   });
 
   it('record thiếu id → skipped, KHÔNG phá cả đợt; id trùng → khử trùng lặp', async () => {

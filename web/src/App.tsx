@@ -89,8 +89,10 @@ const LOGGED_OUT_KEY = 'qlts_logged_out';
 function App() {
   const { t } = useTranslation();
   const [auth, setAuth] = useState<AuthState>({ kind: 'loading' });
-  const loginFailed =
-    new URLSearchParams(window.location.search).get('login') === 'failed';
+  const loginParam = new URLSearchParams(window.location.search).get('login');
+  const loginFailed = loginParam === 'failed';
+  // 10.2: tài khoản không thuộc group được phép → callback chặn, KHÔNG auto-SSO lại (tránh lặp)
+  const loginForbidden = loginParam === 'forbidden';
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -114,6 +116,7 @@ function App() {
   const willAutoLogin =
     auth.kind === 'anonymous' &&
     !loginFailed &&
+    !loginForbidden &&
     !sessionStorage.getItem(SSO_ATTEMPT_KEY) &&
     !sessionStorage.getItem(LOGGED_OUT_KEY);
   useEffect(() => {
@@ -168,6 +171,11 @@ function App() {
         {loginFailed && (
           <p className="alert error" style={{ margin: 0 }}>
             {t('app.loginFailed')}
+          </p>
+        )}
+        {loginForbidden && (
+          <p className="alert error" style={{ margin: 0 }}>
+            {t('app.loginForbidden')}
           </p>
         )}
         <p className="muted">{t('app.loginPrompt')}</p>
