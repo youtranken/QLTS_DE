@@ -14,13 +14,12 @@ if (!/test/i.test(dbName)) {
   throw new Error(`[roles.db-spec] Từ chối chạy trên DB '${dbName}'.`);
 }
 
-const SA_ENV_SUB = 'sub-sa-tu-env';
-
-describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
+describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5 + delegation 10.1)', () => {
   let app: INestApplication;
   let pool: Pool;
 
   const asSa = () => ({ 'x-dev-user-sub': 'sa-test', 'x-dev-role': 'sa' });
+  const asAdmin = () => ({ 'x-dev-user-sub': 'admin-t', 'x-dev-role': 'admin' });
 
   /** Tạo session OIDC giả trực tiếp DB — kiểm "hiệu lực ngay không cần login lại". */
   async function fakeSession(sub: string): Promise<string> {
@@ -35,7 +34,6 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
 
   beforeAll(async () => {
     process.env.AUTH_DEV_MODE = 'true';
-    process.env.SA_SUBS = SA_ENV_SUB;
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query(
       'DROP TABLE IF EXISTS outbox, ticket_file, booking, ticket, inventory_round_files, inventory_rounds, files, asset_note, allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
@@ -46,7 +44,7 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
     await pool.query(
       `INSERT INTO users (sub, email, full_name) VALUES
        ('sub-m1', 'm1@pmh.com.vn', 'Member Một'),
-       ('${SA_ENV_SUB}', 'sa@pmh.com.vn', 'SA Env')`,
+       ('sub-m2', 'm2@pmh.com.vn', 'Member Hai')`,
     );
     app = await createTestApp();
   });
@@ -55,7 +53,6 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
     await app.close();
     await pool.end();
     delete process.env.AUTH_DEV_MODE;
-    delete process.env.SA_SUBS;
   });
 
   it('SA bổ nhiệm member → role đổi + audit ghi from/to đúng actor (AC 4)', async () => {
@@ -75,6 +72,35 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
       object_id: 'sub-m1',
     });
     expect(audit.rows[0].detail).toMatchObject({ from: 'member', to: 'admin' });
+  });
+
+  it('ADMIN KHÔNG bổ nhiệm được admin → 403 (cấp vai là độc quyền SSA, 10.1)', async () => {
+    const res = await request(app.getHttpServer())
+      .put('/api/admin/users/sub-m2/role')
+      .set(asAdmin())
+      .send({ role: 'admin' })
+      .expect(403);
+    expect(res.body.code).toBe('FORBIDDEN_ROLE');
+    const row = await pool.query("SELECT role FROM users WHERE sub = 'sub-m2'");
+    expect(row.rows[0].role).toBe('member'); // vẫn nguyên
+  });
+
+  it('KHÔNG thể bổ nhiệm ai lên SSA — role="sa" bị DTO chặn (400)', async () => {
+    // SSA chỉ đến từ env → không có đường tạo SSA qua API, kể cả actor là SSA
+    await request(app.getHttpServer())
+      .put('/api/admin/users/sub-m2/role')
+      .set(asSa())
+      .send({ role: 'sa' })
+      .expect(400);
+  });
+
+  it('SSA tự đổi vai của chính mình → 403 SELF_ROLE_CHANGE', async () => {
+    const res = await request(app.getHttpServer())
+      .put('/api/admin/users/sa-test/role')
+      .set(asSa())
+      .send({ role: 'member' })
+      .expect(403);
+    expect(res.body.code).toBe('SELF_ROLE_CHANGE');
   });
 
   it('vai mới hiệu lực NGAY với phiên OIDC đang sống — không cần đăng nhập lại (AC 1)', async () => {
@@ -97,22 +123,14 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
     expect(res2.body.role).toBe('member');
   });
 
-  it('sub ∈ SA_SUBS → identity role sa (override bảng users) (AC 1)', async () => {
-    const sid = await fakeSession(SA_ENV_SUB);
+  it('SSO sub KHÔNG còn được nâng sa (story 10.1) — role tối đa admin từ DB', async () => {
+    // dù sub trùng giá trị từng nằm trong SA_SUBS cũ, giờ chỉ đọc users.role
+    const sid = await fakeSession('sub-m1');
     const res = await request(app.getHttpServer())
       .get('/api/auth/me')
       .set('Cookie', `qlts_sid=${sid}`)
       .expect(200);
-    expect(res.body.role).toBe('sa');
-  });
-
-  it('đổi vai của SA-từ-env → 403 SA_ROLE_IMMUTABLE (AC 4)', async () => {
-    const res = await request(app.getHttpServer())
-      .put(`/api/admin/users/${SA_ENV_SUB}/role`)
-      .set(asSa())
-      .send({ role: 'member' })
-      .expect(403);
-    expect(res.body.code).toBe('SA_ROLE_IMMUTABLE');
+    expect(res.body.role).toBe('member');
   });
 
   it('target không tồn tại → 404 USER_NOT_FOUND (AC 4)', async () => {
@@ -125,8 +143,6 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
   });
 
   it('quyền per-user (1.6): default TẮT; admin gán/thu hồi cho member + audit from→to', async () => {
-    const asAdmin = { 'x-dev-user-sub': 'admin-t', 'x-dev-role': 'admin' };
-    // default false
     const before = await pool.query(
       "SELECT can_long_term, can_recurring FROM users WHERE sub = 'sub-m1'",
     );
@@ -134,10 +150,9 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
       can_long_term: false,
       can_recurring: false,
     });
-    // gán dài hạn
     await request(app.getHttpServer())
       .put('/api/admin/users/sub-m1/permissions')
-      .set(asAdmin)
+      .set(asAdmin())
       .send({ canLongTerm: true })
       .expect(200);
     const after = await pool.query(
@@ -168,8 +183,7 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
     });
   });
 
-  it('quyền per-user (1.6): target admin → 403 PERMISSIONS_MEMBER_ONLY; SA-env → 403; identity sa → permissions false', async () => {
-    // nâng m1 lên admin để test target admin (rồi hạ lại)
+  it('quyền per-user (1.6): target admin → 403 PERMISSIONS_MEMBER_ONLY', async () => {
     await pool.query("UPDATE users SET role = 'admin' WHERE sub = 'sub-m1'");
     const res = await request(app.getHttpServer())
       .put('/api/admin/users/sub-m1/permissions')
@@ -178,22 +192,6 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
       .expect(403);
     expect(res.body.code).toBe('PERMISSIONS_MEMBER_ONLY');
     await pool.query("UPDATE users SET role = 'member' WHERE sub = 'sub-m1'");
-
-    await request(app.getHttpServer())
-      .put(`/api/admin/users/${SA_ENV_SUB}/permissions`)
-      .set(asSa())
-      .send({ canLongTerm: true })
-      .expect(403);
-
-    const sidSa = await fakeSession(SA_ENV_SUB);
-    const me = await request(app.getHttpServer())
-      .get('/api/auth/me')
-      .set('Cookie', `qlts_sid=${sidSa}`)
-      .expect(200);
-    expect(me.body.permissions).toEqual({
-      canLongTerm: false,
-      canRecurring: false,
-    });
   });
 
   it('đổi vai qua API → RESET 2 cờ quyền (không "hồi sinh" khi member→admin→member; review 1.6)', async () => {
@@ -210,7 +208,6 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
       can_long_term: false,
       can_recurring: false,
     });
-    // miễn nhiệm về member → cờ vẫn TẮT (phải gán lại, có audit mới)
     await request(app.getHttpServer())
       .put('/api/admin/users/sub-m1/role')
       .set(asSa())
@@ -225,19 +222,17 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5)', () => {
     });
   });
 
-  it('list: tìm theo tên/email + phân trang server-side (AC 3)', async () => {
+  it('list: tìm theo tên/email + phân trang server-side; admin xem được, member 403 (AC 3)', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/admin/users?search=Member&page=1&pageSize=10')
+      .get('/api/admin/users?search=Một&page=1&pageSize=10')
       .set(asSa())
       .expect(200);
     expect(res.body.total).toBe(1);
     expect(res.body.items[0].sub).toBe('sub-m1');
-    // admin cũng xem được list (1.6 dùng)
     await request(app.getHttpServer())
       .get('/api/admin/users')
-      .set({ 'x-dev-user-sub': 'admin-1', 'x-dev-role': 'admin' })
+      .set(asAdmin())
       .expect(200);
-    // member thì không
     await request(app.getHttpServer())
       .get('/api/admin/users')
       .set({ 'x-dev-user-sub': 'member-1', 'x-dev-role': 'member' })

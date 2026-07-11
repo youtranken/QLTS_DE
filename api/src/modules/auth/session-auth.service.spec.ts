@@ -18,6 +18,7 @@ function makeService(opts: {
           claims: { sub: 'usr_1', full_name: 'Test', groups: [] },
           csrfToken: 'tok',
           idToken: 'id-token-1',
+          lastSeenAt: new Date(),
           ...opts.session,
         };
   const sessions = {

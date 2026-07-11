@@ -15,6 +15,7 @@ import { savedLanguage, setLanguage } from './i18n';
 import { currentTheme, toggleTheme } from './theme';
 import { DirectorySyncPanel, RolesPanel } from './panels';
 import type { Me } from './panels';
+import { SaLoginForm } from './sa-login-form';
 
 // Code-splitting theo route (perf): mỗi trang thành 1 chunk tải khi điều hướng tới, giảm
 // bundle khởi động. Landing (BorrowBoard) + panel nhỏ giữ eager để trang đầu không chớp fallback.
@@ -175,6 +176,7 @@ function App() {
             {t('app.login')}
           </button>
         </a>
+        <SaLoginForm />
         <div style={{ display: 'flex', gap: 8 }}>
           <ThemeSwitch />
           <LanguageSwitch />
@@ -264,14 +266,14 @@ function navGroups(role: string): NavGroup[] {
         { to: '/bao-cao', key: 'nav.reports' },
       ],
     });
-    // Hệ thống — Quản trị (SA đầy đủ; Admin chỉ phần quyền per-user, server enforce).
-    // Audit log + Cấu hình CHỈ SA (6.2/6.3) — server @Roles('sa') enforce độc lập.
+    // Hệ thống — Quản trị. Delegation 10.1: Admin (SSO) lo hằng ngày, có cả Audit log +
+    // Cấu hình + bổ nhiệm admin. SA local chỉ là break-glass. Server @Roles enforce độc lập.
     groups.push({
       label: 'nav.groupSystem',
       items: [
         { to: '/quan-tri', key: 'nav.admin' },
         { to: '/quan-tri/danh-muc', key: 'nav.catalog' },
-        ...(role === 'sa'
+        ...(isAdmin
           ? [
               { to: '/quan-tri/audit', key: 'nav.audit' },
               { to: '/quan-tri/cau-hinh', key: 'nav.config' },
@@ -499,7 +501,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             <Route
               path="/quan-tri/audit"
               element={
-                <RequireRole me={me} roles={['sa']}>
+                <RequireRole me={me} roles={['admin', 'sa']}>
                   <AuditLogPage />
                 </RequireRole>
               }
@@ -507,7 +509,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             <Route
               path="/quan-tri/cau-hinh"
               element={
-                <RequireRole me={me} roles={['sa']}>
+                <RequireRole me={me} roles={['admin', 'sa']}>
                   <ConfigPage me={me} />
                 </RequireRole>
               }
@@ -557,10 +559,11 @@ function RequireRole({
 
 function AdminPage({ me }: { me: Me }) {
   const { t } = useTranslation();
+  const isAdmin = me.role === 'admin' || me.role === 'sa';
   return (
     <>
       <h1 style={{ fontSize: '1.2rem' }}>{t('nav.admin')}</h1>
-      {(me.role === 'sa' || me.devMode) && (
+      {(isAdmin || me.devMode) && (
         <DirectorySyncPanel csrfToken={me.csrfToken} />
       )}
       <RolesPanel csrfToken={me.csrfToken} mySub={me.sub} viewerRole={me.role} />

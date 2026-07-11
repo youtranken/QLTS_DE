@@ -7,7 +7,12 @@ import {
 import { AuditWriterService } from '../audit/audit-writer.service';
 import { UsersService } from '../users/users.service';
 import { JwtVerifierService } from './jwt-verifier.service';
-import { parseSaSubs } from './sa-subs';
+import {
+  LOCAL_SA_EMAIL,
+  LOCAL_SA_FULL_NAME,
+  LOCAL_SA_IDLE_MS,
+  LOCAL_SA_SUB,
+} from './local-sa-env';
 import { OIDC_PROVIDER } from './oidc-provider';
 import type { OidcProvider } from './oidc-provider';
 import { SessionService } from './session.service';
@@ -33,8 +38,6 @@ export class SessionAuthService {
     Promise<RequestIdentity | null>
   >();
 
-  private readonly saSubs = parseSaSubs(process.env);
-
   constructor(
     private readonly sessions: SessionService,
     private readonly jwtVerifier: JwtVerifierService,
@@ -58,7 +61,30 @@ export class SessionAuthService {
 
   private async doResolve(sessionId: string): Promise<RequestIdentity | null> {
     const session = await this.sessions.find(sessionId);
-    if (!session || !session.claims) {
+    if (!session) {
+      return null;
+    }
+
+    // Phiên SA local (break-glass): không có claims OIDC, KHÔNG refresh — xử lý
+    // TRƯỚC nhánh claims. TTL idle ngắn (AC7): quá 2h không hoạt động → buộc login lại.
+    if (session.userSub === LOCAL_SA_SUB) {
+      const idleMs = Date.now() - session.lastSeenAt.getTime();
+      if (idleMs > LOCAL_SA_IDLE_MS) {
+        await this.expire(sessionId, LOCAL_SA_SUB, 'local_sa_idle');
+        return null;
+      }
+      await this.sessions.touchLastSeen(sessionId);
+      return {
+        sub: LOCAL_SA_SUB,
+        role: 'sa',
+        devMode: false,
+        sessionId,
+        fullName: LOCAL_SA_FULL_NAME,
+        email: LOCAL_SA_EMAIL,
+      };
+    }
+
+    if (!session.claims) {
       return null;
     }
 
@@ -133,23 +159,17 @@ export class SessionAuthService {
   }
 
   /**
-   * Vai (story 1.5): sub ∈ SA_SUBS → 'sa' (override bảng — CẤM nâng SA ngầm);
-   * ngược lại đọc users.role MỖI REQUEST — bổ nhiệm hiệu lực ngay, không cần
-   * đăng nhập lại (AC 1).
+   * Vai từ phiên SSO: đọc users.role MỖI REQUEST — bổ nhiệm hiệu lực ngay, không
+   * cần đăng nhập lại (story 1.5). 'sa' KHÔNG BAO GIỜ đến từ SSO nữa (story 10.1):
+   * SA chỉ là tài khoản local (phiên `local:sa` xử lý ở doResolve). CLAMP 'sa' khỏi
+   * bảng users giữ nguyên — DB CHECK 0007 là lớp thứ hai.
    */
   private async toIdentity(
     sessionId: string,
     claims: PmhIdClaims,
   ): Promise<RequestIdentity> {
-    let role = 'member';
-    if (this.saSubs.has(claims.sub)) {
-      role = 'sa';
-    } else {
-      const user = await this.users.findBySub(claims.sub);
-      // CLAMP: 'sa' KHÔNG BAO GIỜ đến từ bảng users (chỉ từ env — AC 2);
-      // DB cũng có CHECK constraint (0007) — đây là lớp thứ hai
-      role = user?.role === 'admin' ? 'admin' : 'member';
-    }
+    const user = await this.users.findBySub(claims.sub);
+    const role = user?.role === 'admin' ? 'admin' : 'member';
     return {
       sub: claims.sub,
       role,

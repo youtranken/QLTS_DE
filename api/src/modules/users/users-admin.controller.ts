@@ -75,7 +75,8 @@ export class UsersAdminController {
     });
   }
 
-  /** Bổ nhiệm/miễn nhiệm Admin — CHỈ SA (AC 4). Audit chi tiết from→to trong service. */
+  /** Bổ nhiệm/miễn nhiệm Admin — CHỈ SSA (quyền cấp phát vai là độc quyền bậc SSA, 10.1).
+   *  Admin KHÔNG tự tạo admin ngang hàng → giữ tôn ti SSA > admin. Audit from→to trong service. */
   @Put(':sub/role')
   @Roles('sa')
   async updateRole(

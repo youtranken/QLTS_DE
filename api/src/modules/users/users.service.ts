@@ -10,7 +10,6 @@ import { escapeLike } from '../../common/sql';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
-import { parseSaSubs } from '../auth/sa-subs';
 import { usersTable } from './users.schema';
 
 /** Claims tối thiểu từ PMH ID (hợp đồng ver:1 — docs integration). */
@@ -42,7 +41,6 @@ export interface UserListItem {
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
-  private readonly saSubs = parseSaSubs(process.env);
 
   constructor(
     @Inject(DRIZZLE_DB) private readonly db: Database,
@@ -86,10 +84,8 @@ export class UsersService {
         .where(where),
     ]);
     return {
-      // Vai HIỆU LỰC: SA-từ-env hiển thị 'sa' (UI không mời gọi thao tác bị cấm)
-      items: items.map((u) =>
-        this.saSubs.has(u.sub) ? { ...u, role: 'sa' } : u,
-      ),
+      // SA là tài khoản local (không có trong bảng users, story 10.1) → danh sách chỉ member/admin
+      items,
       total: totalRows[0]?.n ?? 0,
       page: query.page,
       pageSize: query.pageSize,
@@ -97,8 +93,9 @@ export class UsersService {
   }
 
   /**
-   * Bổ nhiệm/miễn nhiệm Admin (1.5, CHỈ SA gọi qua controller). Chặn:
-   * tự đổi vai mình, đổi vai SA-từ-env; giá trị 'sa' bị DTO chặn từ ngoài.
+   * Bổ nhiệm/miễn nhiệm Admin (1.5; SA hoặc Admin gọi qua controller — story 10.1).
+   * Chặn tự đổi vai mình; giá trị 'sa' bị DTO chặn từ ngoài. SA là tài khoản local
+   * (không nằm trong bảng users) → không thao tác nào ở đây chạm được tới SA.
    */
   async updateRole(
     targetSub: string,
@@ -109,13 +106,6 @@ export class UsersService {
       throw new ForbiddenException({
         code: 'SELF_ROLE_CHANGE',
         message: 'Không thể tự đổi vai của chính mình.',
-      });
-    }
-    if (this.saSubs.has(targetSub)) {
-      throw new ForbiddenException({
-        code: 'SA_ROLE_IMMUTABLE',
-        message:
-          'Không thể đổi vai của SA (SA chỉ định qua cấu hình hệ thống).',
       });
     }
     // NGUYÊN TỬ: đọc role cũ + ghi role mới trong MỘT câu lệnh (khóa hàng) —
@@ -172,13 +162,6 @@ export class UsersService {
     patch: { canLongTerm?: boolean; canRecurring?: boolean },
     actorSub: string,
   ): Promise<void> {
-    if (this.saSubs.has(targetSub)) {
-      throw new ForbiddenException({
-        code: 'PERMISSIONS_MEMBER_ONLY',
-        message:
-          'Chỉ member mới có quyền mượn dài hạn/định kỳ — SA không đi luồng mượn.',
-      });
-    }
     // Nguyên tử: đọc giá trị cũ + role + ghi mới trong MỘT câu lệnh (bài học 1.5).
     // Điều kiện role='member' nằm ngay trong UPDATE — không có khe TOCTOU đổi vai.
     const result = await this.db.execute<{

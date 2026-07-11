@@ -84,9 +84,9 @@ class ConfigUpdateDto {
   working_hours?: WorkingHoursDto;
 }
 
-/** Cấu hình tham số hệ thống (6.3, FR-44) — CHỈ SA; Admin 403 (RolesGuard). */
+/** Cấu hình tham số hệ thống (6.3, FR-44) — SA + Admin (delegation 10.1). */
 @Controller('admin/config')
-@Roles('sa')
+@Roles('sa', 'admin')
 export class ConfigController {
   constructor(private readonly configAdmin: ConfigAdminService) {}
 

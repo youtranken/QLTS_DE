@@ -14,8 +14,8 @@ import type { DirectorySyncResult } from './directory-sync.service';
 import { DIRECTORY_CLIENT } from './directory.client';
 import type { DirectoryClientApi, DirectoryGroup } from './directory.client';
 
-/** @Roles cấp CLASS: handler mới thêm vào đây mặc định cũng chỉ SA (default-secure). */
-@Roles('sa')
+/** @Roles cấp CLASS: SA + Admin (delegation 10.1). Handler mới kế thừa mặc định này. */
+@Roles('sa', 'admin')
 @Controller('admin/directory-sync')
 export class UsersController {
   constructor(

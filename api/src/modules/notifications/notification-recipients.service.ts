@@ -5,7 +5,8 @@ import type { Database } from '../../database/database.module';
 
 /**
  * Người nhận mail nghiệp vụ (5.2). "Nhóm Admin" = users `role='admin'`, `status='active'`, có
- * email. SA đến từ env `SA_SUBS` (không có role trong DB) → không phải recipient nghiệp vụ mặc định.
+ * email. SA là tài khoản local (không có trong bảng users, story 10.1) → không phải recipient
+ * nghiệp vụ mặc định (mail vận hành đi tới nhóm Admin SSO).
  */
 @Injectable()
 export class NotificationRecipientsService {

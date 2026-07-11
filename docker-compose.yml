@@ -20,8 +20,10 @@ services:
       PMH_CLIENT_SECRET: ${PMH_CLIENT_SECRET:-}
       PMH_WEBHOOK_SECRET: ${PMH_WEBHOOK_SECRET:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
-      # SA chỉ từ env (story 1.5) — trống là api từ chối khởi động
-      SA_SUBS: ${SA_SUBS:?SA_SUBS bắt buộc trong .env (danh sách sub PMH ID)}
+      # SA cục bộ (break-glass, story 10.1) — thiếu là api từ chối khởi động.
+      # Hash sinh bằng `npm run sa:hash`; SA CHỈ đến từ env (không có trong DB).
+      LOCAL_SA_USERNAME: ${LOCAL_SA_USERNAME:?LOCAL_SA_USERNAME bắt buộc trong .env}
+      LOCAL_SA_PASSWORD_HASH: ${LOCAL_SA_PASSWORD_HASH:?LOCAL_SA_PASSWORD_HASH bắt buộc trong .env (scrypt.saltHex.hashHex)}
       # Module file (story 2.8, AD-6) — file lưu volume, tên uuid
       FILE_STORAGE_DIR: /data/files
     volumes:

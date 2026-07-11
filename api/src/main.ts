@@ -8,7 +8,7 @@ import {
   resolveMigrationsDir,
 } from './database/migration-runner';
 import { assertAuthEnvSafe } from './modules/auth/auth-env';
-import { assertSaSubsConfigured } from './modules/auth/sa-subs';
+import { assertLocalSaConfigured } from './modules/auth/local-sa-env';
 
 function requiredPort(): number {
   const raw = process.env.PORT ?? '3000';
@@ -20,9 +20,9 @@ function requiredPort(): number {
 }
 
 async function bootstrap(): Promise<void> {
-  // Fail-closed TRƯỚC mọi thứ khác: AUTH_DEV_MODE sai môi trường / SA_SUBS trống → không khởi động
+  // Fail-closed TRƯỚC mọi thứ khác: AUTH_DEV_MODE sai môi trường / SA local chưa cấu hình → không khởi động
   assertAuthEnvSafe(process.env);
-  assertSaSubsConfigured(process.env);
+  assertLocalSaConfigured(process.env);
   if (!process.env.DATABASE_URL) {
     throw new Error(
       'Thiếu DATABASE_URL — không khởi động (tránh pg fallback localhost mù mờ).',

@@ -65,9 +65,9 @@ class AuditQueryDto {
   pageSize = 20;
 }
 
-/** Viewer audit log (6.2, FR-43) — CHỈ SA; Admin 403 (RolesGuard). Chỉ đọc (AD-10). */
+/** Viewer audit log (6.2, FR-43) — SA + Admin (delegation 10.1). Chỉ đọc (AD-10). */
 @Controller('admin/audit')
-@Roles('sa')
+@Roles('sa', 'admin')
 export class AuditController {
   constructor(private readonly audit: AuditQueryService) {}
 

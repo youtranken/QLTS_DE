@@ -1,24 +1,49 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
+  HttpException,
+  HttpStatus,
   Inject,
   Post,
   Req,
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Response } from 'express';
 import { AuditWriterService } from '../audit/audit-writer.service';
 import { UsersService } from '../users/users.service';
 import { JwtVerifierService } from './jwt-verifier.service';
+import { LOCAL_SA_SUB } from './local-sa-env';
+import { LocalSaService } from './local-sa.service';
 import { OIDC_PROVIDER } from './oidc-provider';
 import type { OidcProvider } from './oidc-provider';
 import { Public } from './public.decorator';
 import { SessionService } from './session.service';
 import { SESSION_COOKIE } from './identity.guard';
 import type { AuthedRequest } from './identity.guard';
+
+class SaLoginDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  username!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  password!: string;
+}
+
+/** IP client sau nginx (trust proxy = 1) — dùng cho lockout SA login. */
+function clientIp(req: AuthedRequest): string {
+  const fwd = req.headers['x-forwarded-for'];
+  const first = Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0];
+  return first?.trim() || req.ip || req.socket.remoteAddress || 'unknown';
+}
 
 const OIDC_TX_COOKIE = 'qlts_oidc_tx';
 
@@ -57,7 +82,60 @@ export class AuthController {
     private readonly sessions: SessionService,
     private readonly users: UsersService,
     private readonly audit: AuditWriterService,
+    private readonly localSa: LocalSaService,
   ) {}
+
+  /**
+   * Đăng nhập SA cục bộ (break-glass, story 10.1): username/password từ env, KHÔNG SSO.
+   * Đúng → phiên `role=sa`. Sai → 401 mơ hồ. 5 sai/IP → 429 khoá 15'. Không log password.
+   */
+  @Public()
+  @Post('sa-login')
+  @HttpCode(200)
+  async saLogin(
+    @Body() dto: SaLoginDto,
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const ip = clientIp(req);
+    const result = this.localSa.attemptLogin(dto.username, dto.password, ip);
+    if (result !== 'ok') {
+      await this.audit.append({
+        actor: 'system',
+        action: 'auth.sa_login_failed',
+        detail: { ip, reason: result },
+      });
+      if (result === 'locked') {
+        throw new HttpException(
+          {
+            code: 'SA_LOGIN_LOCKED',
+            message: 'Quá nhiều lần sai — tạm khoá đăng nhập SA. Thử lại sau ít phút.',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      throw new UnauthorizedException({
+        code: 'SA_LOGIN_INVALID',
+        message: 'Sai tài khoản hoặc mật khẩu.',
+      });
+    }
+    const session = await this.sessions.createLocalSa();
+    res.cookie(SESSION_COOKIE, session.id, {
+      httpOnly: true,
+      secure: cookieSecure(),
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+    await this.audit.append({
+      actor: LOCAL_SA_SUB,
+      action: 'auth.sa_login',
+      objectType: 'session',
+      objectId: session.id,
+      detail: { ip },
+    });
+    res.json({ ok: true });
+  }
 
   @Public()
   @Get('login')

@@ -106,6 +106,7 @@ export function RolesPanel({
   const [rows, setRows] = useState<UserRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Bổ nhiệm/miễn nhiệm admin là ĐỘC QUYỀN SSA (10.1) — admin chỉ vận hành, không cấp vai.
   const canChangeRole = viewerRole === 'sa';
 
   const load = useCallback(
