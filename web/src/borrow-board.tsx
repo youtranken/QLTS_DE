@@ -6,7 +6,6 @@ import { AdminDashboard } from './admin-dashboard';
 import { apiFetch } from './api-client';
 import { BookingSheet, PICKUP_SLOTS } from './booking-sheet';
 import { LoadError } from './load-state';
-import { MyRequestsPanel } from './my-requests';
 import type { Me } from './panels';
 import { DataTable } from './ui/data-table';
 
@@ -37,6 +36,26 @@ interface FreePoolMachine {
 const POLL_MS = 30_000;
 // #1: catalog "Máy có thể mượn" chỉ hiện tối đa 5 thẻ; còn lại bung qua "Xem tất cả".
 const CATALOG_CAP = 5;
+// Gần tới giờ trả trong ngưỡng này → tô cam + chớp (cảnh báo sắp phải trả).
+const NEAR_DUE_MS = 2 * 60 * 60 * 1000;
+/** Ngày dd/MM theo giờ VN (tách cột Ngày). */
+const dOnly = (iso: string | null): string =>
+  iso
+    ? new Date(iso).toLocaleDateString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+      })
+    : '—';
+/** Giờ HH:MM theo giờ VN (tách cột Giờ). */
+const hOnly = (iso: string | null): string =>
+  iso
+    ? new Date(iso).toLocaleTimeString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '—';
 
 const typeIcon = (type: string | null): string => {
   const ty = (type ?? '').toLowerCase();
@@ -107,9 +126,9 @@ export function BorrowBoardPage({ me }: { me: Me }) {
   const [presetMachine, setPresetMachine] = useState<FreePoolMachine | undefined>(
     undefined,
   );
-  const [showMine, setShowMine] = useState(false);
   const [flash, setFlash] = useState(false);
-  const [reloadMine, setReloadMine] = useState(0);
+  // Filter bảng máy: 'all' = tất cả máy đang mượn/chờ giao; 'mine' = chỉ của tôi.
+  const [boardFilter, setBoardFilter] = useState<'all' | 'mine'>('all');
   // 9.5+: catalog máy-first — search client-side + lọc theo loại (distinct từ pool rảnh).
   const [catalogSearch, setCatalogSearch] = useState('');
   const [catalogType, setCatalogType] = useState('all');
@@ -204,7 +223,6 @@ export function BorrowBoardPage({ me }: { me: Me }) {
 
   const onBooked = useCallback(() => {
     setFlash(true);
-    setReloadMine((n) => n + 1);
     busyCache.current.clear(); // đặt mới → lịch busy đổi, bỏ cache để tính lại
     void queryClient.invalidateQueries({ queryKey: ['board'] });
     void queryClient.invalidateQueries({ queryKey: ['pool-all-machines'] });
@@ -249,8 +267,17 @@ export function BorrowBoardPage({ me }: { me: Me }) {
     });
   };
 
-  // Cột board: giữ nguyên nội dung ô cũ; sort/search qua DataTable. Rebuild mỗi tick `now`
-  // để countdown cập nhật. `#` là số thứ tự HIỂN THỊ (đổi theo sắp xếp), không sort.
+  // Màu cột Trả: quá hạn → đỏ chớp; gần tới giờ trả (≤2h) → cam chớp; còn xa → thường.
+  const dueClass = (due: string | null): string => {
+    if (!due) return '';
+    const ms = new Date(due).getTime() - now;
+    if (ms <= 0) return 'due-over';
+    if (ms <= NEAR_DUE_MS) return 'due-near';
+    return '';
+  };
+
+  // Cột board: 4 cột Ngày/Giờ Nhận-Trả (màu cảnh báo ở cột Trả) + Tình trạng. Rebuild mỗi
+  // tick `now` để countdown + màu cập nhật. `#` là số thứ tự HIỂN THỊ, không sort.
   const boardColumns = useMemo<ColumnDef<BoardRow, unknown>[]>(
     () => [
       {
@@ -305,21 +332,34 @@ export function BorrowBoardPage({ me }: { me: Me }) {
       },
       {
         accessorKey: 'from',
-        header: t('board.colFrom'),
-        cell: ({ row }) => fmt(row.original.from),
+        header: t('board.colFromDate', 'Ngày nhận'),
+        cell: ({ row }) => dOnly(row.original.from),
+      },
+      {
+        id: 'fromTime',
+        header: t('board.colFromTime', 'Giờ nhận'),
+        enableSorting: false,
+        cell: ({ row }) => <span className="mono">{hOnly(row.original.from)}</span>,
       },
       {
         accessorKey: 'due',
-        header: t('board.colDue'),
+        header: t('board.colToDate', 'Ngày trả'),
+        cell: ({ row }) => (
+          <span className={dueClass(row.original.due)}>
+            {dOnly(row.original.due)}
+          </span>
+        ),
+      },
+      {
+        id: 'toTime',
+        header: t('board.colToTime', 'Giờ trả'),
+        enableSorting: false,
         cell: ({ row }) => {
           const r = row.original;
           return (
             <>
-              {fmt(r.due)}
-              <div
-                className={r.isOverdue ? 'text-danger' : 'muted'}
-                style={{ fontSize: '0.8rem' }}
-              >
+              <span className={`mono ${dueClass(r.due)}`}>{hOnly(r.due)}</span>
+              <div style={{ fontSize: '0.78rem' }} className={dueClass(r.due)}>
                 {countdown(r.due)}
               </div>
             </>
@@ -327,19 +367,20 @@ export function BorrowBoardPage({ me }: { me: Me }) {
         },
       },
       {
-        accessorKey: 'note',
-        header: t('board.colNote'),
-        cell: ({ row }) => row.original.note ?? '',
-      },
-      {
         accessorKey: 'state',
         header: t('board.colStatus'),
         cell: ({ row }) => {
           const r = row.original;
+          // Đang mượn (xanh, đỏ nếu quá hạn) · Chờ giao (cam) · Chờ duyệt (xám).
+          const cls = r.isOverdue
+            ? 'danger'
+            : r.state === 'in_use'
+              ? 'ok'
+              : r.state === 'awaiting_pickup'
+                ? 'warn'
+                : 'muted';
           return (
-            <span
-              className={`badge ${r.isOverdue ? 'danger' : r.state === 'in_use' ? 'ok' : 'muted'}`}
-            >
+            <span className={`badge ${cls}`}>
               {t(`board.state.${r.state}`, r.state)}
             </span>
           );
@@ -357,13 +398,6 @@ export function BorrowBoardPage({ me }: { me: Me }) {
       >
         <h1>{t('board.title')}</h1>
         <span className="spacer" style={{ flex: 1 }} />
-        <button
-          type="button"
-          className="ghost sm"
-          onClick={() => setShowMine((v) => !v)}
-        >
-          {t('board.myRequests')}
-        </button>
         <button type="button" className="primary" onClick={() => openBooking()}>
           {t('board.bookMachine')}
         </button>
@@ -532,8 +566,32 @@ export function BorrowBoardPage({ me }: { me: Me }) {
         </div>
       )}
 
-      {showMine && <MyRequestsPanel me={me} reloadKey={reloadMine} />}
-
+      <div className="section-gap board-head">
+        <h2 style={{ fontSize: '1.05rem', margin: 0 }}>
+          {t('board.tableTitle', 'Máy đang mượn / chờ giao')}
+        </h2>
+        <span className="spacer" style={{ flex: 1 }} />
+        <span className="segmented">
+          <label>
+            <input
+              type="radio"
+              name="boardFilter"
+              checked={boardFilter === 'all'}
+              onChange={() => setBoardFilter('all')}
+            />
+            {t('board.filterAll', 'Tất cả')}
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="boardFilter"
+              checked={boardFilter === 'mine'}
+              onChange={() => setBoardFilter('mine')}
+            />
+            {t('board.filterMine', 'Của tôi')}
+          </label>
+        </span>
+      </div>
       {rows === null ? (
         boardIsError ? (
           <LoadError onRetry={() => void refetchBoard()} />
@@ -542,9 +600,15 @@ export function BorrowBoardPage({ me }: { me: Me }) {
         )
       ) : (
         <DataTable
-          data={rows}
+          data={
+            boardFilter === 'mine' ? rows.filter((r) => r.isMine) : rows
+          }
           columns={boardColumns}
-          emptyText={t('board.empty')}
+          emptyText={
+            boardFilter === 'mine'
+              ? t('board.emptyMine', 'Bạn chưa có máy nào đang mượn/chờ giao.')
+              : t('board.empty')
+          }
           searchPlaceholder={t('board.search')}
           tableClassName="board-table"
           rowClassName={(r) =>

@@ -71,24 +71,27 @@ export function BookingSheet({
 
   const [mode, setMode] = useState<Mode>('normal');
   const [note, setNote] = useState('');
-  // Admin tạo hộ: người mượn
-  const [borrower, setBorrower] = useState<UserOption | null>(null);
+  // Admin tạo hộ: người mượn — MẶC ĐỊNH là người đang đăng nhập (đổi được qua tìm kiếm).
+  const [borrower, setBorrower] = useState<UserOption | null>(
+    isAdmin
+      ? { sub: me.sub, fullName: me.fullName ?? me.sub, email: me.email ?? null }
+      : null,
+  );
   const [userQuery, setUserQuery] = useState('');
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   // Thường/Nâng cao — tách Ngày + Giờ cho Nhận/Trả (4 ô), gộp lại thành datetime khi dùng.
-  // Ngày mặc định = hôm nay (9.8); giờ để trống buộc người dùng chọn trong khung làm việc.
   const [fromDate, setFromDate] = useState(nextBookableDate);
   const [fromTime, setFromTime] = useState('');
   const [toDate, setToDate] = useState(nextBookableDate);
   const [toTime, setToTime] = useState('');
   const from = fromDate && fromTime ? `${fromDate}T${fromTime}` : '';
   const to = toDate && toTime ? `${toDate}T${toTime}` : '';
-  const [typeFilter, setTypeFilter] = useState('');
-  const [assetTypes, setAssetTypes] = useState<string[]>([]);
+  // machines = máy RẢNH trong khung (chỉ để cảnh báo nếu máy đã chọn bị bận).
   const [machines, setMachines] = useState<FreeMachine[] | null>(null);
   const [assetId, setAssetId] = useState(presetMachine?.id ?? '');
-  // Khóa vào máy preset; bấm "Đổi máy" → chuyển sang duyệt danh sách (pickOwn).
-  const [pickOwn, setPickOwn] = useState(!presetMachine);
+  // poolList = mọi máy pool cho dropdown "Đổi máy"; editMachine = đang mở dropdown.
+  const [poolList, setPoolList] = useState<FreeMachine[]>([]);
+  const [editMachine, setEditMachine] = useState(!presetMachine);
   // Chip giờ áp cho ô đang thao tác: 'from' (giờ nhận) hoặc 'to' (giờ trả).
   const [slotTarget, setSlotTarget] = useState<'from' | 'to'>('from');
   const [busy, setBusy] = useState(false);
@@ -102,11 +105,12 @@ export function BookingSheet({
   // 9.8: CN khóa (cả ngày nhận lẫn ngày trả). Ngoài khung giờ để BE + min/max input chặn.
   const weekendBlocked = isSunday(fromDate) || isSunday(toDate);
 
+  // Danh sách máy pool cho dropdown "Đổi máy" (chọn máy khác trong pool).
   useEffect(() => {
-    fetch('/api/booking/asset-types')
-      .then((r) => (r.ok ? (r.json() as Promise<string[]>) : []))
-      .then(setAssetTypes)
-      .catch(() => setAssetTypes([]));
+    fetch('/api/booking/pool-all-machines')
+      .then((r) => (r.ok ? (r.json() as Promise<FreeMachine[]>) : []))
+      .then(setPoolList)
+      .catch(() => setPoolList([]));
   }, []);
 
   // Admin: tìm người mượn server-side (mẫu asset-form)
@@ -139,14 +143,12 @@ export function BookingSheet({
     };
   }, [isAdmin, userQuery]);
 
-  // Availability tự gợi ý (debounce) khi đổi giờ/loại — chỉ mode Thường/Nâng cao
+  // Availability (debounce) — chỉ để CẢNH BÁO nếu máy đã chọn bị bận ở khung này.
   const searchKey =
     mode !== 'recurring' && from && to && !weekendBlocked && !invalidRange
-      ? `${from}|${to}|${typeFilter}`
+      ? `${from}|${to}`
       : '';
   useEffect(() => {
-    // Duyệt máy: đổi khung/loại → bỏ máy đã chọn (chống stale). Khóa preset: giữ nguyên máy.
-    if (pickOwn) setAssetId('');
     if (!searchKey) {
       setMachines(null);
       return;
@@ -155,9 +157,8 @@ export function BookingSheet({
     const timer = setTimeout(() => {
       const fromIso = new Date(from).toISOString();
       const toIso = new Date(to).toISOString();
-      const typeQ = typeFilter ? `&type=${encodeURIComponent(typeFilter)}` : '';
       fetch(
-        `/api/booking/availability?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}${typeQ}`,
+        `/api/booking/availability?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,
         { signal: c.signal },
       )
         .then(async (r) => {
@@ -170,18 +171,18 @@ export function BookingSheet({
       c.abort();
       clearTimeout(timer);
     };
-  }, [searchKey, from, to, typeFilter, pickOwn]);
+  }, [searchKey, from, to]);
 
-  // Khóa preset: cảnh báo khi máy đã chọn KHÔNG còn rảnh ở khung giờ vừa chọn.
-  const presetUnavailable =
-    !pickOwn &&
-    presetMachine != null &&
+  // Cảnh báo khi MÁY ĐÃ CHỌN không còn rảnh ở khung giờ vừa chọn.
+  const selectedBusy =
+    !!assetId &&
     machines !== null &&
     !!from &&
     !!to &&
     !weekendBlocked &&
     !invalidRange &&
-    !machines.some((m) => m.id === presetMachine.id);
+    !machines.some((m) => m.id === assetId);
+  const selected = poolList.find((m) => m.id === assetId) ?? presetMachine ?? null;
 
   const longBlocked = mode === 'normal' && isLong; // Thường không được >2 ngày
 
@@ -321,78 +322,93 @@ export function BookingSheet({
 
           {error && <p className="alert error">{error}</p>}
 
-          {/* Hàng trên gọn: Người mượn (admin) + Máy đã chọn (mở từ thẻ) trên CÙNG 1 hàng. */}
-          {(isAdmin || (!pickOwn && presetMachine)) && (
-            <div className="sheet-toprow">
-              {isAdmin && (
-                <div className="topcell">
-                  <span className="topcell-label">
-                    {t('bookingSheet.borrower')}
-                  </span>
-                  {borrower ? (
-                    <span className="chip">
-                      {borrower.fullName ?? borrower.sub}
-                      <button
-                        type="button"
-                        aria-label={t('bookingSheet.close')}
-                        onClick={() => setBorrower(null)}
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ) : (
-                    <Combobox
-                      placeholder={t('bookingSheet.borrowerSearch')}
-                      query={userQuery}
-                      onQuery={setUserQuery}
-                      options={userOptions}
-                      getKey={(u) => u.sub}
-                      renderOption={(u) => (
-                        <>
-                          <span>{u.fullName ?? u.sub}</span>
-                          {u.email && <small>{u.email}</small>}
-                        </>
-                      )}
-                      onSelect={(u) => {
-                        setBorrower(u);
-                        setUserQuery('');
-                        setUserOptions([]);
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-              {!pickOwn && presetMachine && (
-                <div className="topcell">
-                  <span className="topcell-label">
-                    {t('bookingSheet.pickedMachine', 'Máy đã chọn')}
-                  </span>
-                  <div className="picked-machine compact">
-                    <span className="pm-ico">🖥️</span>
-                    <div className="pm-info">
-                      <span className="mono pm-code">{presetMachine.code}</span>
-                      <span className="muted pm-spec">
-                        {presetMachine.type}
-                        {presetMachine.configuration
-                          ? ` · ${presetMachine.configuration}`
-                          : ''}
-                      </span>
-                    </div>
+          {/* Hàng trên: Người mượn (admin) + Máy trên CÙNG 1 hàng. Máy = chip + "Đổi máy";
+              bấm Đổi máy → dropdown chọn máy khác trong pool (scroll), không nhảy bảng. */}
+          <div className="sheet-toprow">
+            {isAdmin && (
+              <div className="topcell">
+                <span className="topcell-label">
+                  {t('bookingSheet.borrower')}
+                </span>
+                {borrower ? (
+                  <span className="chip">
+                    {borrower.fullName ?? borrower.sub}
                     <button
                       type="button"
-                      className="ghost sm"
-                      onClick={() => {
-                        setPickOwn(true);
-                        setAssetId('');
-                      }}
+                      aria-label={t('bookingSheet.close')}
+                      onClick={() => setBorrower(null)}
                     >
-                      {t('bookingSheet.changeMachine', 'Đổi máy')}
+                      ✕
                     </button>
+                  </span>
+                ) : (
+                  <Combobox
+                    placeholder={t('bookingSheet.borrowerSearch')}
+                    query={userQuery}
+                    onQuery={setUserQuery}
+                    options={userOptions}
+                    getKey={(u) => u.sub}
+                    renderOption={(u) => (
+                      <>
+                        <span>{u.fullName ?? u.sub}</span>
+                        {u.email && <small>{u.email}</small>}
+                      </>
+                    )}
+                    onSelect={(u) => {
+                      setBorrower(u);
+                      setUserQuery('');
+                      setUserOptions([]);
+                    }}
+                  />
+                )}
+              </div>
+            )}
+            <div className="topcell">
+              <span className="topcell-label">
+                {t('bookingSheet.machine', 'Máy')}
+              </span>
+              {editMachine || !selected ? (
+                <select
+                  className="machine-select"
+                  value={assetId}
+                  onChange={(e) => {
+                    setAssetId(e.target.value);
+                    if (e.target.value) setEditMachine(false);
+                  }}
+                >
+                  <option value="">
+                    {t('bookingSheet.pickMachine', '— Chọn máy —')}
+                  </option>
+                  {poolList.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.code} · {m.type}
+                      {m.configuration ? ` · ${m.configuration}` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="picked-machine compact">
+                  <span className="pm-ico">🖥️</span>
+                  <div className="pm-info">
+                    <span className="mono pm-code">{selected.code}</span>
+                    <span className="muted pm-spec">
+                      {selected.type}
+                      {selected.configuration
+                        ? ` · ${selected.configuration}`
+                        : ''}
+                    </span>
                   </div>
+                  <button
+                    type="button"
+                    className="ghost sm"
+                    onClick={() => setEditMachine(true)}
+                  >
+                    {t('bookingSheet.changeMachine', 'Đổi máy')}
+                  </button>
                 </div>
               )}
             </div>
-          )}
+          </div>
 
           {/* Ghi chú (member; admin không có ô này) — phòng ban đã ẩn (9.7). */}
           {mode !== 'recurring' && !isAdmin && (
@@ -524,74 +540,13 @@ export function BookingSheet({
                 <p className="alert warn">{t('bookingSheet.needAdvanced')}</p>
               )}
 
-              {/* Khóa preset (thẻ máy ở hàng trên) → chỉ cảnh báo khi hết rảnh. Duyệt → bảng chọn. */}
-              {!pickOwn && presetMachine ? (
-                presetUnavailable && (
-                  <p className="alert warn">
-                    {t(
-                      'bookingSheet.presetBusy',
-                      'Máy này đã bận ở khung giờ vừa chọn — đổi khung khác hoặc đổi máy.',
-                    )}
-                  </p>
-                )
-              ) : (
-                <>
-                  {/* Filter loại NGAY TRÊN danh sách máy trống */}
-                  <div className="filter-bar" style={{ marginBottom: '0.5rem' }}>
-                    <label className="field">
-                      <span>{t('bookingSheet.typeFilter')}</span>
-                      <select
-                        value={typeFilter}
-                        onChange={(e) => setTypeFilter(e.target.value)}
-                      >
-                        <option value="">{t('bookingSheet.allTypes')}</option>
-                        {assetTypes.map((ty) => (
-                          <option key={ty} value={ty}>
-                            {ty}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  {machines === null ? (
-                    <p className="muted">{t('bookingSheet.pickTime')}</p>
-                  ) : machines.length === 0 ? (
-                    <p className="muted">{t('booking.empty')}</p>
-                  ) : (
-                    <div className="table-wrap">
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th></th>
-                            <th>{t('booking.colCode')}</th>
-                            <th>{t('booking.colType')}</th>
-                            <th>{t('booking.colConfig')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {machines.map((m) => (
-                            <tr key={m.id}>
-                              <td>
-                                <input
-                                  type="radio"
-                                  name="pickAsset"
-                                  checked={assetId === m.id}
-                                  onChange={() => setAssetId(m.id)}
-                                />
-                              </td>
-                              <td>
-                                <span className="mono">{m.code}</span>
-                              </td>
-                              <td>{m.type}</td>
-                              <td>{m.configuration ?? '—'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+              {selectedBusy && (
+                <p className="alert warn">
+                  {t(
+                    'bookingSheet.presetBusy',
+                    'Máy này đã bận ở khung giờ vừa chọn — đổi khung hoặc đổi máy.',
                   )}
-                </>
+                </p>
               )}
 
               {/* #3: báo policy duyệt theo thời lượng (≤2 ngày tự duyệt / >2 ngày Admin). */}
@@ -629,7 +584,7 @@ export function BookingSheet({
                 weekendBlocked ||
                 invalidRange ||
                 !assetId ||
-                presetUnavailable
+                selectedBusy
               }
               onClick={() => void submit()}
             >

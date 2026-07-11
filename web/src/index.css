@@ -1677,6 +1677,36 @@ html[data-theme='dark']
 .picked-machine.compact .pm-code {
   font-size: 0.9rem;
 }
+.machine-select {
+  width: 100%;
+}
+
+/* Bảng máy: hàng tiêu đề + filter; cột Trả tô màu + chớp khi gần/quá hạn. */
+.board-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.due-near {
+  color: var(--warn);
+  font-weight: 700;
+  animation: dueBlink 1.3s ease-in-out infinite;
+}
+.due-over {
+  color: var(--danger);
+  font-weight: 700;
+  animation: dueBlink 0.8s ease-in-out infinite;
+}
+@keyframes dueBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
 /* Nhãn ngày trước dải chip "giờ trống" (Hôm nay / Ngày mai / thứ+ngày). */
 .slot-day {
   font-size: 0.72rem;
