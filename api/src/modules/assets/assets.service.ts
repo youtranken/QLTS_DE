@@ -359,6 +359,16 @@ export class AssetsService {
           installedOnAssetId: assetsTable.installedOnAssetId,
           installedOnCode: host.code,
           endDate: assetsTable.endDate,
+          // AC5: cột "Phần mềm" ở /tai-san — tên license đang cài trên MÁY này (gọn, inline).
+          // Subquery scalar/dòng, chỉ chạy trên trang (≤pageSize) nên không nặng.
+          installedSoftware: sql<string | null>`(
+            SELECT string_agg(sw.license_name, ', ' ORDER BY sw.license_name)
+            FROM assets sw
+            WHERE sw.installed_on_asset_id = ${assetsTable.id}
+              AND sw.type = 'software'
+              AND sw.status <> 'disposed'
+              AND sw.license_name IS NOT NULL
+          )`,
           // Người đứng tên: phần mềm DERIVE từ host (đi theo máy); máy thì của chính nó.
           assignedUserSub: sql<
             string | null

@@ -187,13 +187,104 @@ export function AssetsPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // id cột KHỚP whitelist BE (code/type/status/assignee) → map thẳng sang ?sort=.
-  const columns = useMemo<ColumnDef<AssetRow, unknown>[]>(
-    () => [
+  // Tab Phần mềm (softwareOnly) và Sổ tài sản dùng bộ cột KHÁC nhau (sw-license-model-redesign):
+  // phần mềm định danh bằng Tên license + Máy + Kỳ hạn; máy có cột "Phần mềm" gọn.
+  const columns = useMemo<ColumnDef<AssetRow, unknown>[]>(() => {
+    const statusCol: ColumnDef<AssetRow, unknown> = {
+      id: 'status',
+      accessorKey: 'status',
+      header: t('assets.statusLabel'),
+      cell: ({ row }) => (
+        <span className={`badge ${STATUS_BADGE[row.original.status] ?? 'muted'}`}>
+          {t(`assets.status.${row.original.status}`)}
+        </span>
+      ),
+    };
+    const actionsCol: ColumnDef<AssetRow, unknown> = {
+      id: 'actions',
+      header: '',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="table-actions">
+          <button
+            type="button"
+            className="sm"
+            onClick={(e) => {
+              e.stopPropagation(); // dòng có onRowClick — không mở 2 lần
+              void openEdit(row.original.id);
+            }}
+          >
+            {t('assets.edit')}
+          </button>
+          {softwareOnly && (
+            <button
+              type="button"
+              className="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                void copyFrom(row.original.id);
+              }}
+            >
+              {t('software.copy')}
+            </button>
+          )}
+        </div>
+      ),
+    };
+    if (softwareOnly) {
+      return [
+        {
+          id: 'license',
+          accessorKey: 'licenseName',
+          header: t('assets.licenseName'),
+          enableSorting: false, // định danh mới; sort theo tên license chưa whitelist BE
+          cell: ({ row }) => row.original.licenseName ?? '—',
+        },
+        {
+          id: 'host',
+          header: t('assets.hostCol'),
+          enableSorting: false,
+          cell: ({ row }) =>
+            row.original.installedOnCode ? (
+              <span className="mono">{row.original.installedOnCode}</span>
+            ) : (
+              <span className="muted">{t('assets.installedNone')}</span>
+            ),
+        },
+        {
+          id: 'assignee',
+          header: t('assets.assignee'),
+          enableSorting: false, // holder phần mềm DERIVE từ máy → sort theo assignee tĩnh vô nghĩa
+          cell: ({ row }) =>
+            row.original.assignedUserName ??
+            row.original.assignedUserSub ??
+            '—',
+        },
+        {
+          id: 'term',
+          header: t('assets.termCol'),
+          enableSorting: false,
+          cell: ({ row }) =>
+            row.original.licenseType === 'perpetual'
+              ? t('assets.licensePerpetual')
+              : (row.original.endDate ?? '—'),
+        },
+        statusCol,
+        actionsCol,
+      ];
+    }
+    return [
       {
         id: 'code',
         accessorKey: 'code',
         header: t('assets.code'),
-        cell: ({ row }) => <span className="mono">{row.original.code}</span>,
+        // Sổ tài sản có thể lẫn dòng phần mềm (không mã) → hiện Tên license thay mã.
+        cell: ({ row }) =>
+          row.original.code ? (
+            <span className="mono">{row.original.code}</span>
+          ) : (
+            (row.original.licenseName ?? '—')
+          ),
       },
       {
         id: 'type',
@@ -205,22 +296,26 @@ export function AssetsPage({
             : row.original.type,
       },
       {
+        id: 'software',
+        header: t('assets.swCol'),
+        enableSorting: false,
+        cell: ({ row }) =>
+          row.original.installedSoftware ? (
+            <span className="muted" style={{ fontSize: '0.85rem' }}>
+              {row.original.installedSoftware}
+            </span>
+          ) : (
+            <span className="muted">—</span>
+          ),
+      },
+      {
         id: 'assignee',
         accessorKey: 'assignedUserName',
         header: t('assets.assignee'),
         cell: ({ row }) =>
           row.original.assignedUserName ?? row.original.assignedUserSub ?? '—',
       },
-      {
-        id: 'status',
-        accessorKey: 'status',
-        header: t('assets.statusLabel'),
-        cell: ({ row }) => (
-          <span className={`badge ${STATUS_BADGE[row.original.status] ?? 'muted'}`}>
-            {t(`assets.status.${row.original.status}`)}
-          </span>
-        ),
-      },
+      statusCol,
       {
         id: 'pool',
         header: t('assets.pool'),
@@ -232,40 +327,9 @@ export function AssetsPage({
             <span className="muted">—</span>
           ),
       },
-      {
-        id: 'actions',
-        header: '',
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="table-actions">
-            <button
-              type="button"
-              className="sm"
-              onClick={(e) => {
-                e.stopPropagation(); // dòng có onRowClick — không mở 2 lần
-                void openEdit(row.original.id);
-              }}
-            >
-              {t('assets.edit')}
-            </button>
-            {softwareOnly && (
-              <button
-                type="button"
-                className="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void copyFrom(row.original.id);
-                }}
-              >
-                {t('software.copy')}
-              </button>
-            )}
-          </div>
-        ),
-      },
-    ],
-    [t, softwareOnly, openEdit, copyFrom],
-  );
+      actionsCol,
+    ];
+  }, [t, softwareOnly, openEdit, copyFrom]);
 
   return (
     <>
@@ -514,8 +578,9 @@ function AssetExpanded({ asset }: { asset: AssetRow }) {
           ) : (
             software.map((s) => (
               <div className="row" key={s.id}>
-                <span className="mono">{s.code}</span>
-                {s.licenseName ? ` — ${s.licenseName}` : ''}
+                {s.licenseName ?? (
+                  <span className="mono">{s.code}</span>
+                )}
               </div>
             ))
           )}

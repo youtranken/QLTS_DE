@@ -54,7 +54,7 @@ export function AssetForm({
   const [installedSoftware, setInstalledSoftware] = useState<
     Array<{
       id: string;
-      code: string;
+      code: string | null;
       licenseType: string | null;
       licenseName: string | null;
       endDate: string | null;
@@ -246,9 +246,11 @@ export function AssetForm({
     setError(null);
     setBusy(true);
     const payload: Record<string, unknown> = {
-      code: form.code,
+      // Phần mềm: KHÔNG có mã/cấu hình/người đứng tên (BE cũng normalize) — gửi null để
+      // qua DTO @IsOptional (chuỗi rỗng '' sẽ trượt @Length(1,100) → 400).
+      code: form.isSoftware ? null : form.code,
       type: form.isSoftware ? 'software' : form.type,
-      configuration: form.configuration || null,
+      configuration: form.isSoftware ? null : form.configuration || null,
       cost: form.cost === '' ? null : Number(form.cost),
       startDate: form.startDate || null,
       // perpetual không có hạn — không gửi endDate còn sót lại trong state
@@ -259,7 +261,7 @@ export function AssetForm({
       note: form.note || null,
       serial: form.serial || null,
       brand: form.brand || null,
-      assignedUserSub: form.assignedUserSub || null,
+      assignedUserSub: form.isSoftware ? null : form.assignedUserSub || null,
       licenseType: form.isSoftware ? form.licenseType || null : null,
       // term cũng được có tên license — không xóa ngầm khi sửa (review 2.4)
       licenseName: form.isSoftware ? form.licenseName || null : null,
@@ -571,7 +573,12 @@ export function AssetForm({
           <span className="sheet-title">
             {form.id ? (
               <>
-                {t('assets.edit')} · <span className="mono">{initial.code}</span>
+                {t('assets.edit')} ·{' '}
+                {initial.isSoftware ? (
+                  initial.licenseName || t('assets.kindSoftware')
+                ) : (
+                  <span className="mono">{initial.code}</span>
+                )}
               </>
             ) : (
               t('assets.addAsset')
@@ -644,17 +651,20 @@ export function AssetForm({
             <div className="form-section">
               <div className="form-section-title">{t('assets.sectionGeneral')}</div>
               <div className="form-grid">
-                <label className="field">
-                  <span>
-                    {t('assets.code')} <span className="field-req">*</span>
-                  </span>
-                  <input
-                    required
-                    maxLength={100}
-                    value={form.code}
-                    onChange={(e) => set('code')(e.target.value)}
-                  />
-                </label>
+                {/* Phần mềm định danh bằng Tên license → KHÔNG có Mã tài sản (sw-license-model-redesign) */}
+                {!form.isSoftware && (
+                  <label className="field">
+                    <span>
+                      {t('assets.code')} <span className="field-req">*</span>
+                    </span>
+                    <input
+                      required
+                      maxLength={100}
+                      value={form.code}
+                      onChange={(e) => set('code')(e.target.value)}
+                    />
+                  </label>
+                )}
                 {!form.isSoftware && (
                   <label className="field">
                     <span>
@@ -692,52 +702,53 @@ export function AssetForm({
                     </select>
                   </label>
                 )}
-                {form.isSoftware && form.licenseType && (
+                {/* Tên license: định danh phần mềm — BẮT BUỘC mọi license (không chỉ vĩnh viễn) */}
+                {form.isSoftware && (
                   <label className="field">
                     <span>
-                      {t('assets.licenseName')}
-                      {form.licenseType === 'perpetual' && (
-                        <span className="field-req"> *</span>
-                      )}
+                      {t('assets.licenseName')} <span className="field-req">*</span>
                     </span>
                     <input
-                      required={form.licenseType === 'perpetual'}
+                      required
                       maxLength={200}
                       value={form.licenseName}
                       onChange={(e) => set('licenseName')(e.target.value)}
                     />
                   </label>
                 )}
-                <label className="field span-2">
-                  <span>{t('assets.configuration')}</span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input
-                      list="catalog-config-list"
-                      maxLength={2000}
-                      style={{ flex: 1 }}
-                      value={form.configuration}
-                      onChange={(e) => set('configuration')(e.target.value)}
-                    />
-                    <datalist id="catalog-config-list">
-                      {catConfig.map((v) => (
-                        <option key={v} value={v} />
-                      ))}
-                    </datalist>
-                    <button
-                      type="button"
-                      className="sm"
-                      title={t('assets.configAdd')}
-                      disabled={
-                        addingConfig ||
-                        !form.configuration.trim() ||
-                        catConfig.includes(form.configuration.trim())
-                      }
-                      onClick={() => void addConfig()}
-                    >
-                      ＋
-                    </button>
-                  </div>
-                </label>
+                {/* Cấu hình: chỉ dành cho máy — phần mềm không có (sw-license-model-redesign) */}
+                {!form.isSoftware && (
+                  <label className="field span-2">
+                    <span>{t('assets.configuration')}</span>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        list="catalog-config-list"
+                        maxLength={2000}
+                        style={{ flex: 1 }}
+                        value={form.configuration}
+                        onChange={(e) => set('configuration')(e.target.value)}
+                      />
+                      <datalist id="catalog-config-list">
+                        {catConfig.map((v) => (
+                          <option key={v} value={v} />
+                        ))}
+                      </datalist>
+                      <button
+                        type="button"
+                        className="sm"
+                        title={t('assets.configAdd')}
+                        disabled={
+                          addingConfig ||
+                          !form.configuration.trim() ||
+                          catConfig.includes(form.configuration.trim())
+                        }
+                        onClick={() => void addConfig()}
+                      >
+                        ＋
+                      </button>
+                    </div>
+                  </label>
+                )}
                 <label className="field">
                   <span>{t('assets.cost')}</span>
                   <input
@@ -809,7 +820,9 @@ export function AssetForm({
                 </label>
               </div>
 
-              {/* 9.3: Người đứng tên đưa vào ngay Thông tin chung (trước là section riêng dưới cùng). */}
+              {/* 9.3: Người đứng tên đưa vào ngay Thông tin chung (trước là section riêng dưới cùng).
+                  sw-license-model-redesign: CHỈ máy — phần mềm derive holder từ máy nó gắn, không nhập tay. */}
+              {!form.isSoftware && (
               <div className="form-subsection">
                 <div className="form-section-title">{t('assets.assignee')}</div>
                 <div
@@ -873,6 +886,7 @@ export function AssetForm({
                   </label>
                 )}
               </div>
+              )}
             </div>
 
             {showLifecycle && (
@@ -1068,14 +1082,14 @@ export function AssetForm({
                   )}
                   onSelect={(a) => {
                     if (form.id) {
-                      // sửa: chuyển NGAY qua endpoint transfer (2.5)
-                      void transfer({ id: a.id, code: a.code });
+                      // sửa: chuyển NGAY qua endpoint transfer (2.5). Host là MÁY → luôn có mã.
+                      void transfer({ id: a.id, code: a.code ?? '' });
                       return;
                     }
                     setForm((f) => ({
                       ...f,
                       installedOnAssetId: a.id,
-                      installedOnCode: a.code,
+                      installedOnCode: a.code ?? '',
                     }));
                     setHostQuery('');
                     setHostOptions([]);
@@ -1094,7 +1108,7 @@ export function AssetForm({
                   <div className="swpick" style={{ marginBottom: '0.6rem' }}>
                     {pendingSw.map((s) => (
                       <span className="swchip" key={s.id}>
-                        {s.code}
+                        {s.licenseName ?? s.code}
                         <button
                           type="button"
                           aria-label={t('assets.detachSoftware')}
@@ -1121,7 +1135,7 @@ export function AssetForm({
                   getKey={(a) => a.id}
                   renderOption={(a) => (
                     <>
-                      <span>{a.code}</span>
+                      <span>{a.licenseName ?? a.code}</span>
                       <small>{t('assets.kindSoftware')}</small>
                     </>
                   )}
@@ -1147,9 +1161,9 @@ export function AssetForm({
                   <ul style={{ margin: '0 0 0.6rem', paddingLeft: '1.25rem' }}>
                     {installedSoftware.map((s) => (
                       <li key={s.id}>
-                        {s.code}
+                        {s.licenseName ?? s.code}
                         {s.licenseType === 'perpetual'
-                          ? ` — ${s.licenseName ?? ''} (${t('assets.licensePerpetual')})`
+                          ? ` (${t('assets.licensePerpetual')})`
                           : s.endDate
                             ? ` — ${t('assets.endDate')}: ${s.endDate}`
                             : ''}{' '}
@@ -1175,7 +1189,7 @@ export function AssetForm({
                   getKey={(a) => a.id}
                   renderOption={(a) => (
                     <>
-                      <span>{a.code}</span>
+                      <span>{a.licenseName ?? a.code}</span>
                       <small>{t('assets.kindSoftware')}</small>
                     </>
                   )}

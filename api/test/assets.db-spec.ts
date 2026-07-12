@@ -1219,6 +1219,16 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       [sw.body.id],
     );
     expect(alloc.rows[0].n).toBe(0);
+
+    // AC5: list MÁY trả kèm tên license đang cài (cột "Phần mềm" ở /tai-san)
+    const listMay = await request(app.getHttpServer())
+      .get('/api/admin/assets?search=SWM-MAY')
+      .set(asAdmin())
+      .expect(200);
+    const mayRow = listMay.body.items.find(
+      (r: { id: string }) => r.id === may.body.id,
+    );
+    expect(mayRow.installedSoftware).toContain('Autocad');
   });
 
   it('export quá 10000 dòng → 400 EXPORT_TOO_LARGE (2.10)', async () => {

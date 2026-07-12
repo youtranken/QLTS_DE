@@ -2,7 +2,8 @@
 
 export interface AssetRow {
   id: string;
-  code: string;
+  /** null cho phần mềm (định danh bằng licenseName). */
+  code: string | null;
   type: string;
   status: string;
   isPool: boolean;
@@ -10,6 +11,13 @@ export interface AssetRow {
   assignedUserName: string | null;
   /** 2.5: license term sắp hết hạn đang gắn máy không-thanh-lý → dòng đỏ. */
   licenseWarning?: boolean;
+  // sw-license-model-redesign: list trả kèm để tab Phần mềm + cột "Phần mềm" ở /tai-san hiển thị.
+  licenseName?: string | null;
+  licenseType?: string | null;
+  installedOnCode?: string | null;
+  endDate?: string | null;
+  /** Tên các license đang cài trên MÁY này (comma-joined) — chỉ có ở dòng máy. */
+  installedSoftware?: string | null;
 }
 
 export interface AssetDetail extends AssetRow {
@@ -141,7 +149,7 @@ export function detailToForm(a: AssetDetail): FormState {
     version: a.version,
     status: a.status,
     isPool: a.isPool,
-    code: a.code,
+    code: a.code ?? '',
     type: a.type,
     configuration: a.configuration ?? '',
     cost: a.cost == null ? '' : String(a.cost),

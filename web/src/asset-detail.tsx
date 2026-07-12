@@ -33,7 +33,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
   const [software, setSoftware] = useState<
     Array<{
       id: string;
-      code: string;
+      code: string | null;
       licenseType: string | null;
       licenseName: string | null;
       endDate: string | null;
@@ -146,7 +146,8 @@ export function AssetDetailPage({ me }: { me: Me }) {
   }
 
   const info: Array<[string, React.ReactNode]> = [
-    [t('assets.code'), detail.code],
+    // Phần mềm không có Mã tài sản (định danh bằng Tên license, hiển thị ở khối software bên dưới).
+    [t('assets.code'), detail.type === 'software' ? null : detail.code],
     [
       t('assets.type'),
       detail.type === 'software' ? t('assets.kindSoftware') : detail.type,
@@ -198,7 +199,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
         <Link to="/tai-san">‹ {t('assets.backToList')}</Link>
       </p>
       <div className="page-header">
-        <h1>{detail.code}</h1>
+        <h1>{detail.code ?? detail.licenseName ?? '—'}</h1>
         <button type="button" className="primary" onClick={() => setEditing(true)}>
           {t('assets.edit')}
         </button>
@@ -225,9 +226,9 @@ export function AssetDetailPage({ me }: { me: Me }) {
             <ul style={{ margin: '0.25rem 0', paddingLeft: '1.25rem' }}>
               {software.map((s) => (
                 <li key={s.id}>
-                  {s.code}
+                  {s.licenseName ?? s.code}
                   {s.licenseType === 'perpetual'
-                    ? ` — ${s.licenseName ?? ''} (${t('assets.licensePerpetual')})`
+                    ? ` (${t('assets.licensePerpetual')})`
                     : s.endDate
                       ? ` — ${t('assets.endDate')}: ${s.endDate}`
                       : ''}
