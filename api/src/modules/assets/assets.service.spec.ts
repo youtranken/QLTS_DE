@@ -70,6 +70,7 @@ async function catchHttp(promise: Promise<unknown>): Promise<HttpException> {
 describe('AssetsService (story 2.1)', () => {
   it('create: mã trùng (23505 assets_code_key) → 409 CODE_TAKEN, KHÔNG ghi audit', async () => {
     const db = {
+      execute: () => Promise.resolve({ rows: [] }),
       insert: () => ({
         values: () => ({
           returning: () => Promise.reject(pgError('23505', 'assets_code_key')),
@@ -85,6 +86,7 @@ describe('AssetsService (story 2.1)', () => {
 
   it('create: người đứng tên không tồn tại (23503) → 400 ASSIGNEE_NOT_FOUND', async () => {
     const db = {
+      execute: () => Promise.resolve({ rows: [] }),
       insert: () => ({
         values: () => ({
           returning: () => Promise.reject(pgError('23503')),
@@ -101,6 +103,7 @@ describe('AssetsService (story 2.1)', () => {
 
   it('create: ngày không hợp lệ lọt tới DB (22007) → 400 BAD_DATE', async () => {
     const db = {
+      execute: () => Promise.resolve({ rows: [] }),
       insert: () => ({
         values: () => ({
           returning: () => Promise.reject(pgError('22007')),
@@ -115,6 +118,7 @@ describe('AssetsService (story 2.1)', () => {
   it('create: thành công → audit assets.create với actor/objectId', async () => {
     const created = { id: 'uuid-1', code: baseInput.code, type: 'laptop' };
     const db = {
+      execute: () => Promise.resolve({ rows: [] }),
       insert: () => ({
         values: () => ({ returning: () => Promise.resolve([created]) }),
       }),
@@ -267,6 +271,7 @@ describe('AssetsService (story 2.1)', () => {
     };
     const historyValues = jest.fn().mockResolvedValue(undefined);
     const db = {
+      execute: () => Promise.resolve({ rows: [] }),
       insert: jest
         .fn()
         // lần 1: insert assets; lần 2: insert allocation_history

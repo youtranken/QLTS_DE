@@ -92,6 +92,9 @@ export class ImportService {
     try {
       const result = await this.db.transaction(async (tx) => {
         let needsMatch = 0;
+        // A1 (UAT 2026-07-12): giữ danh mục đồng bộ — loại/cấu hình mới trong file import tự vào
+        // catalog (import là nguồn bulk). Ngăn "type mồ côi" như 'PC' từng lọt vào ngoài danh mục.
+        await this.syncCatalog(tx, machines);
         // MÁY trước — software cùng file gắn được vào máy vừa import (AC 4)
         const machineIdByUserSub = new Map<string, string[]>();
         for (const row of machines) {
@@ -302,6 +305,37 @@ export class ImportService {
       matched,
       remaining: pending.length - matched - resolvedManually,
     };
+  }
+
+  /**
+   * A1: upsert loại + cấu hình của các dòng máy vào catalog (kind='type'/'configuration').
+   * Idempotent (ON CONFLICT). Giữ danh mục ⊇ mọi giá trị đang có → không có "giá trị mồ côi".
+   */
+  private async syncCatalog(
+    tx: Pick<Database, 'execute'>,
+    machines: ImportRow[],
+  ): Promise<void> {
+    const add = async (kind: string, raw: Array<string | null | undefined>) => {
+      const uniq = [
+        ...new Set(
+          raw.map((v) => (v ?? '').trim()).filter((v) => v.length > 0),
+        ),
+      ];
+      for (const value of uniq) {
+        await tx.execute(sql`
+          INSERT INTO catalog (kind, value) VALUES (${kind}, ${value})
+          ON CONFLICT (kind, value) DO NOTHING
+        `);
+      }
+    };
+    await add(
+      'type',
+      machines.map((r) => r.type),
+    );
+    await add(
+      'configuration',
+      machines.map((r) => r.configuration),
+    );
   }
 
   /**

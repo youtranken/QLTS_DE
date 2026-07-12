@@ -92,6 +92,22 @@ export class AssetsService {
   ) {}
 
   /**
+   * A1 (UAT 2026-07-12): bảo đảm loại thiết bị luôn ∈ danh mục Loại (catalog kind='type').
+   * UPSERT thay vì reject: form đã ép chọn từ dropdown (không typo được); đây là chốt bất biến
+   * cho đường API/ghi trực tiếp + tự chữa, nhất quán với import → KHÔNG bao giờ có "type mồ côi".
+   * (0034 backfill lo các orphan có sẵn + đưa vào dropdown; typo bulk admin gộp ở Danh mục.)
+   */
+  private async ensureTypeInCatalog(
+    tx: Pick<Database, 'execute'>,
+    type: string,
+  ): Promise<void> {
+    await tx.execute(sql`
+      INSERT INTO catalog (kind, value) VALUES ('type', ${type})
+      ON CONFLICT (kind, value) DO NOTHING
+    `);
+  }
+
+  /**
    * Tạo tài sản — mặc định status in_use, pool TẮT (AC 1); mã trùng → 409 CODE_TAKEN.
    * Mutation + audit trong MỘT transaction (review 2.1): ghi vết thất bại →
    * rollback cả tạo (FR-35 — sổ tài sản không được "đổi mà mất vết").
@@ -114,6 +130,10 @@ export class AssetsService {
       return await this.db.transaction(async (tx) => {
         if (installedOnAssetId) {
           await this.software.assertInstallTarget(tx, installedOnAssetId);
+        }
+        // A1 (UAT 2026-07-12): loại thiết bị phải thuộc danh mục Loại — chặn tạo "type mồ côi".
+        if (input.type !== 'software') {
+          await this.ensureTypeInCatalog(tx, input.type);
         }
         const rows = await tx
           .insert(assetsTable)
@@ -200,6 +220,10 @@ export class AssetsService {
             message:
               'Không thể đổi bản ghi giữa thiết bị và phần mềm — tạo bản ghi mới.',
           });
+        }
+        // A1: loại thiết bị phải thuộc danh mục Loại (chặn sửa sang "type mồ côi").
+        if (input.type !== 'software') {
+          await this.ensureTypeInCatalog(tx, input.type);
         }
         const result = await tx.execute<Record<string, unknown>>(sql`
           UPDATE assets AS a

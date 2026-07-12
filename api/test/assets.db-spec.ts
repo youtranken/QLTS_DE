@@ -46,7 +46,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     process.env.AUTH_DEV_MODE = 'true';
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query(
-      'DROP TABLE IF EXISTS outbox, ticket_file, booking, ticket, inventory_round_files, inventory_rounds, files, asset_note, allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
+      'DROP TABLE IF EXISTS catalog, outbox, ticket_file, booking, ticket, inventory_round_files, inventory_rounds, files, asset_note, allocation_history, assets, sessions, audit_log, users, config, _migrations CASCADE',
     );
     await runMigrations(pool, join(__dirname, '..', 'src', 'migrations'), {
       log: () => undefined,
@@ -1473,5 +1473,35 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .send({ assignedUserSub: 'sub-u1', version: a.version + 9 })
       .expect(409);
     expect(stale.body.code).toBe('STALE_VERSION');
+  });
+
+  // ── A1: type luôn ∈ catalog (không "mồ côi") ──
+  it('A1: tạo thiết bị loại mới → catalog tự có loại đó (kind=type)', async () => {
+    const before = await pool.query(
+      "SELECT 1 FROM catalog WHERE kind='type' AND value='serverrack'",
+    );
+    expect(before.rowCount).toBe(0);
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'A1-NEW', type: 'serverrack' })
+      .expect(201);
+    const after = await pool.query(
+      "SELECT 1 FROM catalog WHERE kind='type' AND value='serverrack'",
+    );
+    expect(after.rowCount).toBe(1);
+  });
+
+  it('A1: sửa đổi loại sang giá trị mới → catalog tự có; không tạo trùng', async () => {
+    const a = await makeAsset('A1-EDIT', 'laptop');
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${a.id}`)
+      .set(asAdmin())
+      .send({ code: 'A1-EDIT', type: 'workstation', version: a.version })
+      .expect(200);
+    const cat = await pool.query(
+      "SELECT count(*)::int AS n FROM catalog WHERE kind='type' AND value='workstation'",
+    );
+    expect(cat.rows[0].n).toBe(1);
   });
 });
