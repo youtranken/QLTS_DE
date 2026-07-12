@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
 import { AssetOwnerPanel } from './asset-owner-panel';
+import { AssetSoftwarePicker } from './asset-software-picker';
 import type { Me } from './panels';
 import {
   detailToForm,
@@ -1097,102 +1098,33 @@ export function AssetForm({
 
             {/* #2: chọn phần mềm cài sẵn NGAY khi tạo máy — gắn sau khi tạo. */}
             {!form.id && !form.isSoftware && (
-              <div className="form-section">
-                <div className="form-section-title">
-                  {t('assets.installedSoftware')}
-                </div>
-                {pendingSw.length > 0 && (
-                  <div className="swpick" style={{ marginBottom: '0.6rem' }}>
-                    {pendingSw.map((s) => (
-                      <span className="swchip" key={s.id}>
-                        {s.licenseName ?? s.code}
-                        <button
-                          type="button"
-                          aria-label={t('assets.detachSoftware')}
-                          onClick={() =>
-                            setPendingSw((prev) =>
-                              prev.filter((x) => x.id !== s.id),
-                            )
-                          }
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <Combobox
-                  placeholder={t('assets.attachSoftwareSearch')}
-                  query={swQuery}
-                  onQuery={setSwQuery}
-                  options={swOptions.filter(
-                    (o) => !pendingSw.some((p) => p.id === o.id),
-                  )}
-                  disabled={busy}
-                  getKey={(a) => a.id}
-                  renderOption={(a) => (
-                    <>
-                      <span>{a.licenseName ?? a.code}</span>
-                      <small>{t('assets.kindSoftware')}</small>
-                    </>
-                  )}
-                  onSelect={(a) => {
-                    setPendingSw((prev) => [...prev, a]);
-                    setSwQuery('');
-                    setSwOptions([]);
-                  }}
-                />
-              </div>
+              <AssetSoftwarePicker
+                isCreate
+                busy={busy}
+                swQuery={swQuery}
+                setSwQuery={setSwQuery}
+                swOptions={swOptions}
+                pendingSw={pendingSw}
+                setPendingSw={setPendingSw}
+                installedSoftware={[]}
+                moveSoftware={moveSoftware}
+                machineId={null}
+              />
             )}
 
             {form.id && !form.isSoftware && form.status !== 'disposed' && (
-              <div className="form-section">
-                <div className="form-section-title">
-                  {t('assets.installedSoftware')}
-                </div>
-                {installedSoftware.length === 0 ? (
-                  <p className="muted" style={{ margin: '0 0 0.6rem' }}>
-                    {t('assets.installedSoftwareNone')}
-                  </p>
-                ) : (
-                  <ul style={{ margin: '0 0 0.6rem', paddingLeft: '1.25rem' }}>
-                    {installedSoftware.map((s) => (
-                      <li key={s.id}>
-                        {s.licenseName ?? s.code}
-                        {s.licenseType === 'perpetual'
-                          ? ` (${t('assets.licensePerpetual')})`
-                          : s.endDate
-                            ? ` — ${t('assets.endDate')}: ${s.endDate}`
-                            : ''}{' '}
-                        <button
-                          type="button"
-                          className="ghost sm"
-                          disabled={busy}
-                          onClick={() => void moveSoftware(s.id, null)}
-                        >
-                          {t('assets.detachSoftware')}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {/* 9.4: gắn nhanh phần mềm đã có vào máy này (tạo mới ở tab Phần mềm). */}
-                <Combobox
-                  placeholder={t('assets.attachSoftwareSearch')}
-                  query={swQuery}
-                  onQuery={setSwQuery}
-                  options={swOptions}
-                  disabled={busy}
-                  getKey={(a) => a.id}
-                  renderOption={(a) => (
-                    <>
-                      <span>{a.licenseName ?? a.code}</span>
-                      <small>{t('assets.kindSoftware')}</small>
-                    </>
-                  )}
-                  onSelect={(a) => void moveSoftware(a.id, form.id)}
-                />
-              </div>
+              <AssetSoftwarePicker
+                isCreate={false}
+                busy={busy}
+                swQuery={swQuery}
+                setSwQuery={setSwQuery}
+                swOptions={swOptions}
+                pendingSw={[]}
+                setPendingSw={setPendingSw}
+                installedSoftware={installedSoftware}
+                moveSoftware={moveSoftware}
+                machineId={form.id}
+              />
             )}
 
           </div>
