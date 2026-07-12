@@ -32,9 +32,12 @@ const PAGE_SIZE = 20;
 export function AssetsPage({
   me,
   softwareOnly = false,
+  disposedOnly = false,
 }: {
   me: Me;
   softwareOnly?: boolean;
+  // B4 (UAT 2026-07-12): "Kho thanh lý" — chỉ tài sản đã thanh lý (đọc) + Tái sử dụng.
+  disposedOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -110,6 +113,7 @@ export function AssetsPage({
         status,
         expiring,
         softwareOnly,
+        disposedOnly,
         sort: sorting[0]?.id ?? null,
         dir: sorting[0]?.desc ? 'desc' : 'asc',
       },
@@ -123,7 +127,9 @@ export function AssetsPage({
       // Tab Phần mềm: khóa cứng type=software (bỏ qua dropdown loại).
       if (softwareOnly) params.set('type', 'software');
       else if (type) params.set('type', type);
-      if (status) params.set('status', status);
+      // Kho thanh lý: khóa cứng status=disposed (bỏ qua dropdown trạng thái).
+      if (disposedOnly) params.set('status', 'disposed');
+      else if (status) params.set('status', status);
       if (expiring) params.set('expiring', 'true');
       if (sorting.length > 0) {
         params.set('sort', sorting[0].id);
@@ -248,19 +254,10 @@ export function AssetsPage({
       id: 'actions',
       header: '',
       enableSorting: false,
-      cell: ({ row }) => (
-        <div className="table-actions">
-          <button
-            type="button"
-            className="sm"
-            onClick={(e) => {
-              e.stopPropagation(); // dòng có onRowClick — không mở 2 lần
-              void openEdit(row.original.id);
-            }}
-          >
-            {t('assets.edit')}
-          </button>
-          {softwareOnly && (
+      // Kho thanh lý: hồ sơ đã chốt (không Sửa/Xóa) — chỉ "Tái sử dụng" = tạo tài sản MỚI từ template.
+      cell: ({ row }) =>
+        disposedOnly ? (
+          <div className="table-actions">
             <button
               type="button"
               className="sm"
@@ -269,21 +266,45 @@ export function AssetsPage({
                 void copyFrom(row.original.id);
               }}
             >
-              {t('software.copy')}
+              {t('assets.reuse', 'Tái sử dụng')}
             </button>
-          )}
-          <button
-            type="button"
-            className="sm danger"
-            onClick={(e) => {
-              e.stopPropagation();
-              void handleDelete(row.original);
-            }}
-          >
-            {t('assets.delete')}
-          </button>
-        </div>
-      ),
+          </div>
+        ) : (
+          <div className="table-actions">
+            <button
+              type="button"
+              className="sm"
+              onClick={(e) => {
+                e.stopPropagation(); // dòng có onRowClick — không mở 2 lần
+                void openEdit(row.original.id);
+              }}
+            >
+              {t('assets.edit')}
+            </button>
+            {softwareOnly && (
+              <button
+                type="button"
+                className="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void copyFrom(row.original.id);
+                }}
+              >
+                {t('software.copy')}
+              </button>
+            )}
+            <button
+              type="button"
+              className="sm danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleDelete(row.original);
+              }}
+            >
+              {t('assets.delete')}
+            </button>
+          </div>
+        ),
     };
     if (softwareOnly) {
       return [
@@ -390,13 +411,19 @@ export function AssetsPage({
       },
       actionsCol,
     ];
-  }, [t, softwareOnly, openEdit, copyFrom, handleDelete]);
+  }, [t, softwareOnly, disposedOnly, openEdit, copyFrom, handleDelete]);
 
   return (
     <>
       <div className="page-header">
-        <h1>{softwareOnly ? t('software.title') : t('nav.assets')}</h1>
-        {!softwareOnly && (
+        <h1>
+          {disposedOnly
+            ? t('disposed.title', 'Kho thanh lý')
+            : softwareOnly
+              ? t('software.title')
+              : t('nav.assets')}
+        </h1>
+        {!softwareOnly && !disposedOnly && (
           <>
             <Link className="linkbtn" to="/tai-san/kiem-ke">
               {t('inventory.link')}
@@ -431,17 +458,19 @@ export function AssetsPage({
             {t('assets.exportExcel')}
           </a>
         )}
-        <button
-          type="button"
-          className="primary"
-          onClick={() =>
-            setForm(
-              softwareOnly ? { ...EMPTY_FORM, isSoftware: true } : EMPTY_FORM,
-            )
-          }
-        >
-          {softwareOnly ? t('software.add') : t('assets.addAsset')}
-        </button>
+        {!disposedOnly && (
+          <button
+            type="button"
+            className="primary"
+            onClick={() =>
+              setForm(
+                softwareOnly ? { ...EMPTY_FORM, isSoftware: true } : EMPTY_FORM,
+              )
+            }
+          >
+            {softwareOnly ? t('software.add') : t('assets.addAsset')}
+          </button>
+        )}
       </div>
       {(error || listError) && (
         <p className="alert error">{error ?? t('assets.loadFailed')}</p>
@@ -469,20 +498,22 @@ export function AssetsPage({
             ))}
           </select>
         )}
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">{t('assets.filterStatus')}</option>
-          {['in_use', 'locked_repair', 'disposed'].map((v) => (
-            <option key={v} value={v}>
-              {t(`assets.status.${v}`)}
-            </option>
-          ))}
-        </select>
+        {!disposedOnly && (
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">{t('assets.filterStatus')}</option>
+            {['in_use', 'locked_repair', 'disposed'].map((v) => (
+              <option key={v} value={v}>
+                {t(`assets.status.${v}`)}
+              </option>
+            ))}
+          </select>
+        )}
         {expiring && (
           <span className="chip">
             {t('assets.expiringFilter')}

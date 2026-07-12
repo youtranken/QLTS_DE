@@ -289,6 +289,7 @@ function navGroups(role: string): NavGroup[] {
         { to: '/phan-mem', key: 'nav.software' },
         { to: '/pool-may-muon', key: 'nav.pool' },
         { to: '/tai-san/kiem-ke', key: 'nav.inventory' },
+        { to: '/tai-san/thanh-ly', key: 'nav.disposed' },
         { to: '/bao-cao', key: 'nav.reports' },
       ],
     });
@@ -481,6 +482,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
                   <InventoryPage me={me} />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/tai-san/thanh-ly"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <AssetsPage me={me} disposedOnly />
                 </RequireRole>
               }
             />
