@@ -96,4 +96,15 @@ describe('Pool máy cho mượn (story 8.3)', () => {
   it('Mã không tồn tại → 404', async () => {
     await addPool('KHONG-CO').expect(404);
   });
+
+  it('B1: pool trả installedSoftware của máy (phần mềm đang cài)', async () => {
+    await pool.query(
+      "UPDATE assets SET installed_on_asset_id = (SELECT id FROM assets WHERE code='PC-1') WHERE code='SW-1'",
+    );
+    const list = await getPool().expect(200);
+    const pc1 = (
+      list.body as Array<{ code: string; installedSoftware: string | null }>
+    ).find((x) => x.code === 'PC-1');
+    expect(pc1?.installedSoftware).toBe('WinX');
+  });
 });

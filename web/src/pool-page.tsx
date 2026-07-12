@@ -20,6 +20,8 @@ interface PoolItem {
   status: string;
   version: number;
   assignedUserName: string | null;
+  // B1 (UAT 2026-07-12): phần mềm đang cài trên máy (comma-joined), lấy từ BE pool list.
+  installedSoftware: string | null;
 }
 
 const typeIcon = (type: string | null): string => {
@@ -214,35 +216,47 @@ export function PoolPage({ me }: { me: Me }) {
       {items.length === 0 ? (
         <p className="muted">{t('pool.empty')}</p>
       ) : (
-        <div className="mcatalog">
-          {items.map((it) => (
-            <div key={it.id} className="mcard">
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}
-              >
-                <div className="mc-ico">{typeIcon(it.type)}</div>
-                <button
-                  type="button"
-                  className="sm danger"
-                  disabled={busy}
-                  onClick={() => void remove(it)}
-                >
-                  {t('pool.remove')}
-                </button>
-              </div>
-              <div className="mc-code">{it.code}</div>
-              <div className="mc-spec">
-                {it.type}
-                {it.configuration ? ` · ${it.configuration}` : ''}
-                {it.brand ? ` · ${it.brand}` : ''}
-              </div>
-              {it.assignedUserName && (
-                <div className="mc-spec mc-foot">
-                  {t('pool.owner', 'Chủ máy')}: {it.assignedUserName}
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{t('pool.colCode', 'Mã tài sản')}</th>
+                <th>{t('pool.colType', 'Loại')}</th>
+                <th>{t('pool.colConfig', 'Cấu hình')}</th>
+                <th>{t('pool.colSoftware', 'Phần mềm')}</th>
+                <th>{t('pool.owner', 'Chủ máy')}</th>
+                <th aria-label={t('pool.remove')} />
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it) => (
+                <tr key={it.id}>
+                  <td>
+                    <span className="mono">
+                      {typeIcon(it.type)} {it.code}
+                    </span>
+                  </td>
+                  <td>
+                    {it.type}
+                    {it.brand ? ` · ${it.brand}` : ''}
+                  </td>
+                  <td>{it.configuration ?? '—'}</td>
+                  <td>{it.installedSoftware ?? '—'}</td>
+                  <td>{it.assignedUserName ?? '—'}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="sm danger"
+                      disabled={busy}
+                      onClick={() => void remove(it)}
+                    >
+                      {t('pool.remove')}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </section>

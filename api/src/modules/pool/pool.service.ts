@@ -21,6 +21,8 @@ export interface PoolItem {
   status: string;
   version: number;
   assignedUserName: string | null;
+  // B1 (UAT 2026-07-12): phần mềm đang cài trên máy (comma-joined) — cột "Phần mềm" ở bảng pool.
+  installedSoftware: string | null;
 }
 
 /**
@@ -47,6 +49,13 @@ export class PoolService {
         status: assetsTable.status,
         version: assetsTable.version,
         assignedUserName: usersTable.fullName,
+        // B1: phần mềm đang cài trên máy này (self-join qua installed_on_asset_id).
+        installedSoftware: sql<string | null>`(
+          SELECT string_agg(sw.license_name, ', ' ORDER BY sw.license_name)
+          FROM assets sw
+          WHERE sw.installed_on_asset_id = ${assetsTable.id}
+            AND sw.type = 'software'
+        )`,
       })
       .from(assetsTable)
       .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
@@ -123,6 +132,12 @@ export class PoolService {
         status: assetsTable.status,
         version: assetsTable.version,
         assignedUserName: usersTable.fullName,
+        installedSoftware: sql<string | null>`(
+          SELECT string_agg(sw.license_name, ', ' ORDER BY sw.license_name)
+          FROM assets sw
+          WHERE sw.installed_on_asset_id = ${assetsTable.id}
+            AND sw.type = 'software'
+        )`,
       })
       .from(assetsTable)
       .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
