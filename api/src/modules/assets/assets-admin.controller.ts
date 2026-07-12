@@ -43,10 +43,12 @@ const trim = Transform(({ value }: { value: unknown }) =>
 );
 
 class AssetBodyDto {
+  // Phần mềm KHÔNG cần mã (định danh bằng license_name); máy bắt buộc — service validate.
+  @IsOptional()
   @trim
   @IsString()
   @Length(1, 100)
-  code!: string;
+  code?: string | null;
 
   @trim
   @IsString()

@@ -21,7 +21,8 @@ import { escapeCellDisplay } from './import-parser';
 
 /** Trường Admin nhập được từ form (FR-30). status/is_pool KHÔNG ở đây — nghiệp vụ 2.6. */
 export interface AssetInput {
-  code: string;
+  /** NULL cho phần mềm (định danh bằng license_name). Máy bắt buộc có — validate ở service. */
+  code: string | null;
   type: string;
   configuration: string | null;
   cost: number | null;
@@ -1150,6 +1151,11 @@ export function validateSoftwareInput(input: AssetInput): void {
     throw new BadRequestException({ code, message });
   };
   if (input.type === 'software') {
+    // license_name là ĐỊNH DANH phần mềm (thay mã tài sản, story sw-license-model-redesign)
+    // → MỌI loại license đều bắt buộc, không chỉ perpetual.
+    if (!input.licenseName) {
+      bad('LICENSE_NAME_REQUIRED', 'Phần mềm phải có tên license.');
+    }
     if (input.licenseType !== 'term' && input.licenseType !== 'perpetual') {
       bad(
         'LICENSE_TYPE_REQUIRED',
@@ -1162,22 +1168,20 @@ export function validateSoftwareInput(input: AssetInput): void {
         'License có thời hạn phải có ngày hết hạn.',
       );
     }
-    if (input.licenseType === 'perpetual') {
-      if (!input.licenseName) {
-        bad('LICENSE_NAME_REQUIRED', 'License vĩnh viễn phải có tên license.');
-      }
-      if (input.endDate) {
-        bad(
-          'LICENSE_PERPETUAL_NO_END',
-          'License vĩnh viễn không có ngày hết hạn.',
-        );
-      }
+    if (input.licenseType === 'perpetual' && input.endDate) {
+      bad('LICENSE_PERPETUAL_NO_END', 'License vĩnh viễn không có ngày hết hạn.');
     }
-  } else if (input.licenseType || input.licenseName) {
-    bad(
-      'SOFTWARE_FIELDS_ONLY',
-      'Trường license chỉ dành cho bản ghi phần mềm.',
-    );
+  } else {
+    // Máy (không phải phần mềm) BẮT BUỘC có mã (code đã nullable ở DB — chốt tại đây).
+    if (!input.code) {
+      bad('CODE_REQUIRED', 'Tài sản phải có mã.');
+    }
+    if (input.licenseType || input.licenseName) {
+      bad(
+        'SOFTWARE_FIELDS_ONLY',
+        'Trường license chỉ dành cho bản ghi phần mềm.',
+      );
+    }
   }
 }
 

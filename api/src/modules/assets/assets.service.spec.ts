@@ -420,8 +420,27 @@ describe('lifecycle (2.6, FR-33/32)', () => {
   });
 });
 
-describe('validateSoftwareInput (2.4, FR-38)', () => {
-  const sw = { ...baseInput, type: 'software' };
+describe('validateSoftwareInput (2.4, FR-38 + sw-license-model-redesign)', () => {
+  // license_name là ĐỊNH DANH phần mềm → sw base có sẵn để tách bạch các check khác
+  const sw = { ...baseInput, type: 'software', licenseName: 'Office 365' };
+
+  it('software thiếu licenseName → LICENSE_NAME_REQUIRED (định danh)', () => {
+    expect(() =>
+      validateSoftwareInput({ ...sw, licenseName: null, licenseType: 'term' }),
+    ).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({ code: 'LICENSE_NAME_REQUIRED' }),
+      }),
+    );
+  });
+
+  it('máy (không phải phần mềm) thiếu code → CODE_REQUIRED', () => {
+    expect(() => validateSoftwareInput({ ...baseInput, code: null })).toThrow(
+      expect.objectContaining({
+        response: expect.objectContaining({ code: 'CODE_REQUIRED' }),
+      }),
+    );
+  });
 
   it('software thiếu licenseType → LICENSE_TYPE_REQUIRED', () => {
     expect(() => validateSoftwareInput(sw)).toThrow(
@@ -445,7 +464,11 @@ describe('validateSoftwareInput (2.4, FR-38)', () => {
 
   it('perpetual thiếu tên / có endDate → bị chặn; hợp lệ thì qua', () => {
     expect(() =>
-      validateSoftwareInput({ ...sw, licenseType: 'perpetual' }),
+      validateSoftwareInput({
+        ...sw,
+        licenseType: 'perpetual',
+        licenseName: null,
+      }),
     ).toThrow(
       expect.objectContaining({
         response: expect.objectContaining({ code: 'LICENSE_NAME_REQUIRED' }),

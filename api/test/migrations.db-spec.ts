@@ -75,6 +75,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0030_booking_note_department.sql',
       '0031_catalog.sql',
       '0032_sessions_local_sa.sql',
+      '0033_software_code_nullable.sql',
     ]);
   });
 
