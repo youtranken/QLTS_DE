@@ -453,7 +453,12 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     const noEnd = await request(app.getHttpServer())
       .post('/api/admin/assets')
       .set(asAdmin())
-      .send({ code: 'SW-01', type: 'software', licenseType: 'term' })
+      .send({
+        code: 'SW-01',
+        type: 'software',
+        licenseName: 'Autocad',
+        licenseType: 'term',
+      })
       .expect(400);
     expect(noEnd.body.code).toBe('LICENSE_END_DATE_REQUIRED');
 
@@ -472,6 +477,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .send({
         code: 'SW-01',
         type: 'software',
+        licenseName: 'Autocad',
         licenseType: 'term',
         endDate: '2027-06-30',
         installedOnAssetId: machineId,
@@ -875,6 +881,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .send({
         code: 'SW-DISP',
         type: 'software',
+        licenseName: 'Autocad',
         licenseType: 'term',
         endDate: '2026-07-10',
         installedOnAssetId: may.body.id,
@@ -1127,6 +1134,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .send({
         code: 'SW-02',
         type: 'software',
+        licenseName: 'Office LTSC',
         licenseType: 'term',
         endDate: '2028-01-31',
         version: sw.version,
@@ -1138,7 +1146,8 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     );
     expect(after.rows[0]).toEqual({
       license_type: 'term',
-      license_name: null, // PUT full-set: không gửi licenseName → null (term không bắt buộc tên)
+      // sw-license-model-redesign: MỌI software bắt buộc license_name (định danh)
+      license_name: 'Office LTSC',
       end_date: '2028-01-31',
     });
   });

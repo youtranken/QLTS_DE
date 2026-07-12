@@ -12,7 +12,8 @@ import {
 /** Bảng assets — tạo bằng migration raw SQL 0009_assets.sql (story 2.1). */
 export const assetsTable = pgTable('assets', {
   id: uuid('id').primaryKey().defaultRandom(),
-  code: text('code').notNull(),
+  // NULL cho phần mềm (định danh bằng license_name); máy bắt buộc — CHECK ở migration 0033.
+  code: text('code'),
   type: text('type').notNull(),
   configuration: text('configuration'),
   /** Giá VND nguyên — bigint mode number (đủ tới 2^53). */

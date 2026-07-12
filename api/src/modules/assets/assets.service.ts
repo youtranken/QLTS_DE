@@ -125,7 +125,9 @@ export class AssetsService {
             note: input.note,
             serial: input.serial,
             brand: input.brand,
-            assignedUserSub: input.assignedUserSub,
+            // Phần mềm KHÔNG lưu người đứng tên — derive từ máy gắn (sw-license-model-redesign)
+            assignedUserSub:
+              input.type === 'software' ? null : input.assignedUserSub,
             licenseType: input.licenseType,
             licenseName: input.licenseName,
             installedOnAssetId,
@@ -344,6 +346,8 @@ export class AssetsService {
     // không cần fallback ở đây (||30 sẽ nuốt mất giá trị 0 = tắt cảnh báo).
     const warningDays = await this.config.getLicenseWarningDays();
     const host = alias(assetsTable, 'host');
+    // Người đứng tên phần mềm = holder của MÁY nó gắn (sw-license-model-redesign) → user của host.
+    const hostUser = alias(usersTable, 'host_user');
     const where = this.buildListConditions(
       query,
       query.expiring ? await this.expiringCutoff() : null,
@@ -366,8 +370,19 @@ export class AssetsService {
           type: assetsTable.type,
           status: assetsTable.status,
           isPool: assetsTable.isPool,
-          assignedUserSub: assetsTable.assignedUserSub,
-          assignedUserName: usersTable.fullName,
+          // Máy tính license_name (định danh phần mềm thay mã) + host để tab Phần mềm hiển thị
+          licenseName: assetsTable.licenseName,
+          licenseType: assetsTable.licenseType,
+          installedOnAssetId: assetsTable.installedOnAssetId,
+          installedOnCode: host.code,
+          endDate: assetsTable.endDate,
+          // Người đứng tên: phần mềm DERIVE từ host (đi theo máy); máy thì của chính nó.
+          assignedUserSub: sql<
+            string | null
+          >`CASE WHEN ${assetsTable.type} = 'software' THEN ${host.assignedUserSub} ELSE ${assetsTable.assignedUserSub} END`,
+          assignedUserName: sql<
+            string | null
+          >`CASE WHEN ${assetsTable.type} = 'software' THEN ${hostUser.fullName} ELSE ${usersTable.fullName} END`,
           // Đỏ (2.5, FR-38): term + đang gắn máy KHÔNG thanh lý + hạn ≤ hôm nay+N
           // (bao gồm đã quá hạn); computed mỗi query → đổi hạn là hết đỏ ngay (FR-29)
           // ĐỒNG BỘ TAY với common/license-expiry.ts (digest 5.6) — style query khác (drizzle
@@ -386,6 +401,7 @@ export class AssetsService {
         .from(assetsTable)
         .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
         .leftJoin(host, eq(assetsTable.installedOnAssetId, host.id))
+        .leftJoin(hostUser, eq(host.assignedUserSub, hostUser.sub))
         .where(where)
         .orderBy(orderExpr, assetsTable.id)
         .limit(query.pageSize)
@@ -855,7 +871,8 @@ export class AssetsService {
     }
   }
 
-  /** Software đang cài trên một máy (2.4, AC 2) — 2.7 và Epic 3 dùng lại. */
+  /** Software đang cài trên một máy (2.4, AC 2) — 2.7 và Epic 3 dùng lại.
+   *  Định danh bằng license_name (sw-license-model-redesign); người đứng tên = của máy này. */
   async listInstalledSoftware(assetId: string) {
     return this.db
       .select({
@@ -863,12 +880,13 @@ export class AssetsService {
         code: assetsTable.code,
         licenseType: assetsTable.licenseType,
         licenseName: assetsTable.licenseName,
+        startDate: assetsTable.startDate,
         endDate: assetsTable.endDate,
         status: assetsTable.status,
       })
       .from(assetsTable)
       .where(eq(assetsTable.installedOnAssetId, assetId))
-      .orderBy(assetsTable.code);
+      .orderBy(assetsTable.licenseName);
   }
 
   /**
@@ -934,6 +952,8 @@ export class AssetsService {
       .select({
         code: assetsTable.code,
         type: assetsTable.type,
+        // Export (dump ≤10k dòng): KHÔNG derive holder phần mềm để tránh join thêm làm chậm
+        // (perf > nhất quán ở export; UI list/detail đã derive). Software → holder trống.
         assignedUserSub: assetsTable.assignedUserSub,
         assignedUserName: usersTable.fullName,
         configuration: assetsTable.configuration,
@@ -1037,6 +1057,8 @@ export class AssetsService {
 
   async getById(id: string) {
     const host = alias(assetsTable, 'host');
+    // Người đứng tên phần mềm DERIVE từ máy gắn (sw-license-model-redesign).
+    const hostUser = alias(usersTable, 'host_user');
     const rows = await this.db
       .select({
         id: assetsTable.id,
@@ -1050,8 +1072,12 @@ export class AssetsService {
         note: assetsTable.note,
         serial: assetsTable.serial,
         brand: assetsTable.brand,
-        assignedUserSub: assetsTable.assignedUserSub,
-        assignedUserName: usersTable.fullName,
+        assignedUserSub: sql<
+          string | null
+        >`CASE WHEN ${assetsTable.type} = 'software' THEN ${host.assignedUserSub} ELSE ${assetsTable.assignedUserSub} END`,
+        assignedUserName: sql<
+          string | null
+        >`CASE WHEN ${assetsTable.type} = 'software' THEN ${hostUser.fullName} ELSE ${usersTable.fullName} END`,
         licenseType: assetsTable.licenseType,
         licenseName: assetsTable.licenseName,
         installedOnAssetId: assetsTable.installedOnAssetId,
@@ -1062,6 +1088,7 @@ export class AssetsService {
       .from(assetsTable)
       .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
       .leftJoin(host, eq(assetsTable.installedOnAssetId, host.id))
+      .leftJoin(hostUser, eq(host.assignedUserSub, hostUser.sub))
       .where(eq(assetsTable.id, id));
     if (!rows[0]) {
       throw new NotFoundException({
