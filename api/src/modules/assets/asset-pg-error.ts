@@ -34,6 +34,12 @@ export function mapAssetPgError(error: unknown): unknown {
     });
   }
   if (pg?.code === '23514') {
+    if (pg.constraint === 'assets_code_required_nonsoftware') {
+      return new BadRequestException({
+        code: 'CODE_REQUIRED',
+        message: 'Tài sản (không phải phần mềm) phải có mã.',
+      });
+    }
     // CHECK 0012 là chốt cuối — app validate đã trả message đẹp trước đó
     return new BadRequestException({
       code: 'CONSTRAINT_VIOLATION',

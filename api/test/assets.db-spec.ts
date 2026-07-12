@@ -1152,6 +1152,75 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     });
   });
 
+  it('sw-model: phần mềm không mã, người đứng tên DERIVE theo máy, floating không holder, PUT không rò holder', async () => {
+    const may = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'SWM-MAY', type: 'desktop', assignedUserSub: 'sub-u1' })
+      .expect(201);
+
+    // tạo phần mềm KHÔNG mã, gắn máy → 201, code null
+    const sw = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        type: 'software',
+        licenseName: 'Autocad',
+        licenseType: 'term',
+        endDate: '2028-01-01',
+        installedOnAssetId: may.body.id,
+      })
+      .expect(201);
+    expect(sw.body.code).toBeNull();
+
+    // chi tiết phần mềm → người đứng tên DERIVE = holder của máy (Trần Thị Bình)
+    const detail = await request(app.getHttpServer())
+      .get(`/api/admin/assets/${sw.body.id}`)
+      .set(asAdmin())
+      .expect(200);
+    expect(detail.body.assignedUserName).toBe('Trần Thị Bình');
+
+    // phần mềm floating (không gắn máy) → không người đứng tên
+    const float = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        type: 'software',
+        licenseName: 'Office 365',
+        licenseType: 'perpetual',
+      })
+      .expect(201);
+    const floatDetail = await request(app.getHttpServer())
+      .get(`/api/admin/assets/${float.body.id}`)
+      .set(asAdmin())
+      .expect(200);
+    expect(floatDetail.body.assignedUserName).toBeNull();
+
+    // PUT phần mềm CÓ gửi assignedUserSub → BE null-hóa (không rò holder), KHÔNG tạo allocation
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${sw.body.id}`)
+      .set(asAdmin())
+      .send({
+        type: 'software',
+        licenseName: 'Autocad',
+        licenseType: 'term',
+        endDate: '2028-01-01',
+        assignedUserSub: 'sub-u1',
+        version: sw.body.version,
+      })
+      .expect(200);
+    const raw = await pool.query(
+      'SELECT assigned_user_sub FROM assets WHERE id = $1',
+      [sw.body.id],
+    );
+    expect(raw.rows[0]).toEqual({ assigned_user_sub: null });
+    const alloc = await pool.query(
+      'SELECT count(*)::int AS n FROM allocation_history WHERE asset_id = $1',
+      [sw.body.id],
+    );
+    expect(alloc.rows[0].n).toBe(0);
+  });
+
   it('export quá 10000 dòng → 400 EXPORT_TOO_LARGE (2.10)', async () => {
     await pool.query(`
       INSERT INTO assets (code, type)

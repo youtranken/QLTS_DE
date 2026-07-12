@@ -2,6 +2,19 @@ import { BadRequestException } from '@nestjs/common';
 import type { AssetInput } from './assets.service';
 
 /**
+ * Chuẩn hoá bản ghi PHẦN MỀM trước khi ghi (create + update) — chốt SERVER-SIDE, không dựa
+ * FE bỏ field (review H1): phần mềm KHÔNG có người đứng tên riêng (holder derive từ máy) và
+ * không có cấu hình. `code` để nullable (FE bỏ field; không ÉP null để khỏi phá định danh cũ
+ * của dữ liệu/đường import còn dùng mã). Máy giữ nguyên.
+ */
+export function normalizeSoftwareInput(input: AssetInput): AssetInput {
+  if (input.type !== 'software') {
+    return input;
+  }
+  return { ...input, configuration: null, assignedUserSub: null };
+}
+
+/**
  * Validate luật phần mềm/license (2.4, FR-38 + sw-license-model-redesign) — tách khỏi
  * assets.service (CLAUDE.md §6: một trách nhiệm/file). license_name là ĐỊNH DANH phần mềm
  * (thay mã tài sản) → mọi loại license đều bắt buộc; máy (non-software) bắt buộc `code`.

@@ -18,7 +18,10 @@ import { assetNoteTable } from './asset-note.schema';
 import { assetsTable } from './assets.schema';
 import { mapAssetPgError } from './asset-pg-error';
 import { AssetSoftwareService } from './asset-software.service';
-import { validateSoftwareInput } from './software-license';
+import {
+  normalizeSoftwareInput,
+  validateSoftwareInput,
+} from './software-license';
 import { escapeLike } from '../../common/sql';
 import { escapeCellDisplay } from './import-parser';
 
@@ -102,6 +105,7 @@ export class AssetsService {
     installedOnAssetId: string | null = null,
   ) {
     validateSoftwareInput(input);
+    input = normalizeSoftwareInput(input); // chốt: software không mã/cấu hình/người đứng tên
     if (installedOnAssetId && input.type !== 'software') {
       throw new BadRequestException({
         code: 'SOFTWARE_FIELDS_ONLY',
@@ -125,9 +129,8 @@ export class AssetsService {
             note: input.note,
             serial: input.serial,
             brand: input.brand,
-            // Phần mềm KHÔNG lưu người đứng tên — derive từ máy gắn (sw-license-model-redesign)
-            assignedUserSub:
-              input.type === 'software' ? null : input.assignedUserSub,
+            // đã normalize: software → null (derive từ máy); máy → holder thật
+            assignedUserSub: input.assignedUserSub,
             licenseType: input.licenseType,
             licenseName: input.licenseName,
             installedOnAssetId,
@@ -179,6 +182,7 @@ export class AssetsService {
     allocationNote: string | null = null,
   ) {
     validateSoftwareInput(input);
+    input = normalizeSoftwareInput(input); // chốt: software không mã/cấu hình/người đứng tên
     try {
       // Mutation + audit MỘT transaction (review 2.1) — mất vết = rollback cả sửa
       return await this.db.transaction(async (tx) => {
@@ -252,8 +256,9 @@ export class AssetsService {
           });
         }
         const changed = diffChanged(row, input);
-        // đổi người đứng tên (kể cả thu hồi → NULL) → bản ghi cấp phát A→B (2.3, AC 1)
-        if ('assigned_user_sub' in changed) {
+        // đổi người đứng tên (kể cả thu hồi → NULL) → bản ghi cấp phát A→B (2.3, AC 1).
+        // Phần mềm KHÔNG có lịch sử cấp phát riêng (holder derive từ máy) — chỉ máy mới ghi.
+        if (input.type !== 'software' && 'assigned_user_sub' in changed) {
           await tx.insert(allocationHistoryTable).values({
             assetId: id,
             fromUserSub: (row.old_assigned_user_sub as string | null) ?? null,
