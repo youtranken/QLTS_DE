@@ -249,4 +249,43 @@ describe('Sổ tài sản — phân quyền & validate (story 2.1)', () => {
       .set(asMember)
       .expect(403);
   });
+
+  it('đổi người đứng tên (11.2): member 403; anonymous 401; thiếu version → 400', async () => {
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${UUID}/assignee`)
+      .set(asMember)
+      .send({ assignedUserSub: 'sub-x', version: 1 })
+      .expect(403);
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${UUID}/assignee`)
+      .send({ version: 1 })
+      .expect(401);
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${UUID}/assignee`)
+      .set(asAdmin)
+      .send({})
+      .expect(400);
+  });
+
+  it('xóa (11.1): member 403; anonymous 401; id non-uuid / thiếu version → 400', async () => {
+    await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${UUID}`)
+      .set(asMember)
+      .send({ version: 1 })
+      .expect(403);
+    await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${UUID}`)
+      .send({ version: 1 })
+      .expect(401);
+    await request(app.getHttpServer())
+      .delete('/api/admin/assets/khong-uuid')
+      .set(asAdmin)
+      .send({ version: 1 })
+      .expect(400);
+    await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${UUID}`)
+      .set(asAdmin)
+      .send({})
+      .expect(400);
+  });
 });

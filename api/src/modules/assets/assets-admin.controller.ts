@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -139,13 +140,41 @@ class UpdateAssetDto extends AssetBodyDto {
   allocationNote?: string | null;
 }
 
-// LockAssetDto/VersionDto/SetPoolDto CHUYỂN sang AssetLifecycleController (3.10).
+// LockAssetDto/SetPoolDto CHUYỂN sang AssetLifecycleController (3.10).
+
+/** Body cho DELETE :id (11.1) — chỉ optimistic lock, xóa cứng tài sản "sạch". */
+class VersionDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  version!: number;
+}
 
 class TransferLicenseDto {
   /** Bỏ trống = gỡ về "chưa gắn máy" (2.5). */
   @IsOptional()
   @IsUUID()
   targetAssetId?: string | null;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  version!: number;
+}
+
+/** Đổi người đứng tên máy như thao tác riêng (11.2, B3). */
+class AssignOwnerDto {
+  /** '' / null = thu hồi về kho; ngược lại phải là sub tồn tại trong users (FK). */
+  @IsOptional()
+  @trimToUndef
+  @IsString()
+  @MaxLength(255)
+  assignedUserSub?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  allocationNote?: string | null;
 
   @Type(() => Number)
   @IsInt()
@@ -348,6 +377,22 @@ export class AssetsAdminController {
     );
   }
 
+  /** Đổi người đứng tên máy (11.2, B3) — thao tác riêng, KHÔNG qua "Lưu thông tin máy". */
+  @Put(':id/assignee')
+  assignOwner(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: AssignOwnerDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.assets.assignOwner(
+      id,
+      body.assignedUserSub?.trim() || null,
+      body.version,
+      requireSub(req),
+      body.allocationNote?.trim() || null,
+    );
+  }
+
   @Post()
   create(@Body() body: CreateAssetDto, @Req() req: AuthedRequest) {
     return this.assets.create(
@@ -370,6 +415,16 @@ export class AssetsAdminController {
       requireSub(req),
       body.allocationNote?.trim() || null,
     );
+  }
+
+  /** Xóa cứng tài sản "sạch" (11.1). Tài sản đã dùng → dùng Thanh lý (409). */
+  @Delete(':id')
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: VersionDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.assets.deleteAsset(id, body.version, requireSub(req));
   }
 }
 

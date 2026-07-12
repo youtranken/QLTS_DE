@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
+import { AssetOwnerPanel } from './asset-owner-panel';
 import type { Me } from './panels';
 import {
   detailToForm,
   fmtDateTime,
 } from './asset-types';
 import type {
-  AllocationRow,
   AssetDetail,
   AssetRow,
   CascadePreview,
@@ -29,7 +29,7 @@ export function AssetForm({
   initial: FormState;
   onDone: (saved: boolean) => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [form, setForm] = useState(initial);
   const [userQuery, setUserQuery] = useState('');
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
@@ -45,9 +45,7 @@ export function AssetForm({
   // 3.13: popup xác nhận cascade + cờ báo mail (preview trước khi Khóa/Gỡ pool/Thanh lý)
   const [cascade, setCascade] = useState<PendingCascade | null>(null);
   const [notifyUsers, setNotifyUsers] = useState(true);
-  // 2.3: ghi chú cấp phát (chỉ dùng khi đổi người) + lịch sử A→B chỉ đọc
-  const [allocationNote, setAllocationNote] = useState('');
-  const [allocations, setAllocations] = useState<AllocationRow[]>([]);
+  // 2.3/11.2: ghi chú cấp phát + lịch sử A→B đã chuyển vào AssetOwnerPanel (khi sửa máy).
   // 2.4: picker máy cài (chỉ khi TẠO software) + software đã cài (khi sửa máy)
   const [hostQuery, setHostQuery] = useState('');
   const [hostOptions, setHostOptions] = useState<AssetRow[]>([]);
@@ -162,19 +160,6 @@ export function AssetForm({
     };
   }, [swQuery]);
 
-  useEffect(() => {
-    if (!form.id) return;
-    const controller = new AbortController();
-    fetch(`/api/admin/assets/${encodeURIComponent(form.id)}/allocations`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (res.ok) setAllocations((await res.json()) as AllocationRow[]);
-      })
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, [form.id]);
-
   // STALE_VERSION: nạp lại bản mới nhất (version mới) ngay tại form — không mất chỗ đứng
   const reload = useCallback(async () => {
     if (!form.id) return;
@@ -267,8 +252,9 @@ export function AssetForm({
       licenseName: form.isSoftware ? form.licenseName || null : null,
     };
     if (form.id) {
+      // 11.2 (B3): "Lưu thông tin máy" KHÔNG đổi người đứng tên — assignedUserSub gửi kèm
+      // là giá trị HIỆN TẠI (giữ nguyên, tránh BE update ghi null). Đổi owner qua AssetOwnerPanel.
       payload.version = form.version;
-      if (allocationNote.trim()) payload.allocationNote = allocationNote.trim();
     } else if (form.isSoftware && form.installedOnAssetId) {
       // gắn máy CHỈ khi tạo (AC 3) — đổi/gỡ là chức năng chuyển license (2.5)
       payload.installedOnAssetId = form.installedOnAssetId;
@@ -331,7 +317,7 @@ export function AssetForm({
     }
     // attachSoftwareToMachine cố ý không đưa vào deps (khai báo sau, ổn định theo csrfToken).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, allocationNote, pendingSw, me.csrfToken, onDone, t]);
+  }, [form, pendingSw, me.csrfToken, onDone, t]);
 
   // 2.6: 4 thao tác vòng đời — chỉ cập nhật version + trường đổi (bài học 2.5)
   const doLifecycle = useCallback(
@@ -821,8 +807,10 @@ export function AssetForm({
               </div>
 
               {/* 9.3: Người đứng tên đưa vào ngay Thông tin chung (trước là section riêng dưới cùng).
-                  sw-license-model-redesign: CHỈ máy — phần mềm derive holder từ máy nó gắn, không nhập tay. */}
-              {!form.isSoftware && (
+                  sw-license-model-redesign: CHỈ máy — phần mềm derive holder từ máy nó gắn, không nhập tay.
+                  11.2 (B3): khi SỬA, người đứng tên tách ra AssetOwnerPanel (thao tác riêng);
+                  ở đây CHỈ còn lúc TẠO máy (owner đi cùng payload create). */}
+              {!form.isSoftware && !form.id && (
               <div className="form-subsection">
                 <div className="form-section-title">{t('assets.assignee')}</div>
                 <div
@@ -874,20 +862,29 @@ export function AssetForm({
                     setUserOptions([]);
                   }}
                 />
-                {form.id && (
-                  <label className="field" style={{ marginTop: '0.75rem' }}>
-                    <span>{t('assets.allocationNote')}</span>
-                    <input
-                      maxLength={500}
-                      placeholder={t('assets.allocationNotePlaceholder')}
-                      value={allocationNote}
-                      onChange={(e) => setAllocationNote(e.target.value)}
-                    />
-                  </label>
-                )}
               </div>
               )}
             </div>
+
+            {/* 11.2 (B3): Sửa máy — đổi người đứng tên là thao tác RIÊNG (PUT :id/assignee),
+                không đi qua nút "Lưu thông tin máy". */}
+            {form.id && !form.isSoftware && (
+              <AssetOwnerPanel
+                me={me}
+                assetId={form.id}
+                version={form.version}
+                ownerSub={form.assignedUserSub}
+                ownerName={form.assignedUserName}
+                onSaved={(v, sub, name) =>
+                  setForm((f) => ({
+                    ...f,
+                    version: v,
+                    assignedUserSub: sub ?? '',
+                    assignedUserName: name ?? '',
+                  }))
+                }
+              />
+            )}
 
             {showLifecycle && (
               // 2.6: vòng đời — 3 thao tác tách bạch, không đi qua nút Lưu
@@ -1198,50 +1195,6 @@ export function AssetForm({
               </div>
             )}
 
-            {form.id && allocations.length > 0 && (
-              <div className="form-section">
-                <div className="form-section-title">
-                  {t('assets.allocationHistory')}
-                </div>
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>{t('assets.allocDate')}</th>
-                        <th>{t('assets.allocFrom')}</th>
-                        <th>{t('assets.allocTo')}</th>
-                        <th>{t('assets.allocActor')}</th>
-                        <th>{t('assets.note')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allocations.map((h) => (
-                        <tr key={h.id}>
-                          <td>
-                            {/* theo ngôn ngữ UI đang chọn, không phải locale browser (review 2.3) */}
-                            {new Date(h.createdAt).toLocaleString(
-                              i18n.language === 'en' ? 'en-GB' : 'vi-VN',
-                            )}
-                          </td>
-                          <td>
-                            {h.fromUserSub
-                              ? (h.fromUserName ?? h.fromUserSub)
-                              : t('assets.stock')}
-                          </td>
-                          <td>
-                            {h.toUserSub
-                              ? (h.toUserName ?? h.toUserSub)
-                              : t('assets.stock')}
-                          </td>
-                          <td>{h.actorName ?? h.actor}</td>
-                          <td>{h.note}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="sheet-footer">

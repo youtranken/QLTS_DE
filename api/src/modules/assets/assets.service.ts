@@ -280,6 +280,173 @@ export class AssetsService {
   }
 
   /**
+   * Xóa CỨNG tài sản "sạch" (story 11.1, UAT 2026-07-12). CHỈ khi chưa phát sinh gì:
+   * allocation_history + asset_note append-only (AD-10/14) + FK NOT NULL không CASCADE →
+   * tài sản đã dùng KHÔNG hard-delete được — đó là đường "Thanh lý" (disposed). Xóa = sửa nhầm.
+   * Guard is_pool tường minh (không phải FK nên DELETE không tự 23503).
+   */
+  async deleteAsset(id: string, version: number, actorSub: string) {
+    try {
+      return await this.db.transaction(async (tx) => {
+        const current = await tx
+          .select({
+            id: assetsTable.id,
+            version: assetsTable.version,
+            isPool: assetsTable.isPool,
+          })
+          .from(assetsTable)
+          .where(eq(assetsTable.id, id))
+          .for('update');
+        if (current.length === 0) {
+          throw new NotFoundException({
+            code: 'ASSET_NOT_FOUND',
+            message: 'Không tìm thấy tài sản này.',
+          });
+        }
+        if (current[0].version !== version) {
+          throw new ConflictException({
+            code: 'STALE_VERSION',
+            message: 'Trạng thái đã thay đổi, tải lại.',
+          });
+        }
+        if (current[0].isPool) {
+          throw new ConflictException({
+            code: 'ASSET_IN_POOL',
+            message: 'Máy đang ở pool cho mượn — gỡ khỏi pool trước, hoặc dùng Thanh lý.',
+          });
+        }
+        // "Sạch" = chưa phát sinh gì. Thứ tự: booking → software cài → lịch sử.
+        const exists = async (query: ReturnType<typeof sql>) =>
+          (await tx.execute<{ one: number }>(query)).rows.length > 0;
+        if (await exists(sql`SELECT 1 FROM booking WHERE asset_id = ${id} LIMIT 1`)) {
+          throw new ConflictException({
+            code: 'ASSET_HAS_BOOKING',
+            message: 'Máy đã có lịch mượn — không xóa được, hãy dùng Thanh lý.',
+          });
+        }
+        if (
+          await exists(
+            sql`SELECT 1 FROM assets WHERE installed_on_asset_id = ${id} LIMIT 1`,
+          )
+        ) {
+          throw new ConflictException({
+            code: 'ASSET_HAS_SOFTWARE',
+            message: 'Máy còn phần mềm đang cài — gỡ phần mềm trước khi xóa.',
+          });
+        }
+        if (
+          (await exists(
+            sql`SELECT 1 FROM allocation_history WHERE asset_id = ${id} LIMIT 1`,
+          )) ||
+          (await exists(
+            sql`SELECT 1 FROM asset_note WHERE asset_id = ${id} LIMIT 1`,
+          ))
+        ) {
+          throw new ConflictException({
+            code: 'ASSET_HAS_HISTORY',
+            message:
+              'Tài sản đã có lịch sử cấp phát/ghi chú — không xóa được, hãy dùng Thanh lý.',
+          });
+        }
+        await tx.delete(assetsTable).where(eq(assetsTable.id, id));
+        // audit_log không FK asset → bản ghi này tồn tại sau khi asset mất (chủ đích, truy vết).
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'assets.delete',
+          objectType: 'asset',
+          objectId: id,
+          detail: {},
+        });
+        return { ok: true };
+      });
+    } catch (error) {
+      throw mapAssetPgError(error);
+    }
+  }
+
+  /**
+   * Đổi người đứng tên MÁY như thao tác RIÊNG (story 11.2, B3) — tách khỏi "Lưu thông tin máy".
+   * CHỈ đụng assigned_user_sub (không ghi đè trường máy khác). Optimistic lock; đổi người →
+   * append allocation_history (2.3). Phần mềm KHÔNG có người đứng tên (holder derive từ máy).
+   */
+  async assignOwner(
+    id: string,
+    assignedUserSub: string | null,
+    version: number,
+    actorSub: string,
+    allocationNote: string | null = null,
+  ) {
+    try {
+      return await this.db.transaction(async (tx) => {
+        const cur = await tx
+          .select({
+            type: assetsTable.type,
+            status: assetsTable.status,
+            version: assetsTable.version,
+            assignedUserSub: assetsTable.assignedUserSub,
+          })
+          .from(assetsTable)
+          .where(eq(assetsTable.id, id))
+          .for('update');
+        if (cur.length === 0) {
+          throw new NotFoundException({
+            code: 'ASSET_NOT_FOUND',
+            message: 'Không tìm thấy tài sản này.',
+          });
+        }
+        const row = cur[0];
+        if (row.type === 'software') {
+          throw new BadRequestException({
+            code: 'OWNER_NOT_APPLICABLE',
+            message: 'Phần mềm không có người đứng tên (suy ra theo máy).',
+          });
+        }
+        if (row.status === 'disposed') {
+          throw new ConflictException({
+            code: 'DISPOSED_TERMINAL',
+            message: 'Tài sản đã thanh lý — hồ sơ đã chốt, không sửa được.',
+          });
+        }
+        if (row.version !== version) {
+          throw new ConflictException({
+            code: 'STALE_VERSION',
+            message: 'Trạng thái đã thay đổi, tải lại.',
+          });
+        }
+        const upd = await tx.execute<{ version: number }>(sql`
+          UPDATE assets
+          SET assigned_user_sub = ${assignedUserSub},
+              version = version + 1,
+              updated_at = now()
+          WHERE id = ${id}
+          RETURNING version
+        `);
+        const newVersion = upd.rows[0].version;
+        const before = row.assignedUserSub ?? null;
+        if (before !== (assignedUserSub ?? null)) {
+          await tx.insert(allocationHistoryTable).values({
+            assetId: id,
+            fromUserSub: before,
+            toUserSub: assignedUserSub,
+            note: allocationNote,
+            actor: actorSub,
+          });
+        }
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'assets.assign_owner',
+          objectType: 'asset',
+          objectId: id,
+          detail: { from: before, to: assignedUserSub ?? null },
+        });
+        return { ok: true, version: newVersion };
+      });
+    } catch (error) {
+      throw mapAssetPgError(error);
+    }
+  }
+
+  /**
    * Danh sách phân trang SERVER-side (NFR-5) + tìm/lọc (FR-36, story 2.2) —
    * join users lấy tên người đứng tên + host/host_user để derive holder phần mềm
    * (sw-license-model). count(*) áp CÙNG where + CÙNG join host (where có thể đụng

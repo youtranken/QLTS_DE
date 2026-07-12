@@ -1308,4 +1308,170 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .expect(400);
     expect(res.body.code).toBe('EXPORT_TOO_LARGE');
   });
+
+  // ── Story 11.1: Xóa cứng tài sản "sạch" (prefix DEL-, fixture riêng) ──
+  const idOf = async (code: string) =>
+    (await pool.query("SELECT id, version FROM assets WHERE code = $1", [code]))
+      .rows[0] as { id: string; version: number };
+
+  const makeAsset = async (code: string, type = 'laptop') => {
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code, type })
+      .expect(201);
+    return idOf(code);
+  };
+
+  it('11.1: xóa tài sản sạch → 200, biến mất + audit assets.delete', async () => {
+    const a = await makeAsset('DEL-CLEAN');
+    await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${a.id}`)
+      .set(asAdmin())
+      .send({ version: a.version })
+      .expect(200);
+    const gone = await pool.query('SELECT 1 FROM assets WHERE id = $1', [a.id]);
+    expect(gone.rowCount).toBe(0);
+    const audit = await pool.query(
+      "SELECT 1 FROM audit_log WHERE action = 'assets.delete' AND object_id = $1",
+      [a.id],
+    );
+    expect(audit.rowCount).toBe(1);
+  });
+
+  it('11.1: version lệch → 409 STALE_VERSION; không tồn tại → 404', async () => {
+    const a = await makeAsset('DEL-STALE');
+    const bad = await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${a.id}`)
+      .set(asAdmin())
+      .send({ version: a.version + 5 })
+      .expect(409);
+    expect(bad.body.code).toBe('STALE_VERSION');
+    await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${randomUUID()}`)
+      .set(asAdmin())
+      .send({ version: 1 })
+      .expect(404);
+  });
+
+  it('11.1: máy ở pool → 409 ASSET_IN_POOL', async () => {
+    const a = await makeAsset('DEL-POOL');
+    await pool.query('UPDATE assets SET is_pool = true WHERE id = $1', [a.id]);
+    const res = await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${a.id}`)
+      .set(asAdmin())
+      .send({ version: a.version })
+      .expect(409);
+    expect(res.body.code).toBe('ASSET_IN_POOL');
+  });
+
+  it('11.1: có lịch sử cấp phát → 409 ASSET_HAS_HISTORY', async () => {
+    // Tạo có người đứng tên → create() seed allocation_history.
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'DEL-HIST', type: 'laptop', assignedUserSub: 'sub-u1' })
+      .expect(201);
+    const a = await idOf('DEL-HIST');
+    const res = await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${a.id}`)
+      .set(asAdmin())
+      .send({ version: a.version })
+      .expect(409);
+    expect(res.body.code).toBe('ASSET_HAS_HISTORY');
+  });
+
+  it('11.1: có booking → 409 ASSET_HAS_BOOKING', async () => {
+    const a = await makeAsset('DEL-BOOK');
+    // Booking state không chiếm chỗ (cancelled) → tránh trigger bookability, vẫn tính "có booking".
+    const ticket = await pool.query(
+      "INSERT INTO ticket (state, borrower_sub, created_by_sub) VALUES ('cancelled','sub-u1','sub-u1') RETURNING id",
+    );
+    await pool.query(
+      `INSERT INTO booking (ticket_id, asset_id, kind, state, period)
+       VALUES ($1, $2, 'normal', 'cancelled', tstzrange('2026-08-01 00:00+00','2026-08-01 02:00+00','[)'))`,
+      [ticket.rows[0].id, a.id],
+    );
+    const res = await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${a.id}`)
+      .set(asAdmin())
+      .send({ version: a.version })
+      .expect(409);
+    expect(res.body.code).toBe('ASSET_HAS_BOOKING');
+  });
+
+  it('11.1: máy còn phần mềm đang cài → 409 ASSET_HAS_SOFTWARE', async () => {
+    const machine = await makeAsset('DEL-HOST', 'laptop');
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        type: 'software',
+        licenseName: 'DEL-SW-1',
+        licenseType: 'perpetual',
+        installedOnAssetId: machine.id,
+      })
+      .expect(201);
+    const res = await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${machine.id}`)
+      .set(asAdmin())
+      .send({ version: machine.version })
+      .expect(409);
+    expect(res.body.code).toBe('ASSET_HAS_SOFTWARE');
+  });
+
+  // ── Story 11.2: đổi người đứng tên như thao tác riêng (PUT :id/assignee) ──
+  it('11.2: đổi người đứng tên → allocation_history + version bump; thu hồi', async () => {
+    const a = await makeAsset('ASG-1');
+    const r1 = await request(app.getHttpServer())
+      .put(`/api/admin/assets/${a.id}/assignee`)
+      .set(asAdmin())
+      .send({ assignedUserSub: 'sub-u1', version: a.version })
+      .expect(200);
+    expect(r1.body.version).toBe(a.version + 1);
+    const alloc1 = await request(app.getHttpServer())
+      .get(`/api/admin/assets/${a.id}/allocations`)
+      .set(asAdmin())
+      .expect(200);
+    expect(alloc1.body[0]).toMatchObject({ fromUserSub: null, toUserSub: 'sub-u1' });
+    // thu hồi (assignedUserSub trống → null)
+    await request(app.getHttpServer())
+      .put(`/api/admin/assets/${a.id}/assignee`)
+      .set(asAdmin())
+      .send({ version: a.version + 1 })
+      .expect(200);
+    const alloc2 = await request(app.getHttpServer())
+      .get(`/api/admin/assets/${a.id}/allocations`)
+      .set(asAdmin())
+      .expect(200);
+    expect(alloc2.body.length).toBe(2);
+    expect(alloc2.body[0]).toMatchObject({ fromUserSub: 'sub-u1', toUserSub: null });
+  });
+
+  it('11.2: phần mềm → 400 OWNER_NOT_APPLICABLE; version lệch → 409 STALE', async () => {
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ type: 'software', licenseName: 'ASG-SW', licenseType: 'perpetual' })
+      .expect(201);
+    const sw = (
+      await pool.query(
+        "SELECT id, version FROM assets WHERE license_name = 'ASG-SW'",
+      )
+    ).rows[0] as { id: string; version: number };
+    const bad = await request(app.getHttpServer())
+      .put(`/api/admin/assets/${sw.id}/assignee`)
+      .set(asAdmin())
+      .send({ assignedUserSub: 'sub-u1', version: sw.version })
+      .expect(400);
+    expect(bad.body.code).toBe('OWNER_NOT_APPLICABLE');
+
+    const a = await makeAsset('ASG-STALE');
+    const stale = await request(app.getHttpServer())
+      .put(`/api/admin/assets/${a.id}/assignee`)
+      .set(asAdmin())
+      .send({ assignedUserSub: 'sub-u1', version: a.version + 9 })
+      .expect(409);
+    expect(stale.body.code).toBe('STALE_VERSION');
+  });
 });

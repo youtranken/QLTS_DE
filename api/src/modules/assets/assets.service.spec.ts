@@ -426,6 +426,78 @@ describe('lifecycle (2.6, FR-33/32)', () => {
     };
     expect(disposeDetail.detail.detached).toEqual(['SW-01']);
   });
+
+  it('11.1 deleteAsset: tài sản sạch → audit assets.delete + ok', async () => {
+    const tx = {
+      ...lockRow({ id: 'a1', version: 1, isPool: false }),
+      execute: () => Promise.resolve({ rows: [] }),
+      delete: () => ({ where: () => Promise.resolve() }),
+    };
+    const { svc, audit } = makeService(tx);
+    const res = await svc.deleteAsset('a1', 1, 'adm');
+    expect(res).toEqual({ ok: true });
+    const actions = audit.appendWithin.mock.calls.map(
+      (c: unknown[]) => (c[1] as { action: string }).action,
+    );
+    expect(actions).toEqual(['assets.delete']);
+  });
+
+  it('11.1 deleteAsset: version lệch → 409 STALE_VERSION, KHÔNG xóa/không audit', async () => {
+    const del = jest.fn(() => ({ where: () => Promise.resolve() }));
+    const tx = {
+      ...lockRow({ id: 'a1', version: 2, isPool: false }),
+      execute: () => Promise.resolve({ rows: [] }),
+      delete: del,
+    };
+    const { svc, audit } = makeService(tx);
+    const err = await catchHttp(svc.deleteAsset('a1', 1, 'adm'));
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.getResponse()).toMatchObject({ code: 'STALE_VERSION' });
+    expect(audit.appendWithin).not.toHaveBeenCalled();
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it('11.2 assignOwner: đổi người → allocation_history + audit assign_owner', async () => {
+    const insertValues = jest.fn(() => Promise.resolve());
+    const tx = {
+      ...lockRow({
+        type: 'laptop',
+        status: 'in_use',
+        version: 2,
+        assignedUserSub: null,
+      }),
+      execute: () => Promise.resolve({ rows: [{ version: 3 }] }),
+      insert: () => ({ values: insertValues }),
+    };
+    const { svc, audit } = makeService(tx);
+    const res = await svc.assignOwner('a1', 'sub-u1', 2, 'adm');
+    expect(res).toEqual({ ok: true, version: 3 });
+    expect(insertValues).toHaveBeenCalled();
+    const actions = audit.appendWithin.mock.calls.map(
+      (c: unknown[]) => (c[1] as { action: string }).action,
+    );
+    expect(actions).toEqual(['assets.assign_owner']);
+  });
+
+  it('11.2 assignOwner: phần mềm → 400 OWNER_NOT_APPLICABLE, không đổi', async () => {
+    const insertValues = jest.fn();
+    const tx = {
+      ...lockRow({
+        type: 'software',
+        status: 'in_use',
+        version: 1,
+        assignedUserSub: null,
+      }),
+      execute: () => Promise.resolve({ rows: [] }),
+      insert: () => ({ values: insertValues }),
+    };
+    const { svc, audit } = makeService(tx);
+    const err = await catchHttp(svc.assignOwner('a1', 'sub-u1', 1, 'adm'));
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect(err.getResponse()).toMatchObject({ code: 'OWNER_NOT_APPLICABLE' });
+    expect(audit.appendWithin).not.toHaveBeenCalled();
+    expect(insertValues).not.toHaveBeenCalled();
+  });
 });
 
 describe('validateSoftwareInput (2.4, FR-38 + sw-license-model-redesign)', () => {

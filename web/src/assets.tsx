@@ -184,6 +184,50 @@ export function AssetsPage({
     [t],
   );
 
+  // 11.1: Xóa cứng tài sản "sạch". BE chặn (409) nếu đã ở pool/có booking/software/lịch sử
+  // → hiện đúng message hướng dùng Thanh lý. Gửi version (optimistic lock) + CSRF.
+  const handleDelete = useCallback(
+    async (row: AssetRow) => {
+      setError(null);
+      const label = row.code ?? row.licenseName ?? '';
+      if (!window.confirm(t('assets.deleteConfirm', { code: label }))) return;
+      try {
+        // List không trả version → lấy version tươi từ detail (optimistic lock).
+        const detailRes = await fetch(
+          `/api/admin/assets/${encodeURIComponent(row.id)}`,
+        );
+        if (!detailRes.ok) {
+          setError(t('assets.deleteFailed'));
+          return;
+        }
+        const { version } = (await detailRes.json()) as AssetDetail;
+        const res = await fetch(
+          `/api/admin/assets/${encodeURIComponent(row.id)}`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+            },
+            body: JSON.stringify({ version }),
+          },
+        );
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as {
+            message?: string;
+          } | null;
+          setError(body?.message ?? t('assets.deleteFailed'));
+          return;
+        }
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+        void loadMeta();
+      } catch {
+        setError(t('app.serverUnreachable'));
+      }
+    },
+    [t, me.csrfToken, queryClient, loadMeta],
+  );
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // id cột KHỚP whitelist BE (code/type/status/assignee) → map thẳng sang ?sort=.
@@ -228,6 +272,16 @@ export function AssetsPage({
               {t('software.copy')}
             </button>
           )}
+          <button
+            type="button"
+            className="sm danger"
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleDelete(row.original);
+            }}
+          >
+            {t('assets.delete')}
+          </button>
         </div>
       ),
     };
@@ -336,7 +390,7 @@ export function AssetsPage({
       },
       actionsCol,
     ];
-  }, [t, softwareOnly, openEdit, copyFrom]);
+  }, [t, softwareOnly, openEdit, copyFrom, handleDelete]);
 
   return (
     <>
