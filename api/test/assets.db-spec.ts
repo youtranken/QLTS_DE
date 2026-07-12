@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import * as ExcelJS from 'exceljs';
 import { Pool } from 'pg';
 import request from 'supertest';
 import { runMigrations } from '../src/database/migration-runner';
@@ -17,6 +18,13 @@ if (!process.env.DATABASE_URL) {
 const dbName = new URL(process.env.DATABASE_URL).pathname.replace(/^\//, '');
 if (!/test/i.test(dbName)) {
   throw new Error(`[assets.db-spec] Từ chối chạy trên DB '${dbName}'.`);
+}
+
+/** Đọc mọi dòng của worksheet → mảng values (1-indexed: r[1]=cột A). Dùng cho export test. */
+function rowsOf(ws: ExcelJS.Worksheet | undefined): unknown[][] {
+  const out: unknown[][] = [];
+  ws?.eachRow((row) => out.push(row.values as unknown[]));
+  return out;
 }
 
 /**
@@ -1229,6 +1237,64 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       (r: { id: string }) => r.id === may.body.id,
     );
     expect(mayRow.installedSoftware).toContain('Autocad');
+  });
+
+  it('sw-license follow-up: export phần mềm derive holder + export tài sản loại phần mềm + search theo người giữ máy', async () => {
+    const may = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'EXP-MAY', type: 'desktop', assignedUserSub: 'sub-u1' })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({
+        type: 'software',
+        licenseName: 'CorelDraw',
+        licenseType: 'term',
+        endDate: '2028-01-01',
+        installedOnAssetId: may.body.id,
+      })
+      .expect(201);
+
+    // Export PHẦN MỀM: dòng CorelDraw có Máy=EXP-MAY + Người=holder derive (Trần Thị Bình)
+    const swRes = await request(app.getHttpServer())
+      .get('/api/admin/assets/export-software?search=CorelDraw')
+      .set(asAdmin())
+      .buffer()
+      .expect(200);
+    const swWb = new ExcelJS.Workbook();
+    await swWb.xlsx.load(swRes.body);
+    const swRows = rowsOf(swWb.getWorksheet('Phan mem'));
+    const corel = swRows.find((r) => r[1] === 'CorelDraw');
+    expect(corel).toBeDefined();
+    expect(corel![2]).toBe('EXP-MAY'); // MACHINE
+    expect(corel![3]).toBe('Trần Thị Bình'); // USER (derive)
+
+    // Export TÀI SẢN: có EXP-MAY (máy), KHÔNG có dòng CorelDraw (phần mềm bị loại)
+    const asRes = await request(app.getHttpServer())
+      .get('/api/admin/assets/export')
+      .set(asAdmin())
+      .buffer()
+      .expect(200);
+    const asWb = new ExcelJS.Workbook();
+    await asWb.xlsx.load(asRes.body);
+    const asRows = rowsOf(asWb.getWorksheet('Tai san'));
+    expect(asRows.some((r) => r[1] === 'EXP-MAY')).toBe(true);
+    expect(asRows.some((r) => r[2] === 'software')).toBe(false);
+
+    // Search phần mềm theo TÊN NGƯỜI GIỮ MÁY → tìm được CorelDraw
+    const list = await request(app.getHttpServer())
+      .get(
+        `/api/admin/assets?type=software&search=${encodeURIComponent('Trần Thị Bình')}`,
+      )
+      .set(asAdmin())
+      .expect(200);
+    expect(
+      (list.body.items as Array<{ licenseName: string | null }>).some(
+        (i) => i.licenseName === 'CorelDraw',
+      ),
+    ).toBe(true);
   });
 
   it('export quá 10000 dòng → 400 EXPORT_TOO_LARGE (2.10)', async () => {

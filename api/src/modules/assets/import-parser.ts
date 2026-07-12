@@ -274,9 +274,18 @@ export async function parseWorkbook(buf: Buffer): Promise<ImportRow[]> {
     const errors: string[] = [];
     const code = raw.code || null;
     const type = raw.type || null;
-    if (!code) errors.push('Thiếu CODE (mã tài sản bắt buộc).');
+    const isSoftwareRow = (type ?? '').trim().toLowerCase() === 'software';
     if (!type) errors.push('Thiếu ASSET TYPE (loại bắt buộc).');
-    if (code) {
+    // sw-license-model: MÁY bắt buộc CODE; PHẦN MỀM định danh bằng license_name (cột
+    // CONFIGURATION) — không cần mã, nhưng phải có tên (CONFIGURATION hoặc CODE cũ).
+    if (!isSoftwareRow && !code) {
+      errors.push('Thiếu CODE (mã tài sản bắt buộc).');
+    }
+    if (isSoftwareRow && !raw.configuration && !code) {
+      errors.push('Thiếu tên license — điền cột CONFIGURATION cho phần mềm.');
+    }
+    // Trùng mã chỉ xét cho MÁY (phần mềm không còn mã, không tham gia unique code).
+    if (!isSoftwareRow && code) {
       const dup = seenCodes.get(code);
       if (dup !== undefined) {
         errors.push(`Mã trùng với dòng ${dup} trong file.`);
@@ -298,7 +307,7 @@ export async function parseWorkbook(buf: Buffer): Promise<ImportRow[]> {
     if (status === null) {
       errors.push(`STATUS không nhận diện: "${raw.status}".`);
     }
-    const isSoftware = (type ?? '').trim().toLowerCase() === 'software';
+    const isSoftware = isSoftwareRow;
     // F3 (epic review): lock/unlock chỉ dành cho MÁY (2.6) — software import vào
     // locked_repair sẽ kẹt vĩnh viễn (unlock trả NOT_MACHINE)
     if (isSoftware && status === 'locked_repair') {

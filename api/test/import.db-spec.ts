@@ -231,25 +231,28 @@ describe('Import Excel go-live trên DB thật (story 2.9)', () => {
       )
     ).rows[0];
     expect(m3.needs_user_match).toBe(true);
-    // software của A gắn đúng IM-M1 (máy vừa import cùng file), term theo END DATE
+    // software của A gắn đúng IM-M1 (máy vừa import cùng file), term theo END DATE.
+    // sw-license-model: phần mềm KHÔNG còn mã (code NULL), định danh bằng license_name.
     const sw1 = (
       await pool.query(
-        "SELECT installed_on_asset_id, license_type, end_date::text AS end_date, needs_user_match FROM assets WHERE code = 'IM-SW1'",
+        "SELECT code, installed_on_asset_id, license_type, end_date::text AS end_date, needs_user_match FROM assets WHERE license_name = 'Office 2024'",
       )
     ).rows[0];
     expect(sw1).toMatchObject({
+      code: null,
       installed_on_asset_id: m1.id,
       license_type: 'term',
       end_date: '2026-12-31',
       needs_user_match: false,
     });
-    // software người lạ: perpetual (không END DATE) + tên fallback + cần map
+    // software người lạ: perpetual (không END DATE) + tên fallback CODE cũ + cần map; code NULL
     const sw2 = (
       await pool.query(
-        "SELECT installed_on_asset_id, license_type, license_name, needs_user_match FROM assets WHERE code = 'IM-SW2'",
+        "SELECT code, installed_on_asset_id, license_type, license_name, needs_user_match FROM assets WHERE license_name = 'IM-SW2'",
       )
     ).rows[0];
     expect(sw2).toMatchObject({
+      code: null,
       installed_on_asset_id: null,
       license_type: 'perpetual',
       license_name: 'IM-SW2',
@@ -324,7 +327,7 @@ describe('Import Excel go-live trên DB thật (story 2.9)', () => {
     });
     const sw2 = (
       await pool.query(
-        "SELECT installed_on_asset_id, needs_user_match FROM assets WHERE code = 'IM-SW2'",
+        "SELECT installed_on_asset_id, needs_user_match FROM assets WHERE license_name = 'IM-SW2'",
       )
     ).rows[0];
     expect(sw2).toMatchObject({
@@ -361,7 +364,7 @@ describe('Import Excel go-live trên DB thật (story 2.9)', () => {
       .expect(200);
     const sw3 = (
       await pool.query(
-        "SELECT id, installed_on_asset_id, needs_user_match FROM assets WHERE code = 'IM-SW3'",
+        "SELECT id, installed_on_asset_id, needs_user_match FROM assets WHERE license_name = 'IM-SW3'",
       )
     ).rows[0];
     expect(sw3).toMatchObject({
@@ -396,7 +399,7 @@ describe('Import Excel go-live trên DB thật (story 2.9)', () => {
     });
     const swd = (
       await pool.query(
-        "SELECT installed_on_asset_id, needs_user_match, status FROM assets WHERE code = 'IM-SWD'",
+        "SELECT installed_on_asset_id, needs_user_match, status FROM assets WHERE license_name = 'IM-SWD'",
       )
     ).rows[0];
     expect(swd).toMatchObject({
@@ -404,5 +407,42 @@ describe('Import Excel go-live trên DB thật (story 2.9)', () => {
       installed_on_asset_id: null, // TERMINAL 2.6 — không hồi sinh
       needs_user_match: false, // gỡ cờ (không thể map được nữa)
     });
+  });
+
+  it('sw-license-model: phần mềm import KHÔNG cần mã (định danh CONFIGURATION); thiếu cả hai → lỗi', async () => {
+    // software có CONFIGURATION nhưng KHÔNG có CODE → hợp lệ; tạo code NULL + license_name=config
+    const ok = await buildXlsx([
+      [1, '', '', 'software', 'Autocad 2025', '', '', '31/12/2028', '', '', ''],
+    ]);
+    const okRes = await request(app.getHttpServer())
+      .post('/api/admin/assets-import/commit')
+      .set(asAdmin())
+      .attach('file', ok, 'sw-nocode.xlsx')
+      .expect(200);
+    expect(okRes.body).toMatchObject({ softwares: 1 });
+    const sw = (
+      await pool.query(
+        "SELECT code, license_type, license_name FROM assets WHERE license_name = 'Autocad 2025'",
+      )
+    ).rows[0];
+    expect(sw).toMatchObject({
+      code: null,
+      license_type: 'term',
+      license_name: 'Autocad 2025',
+    });
+
+    // software thiếu CẢ mã lẫn CONFIGURATION → preview báo lỗi "tên license"
+    const bad = await buildXlsx([
+      [1, '', '', 'software', '', '', '', '', '', '', ''],
+    ]);
+    const prev = await request(app.getHttpServer())
+      .post('/api/admin/assets-import/preview')
+      .set(asAdmin())
+      .attach('file', bad, 'sw-noname.xlsx')
+      .expect(200);
+    expect(prev.body.invalid).toBe(1);
+    expect(
+      (prev.body.rows as Array<{ errors: string[] }>)[0].errors.join(' '),
+    ).toContain('tên license');
   });
 });

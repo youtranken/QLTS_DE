@@ -32,7 +32,11 @@ export class ImportService {
   /** Preview (dry-run, AC 1): parse + check trùng DB — KHÔNG ghi gì. */
   async preview(buf: Buffer) {
     const rows = await parseWorkbook(buf);
-    const codes = rows.map((r) => r.code).filter((c): c is string => !!c);
+    // Chỉ MÁY tham gia unique code (phần mềm bỏ mã — sw-license-model).
+    const codes = rows
+      .filter((r) => r.type !== 'software')
+      .map((r) => r.code)
+      .filter((c): c is string => !!c);
     const existing =
       codes.length > 0
         ? await this.db
@@ -42,7 +46,7 @@ export class ImportService {
         : [];
     const taken = new Set(existing.map((e) => e.code));
     for (const row of rows) {
-      if (row.code && taken.has(row.code)) {
+      if (row.type !== 'software' && row.code && taken.has(row.code)) {
         row.errors.push(`Mã "${row.code}" đã tồn tại trong sổ.`);
       }
     }
@@ -145,22 +149,20 @@ export class ImportService {
               }
             }
           }
-          // sổ cũ không có cột license: END DATE có → term; không → perpetual
-          // (tên license bắt buộc NOT NULL — fallback CONFIGURATION rồi CODE)
+          // sổ cũ không có cột license: END DATE có → term; không → perpetual.
+          // sw-license-model: phần mềm định danh bằng license_name (BỎ mã) → tên BẮT BUỘC
+          // có: fallback CONFIGURATION → CODE cũ → 'Không tên'; code lưu NULL, không cấu hình.
           const licenseType = row.endDate ? 'term' : 'perpetual';
-          const licenseName =
-            licenseType === 'perpetual'
-              ? (row.configuration ?? row.code!)
-              : row.configuration;
+          const licenseName = row.configuration ?? row.code ?? 'Không tên';
           // F5: software disposed không bao giờ gắn được — đừng cắm cờ treo vô nghĩa
           const needsMap =
             row.status !== 'disposed' &&
             !!row.user &&
             (!match || installedOn === null);
           await tx.insert(assetsTable).values({
-            code: row.code!,
+            code: null,
             type: 'software',
-            configuration: row.configuration,
+            configuration: null,
             cost: row.cost,
             startDate: row.startDate,
             endDate: row.endDate,

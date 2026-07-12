@@ -495,6 +495,7 @@ export default {
     hostCol: 'Máy',
     termCol: 'Kỳ hạn',
     swCol: 'Phần mềm',
+    hostNoHolder: '(máy chưa có người)',
     detach: 'Gỡ khỏi máy',
     transferToSearch: 'Chuyển sang máy (tìm theo mã)…',
     transferFailed: 'Chuyển license thất bại.',

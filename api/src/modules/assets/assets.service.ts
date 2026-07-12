@@ -5,9 +5,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import * as ExcelJS from 'exceljs';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
@@ -18,12 +17,11 @@ import { assetNoteTable } from './asset-note.schema';
 import { assetsTable } from './assets.schema';
 import { mapAssetPgError } from './asset-pg-error';
 import { AssetSoftwareService } from './asset-software.service';
+import { buildAssetListConditions } from './assets-query';
 import {
   normalizeSoftwareInput,
   validateSoftwareInput,
 } from './software-license';
-import { escapeLike } from '../../common/sql';
-import { escapeCellDisplay } from './import-parser';
 
 /** Trường Admin nhập được từ form (FR-30). status/is_pool KHÔNG ở đây — nghiệp vụ 2.6. */
 export interface AssetInput {
@@ -283,46 +281,10 @@ export class AssetsService {
 
   /**
    * Danh sách phân trang SERVER-side (NFR-5) + tìm/lọc (FR-36, story 2.2) —
-   * join users lấy tên người đứng tên; count(*) áp CÙNG where (join users cho
-   * search; KHÔNG cần join host — WHERE không đụng host, join PK không nhân dòng).
+   * join users lấy tên người đứng tên + host/host_user để derive holder phần mềm
+   * (sw-license-model). count(*) áp CÙNG where + CÙNG join host (where có thể đụng
+   * hostUser.fullName khi tìm theo người giữ máy; join PK không nhân dòng).
    */
-  /** Điều kiện tìm/lọc dùng chung list (2.2) + export (2.10) — MỘT nguồn sự thật.
-   * `expiringBefore` = ngày cắt (VN) cho lọc "sắp hết hạn" (7.7); caller tính từ warningDays. */
-  private buildListConditions(
-    query: Pick<AssetListQuery, 'search' | 'type' | 'status' | 'expiring'>,
-    expiringBefore: string | null = null,
-  ) {
-    const pat = query.search ? `%${escapeLike(query.search)}%` : null;
-    const conditions = [
-      pat
-        ? or(
-            ilike(assetsTable.code, pat),
-            ilike(usersTable.fullName, pat),
-            // 7.7: tìm theo software — license_name của chính software + software gắn máy
-            ilike(assetsTable.licenseName, pat),
-            sql`EXISTS (SELECT 1 FROM assets sw
-              WHERE sw.installed_on_asset_id = ${assetsTable.id}
-                AND sw.type = 'software'
-                AND (sw.code ILIKE ${pat} OR sw.license_name ILIKE ${pat}))`,
-          )
-        : undefined,
-      query.type ? eq(assetsTable.type, query.type) : undefined,
-      query.status ? eq(assetsTable.status, query.status) : undefined,
-      // 7.7 "sắp hết hạn": thiết bị bất kỳ có endDate, HOẶC license term đang gắn máy
-      // (installed IS NOT NULL ⇒ host chưa thanh lý — máy disposed tự detach license 2.5).
-      query.expiring && expiringBefore
-        ? sql`${assetsTable.status} <> 'disposed'
-            AND ${assetsTable.endDate} IS NOT NULL
-            AND ${assetsTable.endDate} <= ${expiringBefore}::date
-            AND (${assetsTable.type} <> 'software'
-                 OR (${assetsTable.licenseType} = 'term'
-                     AND ${assetsTable.installedOnAssetId} IS NOT NULL))`
-        : undefined,
-    ].filter((c) => c !== undefined);
-    return conditions.length > 0 ? and(...conditions) : undefined;
-  }
-
-
   async list(query: AssetListQuery) {
     // FR-44: mốc cảnh báo đọc từ Config (AD-1) — SA chỉnh ở 6.3, hiệu lực ≤30s (TTL).
     // SystemConfigService.getInt đã validate int ≥ 0 tại nguồn (epic review) —
@@ -331,10 +293,14 @@ export class AssetsService {
     const host = alias(assetsTable, 'host');
     // Người đứng tên phần mềm = holder của MÁY nó gắn (sw-license-model-redesign) → user của host.
     const hostUser = alias(usersTable, 'host_user');
-    const where = this.buildListConditions(
+    // Truyền hostUser.fullName → tìm phần mềm theo người ĐANG GIỮ MÁY (holder derive).
+    const where = buildAssetListConditions(
       query,
       query.expiring ? await this.software.expiringCutoff() : null,
+      hostUser.fullName,
     );
+    // Người đứng tên hiển thị của phần mềm = holder của máy → sort assignee cũng theo derive.
+    const assigneeExpr = sql`CASE WHEN ${assetsTable.type} = 'software' THEN ${hostUser.fullName} ELSE ${usersTable.fullName} END`;
     // Sắp xếp server-side: cột đã whitelist ở DTO; id làm tiebreaker → phân trang ổn định.
     const sortCol =
       query.sort === 'type'
@@ -342,7 +308,7 @@ export class AssetsService {
         : query.sort === 'status'
           ? assetsTable.status
           : query.sort === 'assignee'
-            ? usersTable.fullName
+            ? assigneeExpr
             : assetsTable.code;
     const orderExpr = query.dir === 'desc' ? desc(sortCol) : sortCol;
     const [items, totalRows] = await Promise.all([
@@ -403,6 +369,9 @@ export class AssetsService {
         .select({ n: sql<number>`count(*)::int` })
         .from(assetsTable)
         .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
+        // CÙNG join host/host_user như query items — where có thể lọc theo hostUser.fullName.
+        .leftJoin(host, eq(assetsTable.installedOnAssetId, host.id))
+        .leftJoin(hostUser, eq(host.assignedUserSub, hostUser.sub))
         .where(where),
     ]);
     return {
@@ -811,113 +780,8 @@ export class AssetsService {
       .limit(200);
   }
 
-  /**
-   * Export Excel theo bộ lọc hiện tại (2.10, FR-41) — KHÔNG phân trang, trần
-   * 10000 dòng; escape NFR-10 mọi cell chuỗi (dữ liệu lưu raw — defer 2.9).
-   */
-  async exportExcel(
-    query: Pick<AssetListQuery, 'search' | 'type' | 'status' | 'expiring'>,
-    actorSub: string,
-  ) {
-    const host = alias(assetsTable, 'host');
-    const expiringBefore = query.expiring
-      ? await this.software.expiringCutoff()
-      : null;
-    const rows = await this.db
-      .select({
-        code: assetsTable.code,
-        type: assetsTable.type,
-        // Export (dump ≤10k dòng): KHÔNG derive holder phần mềm để tránh join thêm làm chậm
-        // (perf > nhất quán ở export; UI list/detail đã derive). Software → holder trống.
-        assignedUserSub: assetsTable.assignedUserSub,
-        assignedUserName: usersTable.fullName,
-        configuration: assetsTable.configuration,
-        cost: assetsTable.cost,
-        startDate: assetsTable.startDate,
-        endDate: assetsTable.endDate,
-        status: assetsTable.status,
-        isPool: assetsTable.isPool,
-        serial: assetsTable.serial,
-        brand: assetsTable.brand,
-        note: assetsTable.note,
-        licenseType: assetsTable.licenseType,
-        licenseName: assetsTable.licenseName,
-        installedOnCode: host.code,
-      })
-      .from(assetsTable)
-      .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
-      .leftJoin(host, eq(assetsTable.installedOnAssetId, host.id))
-      .where(this.buildListConditions(query, expiringBefore))
-      .orderBy(assetsTable.code)
-      .limit(10_001);
-    if (rows.length > 10_000) {
-      throw new BadRequestException({
-        code: 'EXPORT_TOO_LARGE',
-        message: 'Quá 10.000 dòng — thu hẹp bộ lọc rồi export lại.',
-      });
-    }
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Tai san');
-    sheet.addRow([
-      'CODE',
-      'TYPE',
-      'USER',
-      'CONFIGURATION',
-      'COST',
-      'START DATE',
-      'END DATE',
-      'STATUS',
-      'POOL',
-      'SERIAL',
-      'BRAND',
-      'NOTE',
-      'LICENSE TYPE',
-      'LICENSE NAME',
-      'INSTALLED ON',
-    ]);
-    // NFR-10: escape mọi cell CHUỖI — số/ngày giữ kiểu, không thực thi được
-    const esc = (v: string | null) => (v == null ? '' : escapeCellDisplay(v));
-    for (const r of rows) {
-      sheet.addRow([
-        esc(r.code),
-        esc(r.type),
-        esc(r.assignedUserName ?? r.assignedUserSub),
-        esc(r.configuration),
-        r.cost ?? '',
-        r.startDate ?? '',
-        r.endDate ?? '',
-        // enum bị CHECK khóa nhưng vẫn esc — "mọi ô chuỗi" không dựa invariant file khác
-        esc(r.status),
-        r.isPool ? 'x' : '',
-        esc(r.serial),
-        esc(r.brand),
-        esc(r.note),
-        esc(r.licenseType),
-        esc(r.licenseName),
-        esc(r.installedOnCode),
-      ]);
-    }
-    // FR-43: kênh exfil phải có vết — ghi TRƯỚC khi trả file (best-effort,
-    // nhất quán quyết định 2.8 download — PO confirm chung)
-    await this.audit.append({
-      actor: actorSub,
-      action: 'assets.export',
-      objectType: 'assets_export',
-      detail: {
-        filters: {
-          search: query.search ?? null,
-          type: query.type ?? null,
-          status: query.status ?? null,
-          expiring: query.expiring ?? false,
-        },
-        rowCount: rows.length,
-      },
-    });
-    return {
-      buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
-      rowCount: rows.length,
-    };
-  }
+  // Export Excel (2.10) TÁCH sang AssetExportService (§6): exportAssets (máy) +
+  // exportSoftware (license, derive holder). Controller gọi trực tiếp service đó.
 
   /** Giá trị distinct cho dropdown lọc (story 2.2) — loại đang có trong sổ (Tầng gỡ ở 7.6). */
   async filterMeta() {

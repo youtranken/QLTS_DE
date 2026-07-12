@@ -4,6 +4,7 @@ import { SystemConfigModule } from '../config/config.module';
 import { AssetsAdminController } from './assets-admin.controller';
 import { AssetsService } from './assets.service';
 import { AssetSoftwareService } from './asset-software.service';
+import { AssetExportService } from './asset-export.service';
 import { ImportController } from './import.controller';
 import { ImportService } from './import.service';
 import { LicenseDigestService } from './license-digest.service';
@@ -15,6 +16,7 @@ import { LicenseDigestService } from './license-digest.service';
   providers: [
     AssetsService,
     AssetSoftwareService,
+    AssetExportService,
     ImportService,
     LicenseDigestService,
   ],

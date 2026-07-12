@@ -32,6 +32,7 @@ import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AssetsService } from './assets.service';
 import { AssetSoftwareService } from './asset-software.service';
+import { AssetExportService } from './asset-export.service';
 import type { AssetInput } from './assets.service';
 
 /**
@@ -43,10 +44,17 @@ const trim = Transform(({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value,
 );
 
+/** Như trim nhưng '' → undefined để @IsOptional bỏ qua (phần mềm không gửi mã;
+ * FE gửi null, nhưng '' vẫn được chấp nhận thay vì 400 @Length — sw-license-model). */
+const trimToUndef = Transform(({ value }: { value: unknown }) => {
+  const v = typeof value === 'string' ? value.trim() : value;
+  return v === '' ? undefined : v;
+});
+
 class AssetBodyDto {
   // Phần mềm KHÔNG cần mã (định danh bằng license_name); máy bắt buộc — service validate.
   @IsOptional()
-  @trim
+  @trimToUndef
   @IsString()
   @Length(1, 100)
   code?: string | null;
@@ -216,6 +224,7 @@ export class AssetsAdminController {
   constructor(
     private readonly assets: AssetsService,
     private readonly software: AssetSoftwareService,
+    private readonly exporter: AssetExportService,
   ) {}
 
   @Get()
@@ -244,7 +253,7 @@ export class AssetsAdminController {
     return { count: await this.software.countExpiring() };
   }
 
-  /** Export Excel theo bộ lọc (2.10, FR-41) — đứng trước ':id' như 'meta'. */
+  /** Export sổ TÀI SẢN (máy) theo bộ lọc (2.10, FR-41) — đứng trước ':id' như 'meta'. */
   @Get('export')
   // dựng workbook 10k dòng RAM — siết 20 req/phút/user (epic review)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
@@ -253,7 +262,7 @@ export class AssetsAdminController {
     @Req() req: AuthedRequest,
     @Res() res: Response,
   ) {
-    const { buffer } = await this.assets.exportExcel(
+    const { buffer } = await this.exporter.exportAssets(
       {
         search: query.search,
         type: query.type,
@@ -262,12 +271,36 @@ export class AssetsAdminController {
       },
       requireSub(req),
     );
+    this.sendXlsx(res, buffer, 'tai-san');
+  }
+
+  /** Export PHẦN MỀM/license riêng (sw-license-model follow-up) — derive người đứng
+   * tên theo máy. Đứng trước ':id' như 'meta'. */
+  @Get('export-software')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async exportSoftware(
+    @Query() query: ListAssetsQueryDto,
+    @Req() req: AuthedRequest,
+    @Res() res: Response,
+  ) {
+    const { buffer } = await this.exporter.exportSoftware(
+      {
+        search: query.search,
+        status: query.status,
+        expiring: query.expiring,
+      },
+      requireSub(req),
+    );
+    this.sendXlsx(res, buffer, 'phan-mem');
+  }
+
+  private sendXlsx(res: Response, buffer: Buffer, prefix: string): void {
     const today = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Length', String(buffer.length));
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="tai-san-${today}.xlsx"`,
+      `attachment; filename="${prefix}-${today}.xlsx"`,
     );
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.end(buffer);

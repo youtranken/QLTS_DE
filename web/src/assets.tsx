@@ -252,13 +252,20 @@ export function AssetsPage({
             ),
         },
         {
-          id: 'assignee',
+          id: 'assignee', // BE sort 'assignee' đã derive holder từ máy cho phần mềm
+          accessorKey: 'assignedUserName',
           header: t('assets.assignee'),
-          enableSorting: false, // holder phần mềm DERIVE từ máy → sort theo assignee tĩnh vô nghĩa
-          cell: ({ row }) =>
-            row.original.assignedUserName ??
-            row.original.assignedUserSub ??
-            '—',
+          cell: ({ row }) => {
+            const r = row.original;
+            const holder = r.assignedUserName ?? r.assignedUserSub;
+            if (holder) return holder;
+            // Phân biệt: chưa gắn máy (—) vs gắn máy nhưng máy chưa có người đứng tên.
+            return r.installedOnCode ? (
+              <span className="muted">{t('assets.hostNoHolder')}</span>
+            ) : (
+              '—'
+            );
+          },
         },
         {
           id: 'term',
@@ -356,6 +363,19 @@ export function AssetsPage({
               {t('assets.exportExcel')}
             </a>
           </>
+        )}
+        {/* sw-license-model follow-up: export PHẦN MỀM riêng (derive người đứng tên theo máy) */}
+        {softwareOnly && (
+          <a
+            className="linkbtn"
+            href={`/api/admin/assets/export-software?${new URLSearchParams({
+              ...(search ? { search } : {}),
+              ...(status ? { status } : {}),
+              ...(expiring ? { expiring: 'true' } : {}),
+            }).toString()}`}
+          >
+            {t('assets.exportExcel')}
+          </a>
         )}
         <button
           type="button"

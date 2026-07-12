@@ -497,6 +497,7 @@ export default {
     hostCol: 'Machine',
     termCol: 'Term',
     swCol: 'Software',
+    hostNoHolder: '(machine has no holder)',
     detach: 'Detach from machine',
     transferToSearch: 'Transfer to machine (search by code)…',
     transferFailed: 'License transfer failed.',
