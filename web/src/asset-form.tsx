@@ -3,11 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
 import { AssetOwnerPanel } from './asset-owner-panel';
 import { AssetSoftwarePicker } from './asset-software-picker';
+import { AssetGeneralFields } from './asset-general-fields';
+import { AssetLifecyclePanel } from './asset-lifecycle-panel';
+import { AssetInstalledOn } from './asset-installed-on';
+import { AssetCascadeDialog } from './asset-cascade-dialog';
 import type { Me } from './panels';
-import {
-  detailToForm,
-  fmtDateTime,
-} from './asset-types';
+import { detailToForm } from './asset-types';
 import type {
   AssetDetail,
   AssetRow,
@@ -637,175 +638,15 @@ export function AssetForm({
 
             <div className="form-section">
               <div className="form-section-title">{t('assets.sectionGeneral')}</div>
-              <div className="form-grid">
-                {/* Phần mềm định danh bằng Tên license → KHÔNG có Mã tài sản (sw-license-model-redesign) */}
-                {!form.isSoftware && (
-                  <label className="field">
-                    <span>
-                      {t('assets.code')} <span className="field-req">*</span>
-                    </span>
-                    <input
-                      required
-                      maxLength={100}
-                      value={form.code}
-                      onChange={(e) => set('code')(e.target.value)}
-                    />
-                  </label>
-                )}
-                {!form.isSoftware && (
-                  <label className="field">
-                    <span>
-                      {t('assets.type')} <span className="field-req">*</span>
-                    </span>
-                    <select
-                      required
-                      value={form.type}
-                      onChange={(e) => set('type')(e.target.value)}
-                    >
-                      <option value="">—</option>
-                      {typeOptions.map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                {form.isSoftware && (
-                  <label className="field">
-                    <span>
-                      {t('assets.licenseType')} <span className="field-req">*</span>
-                    </span>
-                    <select
-                      required
-                      value={form.licenseType}
-                      onChange={(e) => set('licenseType')(e.target.value)}
-                    >
-                      <option value="">—</option>
-                      <option value="term">{t('assets.licenseTerm')}</option>
-                      <option value="perpetual">
-                        {t('assets.licensePerpetual')}
-                      </option>
-                    </select>
-                  </label>
-                )}
-                {/* Tên license: định danh phần mềm — BẮT BUỘC mọi license (không chỉ vĩnh viễn) */}
-                {form.isSoftware && (
-                  <label className="field">
-                    <span>
-                      {t('assets.licenseName')} <span className="field-req">*</span>
-                    </span>
-                    <input
-                      required
-                      maxLength={200}
-                      value={form.licenseName}
-                      onChange={(e) => set('licenseName')(e.target.value)}
-                    />
-                  </label>
-                )}
-                {/* Cấu hình: chỉ dành cho máy — phần mềm không có (sw-license-model-redesign) */}
-                {!form.isSoftware && (
-                  <label className="field span-2">
-                    <span>{t('assets.configuration')}</span>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input
-                        list="catalog-config-list"
-                        maxLength={2000}
-                        style={{ flex: 1 }}
-                        value={form.configuration}
-                        onChange={(e) => set('configuration')(e.target.value)}
-                      />
-                      <datalist id="catalog-config-list">
-                        {catConfig.map((v) => (
-                          <option key={v} value={v} />
-                        ))}
-                      </datalist>
-                      <button
-                        type="button"
-                        className="sm"
-                        title={t('assets.configAdd')}
-                        disabled={
-                          addingConfig ||
-                          !form.configuration.trim() ||
-                          catConfig.includes(form.configuration.trim())
-                        }
-                        onClick={() => void addConfig()}
-                      >
-                        ＋
-                      </button>
-                    </div>
-                  </label>
-                )}
-                <label className="field">
-                  <span>{t('assets.cost')}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={form.cost}
-                    onChange={(e) => set('cost')(e.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>{t('assets.startDate')}</span>
-                  <input
-                    type="date"
-                    value={form.startDate}
-                    onChange={(e) => set('startDate')(e.target.value)}
-                  />
-                </label>
-                {!(form.isSoftware && form.licenseType === 'perpetual') && (
-                  <label className="field">
-                    <span>
-                      {t('assets.endDate')}
-                      {form.isSoftware && form.licenseType === 'term' && (
-                        <span className="field-req"> *</span>
-                      )}
-                    </span>
-                    <input
-                      type="date"
-                      required={form.isSoftware && form.licenseType === 'term'}
-                      value={form.endDate}
-                      onChange={(e) => set('endDate')(e.target.value)}
-                    />
-                  </label>
-                )}
-                <label className="field">
-                  <span>{t('assets.statusLabel')}</span>
-                  {/* Chỉ hiển thị (AC 1) — khóa/gỡ pool/thanh lý là nghiệp vụ 2.6 */}
-                  <input disabled value={t(`assets.status.${form.status}`)} />
-                </label>
-                <label className="field">
-                  <span>{t('assets.serial')}</span>
-                  <input
-                    maxLength={200}
-                    value={form.serial}
-                    onChange={(e) => set('serial')(e.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>{t('assets.brand')}</span>
-                  <select
-                    value={form.brand}
-                    onChange={(e) => set('brand')(e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {brandOptions.map((v) => (
-                      <option key={v} value={v}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field span-2">
-                  <span>{t('assets.note')}</span>
-                  <input
-                    maxLength={2000}
-                    value={form.note}
-                    onChange={(e) => set('note')(e.target.value)}
-                  />
-                </label>
-              </div>
+              <AssetGeneralFields
+                form={form}
+                set={set}
+                typeOptions={typeOptions}
+                brandOptions={brandOptions}
+                catConfig={catConfig}
+                addConfig={addConfig}
+                addingConfig={addingConfig}
+              />
 
               {/* 9.3: Người đứng tên đưa vào ngay Thông tin chung (trước là section riêng dưới cùng).
                   sw-license-model-redesign: CHỈ máy — phần mềm derive holder từ máy nó gắn, không nhập tay.
@@ -888,212 +729,32 @@ export function AssetForm({
             )}
 
             {showLifecycle && (
-              // 2.6: vòng đời — 3 thao tác tách bạch, không đi qua nút Lưu
-              <div className="form-section">
-                <div className="form-section-title">{t('assets.lifecycle')}</div>
-                {form.status === 'disposed' ? (
-                  <p className="muted">{t('assets.disposedTerminal')}</p>
-                ) : (
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: '0.5rem',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                    }}
-                  >
-                    {!form.isSoftware && form.status === 'in_use' && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => setShowLockForm((v) => !v)}
-                      >
-                        {t('assets.lockAction')}
-                      </button>
-                    )}
-                    {!form.isSoftware && form.status === 'locked_repair' && (
-                      <button
-                        type="button"
-                        className="primary"
-                        disabled={busy}
-                        onClick={() =>
-                          void doLifecycle('unlock', 'POST', {}, { status: 'in_use' })
-                        }
-                      >
-                        {t('assets.unlockAction')}
-                      </button>
-                    )}
-                    {!form.isSoftware && form.status === 'in_use' && (
-                      // pool toggle CHỈ khi in_use — đụng pool lúc đang khóa phá
-                      // invariant "mở khóa → pool như trước" (review 2.6)
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => {
-                          const next = !form.isPool;
-                          // Gỡ pool (next=false) → cascade → preview+popup; bật pool → chạy thẳng
-                          const run = next ? doLifecycle : previewThenRun;
-                          void run('pool', 'PUT', { isPool: next }, { isPool: next });
-                        }}
-                      >
-                        {form.isPool ? t('assets.poolOff') : t('assets.poolOn')}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="danger"
-                      disabled={busy}
-                      onClick={() => {
-                        // Thanh lý không đảo ngược → giữ window.confirm (AC2); rồi preview+popup
-                        if (window.confirm(t('assets.disposeConfirm'))) {
-                          void previewThenRun(
-                            'dispose',
-                            'POST',
-                            {},
-                            {
-                              status: 'disposed',
-                              installedOnAssetId: '',
-                              installedOnCode: '',
-                            },
-                          );
-                        }
-                      }}
-                    >
-                      {t('assets.disposeAction')}
-                    </button>
-                  </div>
-                )}
-                {showLockForm && form.status === 'in_use' && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: '0.5rem',
-                      flexWrap: 'wrap',
-                      alignItems: 'flex-end',
-                      marginTop: '0.75rem',
-                    }}
-                  >
-                    <label className="field">
-                      <span>
-                        {t('assets.lockReason')} <span className="field-req">*</span>
-                      </span>
-                      <input
-                        maxLength={500}
-                        value={lockReason}
-                        onChange={(e) => setLockReason(e.target.value)}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>{t('assets.lockEta')}</span>
-                      <input
-                        type="date"
-                        value={lockEta}
-                        onChange={(e) => setLockEta(e.target.value)}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="primary"
-                      disabled={busy || !lockReason.trim()}
-                      onClick={() =>
-                        void previewThenRun(
-                          'lock',
-                          'POST',
-                          {
-                            reason: lockReason.trim(),
-                            ...(lockEta ? { eta: lockEta } : {}),
-                          },
-                          { status: 'locked_repair' },
-                        )
-                      }
-                    >
-                      {t('assets.confirmLock')}
-                    </button>
-                  </div>
-                )}
-              </div>
+              <AssetLifecyclePanel
+                form={form}
+                busy={busy}
+                showLockForm={showLockForm}
+                setShowLockForm={setShowLockForm}
+                lockReason={lockReason}
+                setLockReason={setLockReason}
+                lockEta={lockEta}
+                setLockEta={setLockEta}
+                doLifecycle={doLifecycle}
+                previewThenRun={previewThenRun}
+              />
             )}
 
             {/* software disposed: TERMINAL — không gắn/chuyển được nữa (review 2.6) */}
             {showInstall && (
-              <div className="form-section">
-                <div className="form-section-title">{t('assets.installedOn')}</div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.6rem',
-                    marginBottom: '0.6rem',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  {form.installedOnAssetId ? (
-                    <span className="chip">
-                      {form.installedOnCode || form.installedOnAssetId}
-                      {!form.id && (
-                        <button
-                          type="button"
-                          aria-label={t('assets.cancel')}
-                          onClick={() =>
-                            setForm((f) => ({
-                              ...f,
-                              installedOnAssetId: '',
-                              installedOnCode: '',
-                            }))
-                          }
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="muted">{t('assets.installedNone')}</span>
-                  )}
-                  {form.id && form.installedOnAssetId && (
-                    // 2.5: gỡ về "chưa gắn máy" — thao tác thật, có audit
-                    <button
-                      type="button"
-                      className="sm"
-                      disabled={busy}
-                      onClick={() => void transfer(null)}
-                    >
-                      {t('assets.detach')}
-                    </button>
-                  )}
-                </div>
-                <Combobox
-                  placeholder={
-                    form.id
-                      ? t('assets.transferToSearch')
-                      : t('assets.installedOnSearch')
-                  }
-                  query={hostQuery}
-                  onQuery={setHostQuery}
-                  options={hostOptions}
-                  disabled={busy}
-                  getKey={(a) => a.id}
-                  renderOption={(a) => (
-                    <>
-                      <span>{a.code}</span>
-                      <small>{a.type}</small>
-                    </>
-                  )}
-                  onSelect={(a) => {
-                    if (form.id) {
-                      // sửa: chuyển NGAY qua endpoint transfer (2.5). Host là MÁY → luôn có mã.
-                      void transfer({ id: a.id, code: a.code ?? '' });
-                      return;
-                    }
-                    setForm((f) => ({
-                      ...f,
-                      installedOnAssetId: a.id,
-                      installedOnCode: a.code ?? '',
-                    }));
-                    setHostQuery('');
-                    setHostOptions([]);
-                  }}
-                />
-              </div>
+              <AssetInstalledOn
+                form={form}
+                setForm={setForm}
+                busy={busy}
+                hostQuery={hostQuery}
+                setHostQuery={setHostQuery}
+                hostOptions={hostOptions}
+                setHostOptions={setHostOptions}
+                transfer={transfer}
+              />
             )}
 
             {/* #2: chọn phần mềm cài sẵn NGAY khi tạo máy — gắn sau khi tạo. */}
@@ -1149,124 +810,14 @@ export function AssetForm({
 
       {/* 3.13: popup xác nhận cascade — danh sách bị ảnh hưởng + cờ báo mail. Nằm TRÊN sheet. */}
       {cascade && (
-        <div
-          className="modal-backdrop stacked"
-          onClick={(e) => {
-            e.stopPropagation();
-            setCascade(null);
-          }}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ marginBottom: '0.75rem' }}>{t('cascade.title')}</h2>
-
-            {cascade.data.futureCancellations.length > 0 && (
-              <div style={{ marginBottom: '1rem' }}>
-                <h3 style={{ marginBottom: '0.4rem' }}>
-                  {t('cascade.willCancel', {
-                    n: cascade.data.futureCancellations.length,
-                  })}
-                </h3>
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>{t('cascade.colBorrower')}</th>
-                        <th>{t('cascade.colTime')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cascade.data.futureCancellations.map((r) => (
-                        // key kèm from: ticket recurring (Epic 4) có nhiều booking/máy → tránh trùng key
-                        <tr key={`${r.ticketId}-${r.from ?? ''}`}>
-                          <td>{r.borrowerName ?? '—'}</td>
-                          <td>
-                            {fmtDateTime(r.from)} → {fmtDateTime(r.to)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {cascade.data.inUseRecalls.length > 0 && (
-              <div style={{ marginBottom: '1rem' }}>
-                <h3 style={{ marginBottom: '0.4rem' }}>
-                  {t('cascade.willRecall', {
-                    n: cascade.data.inUseRecalls.length,
-                  })}
-                </h3>
-                <p
-                  className="muted"
-                  style={{ margin: '0 0 0.4rem', fontSize: '0.85rem' }}
-                >
-                  {t('cascade.recallHint')}
-                </p>
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>{t('cascade.colBorrower')}</th>
-                        <th>{t('cascade.colTime')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cascade.data.inUseRecalls.map((r) => (
-                        <tr key={`${r.ticketId}-${r.from ?? ''}`}>
-                          <td>{r.borrowerName ?? '—'}</td>
-                          <td>
-                            {fmtDateTime(r.from)} → {fmtDateTime(r.to)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            <label
-              style={{
-                display: 'flex',
-                gap: 8,
-                alignItems: 'center',
-                margin: '0.75rem 0 1.25rem',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={notifyUsers}
-                onChange={(e) => setNotifyUsers(e.target.checked)}
-                style={{ width: 'auto' }}
-              />
-              {t('cascade.notify')}
-            </label>
-
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setCascade(null)}>
-                {t('cascade.cancel')}
-              </button>
-              <button
-                type="button"
-                className="danger"
-                disabled={busy}
-                onClick={() => {
-                  const c = cascade;
-                  setCascade(null);
-                  void doLifecycle(
-                    c.path,
-                    c.method,
-                    { ...c.extra, notify: notifyUsers },
-                    c.patch,
-                  );
-                }}
-              >
-                {t('cascade.confirm')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AssetCascadeDialog
+          cascade={cascade}
+          setCascade={setCascade}
+          notifyUsers={notifyUsers}
+          setNotifyUsers={setNotifyUsers}
+          busy={busy}
+          doLifecycle={doLifecycle}
+        />
       )}
     </div>
   );
