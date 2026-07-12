@@ -3,6 +3,7 @@ import { AuditModule } from '../audit/audit.module';
 import { SystemConfigModule } from '../config/config.module';
 import { AssetsAdminController } from './assets-admin.controller';
 import { AssetsService } from './assets.service';
+import { AssetSoftwareService } from './asset-software.service';
 import { ImportController } from './import.controller';
 import { ImportService } from './import.service';
 import { LicenseDigestService } from './license-digest.service';
@@ -11,7 +12,12 @@ import { LicenseDigestService } from './license-digest.service';
 @Module({
   imports: [AuditModule, SystemConfigModule],
   controllers: [AssetsAdminController, ImportController],
-  providers: [AssetsService, ImportService, LicenseDigestService],
-  exports: [AssetsService],
+  providers: [
+    AssetsService,
+    AssetSoftwareService,
+    ImportService,
+    LicenseDigestService,
+  ],
+  exports: [AssetsService, AssetSoftwareService],
 })
 export class AssetsModule {}

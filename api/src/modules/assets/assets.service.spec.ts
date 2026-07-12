@@ -4,11 +4,9 @@ import {
   HttpException,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  AssetsService,
-  diffChanged,
-  validateSoftwareInput,
-} from './assets.service';
+import { AssetsService, diffChanged } from './assets.service';
+import { AssetSoftwareService } from './asset-software.service';
+import { validateSoftwareInput } from './software-license';
 import type { AssetInput } from './assets.service';
 import type { Database } from '../../database/database.module';
 import type { AuditWriterService } from '../audit/audit-writer.service';
@@ -44,12 +42,18 @@ function makeService(tx: Partial<Record<string, unknown>>) {
     transaction: (cb: (t: unknown) => Promise<unknown>) => cb(tx),
   };
   const config = { getLicenseWarningDays: jest.fn().mockResolvedValue(30) };
-  const svc = new AssetsService(
+  const software = new AssetSoftwareService(
     db as unknown as Database,
     audit as unknown as AuditWriterService,
     config as unknown as SystemConfigService,
   );
-  return { svc, audit };
+  const svc = new AssetsService(
+    db as unknown as Database,
+    audit as unknown as AuditWriterService,
+    config as unknown as SystemConfigService,
+    software,
+  );
+  return { svc, software, audit };
 }
 
 async function catchHttp(promise: Promise<unknown>): Promise<HttpException> {
@@ -291,8 +295,10 @@ describe('transferLicense (2.5, FR-50)', () => {
         from: () => ({ where: () => Promise.resolve([{ type: 'laptop' }]) }),
       }),
     };
-    const { svc, audit } = makeService(db);
-    const err = await catchHttp(svc.transferLicense('uuid-1', null, 1, 'adm'));
+    const { software, audit } = makeService(db);
+    const err = await catchHttp(
+      software.transferLicense('uuid-1', null, 1, 'adm'),
+    );
     expect(err.getResponse()).toMatchObject({ code: 'NOT_SOFTWARE' });
     expect(audit.appendWithin).not.toHaveBeenCalled();
   });
@@ -304,8 +310,10 @@ describe('transferLicense (2.5, FR-50)', () => {
         from: () => ({ where: () => Promise.resolve([{ type: 'software' }]) }),
       }),
     };
-    const { svc } = makeService(db);
-    const err = await catchHttp(svc.transferLicense('uuid-1', null, 1, 'adm'));
+    const { software } = makeService(db);
+    const err = await catchHttp(
+      software.transferLicense('uuid-1', null, 1, 'adm'),
+    );
     expect(err.getResponse()).toMatchObject({ code: 'STALE_VERSION' });
   });
 
@@ -314,8 +322,8 @@ describe('transferLicense (2.5, FR-50)', () => {
       execute: () =>
         Promise.resolve({ rows: [{ new_version: 2, old_target: 'may-a' }] }),
     };
-    const { svc, audit } = makeService(db);
-    const res = await svc.transferLicense('uuid-1', null, 1, 'adm');
+    const { software, audit } = makeService(db);
+    const res = await software.transferLicense('uuid-1', null, 1, 'adm');
     expect(res).toEqual({ ok: true, version: 2 });
     expect(audit.appendWithin).toHaveBeenCalledWith(
       expect.anything(),

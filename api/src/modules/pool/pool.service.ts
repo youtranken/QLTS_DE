@@ -13,7 +13,8 @@ import { TicketsService } from '../tickets/tickets.service';
 
 export interface PoolItem {
   id: string;
-  code: string;
+  // code nullable ở schema (phần mềm không mã); pool CHỈ máy nên thực tế luôn có mã.
+  code: string | null;
   type: string;
   configuration: string | null;
   brand: string | null;

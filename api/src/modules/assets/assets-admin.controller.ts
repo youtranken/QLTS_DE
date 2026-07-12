@@ -31,6 +31,7 @@ import {
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AssetsService } from './assets.service';
+import { AssetSoftwareService } from './asset-software.service';
 import type { AssetInput } from './assets.service';
 
 /**
@@ -191,7 +192,8 @@ class ListAssetsQueryDto {
 
 function toInput(body: AssetBodyDto): AssetInput {
   return {
-    code: body.code.trim(),
+    // Phần mềm không có mã (định danh bằng license_name); máy bắt buộc — service validate.
+    code: body.code?.trim() || null,
     type: body.type.trim(),
     configuration: body.configuration ?? null,
     cost: body.cost ?? null,
@@ -211,7 +213,10 @@ function toInput(body: AssetBodyDto): AssetInput {
 @Controller('admin/assets')
 @Roles('sa', 'admin')
 export class AssetsAdminController {
-  constructor(private readonly assets: AssetsService) {}
+  constructor(
+    private readonly assets: AssetsService,
+    private readonly software: AssetSoftwareService,
+  ) {}
 
   @Get()
   list(@Query() query: ListAssetsQueryDto) {
@@ -236,7 +241,7 @@ export class AssetsAdminController {
   /** Badge "Sắp hết hạn" (7.7) — đứng trước ':id' như 'meta'. */
   @Get('expiring-count')
   async expiringCount() {
-    return { count: await this.assets.countExpiring() };
+    return { count: await this.software.countExpiring() };
   }
 
   /** Export Excel theo bộ lọc (2.10, FR-41) — đứng trước ':id' như 'meta'. */
@@ -288,7 +293,7 @@ export class AssetsAdminController {
   /** Software đã cài trên máy (2.4, AC 2) — 2.7/Epic 3 dùng lại. */
   @Get(':id/software')
   listInstalledSoftware(@Param('id', ParseUUIDPipe) id: string) {
-    return this.assets.listInstalledSoftware(id);
+    return this.software.listInstalledSoftware(id);
   }
 
   // Vòng đời máy (lock/unlock/dispose/pool) CHUYỂN sang AssetLifecycleController trong
@@ -302,7 +307,7 @@ export class AssetsAdminController {
     @Body() body: TransferLicenseDto,
     @Req() req: AuthedRequest,
   ) {
-    return this.assets.transferLicense(
+    return this.software.transferLicense(
       id,
       body.targetAssetId ?? null,
       body.version,

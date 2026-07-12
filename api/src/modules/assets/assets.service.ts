@@ -16,6 +16,9 @@ import { usersTable } from '../users/users.schema';
 import { allocationHistoryTable } from './allocation-history.schema';
 import { assetNoteTable } from './asset-note.schema';
 import { assetsTable } from './assets.schema';
+import { mapAssetPgError } from './asset-pg-error';
+import { AssetSoftwareService } from './asset-software.service';
+import { validateSoftwareInput } from './software-license';
 import { escapeLike } from '../../common/sql';
 import { escapeCellDisplay } from './import-parser';
 
@@ -67,11 +70,6 @@ const EDITABLE_FIELDS = [
   'license_name',
 ] as const;
 
-interface PgError {
-  code?: string;
-  constraint?: string;
-}
-
 /** Row đã FOR UPDATE cho thao tác vòng đời (2.6). */
 interface LifecycleRow {
   type: string;
@@ -88,6 +86,8 @@ export class AssetsService {
     @Inject(DRIZZLE_DB) private readonly db: Database,
     private readonly audit: AuditWriterService,
     private readonly config: SystemConfigService,
+    // Cụm phần mềm/license tách riêng (§6) — AssetsService phối hợp qua service công khai
+    private readonly software: AssetSoftwareService,
   ) {}
 
   /**
@@ -111,7 +111,7 @@ export class AssetsService {
     try {
       return await this.db.transaction(async (tx) => {
         if (installedOnAssetId) {
-          await this.assertInstallTarget(tx, installedOnAssetId);
+          await this.software.assertInstallTarget(tx, installedOnAssetId);
         }
         const rows = await tx
           .insert(assetsTable)
@@ -161,7 +161,7 @@ export class AssetsService {
         return asset;
       });
     } catch (error) {
-      throw this.mapPgError(error);
+      throw mapAssetPgError(error);
     }
   }
 
@@ -272,7 +272,7 @@ export class AssetsService {
         return { ok: true, version: row.new_version as number };
       });
     } catch (error) {
-      throw this.mapPgError(error);
+      throw mapAssetPgError(error);
     }
   }
 
@@ -317,28 +317,6 @@ export class AssetsService {
     return conditions.length > 0 ? and(...conditions) : undefined;
   }
 
-  /** Ngày cắt "sắp hết hạn" theo TZ VN + ngưỡng Config (7.7) — dùng cho list/export/count. */
-  private async expiringCutoff(): Promise<string> {
-    const warningDays = await this.config.getLicenseWarningDays();
-    const rows = await this.db.execute<{ d: string }>(
-      sql`SELECT ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + ${warningDays}::int)::text AS d`,
-    );
-    return rows.rows[0].d;
-  }
-
-  /** Badge "Sắp hết hạn" (7.7, AC2) — gộp thiết bị + license term đang gắn; loại disposed. */
-  async countExpiring(): Promise<number> {
-    const before = await this.expiringCutoff();
-    const rows = await this.db.execute<{ n: number }>(sql`
-      SELECT count(*)::int AS n FROM assets
-      WHERE status <> 'disposed'
-        AND end_date IS NOT NULL
-        AND end_date <= ${before}::date
-        AND (type <> 'software'
-             OR (license_type = 'term' AND installed_on_asset_id IS NOT NULL))
-    `);
-    return rows.rows[0]?.n ?? 0;
-  }
 
   async list(query: AssetListQuery) {
     // FR-44: mốc cảnh báo đọc từ Config (AD-1) — SA chỉnh ở 6.3, hiệu lực ≤30s (TTL).
@@ -350,7 +328,7 @@ export class AssetsService {
     const hostUser = alias(usersTable, 'host_user');
     const where = this.buildListConditions(
       query,
-      query.expiring ? await this.expiringCutoff() : null,
+      query.expiring ? await this.software.expiringCutoff() : null,
     );
     // Sắp xếp server-side: cột đã whitelist ở DTO; id làm tiebreaker → phân trang ổn định.
     const sortCol =
@@ -420,78 +398,6 @@ export class AssetsService {
     };
   }
 
-  /**
-   * Chuyển license giữa máy hoặc gỡ về "chưa gắn máy" (2.5, FR-50) — endpoint
-   * RIÊNG, không đi qua PUT sửa (AC 3 của 2.4). Optimistic lock như update.
-   */
-  async transferLicense(
-    id: string,
-    targetAssetId: string | null,
-    version: number,
-    actorSub: string,
-  ) {
-    try {
-      return await this.db.transaction(async (tx) => {
-        if (targetAssetId) {
-          await this.assertInstallTarget(tx, targetAssetId);
-        }
-        const result = await tx.execute<Record<string, unknown>>(sql`
-          UPDATE assets AS a
-          SET installed_on_asset_id = ${targetAssetId},
-              version = a.version + 1,
-              updated_at = now()
-          FROM (SELECT * FROM assets WHERE id = ${id} FOR UPDATE) AS old
-          WHERE a.id = old.id AND old.version = ${version}
-            AND old.type = 'software' AND old.status <> 'disposed'
-          RETURNING a.version AS new_version,
-            old.installed_on_asset_id::text AS old_target
-        `);
-        const row = result.rows[0];
-        if (!row) {
-          const existing = await tx
-            .select({ type: assetsTable.type, status: assetsTable.status })
-            .from(assetsTable)
-            .where(eq(assetsTable.id, id));
-          if (existing.length === 0) {
-            throw new NotFoundException({
-              code: 'ASSET_NOT_FOUND',
-              message: 'Không tìm thấy tài sản này.',
-            });
-          }
-          if (existing[0].type !== 'software') {
-            throw new BadRequestException({
-              code: 'NOT_SOFTWARE',
-              message: 'Chỉ phần mềm mới chuyển được giữa máy.',
-            });
-          }
-          // TERMINAL (review 2.6): software thanh lý không được "hồi sinh" qua transfer
-          if (existing[0].status === 'disposed') {
-            throw new ConflictException({
-              code: 'INVALID_STATE',
-              message: 'Phần mềm đã thanh lý — không chuyển được nữa.',
-            });
-          }
-          throw new ConflictException({
-            code: 'STALE_VERSION',
-            message: 'Trạng thái đã thay đổi, tải lại.',
-          });
-        }
-        await this.audit.appendWithin(tx, {
-          actor: actorSub,
-          action: 'assets.license_transfer',
-          objectType: 'asset',
-          objectId: id,
-          detail: {
-            from: row.old_target ?? null,
-            to: targetAssetId,
-          },
-        });
-        return { ok: true, version: row.new_version as number };
-      });
-    } catch (error) {
-      throw this.mapPgError(error);
-    }
-  }
 
   /**
    * Gỡ MỌI license khỏi máy (2.5, FR-50) — 2.6 gọi TRONG tx thanh lý
@@ -592,7 +498,7 @@ export class AssetsService {
         this.runLifecycleWithin(tx, id, version, actorSub, spec),
       );
     } catch (error) {
-      throw this.mapPgError(error);
+      throw mapAssetPgError(error);
     }
   }
 
@@ -840,54 +746,6 @@ export class AssetsService {
   }
 
   /** Máy đích để cài software (2.4): tồn tại, KHÔNG phải software, KHÔNG thanh lý. */
-  private async assertInstallTarget(
-    tx: Pick<Database, 'select'>,
-    targetId: string,
-  ): Promise<void> {
-    const rows = await tx
-      .select({ type: assetsTable.type, status: assetsTable.status })
-      .from(assetsTable)
-      .where(eq(assetsTable.id, targetId))
-      // giữ target đến hết tx create — chặn race dispose xen giữa (review 2.4);
-      // 2.6: tx dispose cũng phải FOR UPDATE row máy + tự xử software đang cài
-      .for('update');
-    if (rows.length === 0) {
-      throw new BadRequestException({
-        code: 'INSTALL_TARGET_NOT_FOUND',
-        message: 'Máy để cài phần mềm không tồn tại.',
-      });
-    }
-    if (rows[0].type === 'software') {
-      throw new BadRequestException({
-        code: 'INSTALL_ON_SOFTWARE',
-        message: 'Phần mềm chỉ cài được trên máy, không cài lên phần mềm khác.',
-      });
-    }
-    if (rows[0].status === 'disposed') {
-      throw new ConflictException({
-        code: 'INSTALL_TARGET_DISPOSED',
-        message: 'Máy đã thanh lý — không gắn phần mềm vào được.',
-      });
-    }
-  }
-
-  /** Software đang cài trên một máy (2.4, AC 2) — 2.7 và Epic 3 dùng lại.
-   *  Định danh bằng license_name (sw-license-model-redesign); người đứng tên = của máy này. */
-  async listInstalledSoftware(assetId: string) {
-    return this.db
-      .select({
-        id: assetsTable.id,
-        code: assetsTable.code,
-        licenseType: assetsTable.licenseType,
-        licenseName: assetsTable.licenseName,
-        startDate: assetsTable.startDate,
-        endDate: assetsTable.endDate,
-        status: assetsTable.status,
-      })
-      .from(assetsTable)
-      .where(eq(assetsTable.installedOnAssetId, assetId))
-      .orderBy(assetsTable.licenseName);
-  }
 
   /**
    * Lịch sử cấp phát một máy (2.3, AC 3) — thời gian GIẢM dần, chỉ đọc
@@ -947,7 +805,9 @@ export class AssetsService {
     actorSub: string,
   ) {
     const host = alias(assetsTable, 'host');
-    const expiringBefore = query.expiring ? await this.expiringCutoff() : null;
+    const expiringBefore = query.expiring
+      ? await this.software.expiringCutoff()
+      : null;
     const rows = await this.db
       .select({
         code: assetsTable.code,
@@ -1099,46 +959,6 @@ export class AssetsService {
     return rows[0];
   }
 
-  /** Map lỗi Postgres → lỗi nghiệp vụ; lỗi khác giữ nguyên cho filter 500. */
-  private mapPgError(error: unknown): unknown {
-    const pg = (
-      error instanceof Error && 'cause' in error && error.cause
-        ? error.cause
-        : error
-    ) as PgError;
-    if (pg?.code === '23505' && pg.constraint === 'assets_code_key') {
-      return new ConflictException({
-        code: 'CODE_TAKEN',
-        message: 'Mã tài sản đã tồn tại — mã phải duy nhất.',
-      });
-    }
-    if (pg?.code === '23503') {
-      if (pg.constraint === 'assets_installed_on_asset_id_fkey') {
-        return new BadRequestException({
-          code: 'INSTALL_TARGET_NOT_FOUND',
-          message: 'Máy để cài phần mềm không tồn tại.',
-        });
-      }
-      return new BadRequestException({
-        code: 'ASSIGNEE_NOT_FOUND',
-        message: 'Người đứng tên không tồn tại trong hệ thống.',
-      });
-    }
-    if (pg?.code === '23514') {
-      // CHECK 0012 là chốt cuối — app validate đã trả message đẹp trước đó
-      return new BadRequestException({
-        code: 'CONSTRAINT_VIOLATION',
-        message: 'Dữ liệu vi phạm ràng buộc phần mềm/license.',
-      });
-    }
-    if (pg?.code === '22007' || pg?.code === '22008') {
-      return new BadRequestException({
-        code: 'BAD_DATE',
-        message: 'Ngày không hợp lệ.',
-      });
-    }
-    return error;
-  }
 }
 
 /** So khớp old_<field> (kiểu pg raw: bigint=string, date=Date) với input mới. */
@@ -1167,49 +987,6 @@ export function diffChanged(
     if (from !== to) changed[field] = { from, to };
   }
   return changed;
-}
-
-/**
- * Ràng buộc software/license (2.4, FR-38) — validate app trả message rõ,
- * CHECK 0012 là chốt cuối ở tầng DB.
- */
-export function validateSoftwareInput(input: AssetInput): void {
-  const bad = (code: string, message: string) => {
-    throw new BadRequestException({ code, message });
-  };
-  if (input.type === 'software') {
-    // license_name là ĐỊNH DANH phần mềm (thay mã tài sản, story sw-license-model-redesign)
-    // → MỌI loại license đều bắt buộc, không chỉ perpetual.
-    if (!input.licenseName) {
-      bad('LICENSE_NAME_REQUIRED', 'Phần mềm phải có tên license.');
-    }
-    if (input.licenseType !== 'term' && input.licenseType !== 'perpetual') {
-      bad(
-        'LICENSE_TYPE_REQUIRED',
-        'Phần mềm phải chọn loại license: có thời hạn hoặc vĩnh viễn.',
-      );
-    }
-    if (input.licenseType === 'term' && !input.endDate) {
-      bad(
-        'LICENSE_END_DATE_REQUIRED',
-        'License có thời hạn phải có ngày hết hạn.',
-      );
-    }
-    if (input.licenseType === 'perpetual' && input.endDate) {
-      bad('LICENSE_PERPETUAL_NO_END', 'License vĩnh viễn không có ngày hết hạn.');
-    }
-  } else {
-    // Máy (không phải phần mềm) BẮT BUỘC có mã (code đã nullable ở DB — chốt tại đây).
-    if (!input.code) {
-      bad('CODE_REQUIRED', 'Tài sản phải có mã.');
-    }
-    if (input.licenseType || input.licenseName) {
-      bad(
-        'SOFTWARE_FIELDS_ONLY',
-        'Trường license chỉ dành cho bản ghi phần mềm.',
-      );
-    }
-  }
 }
 
 /** Chuẩn hóa để so sánh: old đã ::text từ SQL; phía input số→string, null/undefined→null. */
