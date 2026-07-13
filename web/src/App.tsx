@@ -179,42 +179,60 @@ function App() {
   }
   if (auth.kind === 'anonymous') {
     return (
-      <Center>
-        <div className="brand" style={{ fontSize: '1.4rem', padding: 0 }}>
-          <span className="brand-mark">QL</span> {t('app.title')}
+      <div className="auth">
+        <aside className="auth-hero">
+          <div className="auth-logo">
+            <span className="brand-mark">QL</span>
+            <div>
+              <div className="auth-name">{t('app.title')}</div>
+              <div className="auth-sub">{t('app.loginSub')}</div>
+            </div>
+          </div>
+          <p className="auth-slogan">{t('app.loginSlogan')}</p>
+          <ul className="auth-perks">
+            <li className="auth-perk">✓ {t('app.loginPerk1')}</li>
+            <li className="auth-perk">✓ {t('app.loginPerk2')}</li>
+          </ul>
+        </aside>
+        <div className="auth-panel">
+          <div className="auth-card">
+            {loginFailed && (
+              <p className="alert error" style={{ margin: 0 }}>
+                {t('app.loginFailed')}
+              </p>
+            )}
+            {loginForbidden ? (
+              // Bị chặn (bị xóa/gỡ group): bấm "Đăng nhập" thường sẽ silent re-auth ra đúng
+              // access_denied → lặp. Lối thoát DUY NHẤT là đổi tài khoản (kết thúc phiên SSO).
+              <>
+                <p className="alert error" style={{ margin: 0 }}>
+                  {t('app.loginForbidden')}
+                </p>
+                <button type="button" className="primary" onClick={switchAccount}>
+                  {t('app.loginOtherAccount')}
+                </button>
+              </>
+            ) : (
+              <>
+                <h1>{t('app.loginHeading')}</h1>
+                <p className="muted" style={{ margin: 0 }}>
+                  {t('app.loginPrompt')}
+                </p>
+                <a href="/api/auth/login">
+                  <button type="button" className="primary" style={{ width: '100%' }}>
+                    {t('app.login')}
+                  </button>
+                </a>
+              </>
+            )}
+            <SaLoginForm />
+            <div className="auth-switches">
+              <ThemeSwitch />
+              <LanguageSwitch />
+            </div>
+          </div>
         </div>
-        {loginFailed && (
-          <p className="alert error" style={{ margin: 0 }}>
-            {t('app.loginFailed')}
-          </p>
-        )}
-        {loginForbidden ? (
-          // Bị chặn (bị xóa/gỡ group): bấm "Đăng nhập" thường sẽ silent re-auth ra đúng
-          // access_denied → lặp. Lối thoát DUY NHẤT là đổi tài khoản (kết thúc phiên SSO).
-          <>
-            <p className="alert error" style={{ margin: 0 }}>
-              {t('app.loginForbidden')}
-            </p>
-            <button type="button" className="primary" onClick={switchAccount}>
-              {t('app.loginOtherAccount')}
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="muted">{t('app.loginPrompt')}</p>
-            <a href="/api/auth/login">
-              <button type="button" className="primary">
-                {t('app.login')}
-              </button>
-            </a>
-          </>
-        )}
-        <SaLoginForm />
-        <div style={{ display: 'flex', gap: 8 }}>
-          <ThemeSwitch />
-          <LanguageSwitch />
-        </div>
-      </Center>
+      </div>
     );
   }
 

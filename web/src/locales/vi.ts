@@ -5,6 +5,11 @@ export default {
     systemError: 'Hệ thống đang gặp sự cố — vui lòng thử lại.',
     retry: 'Thử lại',
     loginPrompt: 'Đăng nhập bằng tài khoản PMH ID của công ty.',
+    loginSub: 'Quản lý tài sản PMH',
+    loginHeading: 'Đăng nhập',
+    loginSlogan: 'Theo dõi máy móc, phần mềm và lượt mượn — gọn trong một nơi.',
+    loginPerk1: 'Mượn/trả máy nhanh, tự động duyệt',
+    loginPerk2: 'Kiểm kê, bảo hành và vòng đời tài sản rõ ràng',
     loginFailed: 'Đăng nhập không thành công — vui lòng thử lại.',
     loginForbidden:
       'Tài khoản không có quyền truy cập QLTS (không thuộc nhóm được phép). Vui lòng liên hệ quản trị.',

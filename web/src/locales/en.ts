@@ -5,6 +5,11 @@ export default {
     systemError: 'The system is having trouble — please try again.',
     retry: 'Retry',
     loginPrompt: 'Sign in with your company PMH ID account.',
+    loginSub: 'PMH Asset Management',
+    loginHeading: 'Sign in',
+    loginSlogan: 'Track machines, software and loans — all in one place.',
+    loginPerk1: 'Fast borrow/return with auto-approval',
+    loginPerk2: 'Clear inventory, warranty and asset lifecycle',
     loginFailed: 'Sign-in failed — please try again.',
     loginForbidden:
       'This account is not allowed to access QLTS (not in an authorized group). Please contact an administrator.',
