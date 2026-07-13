@@ -7,6 +7,8 @@ import type { InstalledSoftware } from './asset-software-list';
 import { detailToForm } from './asset-types';
 import type { AllocationRow, AssetDetail, NoteRow } from './asset-types';
 import type { Me } from './panels';
+import { PhotoLightbox } from './photo-lightbox';
+import type { LightboxImage } from './photo-lightbox';
 
 /** Trang chi tiết máy 3 tab (story 2.7, UJ-3) — route /tai-san/:id. */
 export function AssetDetailPage({ me }: { me: Me }) {
@@ -27,6 +29,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
       to: string;
       deliveredAt: string | null;
       returnedAt: string | null;
+      photoCount: number;
     }>
   >([]);
   const [handoverTotal, setHandoverTotal] = useState(0);
@@ -34,6 +37,34 @@ export function AssetDetailPage({ me }: { me: Me }) {
   const HANDOVER_PAGE_SIZE = 20;
   const [software, setSoftware] = useState<InstalledSoftware[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // UP-5.5: lightbox ảnh biên bản — mở khi bấm "Xem ảnh" ở một lượt bàn giao (lazy fetch).
+  const [lightbox, setLightbox] = useState<LightboxImage[] | null>(null);
+  const [photoBusy, setPhotoBusy] = useState<string | null>(null);
+
+  const openPhotos = useCallback(
+    async (ticketId: string) => {
+      setPhotoBusy(ticketId);
+      try {
+        const res = await fetch(
+          `/api/booking/tickets/${encodeURIComponent(ticketId)}/photos`,
+        );
+        if (!res.ok) return;
+        const list = (await res.json()) as Array<{
+          fileId: string;
+          phase: string;
+        }>;
+        setLightbox(
+          list.map((p) => ({
+            url: `/api/booking/tickets/${encodeURIComponent(ticketId)}/photos/${encodeURIComponent(p.fileId)}`,
+            label: t(`assets.hoPhase.${p.phase}`, p.phase),
+          })),
+        );
+      } finally {
+        setPhotoBusy(null);
+      }
+    },
+    [t],
+  );
 
   const loadAll = useCallback(async () => {
     if (!id) return;
@@ -300,6 +331,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
                     <th>{t('assets.hoDelivered')}</th>
                     <th>{t('assets.hoReturned')}</th>
                     <th>{t('assets.hoState')}</th>
+                    <th>{t('assets.hoPhotos')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -313,6 +345,20 @@ export function AssetDetailPage({ me }: { me: Me }) {
                       <td>{h.returnedAt ? fmtDateTime(h.returnedAt) : '—'}</td>
                       <td>
                         <span className="badge muted">{h.stateLabel}</span>
+                      </td>
+                      <td>
+                        {h.photoCount > 0 ? (
+                          <button
+                            type="button"
+                            className="ghost sm"
+                            disabled={photoBusy === h.ticketId}
+                            onClick={() => void openPhotos(h.ticketId)}
+                          >
+                            {t('assets.hoViewPhotos', { count: h.photoCount })}
+                          </button>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -383,6 +429,10 @@ export function AssetDetailPage({ me }: { me: Me }) {
             void loadAll(); // defer 2.3: chi tiết luôn refetch sau khi đóng form
           }}
         />
+      )}
+
+      {lightbox && (
+        <PhotoLightbox images={lightbox} onClose={() => setLightbox(null)} />
       )}
     </>
   );

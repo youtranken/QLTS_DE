@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BrowserRouter,
+  Link,
   NavLink,
   Route,
   Routes,
@@ -35,6 +36,9 @@ const SoftwareLicensePage = lazy(() =>
 );
 const MachineCalendarPage = lazy(() =>
   import('./machine-calendar').then((m) => ({ default: m.MachineCalendarPage })),
+);
+const ProfilePage = lazy(() =>
+  import('./profile').then((m) => ({ default: m.ProfilePage })),
 );
 const ApprovalQueuePage = lazy(() =>
   import('./approval-queue').then((m) => ({ default: m.ApprovalQueuePage })),
@@ -413,9 +417,9 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             </button>
           )}
           <span className="spacer" />
-          <span className="hello">
+          <Link to="/ho-so" className="hello linkbtn" title={t('profile.myProfile')}>
             {t('app.hello')} <strong>{me.fullName ?? me.sub}</strong>
-          </span>
+          </Link>
           <ThemeSwitch />
           <LanguageSwitch />
           <button type="button" className="ghost sm" onClick={onLogout}>
@@ -447,6 +451,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             {/* Landing 7.5: borrow board cho MỌI vai (thay dashboard/đặt-máy cũ ở '/'). */}
             <Route path="/" element={<BorrowBoardPage me={me} />} />
             <Route path="/lich-may/:id" element={<MachineCalendarPage />} />
+            <Route path="/ho-so" element={<ProfilePage me={me} />} />
             <Route
               path="/xu-ly-muon"
               element={

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { SystemConfigModule } from '../config/config.module';
 import { AssetsAdminController } from './assets-admin.controller';
+import { MeController } from './me.controller';
+import { MeService } from './me.service';
 import { AssetsService } from './assets.service';
 import { AssetSoftwareService } from './asset-software.service';
 import { AssetExportService } from './asset-export.service';
@@ -13,9 +15,10 @@ import { AssetsSweepRegistrar } from './assets-sweep.registrar';
 /** Module assets (AD-1) — sổ tài sản; Epic 3 (Tickets) phụ thuộc chiều Tickets → Assets. */
 @Module({
   imports: [AuditModule, SystemConfigModule],
-  controllers: [AssetsAdminController, ImportController],
+  controllers: [AssetsAdminController, ImportController, MeController],
   providers: [
     AssetsService,
+    MeService,
     AssetSoftwareService,
     AssetExportService,
     ImportService,

@@ -1598,11 +1598,14 @@ export class TicketsService {
         returned_at: string | null;
         is_overdue: boolean;
         overdue_minutes: number | null;
+        photo_count: number;
       }>(sql`
         SELECT t.id AS ticket_id, t.state, u.full_name AS borrower_name,
           lower(b.period) AS from_ts, upper(b.period) AS to_ts,
           t.delivered_at, t.returned_at,
           t.is_overdue,
+          -- UP-5.5: số ảnh biên bản của ticket → FE chỉ hiện nút "Xem ảnh" khi >0
+          (SELECT count(*)::int FROM ticket_file tf WHERE tf.ticket_id = t.id) AS photo_count,
           -- F9: cờ/thời lượng quá hạn cho tab Mượn-trả (3.8 Task 4)
           CASE WHEN t.is_overdue THEN
             EXTRACT(EPOCH FROM (now() - upper(b.period)))::int / 60
@@ -1637,11 +1640,46 @@ export class TicketsService {
           : null,
         isOverdue: r.is_overdue,
         overdueMinutes: r.overdue_minutes,
+        photoCount: r.photo_count,
       })),
       total: totalRows.rows[0]?.n ?? 0,
       page,
       pageSize,
     };
+  }
+
+  /**
+   * UP-5.5: liệt kê ảnh đính kèm một ticket (fileId + phase) để FE dựng gallery/lightbox.
+   * Cùng chốt quyền như getTicketPhoto: CHỦ ticket hoặc admin/sa. Chỉ meta id — stream
+   * vẫn đi qua route serve từng file (đã kiểm ticket_file lần nữa).
+   */
+  async listTicketPhotos(
+    ticketId: string,
+    requesterSub: string,
+    requesterRole: string,
+  ) {
+    const owner = await this.db.execute<{ borrower_sub: string }>(sql`
+      SELECT borrower_sub FROM ticket WHERE id = ${ticketId}
+    `);
+    if (owner.rows.length === 0) {
+      throw new NotFoundException({
+        code: 'TICKET_NOT_FOUND',
+        message: 'Không tìm thấy ticket.',
+      });
+    }
+    const isAdmin = requesterRole === 'admin' || requesterRole === 'sa';
+    if (!isAdmin && owner.rows[0].borrower_sub !== requesterSub) {
+      throw new ForbiddenException({
+        code: 'NOT_TICKET_OWNER',
+        message: 'Bạn không có quyền xem ảnh này.',
+      });
+    }
+    const files = await this.db.execute<{ file_id: string; phase: string }>(sql`
+      SELECT file_id, phase FROM ticket_file
+      WHERE ticket_id = ${ticketId}
+      ORDER BY phase, file_id
+    `);
+    return files.rows.map((r) => ({ fileId: r.file_id, phase: r.phase }));
   }
 
   /**

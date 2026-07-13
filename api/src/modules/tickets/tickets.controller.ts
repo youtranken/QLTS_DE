@@ -210,8 +210,28 @@ export class TicketsController {
   }
 
   /**
+   * UP-5.5: liệt kê ảnh của ticket (fileId + phase) để FE dựng lightbox. Chủ ticket / admin / sa.
+   */
+  @Get('tickets/:id/photos')
+  @Roles('member', 'admin', 'sa')
+  photos(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthedRequest) {
+    if (!req.user) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Chưa đăng nhập.',
+      });
+    }
+    return this.tickets.listTicketPhotos(id, req.user.sub, req.user.role);
+  }
+
+  /**
    * Xem ảnh đính kèm ticket (NFR-8, AD-6): CHỦ ticket hoặc Admin/SA. Override @Roles
    * lớp (member-only) để admin/sa cũng vào; service kiểm chủ + ticket_file.
+   *
+   * UP-5.5: serve INLINE với đúng image MIME để render trong <img> (lightbox). An toàn vì
+   * `mime` được detect bằng magic-byte lúc upload (file-validation) và whitelist chỉ ảnh
+   * raster jpeg/png/webp — KHÔNG có svg/html, nên nosniff + Content-Type ảnh không thể bị
+   * lách thành script. File khác ảnh (pdf/xlsx lỡ đính) vẫn attachment/octet-stream.
    */
   @Get('tickets/:id/photos/:fileId')
   @Roles('member', 'admin', 'sa')
@@ -233,10 +253,17 @@ export class TicketsController {
       req.user.sub,
       req.user.role,
     );
-    res.setHeader('Content-Type', 'application/octet-stream');
+    const isImage = meta.mime.startsWith('image/');
+    res.setHeader(
+      'Content-Type',
+      isImage ? meta.mime : 'application/octet-stream',
+    );
     res.setHeader('Content-Length', String(meta.sizeBytes));
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileId}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `${isImage ? 'inline' : 'attachment'}; filename="${fileId}"`,
+    );
     stream.on('error', () => {
       if (!res.headersSent) {
         res.removeHeader('Content-Length');
