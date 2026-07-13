@@ -10,6 +10,9 @@ export default {
     loginSlogan: 'Theo dõi máy móc, phần mềm và lượt mượn — gọn trong một nơi.',
     loginPerk1: 'Mượn/trả máy nhanh, tự động duyệt',
     loginPerk2: 'Kiểm kê, bảo hành và vòng đời tài sản rõ ràng',
+    notFoundTitle: 'Không tìm thấy trang',
+    notFoundHint: 'Trang bạn tìm không tồn tại hoặc đã được chuyển.',
+    backHome: 'Về trang chủ',
     loginFailed: 'Đăng nhập không thành công — vui lòng thử lại.',
     loginForbidden:
       'Tài khoản không có quyền truy cập QLTS (không thuộc nhóm được phép). Vui lòng liên hệ quản trị.',

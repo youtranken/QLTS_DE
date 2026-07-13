@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 /**
  * Hợp đồng loading/empty/error dùng chung (review nguyên tắc #8): mọi màn fetch phải PHÂN BIỆT
@@ -24,6 +25,25 @@ export function EmptyState({
       <span>{title}</span>
       {hint && <span className="empty-hint">{hint}</span>}
       {action && <span className="empty-action">{action}</span>}
+    </div>
+  );
+}
+
+/** Màn 404 khi vào route không tồn tại (thay cho redirect câm về "/"). */
+export function NotFound() {
+  const { t } = useTranslation();
+  return (
+    <div className="error-state">
+      <div className="error-code">404</div>
+      <h1>{t('app.notFoundTitle', 'Không tìm thấy trang')}</h1>
+      <p className="muted">
+        {t('app.notFoundHint', 'Trang bạn tìm không tồn tại hoặc đã được chuyển.')}
+      </p>
+      <Link to="/">
+        <button type="button" className="primary">
+          {t('app.backHome', 'Về trang chủ')}
+        </button>
+      </Link>
     </div>
   );
 }

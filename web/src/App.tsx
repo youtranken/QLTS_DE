@@ -3,12 +3,12 @@ import { useTranslation } from 'react-i18next';
 import {
   BrowserRouter,
   NavLink,
-  Navigate,
   Route,
   Routes,
   useLocation,
 } from 'react-router-dom';
 import { BorrowBoardPage } from './borrow-board';
+import { NotFound } from './load-state';
 import { ChunkErrorBoundary } from './chunk-error-boundary';
 import { savedLanguage, setLanguage } from './i18n';
 import { currentTheme, toggleTheme } from './theme';
@@ -574,7 +574,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
                 </RequireRole>
               }
             />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
           </Suspense>
           </ChunkErrorBoundary>

@@ -892,6 +892,32 @@ button.link.session-toggle {
     font-size: 1.15rem;
   }
 }
+.error-state {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-align: center;
+  animation: pageIn 0.3s var(--ease) both;
+}
+.error-state .error-code {
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.error-state h1 {
+  margin: 0.25rem 0 0;
+}
+.error-state .primary {
+  margin-top: 0.5rem;
+}
 .empty {
   display: flex;
   flex-direction: column;
