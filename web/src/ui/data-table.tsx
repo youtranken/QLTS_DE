@@ -36,6 +36,12 @@ interface DataTableProps<T> {
   canExpand?: (row: T) => boolean;
   /** ≤680px gập bảng thành thẻ dọc (mỗi ô 1 dòng có nhãn cột). */
   stackOnMobile?: boolean;
+  /** Chọn nhiều dòng (5.1): checkbox đầu dòng + chọn-tất-cả theo trang hiện tại. */
+  selection?: {
+    selected: Set<string>;
+    onToggle: (id: string) => void;
+    onToggleAll: (ids: string[], checked: boolean) => void;
+  };
 }
 
 /**
@@ -58,6 +64,7 @@ export function DataTable<T>({
   renderExpanded,
   canExpand,
   stackOnMobile,
+  selection,
 }: DataTableProps<T>) {
   const [internalSort, setInternalSort] = useState<SortingState>(initialSort);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -113,6 +120,24 @@ export function DataTable<T>({
           <thead>
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
+                {selection && (
+                  <th style={{ width: 34 }}>
+                    <input
+                      type="checkbox"
+                      aria-label="Chọn tất cả"
+                      checked={
+                        rows.length > 0 &&
+                        rows.every((r) => selection.selected.has(r.id))
+                      }
+                      onChange={(e) =>
+                        selection.onToggleAll(
+                          rows.map((r) => r.id),
+                          e.target.checked,
+                        )
+                      }
+                    />
+                  </th>
+                )}
                 {renderExpanded && (
                   <th aria-hidden="true" style={{ width: 34 }} />
                 )}
@@ -154,7 +179,9 @@ export function DataTable<T>({
               <tr>
                 <td
                   colSpan={
-                    table.getAllLeafColumns().length + (renderExpanded ? 1 : 0)
+                    table.getAllLeafColumns().length +
+                    (renderExpanded ? 1 : 0) +
+                    (selection ? 1 : 0)
                   }
                   className="muted"
                 >
@@ -194,6 +221,19 @@ export function DataTable<T>({
                       role={onRowClick ? 'button' : undefined}
                       style={onRowClick ? { cursor: 'pointer' } : undefined}
                     >
+                      {selection && (
+                        <td
+                          className="sel"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label="Chọn dòng"
+                            checked={selection.selected.has(row.id)}
+                            onChange={() => selection.onToggle(row.id)}
+                          />
+                        </td>
+                      )}
                       {renderExpanded && (
                         <td className="caret">
                           {rowCanExpand && (
@@ -231,7 +271,13 @@ export function DataTable<T>({
                     </tr>
                     {expanded && renderExpanded && (
                       <tr className="exp">
-                        <td colSpan={row.getVisibleCells().length + 1}>
+                        <td
+                          colSpan={
+                            row.getVisibleCells().length +
+                            1 +
+                            (selection ? 1 : 0)
+                          }
+                        >
                           {renderExpanded(row.original)}
                         </td>
                       </tr>

@@ -327,6 +327,7 @@ export class AssetsAdminController {
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   async exportExcel(
     @Query() query: ListAssetsQueryDto,
+    @Query('ids') idsRaw: string | undefined,
     @Req() req: AuthedRequest,
     @Res() res: Response,
   ) {
@@ -338,6 +339,7 @@ export class AssetsAdminController {
         expiring: query.expiring,
         endFrom: query.endFrom,
         endTo: query.endTo,
+        ids: parseIds(idsRaw),
       },
       requireSub(req),
     );
@@ -479,4 +481,18 @@ function requireSub(req: AuthedRequest): string {
     });
   }
   return req.user.sub;
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** CSV id (5.1 export-đã-chọn) → mảng UUID hợp lệ, cắt trần 5000; rỗng → undefined. */
+function parseIds(raw: string | undefined): string[] | undefined {
+  if (!raw) return undefined;
+  const ids = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => UUID_RE.test(s))
+    .slice(0, 5000);
+  return ids.length ? ids : undefined;
 }

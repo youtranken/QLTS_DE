@@ -79,6 +79,9 @@ export function AssetsPage({
   });
   // Sắp xếp server-side (P1): DataTable controlled → map sang ?sort=&dir= → refetch.
   const [sorting, setSorting] = useState<SortingState>([]);
+  // 5.1: chọn nhiều dòng để "Xuất đã chọn". Chỉ dùng ở sổ tài sản (không phải phần mềm).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const bulkSelectable = !softwareOnly;
   const onSortingChange: OnChangeFn<SortingState> = (updater) => {
     setSorting((prev) =>
       typeof updater === 'function' ? updater(prev) : updater,
@@ -652,10 +655,52 @@ export function AssetsPage({
           </button>
         )}
       </div>
+      {bulkSelectable && selected.size > 0 && (
+        <div className="bulk-toolbar">
+          <span className="bulk-count">
+            {t('assets.selectedCount', { count: selected.size })}
+          </span>
+          <a
+            className="linkbtn primary sm"
+            href={`/api/admin/assets/export?ids=${[...selected].join(',')}`}
+          >
+            {t('assets.exportSelected', 'Xuất đã chọn')}
+          </a>
+          <button
+            type="button"
+            className="ghost sm"
+            onClick={() => setSelected(new Set())}
+          >
+            {t('assets.clearSelection', 'Bỏ chọn')}
+          </button>
+        </div>
+      )}
       <DataTable
         data={items}
         columns={columns}
         emptyText={hasFilter ? t('assets.noMatch') : t('assets.empty')}
+        selection={
+          bulkSelectable
+            ? {
+                selected,
+                onToggle: (id) =>
+                  setSelected((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                  }),
+                onToggleAll: (ids, checked) =>
+                  setSelected((prev) => {
+                    const next = new Set(prev);
+                    ids.forEach((id) =>
+                      checked ? next.add(id) : next.delete(id),
+                    );
+                    return next;
+                  }),
+              }
+            : undefined
+        }
         manualSorting
         sorting={sorting}
         onSortingChange={onSortingChange}

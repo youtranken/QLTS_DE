@@ -583,6 +583,23 @@ table.table tbody tr.row-highlight td:first-child {
 .table tbody tr.clickable:hover {
   background: var(--primary-soft);
 }
+/* Bulk toolbar (5.1): hiện khi chọn ≥1 dòng — đếm + Xuất đã chọn + Bỏ chọn. */
+.bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--primary-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.bulk-toolbar .bulk-count {
+  font-weight: 600;
+  color: var(--primary-ink);
+  margin-right: auto;
+}
 
 /* Toast lỗi thao tác vòng đời (kebab) — nổi trên cùng, tự đóng bằng ✕. */
 .lifecycle-toast {

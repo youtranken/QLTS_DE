@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import * as ExcelJS from 'exceljs';
 import { DRIZZLE_DB } from '../../database/database.module';
@@ -18,6 +18,8 @@ type ExportQuery = {
   expiring?: boolean;
   endFrom?: string;
   endTo?: string;
+  /** Chọn-để-xuất (5.1): chỉ xuất đúng các máy được tick; rỗng → theo bộ lọc như cũ. */
+  ids?: string[];
 };
 
 /**
@@ -45,6 +47,15 @@ export class AssetExportService {
     const base = buildAssetListConditions(query, expiringBefore);
     // Tách sổ tài sản khỏi license: chỉ máy (type <> 'software').
     const notSoftware = sql`${assetsTable.type} <> 'software'`;
+    const idCond =
+      query.ids && query.ids.length
+        ? inArray(assetsTable.id, query.ids)
+        : undefined;
+    const where = and(
+      ...[notSoftware, base, idCond].filter((c): c is NonNullable<typeof c> =>
+        Boolean(c),
+      ),
+    );
     const rows = await this.db
       .select({
         code: assetsTable.code,
@@ -63,7 +74,7 @@ export class AssetExportService {
       })
       .from(assetsTable)
       .leftJoin(usersTable, eq(assetsTable.assignedUserSub, usersTable.sub))
-      .where(base ? and(base, notSoftware) : notSoftware)
+      .where(where)
       .orderBy(assetsTable.code)
       .limit(10_001);
     this.assertNotTooLarge(rows.length);
@@ -211,6 +222,7 @@ export class AssetExportService {
       type: query.type ?? null,
       status: query.status ?? null,
       expiring: query.expiring ?? false,
+      selectedIds: query.ids?.length ?? 0,
     };
   }
 }
