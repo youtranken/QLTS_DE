@@ -76,7 +76,7 @@ type AuthState =
   | { kind: 'authenticated'; me: Me }
   | { kind: 'error' };
 
-const BREAKPOINT = 768;
+const BREAKPOINT = 900;
 
 function useIsNarrow(): boolean {
   const [narrow, setNarrow] = useState(window.innerWidth < BREAKPOINT);
@@ -332,25 +332,10 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
     <div className="app-shell">
       {narrow && menuOpen && isAdmin && (
         // Backdrop: bấm ngoài menu để đóng (nút hamburger bị nav che khi mở)
-        <div
-          onClick={() => setMenuOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(27,34,49,0.4)',
-            zIndex: 9,
-          }}
-        />
+        <div className="drawer-backdrop" onClick={() => setMenuOpen(false)} />
       )}
       {showSidebar && (
-        <nav
-          className="sidebar"
-          style={
-            narrow
-              ? { position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 10 }
-              : undefined
-          }
-        >
+        <nav className={narrow ? 'sidebar is-drawer' : 'sidebar'}>
           <div className="brand">
             <span className="brand-mark">QL</span> QLTS
           </div>

@@ -375,6 +375,33 @@ a.linkbtn:hover {
   color: var(--sidebar-active-ink);
   box-shadow: inset 3px 0 0 var(--warm);
 }
+/* Drawer mobile (≤900px): sidebar cố định trượt vào, có backdrop mờ ấm. */
+.sidebar.is-drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  box-shadow: var(--shadow-lg);
+  animation: drawerIn 0.2s var(--ease) both;
+}
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  background: rgba(20, 26, 20, 0.44);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: rowIn 0.15s var(--ease) both;
+}
+@keyframes drawerIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
 .content {
   flex: 1;
   min-width: 0;
