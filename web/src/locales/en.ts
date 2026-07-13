@@ -424,6 +424,7 @@ export default {
   },
   calendar: {
     title: 'Machine calendar {{code}}',
+    openLink: 'Calendar',
     back: 'Back to booking',
     prevWeek: 'Prev week',
     nextWeek: 'Next week',

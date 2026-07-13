@@ -194,6 +194,11 @@ export function AssetDetailPage({ me }: { me: Me }) {
       </p>
       <div className="page-header">
         <h1>{detail.code ?? detail.licenseName ?? '—'}</h1>
+        {detail.type !== 'software' && (
+          <Link className="linkbtn" to={`/lich-may/${id}`}>
+            {t('calendar.openLink', 'Lịch máy')}
+          </Link>
+        )}
         <button type="button" className="primary" onClick={() => setEditing(true)}>
           {t('assets.edit')}
         </button>

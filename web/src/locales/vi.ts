@@ -422,6 +422,7 @@ export default {
   },
   calendar: {
     title: 'Lịch máy {{code}}',
+    openLink: 'Lịch máy',
     back: 'Về đặt máy',
     prevWeek: 'Tuần trước',
     nextWeek: 'Tuần sau',
