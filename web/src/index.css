@@ -112,6 +112,7 @@ html[data-theme='dark'] {
 }
 body {
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 h1 {
@@ -406,6 +407,7 @@ a.linkbtn:hover {
   padding: 1.5rem;
   max-width: 1180px;
   width: 100%;
+  margin-inline: auto;
   animation: pageIn 0.25s var(--ease) both;
 }
 
@@ -1249,6 +1251,30 @@ input.search {
   }
   .sheet-body {
     padding: 1rem;
+  }
+  .page {
+    padding: 1rem;
+  }
+  /* Util opt-in: bảng gắn data-label trên <td> gập thành thẻ dọc (màn được bật ở epic sau). */
+  .table-stack thead {
+    display: none;
+  }
+  .table-stack tr {
+    display: block;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .table-stack td {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    border: none;
+    padding: 0.3rem 0.75rem;
+  }
+  .table-stack td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--ink-2);
   }
 }
 
