@@ -8,7 +8,6 @@ import {
   Routes,
   useLocation,
 } from 'react-router-dom';
-import { InUseNowPanel } from './booking';
 import { BorrowBoardPage } from './borrow-board';
 import { ChunkErrorBoundary } from './chunk-error-boundary';
 import { savedLanguage, setLanguage } from './i18n';
@@ -24,6 +23,14 @@ const AssetsPage = lazy(() =>
 );
 const AssetDetailPage = lazy(() =>
   import('./assets').then((m) => ({ default: m.AssetDetailPage })),
+);
+const SoftwareGroupsPage = lazy(() =>
+  import('./software-groups-page').then((m) => ({
+    default: m.SoftwareGroupsPage,
+  })),
+);
+const SoftwareLicensePage = lazy(() =>
+  import('./assets').then((m) => ({ default: m.SoftwareLicensePage })),
 );
 const MachineCalendarPage = lazy(() =>
   import('./machine-calendar').then((m) => ({ default: m.MachineCalendarPage })),
@@ -274,10 +281,10 @@ function navGroups(role: string): NavGroup[] {
   const isAdmin = role === 'admin' || role === 'sa';
   const groups: NavGroup[] = [];
 
-  // Domain Mượn tài sản — landing theo vai (3.12): admin → dashboard, member → đặt máy
+  // Domain Mượn tài sản — landing theo vai (3.12): admin → dashboard, member → đặt máy.
+  // "Máy đang mượn" đã gộp vào Trang chủ (bảng board giàu hơn) → không còn mục riêng.
   const borrow = [{ to: '/', key: isAdmin ? 'nav.dashboard' : 'nav.booking' }];
   if (isAdmin) borrow.push({ to: '/xu-ly-muon', key: 'nav.lending' });
-  borrow.push({ to: '/may-dang-muon', key: 'nav.inUse' });
   groups.push({ label: 'nav.groupBorrow', items: borrow });
 
   // Domain Quản lý tài sản (admin/sa)
@@ -436,15 +443,6 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             {/* Landing 7.5: borrow board cho MỌI vai (thay dashboard/đặt-máy cũ ở '/'). */}
             <Route path="/" element={<BorrowBoardPage me={me} />} />
             <Route path="/lich-may/:id" element={<MachineCalendarPage />} />
-            {/* Máy đang mượn — mục sidebar riêng (tách khỏi trang đặt máy). Member + admin. */}
-            <Route
-              path="/may-dang-muon"
-              element={
-                <section>
-                  <InUseNowPanel standalone />
-                </section>
-              }
-            />
             <Route
               path="/xu-ly-muon"
               element={
@@ -465,7 +463,15 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
               path="/phan-mem"
               element={
                 <RequireRole me={me} roles={['admin', 'sa']}>
-                  <AssetsPage me={me} softwareOnly />
+                  <SoftwareGroupsPage me={me} />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/phan-mem/license/:name"
+              element={
+                <RequireRole me={me} roles={['admin', 'sa']}>
+                  <SoftwareLicensePage me={me} />
                 </RequireRole>
               }
             />

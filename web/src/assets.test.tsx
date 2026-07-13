@@ -37,7 +37,7 @@ function lastListUrl(fn: ReturnType<typeof stub>): string {
 }
 
 describe('AssetsPage — sort server-side (manual)', () => {
-  it('bấm header "Mã tài sản" gửi ?sort=code&dir=asc lên server', async () => {
+  it('bấm header "Code" gửi ?sort=code&dir=asc lên server', async () => {
     const fn = stub();
     renderWithI18n(
       <MemoryRouter>
@@ -45,7 +45,7 @@ describe('AssetsPage — sort server-side (manual)', () => {
       </MemoryRouter>,
     );
     await screen.findByText('PC-01');
-    await userEvent.click(screen.getByRole('button', { name: /Mã tài sản/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Code/ }));
     await waitFor(() => expect(lastListUrl(fn)).toContain('sort=code'));
     expect(lastListUrl(fn)).toContain('dir=asc');
   });

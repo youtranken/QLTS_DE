@@ -21,6 +21,8 @@ export const assetsTable = pgTable('assets', {
   startDate: date('start_date'),
   endDate: date('end_date'),
   floor: text('floor'),
+  /** ETA khi khóa sửa chữa — sweep auto-unlock máy pool khi tới ngày (0036). */
+  lockEta: date('lock_eta'),
   status: text('status').notNull().default('in_use'),
   note: text('note'),
   serial: text('serial'),

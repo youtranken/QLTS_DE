@@ -1,0 +1,229 @@
+/* TimePicker — bánh xe cuộn kiểu iOS. Cuộn native + scroll-snap lo phần đà;
+   JS chỉ tô hiệu ứng 3D theo scrollTop. Dùng token QLTS nên tự theo dark mode. */
+
+.tp {
+  width: 100%;
+  max-width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.tp-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.tp-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 2px solid var(--primary);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.tp-field svg {
+  width: 20px;
+  height: 20px;
+  color: var(--primary);
+  flex: none;
+}
+.tp-time {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.tp-mer-chip {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-ink);
+  background: var(--primary-soft);
+  padding: 5px 12px;
+  border-radius: 8px;
+}
+
+.tp-seg {
+  display: flex;
+  gap: 10px;
+}
+.tp-seg button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s var(--ease);
+}
+.tp-seg button svg {
+  width: 15px;
+  height: 15px;
+}
+.tp-seg button.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 8px 18px -8px var(--primary);
+}
+
+.tp-body {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+.tp-wheels {
+  position: relative;
+  flex: 1;
+  display: flex;
+  --item-h: 42px;
+  --col-h: 168px;
+  height: var(--col-h);
+  user-select: none;
+}
+.tp-sep {
+  align-self: center;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink-3);
+  padding: 0 4px;
+}
+
+.tp-col {
+  position: relative;
+  z-index: 2; /* số nổi TRÊN dải chọn */
+  flex: 1;
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  touch-action: pan-y;
+  cursor: grab;
+  outline: none;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 28%, #000 72%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 28%, #000 72%, transparent);
+}
+.tp-col::-webkit-scrollbar {
+  display: none;
+}
+.tp-col:active {
+  cursor: grabbing;
+}
+.tp-col:focus-visible {
+  border-radius: 10px;
+  box-shadow: var(--ring);
+}
+.tp-list {
+  /* chừa chỗ để item đầu/cuối cũng lên được chính giữa */
+  padding-block: calc((var(--col-h) - var(--item-h)) / 2);
+}
+.tp-cell {
+  height: var(--item-h);
+  line-height: var(--item-h);
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  scroll-snap-align: center;
+  transform-origin: center;
+  will-change: transform;
+  transition: color 0.18s var(--ease);
+}
+.tp-cell.on {
+  color: var(--primary-ink);
+  font-weight: 700;
+}
+.tp-band {
+  position: absolute;
+  z-index: 0; /* nằm SAU số */
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--item-h);
+  transform: translateY(-50%);
+  background: var(--primary-soft);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.tp-mer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+.tp-mer button {
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--muted-soft);
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.15s var(--ease);
+}
+.tp-mer button.on {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 8px 18px -8px var(--primary);
+}
+
+.tp-actions {
+  display: flex;
+  gap: 12px;
+}
+.tp-actions button {
+  flex: 1;
+  padding: 13px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.15s var(--ease);
+}
+.tp-actions .ghost {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
+}
+.tp-actions .ghost:hover {
+  border-color: var(--border-2);
+}
+.tp-actions .solid {
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: #fff;
+}
+.tp-actions .solid:hover {
+  filter: brightness(1.06);
+}
+.tp-actions button:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp * {
+    transition: none !important;
+  }
+}

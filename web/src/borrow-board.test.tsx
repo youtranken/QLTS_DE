@@ -14,8 +14,8 @@ const ME = { sub: 'm', role: 'member', csrfToken: null } as unknown as Me;
 
 // PC-99 quá hạn đứng đầu (server sort overdue-first); PC-01 sau.
 const ROWS = [
-  { ticketId: 't2', assetCode: 'PC-99', type: 'desktop', borrowerName: 'Binh', department: null, from: '2026-07-09T01:00:00Z', due: '2026-07-09T02:00:00Z', state: 'in_use', isOverdue: true, isMine: false, note: null, recurringCount: null },
-  { ticketId: 't1', assetCode: 'PC-01', type: 'laptop', borrowerName: 'An', department: null, from: '2026-07-10T01:00:00Z', due: '2026-07-12T01:00:00Z', state: 'in_use', isOverdue: false, isMine: false, note: 'ghi chu', recurringCount: null },
+  { ticketId: 't2', assetCode: 'PC-99', type: 'desktop', borrowerName: 'Binh', from: '2026-07-09T01:00:00Z', due: '2026-07-09T02:00:00Z', state: 'in_use', isOverdue: true, isMine: false, note: null, recurringCount: null },
+  { ticketId: 't1', assetCode: 'PC-01', type: 'laptop', borrowerName: 'An', from: '2026-07-10T01:00:00Z', due: '2026-07-12T01:00:00Z', state: 'in_use', isOverdue: false, isMine: false, note: 'ghi chu', recurringCount: null },
 ];
 
 function stub() {

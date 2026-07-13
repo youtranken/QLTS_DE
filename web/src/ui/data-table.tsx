@@ -32,6 +32,8 @@ interface DataTableProps<T> {
    * (trang Tài sản). Không truyền → bảng giữ nguyên như cũ (mọi trang khác).
    */
   renderExpanded?: (row: T) => ReactNode;
+  /** Chỉ hiện mũi tên ▸ khi hàm này trả true (vd máy có phần mềm). Mặc định: mọi dòng. */
+  canExpand?: (row: T) => boolean;
 }
 
 /**
@@ -52,6 +54,7 @@ export function DataTable<T>({
   onSortingChange: controlledOnSortingChange,
   onRowClick,
   renderExpanded,
+  canExpand,
 }: DataTableProps<T>) {
   const [internalSort, setInternalSort] = useState<SortingState>(initialSort);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -149,7 +152,9 @@ export function DataTable<T>({
               </tr>
             ) : (
               rows.map((row) => {
-                const expanded = !!renderExpanded && expandedId === row.id;
+                const rowCanExpand =
+                  !!renderExpanded && (canExpand?.(row.original) ?? true);
+                const expanded = rowCanExpand && expandedId === row.id;
                 return (
                   <Fragment key={row.id}>
                     <tr
@@ -173,18 +178,20 @@ export function DataTable<T>({
                     >
                       {renderExpanded && (
                         <td className="caret">
-                          <button
-                            type="button"
-                            className="caret-btn"
-                            aria-expanded={expanded}
-                            aria-label={expanded ? 'Thu gọn' : 'Mở rộng'}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedId(expanded ? null : row.id);
-                            }}
-                          >
-                            {expanded ? '▾' : '▸'}
-                          </button>
+                          {rowCanExpand && (
+                            <button
+                              type="button"
+                              className="caret-btn"
+                              aria-expanded={expanded}
+                              aria-label={expanded ? 'Thu gọn' : 'Mở rộng'}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedId(expanded ? null : row.id);
+                              }}
+                            >
+                              {expanded ? '▾' : '▸'}
+                            </button>
+                          )}
                         </td>
                       )}
                       {row.getVisibleCells().map((cell) => (

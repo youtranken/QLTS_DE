@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CreateForForm } from './create-for';
 import type { Me } from './panels';
 import { RecurringSessionQueue } from './recurring-session-queue';
 
@@ -257,7 +256,6 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
       <ExtensionQueue me={me} onCount={setExtCount} />
       <HandoverQueues me={me} onCounts={setHoCounts} />
       <RecurringSessionQueue me={me} />
-      <CreateForForm me={me} />
     </section>
   );
 }

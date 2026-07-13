@@ -4,7 +4,8 @@ import { Combobox } from './combobox';
 import { AssetOwnerPanel } from './asset-owner-panel';
 import { AssetSoftwarePicker } from './asset-software-picker';
 import { AssetGeneralFields } from './asset-general-fields';
-import { AssetLifecyclePanel } from './asset-lifecycle-panel';
+import { SoftwareSeatsFields } from './software-seats-fields';
+import type { Seat } from './software-seats-fields';
 import { AssetInstalledOn } from './asset-installed-on';
 import { AssetCascadeDialog } from './asset-cascade-dialog';
 import type { Me } from './panels';
@@ -26,10 +27,13 @@ export function AssetForm({
   me,
   initial,
   onDone,
+  lockSoftware = false,
 }: {
   me: Me;
   initial: FormState;
   onDone: (saved: boolean) => void;
+  /** Form phần mềm THUẦN (từ /phan-mem, chi tiết license): ẩn toggle Thiết bị/Phần mềm. */
+  lockSoftware?: boolean;
 }) {
   const { t } = useTranslation();
   const [form, setForm] = useState(initial);
@@ -38,13 +42,13 @@ export function AssetForm({
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Thêm NHIỀU bản (seat) cùng license — mỗi bản kỳ hạn + ghi chú riêng (mua 20-30 bản chung tên).
+  const [seats, setSeats] = useState<Seat[]>([
+    { startDate: '', endDate: '', cost: '', note: '' },
+  ]);
   // 2.5/2.6: đã đổi qua endpoint phụ (transfer/vòng đời) → Hủy vẫn refresh danh sách
   const [transferred, setTransferred] = useState(false);
-  // 2.6: form khóa máy (lý do bắt buộc + ETA tùy chọn)
-  const [showLockForm, setShowLockForm] = useState(false);
-  const [lockReason, setLockReason] = useState('');
-  const [lockEta, setLockEta] = useState('');
-  // 3.13: popup xác nhận cascade + cờ báo mail (preview trước khi Khóa/Gỡ pool/Thanh lý)
+  // 3.13: popup xác nhận cascade + cờ báo mail (preview trước khi Thanh lý qua dropdown Trạng thái)
   const [cascade, setCascade] = useState<PendingCascade | null>(null);
   const [notifyUsers, setNotifyUsers] = useState(true);
   // 2.3/11.2: ghi chú cấp phát + lịch sử A→B đã chuyển vào AssetOwnerPanel (khi sửa máy).
@@ -57,7 +61,9 @@ export function AssetForm({
       code: string | null;
       licenseType: string | null;
       licenseName: string | null;
+      startDate: string | null;
       endDate: string | null;
+      brand: string | null;
     }>
   >([]);
   // 9.4: gắn phần mềm vào máy đang sửa — tìm software để gắn + đếm để reload danh sách sau khi gắn/gỡ.
@@ -70,6 +76,7 @@ export function AssetForm({
   const [catType, setCatType] = useState<string[]>([]);
   const [catBrand, setCatBrand] = useState<string[]>([]);
   const [catConfig, setCatConfig] = useState<string[]>([]);
+  const [catPlace, setCatPlace] = useState<string[]>([]);
   const [addingConfig, setAddingConfig] = useState(false);
 
   useEffect(() => {
@@ -84,6 +91,7 @@ export function AssetForm({
     void load('type', setCatType);
     void load('brand', setCatBrand);
     void load('configuration', setCatConfig);
+    void load('place', setCatPlace);
     return () => c.abort();
   }, []);
 
@@ -231,6 +239,11 @@ export function AssetForm({
 
   const submit = useCallback(async () => {
     setError(null);
+    // Ngày hết hạn phải SAU ngày đưa vào dùng (đại tu UAT) — chặn trước khi gọi API.
+    if (form.startDate && form.endDate && form.endDate <= form.startDate) {
+      setError(t('assets.endBeforeStart'));
+      return;
+    }
     setBusy(true);
     const payload: Record<string, unknown> = {
       // Phần mềm: KHÔNG có mã/cấu hình/người đứng tên (BE cũng normalize) — gửi null để
@@ -247,6 +260,8 @@ export function AssetForm({
           : form.endDate || null,
       note: form.note || null,
       serial: form.serial || null,
+      // Place (vị trí) — chỉ máy; phần mềm không gửi.
+      floor: form.isSoftware ? null : form.floor || null,
       brand: form.brand || null,
       assignedUserSub: form.isSoftware ? null : form.assignedUserSub || null,
       licenseType: form.isSoftware ? form.licenseType || null : null,
@@ -257,9 +272,51 @@ export function AssetForm({
       // 11.2 (B3): "Lưu thông tin máy" KHÔNG đổi người đứng tên — assignedUserSub gửi kèm
       // là giá trị HIỆN TẠI (giữ nguyên, tránh BE update ghi null). Đổi owner qua AssetOwnerPanel.
       payload.version = form.version;
-    } else if (form.isSoftware && form.installedOnAssetId) {
-      // gắn máy CHỈ khi tạo (AC 3) — đổi/gỡ là chức năng chuyển license (2.5)
-      payload.installedOnAssetId = form.installedOnAssetId;
+    }
+    // TẠO phần mềm: mỗi "bản" (seat) = 1 bản ghi riêng, kỳ hạn + ghi chú RIÊNG, chưa gắn máy
+    // (gán từng bản vào máy sau ở trang chi tiết license).
+    if (!form.id && form.isSoftware) {
+      for (let i = 0; i < seats.length; i++) {
+        const s = seats[i];
+        if (form.licenseType === 'term' && !s.endDate) {
+          setError(t('software.seatEndRequired', { i: i + 1 }));
+          setBusy(false);
+          return;
+        }
+        if (s.startDate && s.endDate && s.endDate <= s.startDate) {
+          setError(t('software.seatEndBeforeStart', { i: i + 1 }));
+          setBusy(false);
+          return;
+        }
+      }
+      let failed = 0;
+      for (const s of seats) {
+        const seatPayload = {
+          ...payload,
+          startDate: s.startDate || null,
+          endDate: form.licenseType === 'perpetual' ? null : s.endDate || null,
+          cost: s.cost === '' ? null : Number(s.cost),
+          note: s.note || null,
+        };
+        const ok = await fetch('/api/admin/assets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+          },
+          body: JSON.stringify(seatPayload),
+        })
+          .then((r) => r.ok)
+          .catch(() => false);
+        if (!ok) failed++;
+      }
+      setBusy(false);
+      if (failed > 0) {
+        setError(t('software.bulkPartial', { n: failed, total: seats.length }));
+        return;
+      }
+      onDone(true);
+      return;
     }
     try {
       const res = await fetch(
@@ -319,7 +376,7 @@ export function AssetForm({
     }
     // attachSoftwareToMachine cố ý không đưa vào deps (khai báo sau, ổn định theo csrfToken).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, pendingSw, me.csrfToken, onDone, t]);
+  }, [form, pendingSw, seats, me.csrfToken, onDone, t]);
 
   // 2.6: 4 thao tác vòng đời — chỉ cập nhật version + trường đổi (bài học 2.5)
   const doLifecycle = useCallback(
@@ -348,9 +405,6 @@ export function AssetForm({
           const body = (await res.json()) as { version: number };
           setTransferred(true);
           setForm((f) => ({ ...f, ...patch, version: body.version }));
-          setShowLockForm(false);
-          setLockReason('');
-          setLockEta('');
           if (path === 'dispose') setInstalledSoftware([]); // license đã tự gỡ
           return;
         }
@@ -538,9 +592,13 @@ export function AssetForm({
     form.type,
   );
   const brandOptions = withCurrent(catBrand, form.brand);
+  const placeOptions = withCurrent(catPlace, form.floor);
 
-  const showLifecycle = !!form.id;
-  const showInstall = form.isSoftware && form.status !== 'disposed';
+  // TẠO phần mềm: nhập kỳ hạn theo TỪNG bản (per-seat), không gắn máy ở đây (gán sau).
+  const softwareCreate = !form.id && form.isSoftware;
+  // Chọn/chuyển máy (Cài trên máy) chỉ khi SỬA 1 bản phần mềm — tạo mới thì gán sau.
+  const showInstall =
+    form.isSoftware && !!form.id && form.status !== 'disposed';
 
   return (
     <div
@@ -552,7 +610,7 @@ export function AssetForm({
       }}
     >
       <div
-        className="sheet"
+        className="sheet sheet-wide"
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
@@ -568,6 +626,10 @@ export function AssetForm({
                   <span className="mono">{initial.code}</span>
                 )}
               </>
+            ) : lockSoftware || form.isSoftware ? (
+              initial.licenseName
+                ? `${t('software.addSeat')} · ${initial.licenseName}`
+                : t('software.add')
             ) : (
               t('assets.addAsset')
             )}
@@ -603,8 +665,9 @@ export function AssetForm({
               </p>
             )}
 
-            {!form.id && (
-              // chọn bản chất bản ghi khi TẠO — sửa không đổi được (TYPE_SOFTWARE_IMMUTABLE)
+            {!form.id && !lockSoftware && (
+              // chọn bản chất bản ghi khi TẠO — sửa không đổi được (TYPE_SOFTWARE_IMMUTABLE).
+              // Form phần mềm thuần (lockSoftware) không hiện toggle (luôn là phần mềm).
               <div className="segmented" style={{ marginBottom: '1rem' }}>
                 <label>
                   <input
@@ -643,70 +706,84 @@ export function AssetForm({
                 set={set}
                 typeOptions={typeOptions}
                 brandOptions={brandOptions}
+                placeOptions={placeOptions}
                 catConfig={catConfig}
                 addConfig={addConfig}
                 addingConfig={addingConfig}
+                hideDatesNote={softwareCreate}
+                userField={
+                  // Người đứng tên (User) NẰM TRONG Thông tin chung khi TẠO máy — cùng hàng
+                  // Code/Asset Type. Sửa máy: đổi owner qua AssetOwnerPanel (thao tác riêng).
+                  !form.isSoftware && !form.id ? (
+                    <>
+                      {form.assignedUserSub ? (
+                        <span className="chip">
+                          {form.assignedUserName || form.assignedUserSub}
+                          <button
+                            type="button"
+                            aria-label={t('assets.cancel')}
+                            onClick={() => {
+                              set('assignedUserSub')('');
+                              set('assignedUserName')('');
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ) : null}
+                      <Combobox
+                        placeholder={t('assets.assigneeSearch')}
+                        query={userQuery}
+                        onQuery={setUserQuery}
+                        options={userOptions}
+                        getKey={(u) => u.sub}
+                        renderOption={(u) => (
+                          <>
+                            <span>{u.fullName ?? u.sub}</span>
+                            {u.email && <small>{u.email}</small>}
+                          </>
+                        )}
+                        onSelect={(u) => {
+                          setForm((f) => ({
+                            ...f,
+                            assignedUserSub: u.sub,
+                            assignedUserName: u.fullName ?? u.sub,
+                          }));
+                          setUserQuery('');
+                          setUserOptions([]);
+                        }}
+                      />
+                    </>
+                  ) : undefined
+                }
+                onDispose={() => {
+                  // Thanh lý KHÔNG đảo ngược → xác nhận trước, rồi preview cascade (AC2).
+                  if (!window.confirm(t('assets.disposeConfirm'))) return;
+                  void previewThenRun(
+                    'dispose',
+                    'POST',
+                    {},
+                    {
+                      status: 'disposed',
+                      installedOnAssetId: '',
+                      installedOnCode: '',
+                    },
+                  );
+                }}
               />
 
-              {/* 9.3: Người đứng tên đưa vào ngay Thông tin chung (trước là section riêng dưới cùng).
-                  sw-license-model-redesign: CHỈ máy — phần mềm derive holder từ máy nó gắn, không nhập tay.
-                  11.2 (B3): khi SỬA, người đứng tên tách ra AssetOwnerPanel (thao tác riêng);
-                  ở đây CHỈ còn lúc TẠO máy (owner đi cùng payload create). */}
-              {!form.isSoftware && !form.id && (
-              <div className="form-subsection">
-                <div className="form-section-title">{t('assets.assignee')}</div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.6rem',
-                    marginBottom: '0.6rem',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  {form.assignedUserSub ? (
-                    <span className="chip">
-                      {form.assignedUserName || form.assignedUserSub}
-                      <button
-                        type="button"
-                        aria-label={t('assets.cancel')}
-                        onClick={() => {
-                          set('assignedUserSub')('');
-                          set('assignedUserName')('');
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ) : (
-                    <span className="muted">{t('assets.assigneeEmpty')}</span>
-                  )}
-                </div>
-                <Combobox
-                  placeholder={t('assets.assigneeSearch')}
-                  query={userQuery}
-                  onQuery={setUserQuery}
-                  options={userOptions}
-                  getKey={(u) => u.sub}
-                  renderOption={(u) => (
-                    <>
-                      <span>{u.fullName ?? u.sub}</span>
-                      {u.email && <small>{u.email}</small>}
-                    </>
-                  )}
-                  onSelect={(u) => {
-                    setForm((f) => ({
-                      ...f,
-                      assignedUserSub: u.sub,
-                      assignedUserName: u.fullName ?? u.sub,
-                    }));
-                    setUserQuery('');
-                    setUserOptions([]);
-                  }}
-                />
-              </div>
-              )}
             </div>
+
+            {/* Mua nhiều bản chung 1 tên license (AutoCAD 20-30 bản) — "Số bản" = số dòng;
+                mỗi bản nhập Start/End + Ghi chú RIÊNG, tất cả chưa gắn máy (gán sau). */}
+            {softwareCreate && (
+              <SoftwareSeatsFields
+                seats={seats}
+                setSeats={setSeats}
+                isPerpetual={form.licenseType === 'perpetual'}
+                isTerm={form.licenseType === 'term'}
+              />
+            )}
 
             {/* 11.2 (B3): Sửa máy — đổi người đứng tên là thao tác RIÊNG (PUT :id/assignee),
                 không đi qua nút "Lưu thông tin máy". */}
@@ -728,20 +805,8 @@ export function AssetForm({
               />
             )}
 
-            {showLifecycle && (
-              <AssetLifecyclePanel
-                form={form}
-                busy={busy}
-                showLockForm={showLockForm}
-                setShowLockForm={setShowLockForm}
-                lockReason={lockReason}
-                setLockReason={setLockReason}
-                lockEta={lockEta}
-                setLockEta={setLockEta}
-                doLifecycle={doLifecycle}
-                previewThenRun={previewThenRun}
-              />
-            )}
+            {/* Vòng đời (Khóa sửa chữa / Pool) đã chuyển sang kebab của /tai-san (UAT).
+                Form chỉ còn dispose qua dropdown Trạng thái. */}
 
             {/* software disposed: TERMINAL — không gắn/chuyển được nữa (review 2.6) */}
             {showInstall && (

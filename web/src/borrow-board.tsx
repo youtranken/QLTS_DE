@@ -14,7 +14,6 @@ interface BoardRow {
   assetCode: string | null;
   type: string | null;
   borrowerName: string | null;
-  department: string | null;
   from: string | null;
   due: string | null;
   state: string;
@@ -320,11 +319,6 @@ export function BorrowBoardPage({ me }: { me: Me }) {
                 <span className="badge ok" style={{ marginLeft: 6 }}>
                   {t('board.you')}
                 </span>
-              )}
-              {r.department && (
-                <div className="muted" style={{ fontSize: '0.82rem' }}>
-                  {r.department}
-                </div>
               )}
             </>
           );

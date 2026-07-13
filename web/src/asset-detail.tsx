@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { AssetForm } from './asset-form';
+import { AssetSoftwareTable } from './asset-software-list';
+import type { InstalledSoftware } from './asset-software-list';
 import { detailToForm } from './asset-types';
 import type { AllocationRow, AssetDetail, NoteRow } from './asset-types';
 import type { Me } from './panels';
@@ -30,15 +32,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
   const [handoverTotal, setHandoverTotal] = useState(0);
   const [handoverPage, setHandoverPage] = useState(1);
   const HANDOVER_PAGE_SIZE = 20;
-  const [software, setSoftware] = useState<
-    Array<{
-      id: string;
-      code: string | null;
-      licenseType: string | null;
-      licenseName: string | null;
-      endDate: string | null;
-    }>
-  >([]);
+  const [software, setSoftware] = useState<InstalledSoftware[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
@@ -220,24 +214,13 @@ export function AssetDetailPage({ me }: { me: Me }) {
       {detail.type !== 'software' && (
         <div style={{ margin: '0.75rem 0 1.25rem' }}>
           <h3 style={{ margin: '0 0 0.4rem' }}>{t('assets.installedSoftware')}</h3>
-          {software.length === 0 ? (
-            <p className="muted">{t('assets.noInstalledSoftware')}</p>
-          ) : (
-            <ul style={{ margin: '0.25rem 0', paddingLeft: '1.25rem' }}>
-              {software.map((s) => (
-                <li key={s.id}>
-                  {s.licenseName ?? s.code}
-                  {s.licenseType === 'perpetual'
-                    ? ` (${t('assets.licensePerpetual')})`
-                    : s.endDate
-                      ? ` — ${t('assets.endDate')}: ${s.endDate}`
-                      : ''}
-                </li>
-              ))}
-            </ul>
-          )}
+          <AssetSoftwareTable items={software} />
         </div>
       )}
+      {/* Phần mềm đi theo máy → không có lịch sử cấp phát / mượn-trả / note tình trạng riêng
+          (người ta chỉ mượn máy). Ẩn toàn bộ tab cho phần mềm — chi tiết ở thẻ trên là đủ. */}
+      {detail.type !== 'software' && (
+        <>
       <div className="tabs">
         <button
           type="button"
@@ -383,6 +366,8 @@ export function AssetDetailPage({ me }: { me: Me }) {
             </div>
           ))}
       </div>
+        </>
+      )}
 
       {editing && (
         <AssetForm

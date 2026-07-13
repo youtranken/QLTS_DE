@@ -18,6 +18,13 @@ export interface AssetRow {
   endDate?: string | null;
   /** Tên các license đang cài trên MÁY này (comma-joined) — chỉ có ở dòng máy. */
   installedSoftware?: string | null;
+  // Thông số hiển thị ở bảng /tai-san (đại tu UAT) — list giờ trả kèm.
+  configuration?: string | null;
+  cost?: number | null;
+  startDate?: string | null;
+  /** Vị trí đặt máy (Place). */
+  floor?: string | null;
+  brand?: string | null;
 }
 
 export interface AssetDetail extends AssetRow {
@@ -25,6 +32,7 @@ export interface AssetDetail extends AssetRow {
   cost: number | null;
   startDate: string | null;
   endDate: string | null;
+  floor: string | null;
   note: string | null;
   serial: string | null;
   brand: string | null;
@@ -46,6 +54,7 @@ export interface FormState {
   cost: string;
   startDate: string;
   endDate: string;
+  floor: string;
   note: string;
   serial: string;
   brand: string;
@@ -70,6 +79,7 @@ export const EMPTY_FORM: FormState = {
   cost: '',
   startDate: '',
   endDate: '',
+  floor: '',
   note: '',
   serial: '',
   brand: '',
@@ -117,6 +127,14 @@ export interface NoteRow {
   createdAt: string;
 }
 
+/** Chạy 1 thao tác vòng đời (khóa/gỡ-pool/thanh lý) — dùng ở form + kebab list + cascade dialog. */
+export type LifecycleRun = (
+  path: string,
+  method: 'POST' | 'PUT',
+  extra: Record<string, unknown>,
+  patch: Partial<FormState>,
+) => void;
+
 /** 3.13: preview cascade (dry-run) — booking sẽ hủy + ticket in_use cần thu hồi. */
 export interface CascadePreview {
   futureCancellations: Array<{
@@ -155,6 +173,7 @@ export function detailToForm(a: AssetDetail): FormState {
     cost: a.cost == null ? '' : String(a.cost),
     startDate: a.startDate ?? '',
     endDate: a.endDate ?? '',
+    floor: a.floor ?? '',
     note: a.note ?? '',
     serial: a.serial ?? '',
     brand: a.brand ?? '',
@@ -167,6 +186,18 @@ export function detailToForm(a: AssetDetail): FormState {
     installedOnCode: a.installedOnCode ?? '',
   };
 }
+
+/** Số tiền VND với dấu chấm phân cách nghìn: 5000000 → '5.000.000'. */
+export const formatVnd = (value: number | string | null | undefined): string => {
+  if (value == null || value === '') return '';
+  const digits = String(value).replace(/\D/g, '');
+  if (digits === '') return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
+/** Bỏ mọi ký tự không phải số khỏi ô Giá đã format (để lưu số nguyên). */
+export const parseVnd = (formatted: string): string =>
+  formatted.replace(/\D/g, '');
 
 export const fmtDateTime = (iso: string | null): string =>
   iso

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Me } from './panels';
 
-type Kind = 'type' | 'brand' | 'configuration';
-const KINDS: Kind[] = ['type', 'brand', 'configuration'];
+type Kind = 'type' | 'brand' | 'configuration' | 'place';
+const KINDS: Kind[] = ['type', 'brand', 'configuration', 'place'];
 
 interface CatalogItem {
   id: string;
@@ -17,11 +17,13 @@ const emptyItems = (): ByKind<CatalogItem[]> => ({
   type: [],
   brand: [],
   configuration: [],
+  place: [],
 });
 const emptyStrings = (): ByKind<string> => ({
   type: '',
   brand: '',
   configuration: '',
+  place: '',
 });
 
 /**
@@ -43,6 +45,8 @@ export function CatalogPage({ me }: { me: Me }) {
     value: string;
   } | null>(null);
   const [menu, setMenu] = useState<{ kind: Kind; id: string } | null>(null);
+  // Redesign: chọn 1 danh mục qua tab (thay 3 cột dọc cố định) → dễ thêm trường về sau.
+  const [activeKind, setActiveKind] = useState<Kind>('type');
 
   const headers = useMemo(
     () => ({
@@ -166,8 +170,29 @@ export function CatalogPage({ me }: { me: Me }) {
         </p>
       )}
 
-      <div className="dmboard">
+      {/* Tab chọn danh mục — thêm kind mới chỉ cần nối vào KINDS, không phá layout. */}
+      <div className="segmented dmtabs" role="tablist">
         {KINDS.map((k) => (
+          <label key={k}>
+            <input
+              type="radio"
+              name="catalogKind"
+              checked={activeKind === k}
+              onChange={() => {
+                // Đổi tab → bỏ trạng thái sửa inline / menu đang mở của tab cũ (tránh "ẩn mà còn sống").
+                setActiveKind(k);
+                setEditing(null);
+                setMenu(null);
+              }}
+            />
+            {t(`catalog.kind.${k}`)}
+            <span className="badge muted plain">{items[k].length}</span>
+          </label>
+        ))}
+      </div>
+
+      <div className="dmboard">
+        {[activeKind].map((k) => (
           <div className="dmcol" key={k}>
             <div className="dm-h">
               <span>{t(`catalog.kind.${k}`)}</span>

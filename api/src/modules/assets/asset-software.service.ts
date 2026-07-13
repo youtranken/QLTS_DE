@@ -49,6 +49,41 @@ export class AssetSoftwareService {
     return rows.rows[0]?.n ?? 0;
   }
 
+  /**
+   * Danh sách phần mềm GOM NHÓM theo tên license — 1 license mua nhiều bản (seat), mỗi bản
+   * start/end + máy riêng nhưng chung tên. Đếm: tổng bản / đã gắn máy / còn dư / sắp hết hạn.
+   * Loại bản đã thanh lý (không còn là bản đang sở hữu). `search` lọc theo tên license.
+   */
+  async listLicenseGroups(search?: string) {
+    const before = await this.expiringCutoff();
+    const pattern = search ? `%${search.replace(/[%_\\]/g, (c) => `\\${c}`)}%` : null;
+    const rows = await this.db.execute<{
+      licenseName: string;
+      licenseType: string | null;
+      total: number;
+      assigned: number;
+      free: number;
+      expiring: number;
+      nextExpiry: string | null;
+    }>(sql`
+      SELECT license_name AS "licenseName",
+             min(license_type) AS "licenseType",
+             count(*)::int AS total,
+             count(*) FILTER (WHERE installed_on_asset_id IS NOT NULL)::int AS assigned,
+             count(*) FILTER (WHERE installed_on_asset_id IS NULL)::int AS free,
+             count(*) FILTER (
+               WHERE license_type = 'term' AND end_date IS NOT NULL AND end_date <= ${before}::date
+             )::int AS expiring,
+             min(end_date) FILTER (WHERE license_type = 'term')::text AS "nextExpiry"
+      FROM assets
+      WHERE type = 'software' AND status <> 'disposed' AND license_name IS NOT NULL
+        ${pattern ? sql`AND license_name ILIKE ${pattern}` : sql``}
+      GROUP BY license_name
+      ORDER BY license_name
+    `);
+    return rows.rows;
+  }
+
   /** Software đang cài trên một máy (2.4, AC 2) — 2.7 và Epic 3 dùng lại.
    *  Định danh bằng license_name (sw-license-model-redesign); người đứng tên = của máy này. */
   async listInstalledSoftware(assetId: string) {
@@ -60,6 +95,7 @@ export class AssetSoftwareService {
         licenseName: assetsTable.licenseName,
         startDate: assetsTable.startDate,
         endDate: assetsTable.endDate,
+        brand: assetsTable.brand,
         status: assetsTable.status,
       })
       .from(assetsTable)

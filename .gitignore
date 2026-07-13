@@ -9,3 +9,6 @@ coverage/
 # misc
 *.log
 .DS_Store
+
+# knowledge graph (sinh tự động)
+graphify-out/

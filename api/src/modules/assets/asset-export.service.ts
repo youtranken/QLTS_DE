@@ -16,6 +16,8 @@ type ExportQuery = {
   type?: string;
   status?: string;
   expiring?: boolean;
+  endFrom?: string;
+  endTo?: string;
 };
 
 /**

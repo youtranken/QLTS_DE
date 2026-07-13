@@ -876,6 +876,72 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     );
   });
 
+  it('auto-unlock (0036): máy pool khóa ETA đã qua → tự mở; ETA tương lai + non-pool GIỮ', async () => {
+    // 3 máy pool: A khóa ETA hôm qua, B khóa ETA ngày mai, C không khóa.
+    const mk = async (code: string) =>
+      (
+        await pool.query(
+          `INSERT INTO assets (code, type, is_pool, status) VALUES ($1,'laptop',true,'in_use') RETURNING id, version`,
+          [code],
+        )
+      ).rows[0] as { id: string; version: number };
+    const a = await mk('AU-PAST');
+    const b = await mk('AU-FUTURE');
+    const svc = app.get(AssetsService);
+    // Khóa với ETA tương lai (BE chặn ETA ≤ hôm nay) rồi ép lock_eta về quá khứ để test sweep.
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${a.id}/lock`)
+      .set(asAdmin())
+      .send({ reason: 'sửa', eta: '2999-01-01', version: a.version })
+      .expect(200);
+    await pool.query("UPDATE assets SET lock_eta = '2020-01-01' WHERE id = $1", [
+      a.id,
+    ]);
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${b.id}/lock`)
+      .set(asAdmin())
+      .send({ reason: 'sửa', eta: '2999-01-01', version: b.version })
+      .expect(200);
+    // ETA ≤ hôm nay → 400 LOCK_ETA_PAST (chặn khóa "mở lại tức thì").
+    const pastEta = await request(app.getHttpServer())
+      .post(`/api/admin/assets/${b.id}/lock`)
+      .set(asAdmin())
+      .send({ reason: 'sửa', eta: '2020-01-01', version: 99 })
+      .expect(400);
+    expect(pastEta.body.code).toBe('LOCK_ETA_PAST');
+    // Khóa CHỈ máy pool: máy non-pool → 409 NOT_POOL (ETA tương lai để qua được check ETA).
+    const nonPool = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'AU-NONPOOL', type: 'laptop' })
+      .expect(201);
+    const lockNonPool = await request(app.getHttpServer())
+      .post(`/api/admin/assets/${nonPool.body.id}/lock`)
+      .set(asAdmin())
+      .send({ reason: 'sửa', eta: '2999-01-01', version: 1 })
+      .expect(409);
+    expect(lockNonPool.body.code).toBe('NOT_POOL');
+
+    const n = await svc.autoUnlockExpiredLocks();
+    expect(n).toBe(1); // chỉ A (ETA đã qua)
+
+    const rows = await pool.query(
+      'SELECT code, status, lock_eta FROM assets WHERE code IN ($1,$2) ORDER BY code',
+      ['AU-FUTURE', 'AU-PAST'],
+    );
+    // AU-FUTURE giữ khóa (ETA tương lai); AU-PAST tự mở + xóa lock_eta.
+    expect(rows.rows[0]).toMatchObject({ status: 'locked_repair' }); // AU-FUTURE
+    expect(rows.rows[1]).toEqual({
+      code: 'AU-PAST',
+      status: 'in_use',
+      lock_eta: null,
+    });
+    const autoNote = await pool.query(
+      "SELECT count(*)::int AS n FROM audit_log WHERE action = 'assets.auto_unlock'",
+    );
+    expect(autoNote.rows[0].n).toBe(1);
+  });
+
   it('thanh lý (2.6): cascade license hết đỏ end-to-end, TERMINAL, vẫn trong danh sách', async () => {
     // máy mới + license term sắp hết hạn gắn vào → đỏ
     const may = await request(app.getHttpServer())

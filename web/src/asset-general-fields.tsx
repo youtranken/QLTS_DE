@@ -1,28 +1,43 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatVnd, parseVnd } from './asset-types';
 import type { FormState } from './asset-types';
 
 /**
  * Khối "Thông tin chung" (máy + trường license phần mềm) tách khỏi asset-form (§6).
  * Presentational: state ở asset-form; `set(key)(value)` là setter curry của form.
+ * `onDispose`: khi SỬA + đang dùng, đổi Trạng thái sang "Thanh lý" chạy luồng thanh lý
+ * (preview cascade) thay cho nút Vòng đời cũ.
  */
 export function AssetGeneralFields({
   form,
   set,
   typeOptions,
   brandOptions,
+  placeOptions,
   catConfig,
   addConfig,
   addingConfig,
+  onDispose,
+  userField,
+  hideDatesNote = false,
 }: {
   form: FormState;
   set: (key: keyof FormState) => (value: string) => void;
   typeOptions: string[];
   brandOptions: string[];
+  placeOptions: string[];
   catConfig: string[];
   addConfig: () => void;
   addingConfig: boolean;
+  onDispose?: () => void;
+  /** Ô "User" (người đứng tên) nhúng trong grid khi TẠO máy — cùng hàng Code/Asset Type. */
+  userField?: ReactNode;
+  /** TẠO phần mềm nhiều bản: Start/End/Ghi chú chuyển sang nhập theo TỪNG bản (ẩn ở đây). */
+  hideDatesNote?: boolean;
 }) {
   const { t } = useTranslation();
+  const isEditing = form.id != null;
   return (
     <div className="form-grid">
       {/* Phần mềm định danh bằng Tên license → KHÔNG có Mã tài sản (sw-license-model-redesign) */}
@@ -37,6 +52,13 @@ export function AssetGeneralFields({
             value={form.code}
             onChange={(e) => set('code')(e.target.value)}
           />
+        </label>
+      )}
+      {/* User (người đứng tên) — cùng hàng Code/Asset Type khi TẠO máy. */}
+      {userField && (
+        <label className="field">
+          <span>{t('assets.assignee')}</span>
+          {userField}
         </label>
       )}
       {!form.isSoftware && (
@@ -121,16 +143,20 @@ export function AssetGeneralFields({
           </div>
         </label>
       )}
-      <label className="field">
-        <span>{t('assets.cost')}</span>
-        <input
-          type="number"
-          min={0}
-          step={1}
-          value={form.cost}
-          onChange={(e) => set('cost')(e.target.value)}
-        />
-      </label>
+      {/* Giá: máy + sửa phần mềm dùng ô chung; TẠO phần mềm nhiều bản → Giá theo TỪNG bản. */}
+      {!hideDatesNote && (
+        <label className="field">
+          <span>{t('assets.cost')}</span>
+          {/* Giá VND hiển thị dấu chấm ngăn nghìn (5.000.000); state giữ số nguyên (parseVnd). */}
+          <input
+            type="text"
+            inputMode="numeric"
+            value={formatVnd(form.cost)}
+            onChange={(e) => set('cost')(parseVnd(e.target.value))}
+          />
+        </label>
+      )}
+      {!hideDatesNote && (
       <label className="field">
         <span>{t('assets.startDate')}</span>
         <input
@@ -139,7 +165,8 @@ export function AssetGeneralFields({
           onChange={(e) => set('startDate')(e.target.value)}
         />
       </label>
-      {!(form.isSoftware && form.licenseType === 'perpetual') && (
+      )}
+      {!hideDatesNote && !(form.isSoftware && form.licenseType === 'perpetual') && (
         <label className="field">
           <span>
             {t('assets.endDate')}
@@ -147,19 +174,43 @@ export function AssetGeneralFields({
               <span className="field-req"> *</span>
             )}
           </span>
+          {/* Hạn phải SAU ngày đưa vào dùng — min = ngày kế tiếp (loại trừ bằng nhau, khớp
+              validate `endDate <= startDate` khi Lưu); asset-form validate lại lần cuối. */}
           <input
             type="date"
             required={form.isSoftware && form.licenseType === 'term'}
+            min={
+              form.startDate
+                ? new Date(new Date(form.startDate).getTime() + 86400000)
+                    .toISOString()
+                    .slice(0, 10)
+                : undefined
+            }
             value={form.endDate}
             onChange={(e) => set('endDate')(e.target.value)}
           />
         </label>
       )}
-      <label className="field">
-        <span>{t('assets.statusLabel')}</span>
-        {/* Chỉ hiển thị (AC 1) — khóa/gỡ pool/thanh lý là nghiệp vụ 2.6 */}
-        <input disabled value={t(`assets.status.${form.status}`)} />
-      </label>
+      {/* Tạo mới LUÔN là "Đang dùng" → ẩn ô Trạng thái. Chỉ hiện khi SỬA: đang dùng thì cho
+          đổi sang Thanh lý (chạy luồng thanh lý + preview cascade); trạng thái khác hiển thị tĩnh. */}
+      {isEditing && (
+        <label className="field">
+          <span>{t('assets.statusLabel')}</span>
+          {form.status === 'in_use' && onDispose ? (
+            <select
+              value={form.status}
+              onChange={(e) => {
+                if (e.target.value === 'disposed') onDispose();
+              }}
+            >
+              <option value="in_use">{t('assets.status.in_use')}</option>
+              <option value="disposed">{t('assets.status.disposed')}</option>
+            </select>
+          ) : (
+            <input disabled value={t(`assets.status.${form.status}`)} />
+          )}
+        </label>
+      )}
       <label className="field">
         <span>{t('assets.serial')}</span>
         <input
@@ -168,6 +219,23 @@ export function AssetGeneralFields({
           onChange={(e) => set('serial')(e.target.value)}
         />
       </label>
+      {/* Place (vị trí đặt máy) — chỉ máy; dropdown từ danh mục (kind=place) + cho gõ tự do. */}
+      {!form.isSoftware && (
+        <label className="field">
+          <span>{t('assets.floor')}</span>
+          <input
+            list="catalog-place-list"
+            maxLength={200}
+            value={form.floor}
+            onChange={(e) => set('floor')(e.target.value)}
+          />
+          <datalist id="catalog-place-list">
+            {placeOptions.map((v) => (
+              <option key={v} value={v} />
+            ))}
+          </datalist>
+        </label>
+      )}
       <label className="field">
         <span>{t('assets.brand')}</span>
         <select
@@ -182,6 +250,7 @@ export function AssetGeneralFields({
           ))}
         </select>
       </label>
+      {!hideDatesNote && (
       <label className="field span-2">
         <span>{t('assets.note')}</span>
         <input
@@ -190,6 +259,7 @@ export function AssetGeneralFields({
           onChange={(e) => set('note')(e.target.value)}
         />
       </label>
+      )}
     </div>
   );
 }

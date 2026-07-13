@@ -8,14 +8,16 @@ export interface InstalledSoftwareRow {
   code: string | null;
   licenseType: string | null;
   licenseName: string | null;
+  startDate?: string | null;
   endDate: string | null;
+  brand?: string | null;
 }
 
 /**
- * Khối "Software đã cài" của MÁY, tách khỏi asset-form (§6) — story 11.2 follow-up (UAT B3/software).
- * Trình bày thuần: state + handler vẫn ở asset-form (attach/detach gọi endpoint riêng, KHÔNG qua "Lưu máy").
- * - isCreate=true: chọn phần mềm gắn SAU khi tạo máy (pendingSw).
- * - isCreate=false: máy đã tồn tại → list phần mềm đang cài + gắn/gỡ ngay (moveSoftware).
+ * Khối "Software đã cài" của MÁY, tách khỏi asset-form (§6). Bảng phần mềm đã gắn + ô search (+).
+ * - isCreate=true: chọn phần mềm gắn SAU khi tạo máy (pendingSw, gỡ = bỏ khỏi danh sách).
+ * - isCreate=false: máy đã tồn tại → phần mềm đang cài + gắn/gỡ ngay (moveSoftware).
+ * Trình bày thuần: state + handler vẫn ở asset-form.
  */
 export function AssetSoftwarePicker({
   isCreate,
@@ -41,96 +43,110 @@ export function AssetSoftwarePicker({
   machineId: string | null;
 }) {
   const { t } = useTranslation();
+
+  // Chuẩn hóa về cùng shape để render bảng chung cho cả create (pendingSw) và edit (installed).
+  const rows: InstalledSoftwareRow[] = isCreate
+    ? pendingSw.map((s) => ({
+        id: s.id,
+        code: s.code,
+        licenseType: s.licenseType ?? null,
+        licenseName: s.licenseName ?? null,
+        startDate: s.startDate ?? null,
+        endDate: s.endDate ?? null,
+        brand: s.brand ?? null,
+      }))
+    : installedSoftware;
+
+  const remove = (id: string) => {
+    if (isCreate) setPendingSw((prev) => prev.filter((x) => x.id !== id));
+    else void moveSoftware(id, null);
+  };
+
+  // Ẩn khỏi gợi ý những phần mềm đã có trong danh sách (create); edit gắn thẳng vào máy.
+  const options = isCreate
+    ? swOptions.filter((o) => !pendingSw.some((p) => p.id === o.id))
+    : swOptions;
+
   return (
     <div className="form-section">
       <div className="form-section-title">{t('assets.installedSoftware')}</div>
-      {isCreate ? (
-        <>
-          {pendingSw.length > 0 && (
-            <div className="swpick" style={{ marginBottom: '0.6rem' }}>
-              {pendingSw.map((s) => (
-                <span className="swchip" key={s.id}>
-                  {s.licenseName ?? s.code}
-                  <button
-                    type="button"
-                    aria-label={t('assets.detachSoftware')}
-                    onClick={() =>
-                      setPendingSw((prev) => prev.filter((x) => x.id !== s.id))
-                    }
-                  >
-                    ✕
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-          <Combobox
-            placeholder={t('assets.attachSoftwareSearch')}
-            query={swQuery}
-            onQuery={setSwQuery}
-            options={swOptions.filter(
-              (o) => !pendingSw.some((p) => p.id === o.id),
-            )}
-            disabled={busy}
-            getKey={(a) => a.id}
-            renderOption={(a) => (
-              <>
-                <span>{a.licenseName ?? a.code}</span>
-                <small>{t('assets.kindSoftware')}</small>
-              </>
-            )}
-            onSelect={(a) => {
-              setPendingSw((prev) => [...prev, a]);
-              setSwQuery('');
-            }}
-          />
-        </>
+
+      {rows.length === 0 ? (
+        <p className="muted" style={{ margin: '0 0 0.6rem' }}>
+          {t('assets.installedSoftwareNone')}
+        </p>
       ) : (
-        <>
-          {installedSoftware.length === 0 ? (
-            <p className="muted" style={{ margin: '0 0 0.6rem' }}>
-              {t('assets.installedSoftwareNone')}
-            </p>
-          ) : (
-            <ul style={{ margin: '0 0 0.6rem', paddingLeft: '1.25rem' }}>
-              {installedSoftware.map((s) => (
-                <li key={s.id}>
-                  {s.licenseName ?? s.code}
-                  {s.licenseType === 'perpetual'
-                    ? ` (${t('assets.licensePerpetual')})`
-                    : s.endDate
-                      ? ` — ${t('assets.endDate')}: ${s.endDate}`
-                      : ''}{' '}
-                  <button
-                    type="button"
-                    className="ghost sm"
-                    disabled={busy}
-                    onClick={() => void moveSoftware(s.id, null)}
-                  >
-                    {t('assets.detachSoftware')}
-                  </button>
-                </li>
+        <div className="table-wrap" style={{ marginBottom: '0.6rem' }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{t('assets.licenseName')}</th>
+                <th>{t('assets.licenseType')}</th>
+                <th>{t('assets.startDate')}</th>
+                <th>{t('assets.endDate')}</th>
+                <th>{t('assets.brand')}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((s) => (
+                <tr key={s.id}>
+                  <td>
+                    {s.licenseName ?? <span className="mono">{s.code}</span>}
+                  </td>
+                  <td>
+                    {s.licenseType === 'term'
+                      ? t('assets.licenseTerm')
+                      : s.licenseType === 'perpetual'
+                        ? t('assets.licensePerpetual')
+                        : '—'}
+                  </td>
+                  <td>{s.startDate ?? '—'}</td>
+                  <td>
+                    {s.licenseType === 'perpetual'
+                      ? t('assets.licensePerpetual')
+                      : (s.endDate ?? '—')}
+                  </td>
+                  <td>{s.brand ?? '—'}</td>
+                  <td className="table-actions">
+                    <button
+                      type="button"
+                      className="ghost sm"
+                      disabled={busy}
+                      onClick={() => remove(s.id)}
+                    >
+                      {t('assets.detachSoftware')}
+                    </button>
+                  </td>
+                </tr>
               ))}
-            </ul>
-          )}
-          {/* 9.4: gắn nhanh phần mềm đã có vào máy này (tạo mới ở tab Phần mềm). */}
-          <Combobox
-            placeholder={t('assets.attachSoftwareSearch')}
-            query={swQuery}
-            onQuery={setSwQuery}
-            options={swOptions}
-            disabled={busy}
-            getKey={(a) => a.id}
-            renderOption={(a) => (
-              <>
-                <span>{a.licenseName ?? a.code}</span>
-                <small>{t('assets.kindSoftware')}</small>
-              </>
-            )}
-            onSelect={(a) => void moveSoftware(a.id, machineId)}
-          />
-        </>
+            </tbody>
+          </table>
+        </div>
       )}
+
+      <Combobox
+        placeholder={t('assets.attachSoftwareSearch')}
+        query={swQuery}
+        onQuery={setSwQuery}
+        options={options}
+        disabled={busy}
+        getKey={(a) => a.id}
+        renderOption={(a) => (
+          <>
+            <span>{a.licenseName ?? a.code}</span>
+            <small>{t('assets.kindSoftware')}</small>
+          </>
+        )}
+        onSelect={(a) => {
+          if (isCreate) {
+            setPendingSw((prev) => [...prev, a]);
+            setSwQuery('');
+          } else {
+            void moveSoftware(a.id, machineId);
+          }
+        }}
+      />
     </div>
   );
 }

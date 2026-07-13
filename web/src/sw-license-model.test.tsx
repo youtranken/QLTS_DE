@@ -70,11 +70,11 @@ describe('Tab Phần mềm — cột định danh bằng Tên license (AC6)', ()
     expect(screen.getByText('Office 365')).toBeInTheDocument();
     // Header cột: Tên license, Máy, Kỳ hạn — KHÔNG có header "Mã tài sản"
     expect(
-      screen.getByRole('columnheader', { name: /Tên license/ }),
+      screen.getByRole('columnheader', { name: /License Name/ }),
     ).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: /Máy/ })).toBeInTheDocument();
     expect(
-      screen.queryByRole('columnheader', { name: /Mã tài sản/ }),
+      screen.queryByRole('columnheader', { name: /^Code$/ }),
     ).not.toBeInTheDocument();
     // Máy gắn + người đứng tên derive từ máy
     expect(screen.getByText('PC-01')).toBeInTheDocument();
@@ -100,11 +100,11 @@ describe('Form phần mềm — bỏ Mã/Người đứng tên (AC2)', () => {
       />,
     );
     await waitFor(() =>
-      expect(screen.getByText('Tên license')).toBeInTheDocument(),
+      expect(screen.getByText('License Name')).toBeInTheDocument(),
     );
-    // Phần mềm: KHÔNG có ô "Mã tài sản", KHÔNG có khối "Người đứng tên"
-    expect(screen.queryByText('Mã tài sản')).not.toBeInTheDocument();
-    expect(screen.queryByText('Người đứng tên')).not.toBeInTheDocument();
-    expect(screen.queryByText('Cấu hình')).not.toBeInTheDocument();
+    // Phần mềm: KHÔNG có ô "Code", KHÔNG có khối "User" (người đứng tên), KHÔNG có Configuration
+    expect(screen.queryByText('Code')).not.toBeInTheDocument();
+    expect(screen.queryByText('User')).not.toBeInTheDocument();
+    expect(screen.queryByText('Configuration')).not.toBeInTheDocument();
   });
 });

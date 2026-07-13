@@ -98,6 +98,12 @@ class AssetBodyDto {
   @MaxLength(200)
   serial?: string | null;
 
+  /** Vị trí đặt máy (Place). Hồi sinh sau 7.6 theo UAT. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  floor?: string | null;
+
   @IsOptional()
   @IsString()
   @MaxLength(200)
@@ -217,6 +223,27 @@ class ListAssetsQueryDto {
   @IsBoolean()
   expiring?: boolean;
 
+  /** Sổ tài sản (máy) loại phần mềm (?excludeSoftware=true) — /phan-mem là danh sách riêng. */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  excludeSoftware?: boolean;
+
+  /** Lọc theo dõi hạn — end_date ≥ endFrom / ≤ endTo (YYYY-MM-DD). */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endFrom phải dạng YYYY-MM-DD' })
+  endFrom?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endTo phải dạng YYYY-MM-DD' })
+  endTo?: string;
+
+  /** Chi tiết nhóm license: liệt kê từng bản (seat) đúng tên license này. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  licenseName?: string;
+
   /** Sắp xếp server-side (P1): whitelist cột — chặn SQL injection qua tên cột. */
   @IsOptional()
   @IsIn(['code', 'type', 'status', 'assignee'])
@@ -236,6 +263,7 @@ function toInput(body: AssetBodyDto): AssetInput {
     cost: body.cost ?? null,
     startDate: body.startDate ?? null,
     endDate: body.endDate ?? null,
+    floor: body.floor?.trim() || null,
     note: body.note ?? null,
     serial: body.serial ?? null,
     brand: body.brand ?? null,
@@ -265,9 +293,20 @@ export class AssetsAdminController {
       type: query.type,
       status: query.status,
       expiring: query.expiring,
+      excludeSoftware: query.excludeSoftware,
+      endFrom: query.endFrom,
+      endTo: query.endTo,
+      licenseName: query.licenseName,
       sort: query.sort,
       dir: query.dir,
     });
+  }
+
+  /** Danh sách phần mềm GOM NHÓM theo tên license (mỗi license nhiều bản/seat) —
+   *  đứng trước ':id' như 'meta'. Đếm bản/đã gắn/còn dư/sắp hết hạn cho từng license. */
+  @Get('software-groups')
+  softwareGroups(@Query('search') search?: string) {
+    return this.software.listLicenseGroups(search);
   }
 
   /** Dropdown lọc (2.2) — PHẢI đứng trước ':id' để 'meta' không rơi vào ParseUUIDPipe. */
@@ -297,6 +336,8 @@ export class AssetsAdminController {
         type: query.type,
         status: query.status,
         expiring: query.expiring,
+        endFrom: query.endFrom,
+        endTo: query.endTo,
       },
       requireSub(req),
     );
@@ -317,6 +358,8 @@ export class AssetsAdminController {
         search: query.search,
         status: query.status,
         expiring: query.expiring,
+        endFrom: query.endFrom,
+        endTo: query.endTo,
       },
       requireSub(req),
     );

@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef, OnChangeFn, SortingState } from '@tanstack/react-table';
 import { AssetForm } from './asset-form';
 import { apiFetch } from './api-client';
+import { AssetSoftwareExpand } from './asset-software-list';
+import { SoftwareTransferDialog } from './software-transfer-dialog';
+import { RowActionsMenu } from './asset-row-actions';
+import type { RowAction } from './asset-row-actions';
+import { useAssetLifecycle } from './asset-lifecycle-actions';
 import { DataTable } from './ui/data-table';
 import {
   EMPTY_FORM,
   STATUS_BADGE,
   detailToForm,
+  formatVnd,
 } from './asset-types';
 import type {
-  AllocationRow,
   AssetDetail,
   AssetRow,
-  NoteRow,
   FormState,
 } from './asset-types';
 import type { Me } from './panels';
@@ -33,11 +37,14 @@ export function AssetsPage({
   me,
   softwareOnly = false,
   disposedOnly = false,
+  licenseName,
 }: {
   me: Me;
   softwareOnly?: boolean;
   // B4 (UAT 2026-07-12): "Kho thanh lý" — chỉ tài sản đã thanh lý (đọc) + Tái sử dụng.
   disposedOnly?: boolean;
+  // Chi tiết nhóm license: chỉ liệt kê các bản (seat) của tên license này (softwareOnly).
+  licenseName?: string;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -47,6 +54,8 @@ export function AssetsPage({
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [form, setForm] = useState<FormState | null>(null);
+  // Gắn/chuyển 1 bản (seat) phần mềm sang máy — mở dialog từ kebab (trang chi tiết license).
+  const [transferSw, setTransferSw] = useState<AssetRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Tìm/lọc server-side (2.2): searchInput gõ tự do → search sau debounce 300ms
   const [searchInput, setSearchInput] = useState('');
@@ -60,6 +69,11 @@ export function AssetsPage({
   const [expiring, setExpiring] = useState(
     () => searchParams.get('expiring') === 'true',
   );
+  // Seat được chọn từ bảng con /phan-mem → bôi sáng dòng tương ứng.
+  const seatParam = searchParams.get('seat');
+  // Lọc theo dõi hạn tự chọn: khoảng end_date [endFrom, endTo] (cả /tai-san lẫn /phan-mem).
+  const [endFrom, setEndFrom] = useState('');
+  const [endTo, setEndTo] = useState('');
   const [meta, setMeta] = useState<{ types: string[] }>({
     types: [],
   });
@@ -71,7 +85,13 @@ export function AssetsPage({
     );
     setPage(1);
   };
-  const hasFilter = search !== '' || type !== '' || status !== '' || expiring;
+  const hasFilter =
+    search !== '' ||
+    type !== '' ||
+    status !== '' ||
+    expiring ||
+    endFrom !== '' ||
+    endTo !== '';
 
   useEffect(() => {
     const value = searchInput.trim();
@@ -112,8 +132,11 @@ export function AssetsPage({
         type,
         status,
         expiring,
+        endFrom,
+        endTo,
         softwareOnly,
         disposedOnly,
+        licenseName: licenseName ?? null,
         sort: sorting[0]?.id ?? null,
         dir: sorting[0]?.desc ? 'desc' : 'asc',
       },
@@ -124,9 +147,21 @@ export function AssetsPage({
         pageSize: String(PAGE_SIZE),
       });
       if (search) params.set('search', search);
-      // Tab Phần mềm: khóa cứng type=software (bỏ qua dropdown loại).
+      // Tab Phần mềm: khóa cứng type=software. Ngược lại (sổ tài sản) LOẠI phần mềm ra —
+      // phần mềm có danh sách riêng ở /phan-mem (phân biệt rõ 2 danh sách).
       if (softwareOnly) params.set('type', 'software');
-      else if (type) params.set('type', type);
+      // Chi tiết nhóm license: chỉ các bản (seat) của tên license này.
+      if (licenseName) params.set('licenseName', licenseName);
+      if (softwareOnly) {
+        /* type đã set ở trên */
+      } else {
+        // "Sắp hết hạn" (expiring) đếm CẢ license → view này KHÔNG loại phần mềm, để
+        // count badge khớp danh sách (H1). Ngoài ra sổ tài sản chỉ máy.
+        if (!expiring) params.set('excludeSoftware', 'true');
+        if (type) params.set('type', type);
+      }
+      if (endFrom) params.set('endFrom', endFrom);
+      if (endTo) params.set('endTo', endTo);
       // Kho thanh lý: khóa cứng status=disposed (bỏ qua dropdown trạng thái).
       if (disposedOnly) params.set('status', 'disposed');
       else if (status) params.set('status', status);
@@ -236,78 +271,75 @@ export function AssetsPage({
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Vòng đời máy (Khóa sửa chữa/Mở khóa/Pool) TỪ kebab — thay khối Vòng đời trong form.
+  const lifecycle = useAssetLifecycle({
+    me,
+    onChanged: () => {
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      void loadMeta();
+    },
+  });
+
   // id cột KHỚP whitelist BE (code/type/status/assignee) → map thẳng sang ?sort=.
   // Tab Phần mềm (softwareOnly) và Sổ tài sản dùng bộ cột KHÁC nhau (sw-license-model-redesign):
   // phần mềm định danh bằng Tên license + Máy + Kỳ hạn; máy có cột "Phần mềm" gọn.
   const columns = useMemo<ColumnDef<AssetRow, unknown>[]>(() => {
+    // No = STT liên tục theo trang (page-size 20) — chỉ hiển thị, không sort.
+    const noCol: ColumnDef<AssetRow, unknown> = {
+      id: 'no',
+      header: t('assets.col.no', 'No'),
+      enableSorting: false,
+      cell: ({ row, table }) =>
+        (page - 1) * PAGE_SIZE +
+        table.getRowModel().rows.findIndex((r) => r.id === row.id) +
+        1,
+    };
     const statusCol: ColumnDef<AssetRow, unknown> = {
       id: 'status',
       accessorKey: 'status',
-      header: t('assets.statusLabel'),
+      header: t('assets.col.status'),
       cell: ({ row }) => (
         <span className={`badge ${STATUS_BADGE[row.original.status] ?? 'muted'}`}>
           {t(`assets.status.${row.original.status}`)}
         </span>
       ),
     };
+    // Action gom vào menu "⋯" (3-chấm) cho gọn. Kho thanh lý: hồ sơ đã chốt — chỉ "Tái sử dụng".
     const actionsCol: ColumnDef<AssetRow, unknown> = {
       id: 'actions',
-      header: '',
+      header: t('assets.col.action'),
       enableSorting: false,
-      // Kho thanh lý: hồ sơ đã chốt (không Sửa/Xóa) — chỉ "Tái sử dụng" = tạo tài sản MỚI từ template.
-      cell: ({ row }) =>
-        disposedOnly ? (
-          <div className="table-actions">
-            <button
-              type="button"
-              className="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                void copyFrom(row.original.id);
-              }}
-            >
-              {t('assets.reuse', 'Tái sử dụng')}
-            </button>
-          </div>
-        ) : (
-          <div className="table-actions">
-            <button
-              type="button"
-              className="sm"
-              onClick={(e) => {
-                e.stopPropagation(); // dòng có onRowClick — không mở 2 lần
-                void openEdit(row.original.id);
-              }}
-            >
-              {t('assets.edit')}
-            </button>
-            {softwareOnly && (
-              <button
-                type="button"
-                className="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void copyFrom(row.original.id);
-                }}
-              >
-                {t('software.copy')}
-              </button>
-            )}
-            <button
-              type="button"
-              className="sm danger"
-              onClick={(e) => {
-                e.stopPropagation();
-                void handleDelete(row.original);
-              }}
-            >
-              {t('assets.delete')}
-            </button>
-          </div>
-        ),
+      cell: ({ row }) => {
+        const a = row.original;
+        // Dòng đã thanh lý (kể cả khi lọc status=disposed ở sổ tài sản): hồ sơ đã chốt →
+        // chỉ "Tái sử dụng", KHÔNG Sửa/Xóa (BE chặn, tránh action ra lỗi khó hiểu).
+        const actions: RowAction[] = (disposedOnly || a.status === 'disposed')
+          ? [{ label: t('assets.reuse', 'Tái sử dụng'), onClick: () => void copyFrom(a.id) }]
+          : [
+              { label: t('assets.edit'), onClick: () => void openEdit(a.id) },
+              ...(softwareOnly
+                ? [
+                    {
+                      label: t('software.assignMachine'),
+                      onClick: () => setTransferSw(a),
+                    },
+                    { label: t('software.copy'), onClick: () => void copyFrom(a.id) },
+                  ]
+                : []),
+              // Khóa sửa chữa / Mở khóa / Pool (chỉ máy; software → []).
+              ...lifecycle.actionsFor(a),
+              {
+                label: t('assets.delete'),
+                danger: true,
+                onClick: () => void handleDelete(a),
+              },
+            ];
+        return <RowActionsMenu actions={actions} />;
+      },
     };
     if (softwareOnly) {
       return [
+        noCol,
         {
           id: 'license',
           accessorKey: 'licenseName',
@@ -355,11 +387,14 @@ export function AssetsPage({
         actionsCol,
       ];
     }
+    // Bảng Tài sản (đại tu UAT): cột thông số theo tên English cố định. Thông số mới
+    // (Configuration/Cost/Start Date/Place/Pool) không sort — BE chỉ whitelist code/type/status/assignee.
     return [
+      noCol,
       {
         id: 'code',
         accessorKey: 'code',
-        header: t('assets.code'),
+        header: t('assets.col.code'),
         // Sổ tài sản có thể lẫn dòng phần mềm (không mã) → hiện Tên license thay mã.
         cell: ({ row }) =>
           row.original.code ? (
@@ -369,38 +404,54 @@ export function AssetsPage({
           ),
       },
       {
+        id: 'assignee',
+        accessorKey: 'assignedUserName',
+        header: t('assets.col.user'),
+        cell: ({ row }) =>
+          row.original.assignedUserName ?? row.original.assignedUserSub ?? '—',
+      },
+      {
         id: 'type',
         accessorKey: 'type',
-        header: t('assets.type'),
+        header: t('assets.col.type'),
         cell: ({ row }) =>
           row.original.type === 'software'
             ? t('assets.kindSoftware')
             : row.original.type,
       },
       {
-        id: 'software',
-        header: t('assets.swCol'),
+        id: 'configuration',
+        header: t('assets.col.configuration'),
+        enableSorting: false,
+        cell: ({ row }) => row.original.configuration ?? '—',
+      },
+      {
+        id: 'cost',
+        header: t('assets.col.cost'),
         enableSorting: false,
         cell: ({ row }) =>
-          row.original.installedSoftware ? (
-            <span className="muted" style={{ fontSize: '0.85rem' }}>
-              {row.original.installedSoftware}
-            </span>
+          row.original.cost == null ? (
+            '—'
           ) : (
-            <span className="muted">—</span>
+            <span className="mono">{formatVnd(row.original.cost)}</span>
           ),
       },
       {
-        id: 'assignee',
-        accessorKey: 'assignedUserName',
-        header: t('assets.assignee'),
-        cell: ({ row }) =>
-          row.original.assignedUserName ?? row.original.assignedUserSub ?? '—',
+        id: 'startDate',
+        header: t('assets.col.startDate'),
+        enableSorting: false,
+        cell: ({ row }) => row.original.startDate ?? '—',
+      },
+      {
+        id: 'place',
+        header: t('assets.col.place'),
+        enableSorting: false,
+        cell: ({ row }) => row.original.floor ?? '—',
       },
       statusCol,
       {
         id: 'pool',
-        header: t('assets.pool'),
+        header: t('assets.col.pool'),
         enableSorting: false,
         cell: ({ row }) =>
           row.original.isPool ? (
@@ -411,17 +462,33 @@ export function AssetsPage({
       },
       actionsCol,
     ];
-  }, [t, softwareOnly, disposedOnly, openEdit, copyFrom, handleDelete]);
+  }, [
+    t,
+    page,
+    softwareOnly,
+    disposedOnly,
+    openEdit,
+    copyFrom,
+    handleDelete,
+    lifecycle.actionsFor,
+  ]);
 
   return (
     <>
+      {licenseName && (
+        <p style={{ marginBottom: '0.5rem' }}>
+          <Link to="/phan-mem">‹ {t('software.backToGroups')}</Link>
+        </p>
+      )}
       <div className="page-header">
         <h1>
-          {disposedOnly
-            ? t('disposed.title', 'Kho thanh lý')
-            : softwareOnly
-              ? t('software.title')
-              : t('nav.assets')}
+          {licenseName
+            ? licenseName
+            : disposedOnly
+              ? t('disposed.title', 'Kho thanh lý')
+              : softwareOnly
+                ? t('software.title')
+                : t('nav.assets')}
         </h1>
         {!softwareOnly && !disposedOnly && (
           <>
@@ -439,6 +506,8 @@ export function AssetsPage({
                 ...(type ? { type } : {}),
                 ...(status ? { status } : {}),
                 ...(expiring ? { expiring: 'true' } : {}),
+                ...(endFrom ? { endFrom } : {}),
+                ...(endTo ? { endTo } : {}),
               }).toString()}`}
             >
               {t('assets.exportExcel')}
@@ -453,6 +522,8 @@ export function AssetsPage({
               ...(search ? { search } : {}),
               ...(status ? { status } : {}),
               ...(expiring ? { expiring: 'true' } : {}),
+              ...(endFrom ? { endFrom } : {}),
+              ...(endTo ? { endTo } : {}),
             }).toString()}`}
           >
             {t('assets.exportExcel')}
@@ -464,11 +535,17 @@ export function AssetsPage({
             className="primary"
             onClick={() =>
               setForm(
-                softwareOnly ? { ...EMPTY_FORM, isSoftware: true } : EMPTY_FORM,
+                softwareOnly
+                  ? { ...EMPTY_FORM, isSoftware: true, licenseName: licenseName ?? '' }
+                  : EMPTY_FORM,
               )
             }
           >
-            {softwareOnly ? t('software.add') : t('assets.addAsset')}
+            {softwareOnly
+              ? licenseName
+                ? t('software.addSeat')
+                : t('software.add')
+              : t('assets.addAsset')}
           </button>
         )}
       </div>
@@ -491,11 +568,14 @@ export function AssetsPage({
             }}
           >
             <option value="">{t('assets.filterType')}</option>
-            {meta.types.map((v) => (
-              <option key={v} value={v}>
-                {v === 'software' ? t('assets.kindSoftware') : v}
-              </option>
-            ))}
+            {/* Sổ tài sản không hiện phần mềm → bỏ 'software' khỏi bộ lọc Loại. */}
+            {meta.types
+              .filter((v) => v !== 'software')
+              .map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
           </select>
         )}
         {!disposedOnly && (
@@ -514,6 +594,31 @@ export function AssetsPage({
             ))}
           </select>
         )}
+        {/* Theo dõi hạn: lọc end_date theo khoảng ngày tự chọn (cả sổ tài sản & phần mềm). */}
+        <label className="field-inline">
+          <span className="muted">{t('assets.endFrom', 'Hết hạn từ')}</span>
+          <input
+            type="date"
+            value={endFrom}
+            max={endTo || undefined}
+            onChange={(e) => {
+              setEndFrom(e.target.value);
+              setPage(1);
+            }}
+          />
+        </label>
+        <label className="field-inline">
+          <span className="muted">{t('assets.endTo', 'đến')}</span>
+          <input
+            type="date"
+            value={endTo}
+            min={endFrom || undefined}
+            onChange={(e) => {
+              setEndTo(e.target.value);
+              setPage(1);
+            }}
+          />
+        </label>
         {expiring && (
           <span className="chip">
             {t('assets.expiringFilter')}
@@ -538,6 +643,8 @@ export function AssetsPage({
               setType('');
               setStatus('');
               setExpiring(false);
+              setEndFrom('');
+              setEndTo('');
               setPage(1);
             }}
           >
@@ -552,13 +659,17 @@ export function AssetsPage({
         manualSorting
         sorting={sorting}
         onSortingChange={onSortingChange}
-        rowClassName={(a) => (a.licenseWarning ? 'overdue' : '')}
+        rowClassName={(a) =>
+          a.id === seatParam ? 'row-highlight' : a.licenseWarning ? 'overdue' : ''
+        }
         onRowClick={(a) => {
           // đang bôi đen copy mã → không phải ý định mở trang (review 2.2)
           if (window.getSelection()?.toString()) return;
           navigate(`/tai-san/${a.id}`);
         }}
-        renderExpanded={(a) => <AssetExpanded asset={a} />}
+        // ▸ chỉ hiện khi máy CÓ phần mềm đã gắn; bung ra là bảng phần mềm của máy đó.
+        canExpand={(a) => !!a.installedSoftware}
+        renderExpanded={(a) => <AssetSoftwareExpand assetId={a.id} />}
       />
       {items.length > 0 && (
       <div
@@ -593,6 +704,7 @@ export function AssetsPage({
         <AssetForm
           me={me}
           initial={form}
+          lockSoftware={softwareOnly}
           onDone={(saved) => {
             setForm(null);
             if (saved) {
@@ -602,112 +714,30 @@ export function AssetsPage({
           }}
         />
       )}
+
+      {/* Popup Khóa sửa chữa + xác nhận cascade (từ kebab) + toast lỗi. */}
+      {lifecycle.overlay}
+
+      {/* Gắn/chuyển 1 bản phần mềm sang máy (từ kebab trang chi tiết license). */}
+      {transferSw && (
+        <SoftwareTransferDialog
+          me={me}
+          softwareId={transferSw.id}
+          currentHostCode={transferSw.installedOnCode}
+          onDone={(changed) => {
+            setTransferSw(null);
+            if (changed) {
+              void queryClient.invalidateQueries({ queryKey: ['assets'] });
+            }
+          }}
+        />
+      )}
     </>
   );
 }
 
-/**
- * Panel bung in-context ở Danh sách tài sản (▸ của DataTable) — xem nhanh lịch sử cấp
- * phát / phần mềm / ghi chú mà KHÔNG rời trang. Chỉ fetch khi hàng được mở (mount).
- */
-function AssetExpanded({ asset }: { asset: AssetRow }) {
-  const { t } = useTranslation();
-  const isMachine = asset.type !== 'software';
-  const [loading, setLoading] = useState(true);
-  const [allocations, setAllocations] = useState<AllocationRow[]>([]);
-  const [notes, setNotes] = useState<NoteRow[]>([]);
-  const [software, setSoftware] = useState<
-    Array<{ id: string; code: string; licenseName: string | null }>
-  >([]);
-
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    const id = encodeURIComponent(asset.id);
-    void Promise.all([
-      apiFetch<AllocationRow[]>(`/api/admin/assets/${id}/allocations`).catch(
-        () => [] as AllocationRow[],
-      ),
-      apiFetch<NoteRow[]>(`/api/admin/assets/${id}/notes`).catch(
-        () => [] as NoteRow[],
-      ),
-      isMachine
-        ? apiFetch<Array<{ id: string; code: string; licenseName: string | null }>>(
-            `/api/admin/assets/${id}/software`,
-          ).catch(() => [])
-        : Promise.resolve(
-            [] as Array<{ id: string; code: string; licenseName: string | null }>,
-          ),
-    ]).then(([al, nt, sw]) => {
-      if (!alive) return;
-      setAllocations(al);
-      setNotes(nt);
-      setSoftware(sw);
-      setLoading(false);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [asset.id, isMachine]);
-
-  if (loading) {
-    return (
-      <div className="panel">
-        <span className="muted-empty">…</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="panel">
-      <div>
-        <h5>{t('assets.expAlloc', 'Lịch sử cấp phát')}</h5>
-        {allocations.length === 0 ? (
-          <div className="muted-empty">—</div>
-        ) : (
-          allocations.slice(0, 3).map((a) => (
-            <div className="row" key={a.id}>
-              {a.toUserName ?? a.toUserSub ?? t('assets.expStore', 'Kho')}
-              {a.fromUserName ? ` ← ${a.fromUserName}` : ''}
-            </div>
-          ))
-        )}
-      </div>
-      {isMachine && (
-        <div>
-          <h5>{t('assets.installedSoftware', 'Phần mềm cài sẵn')}</h5>
-          {software.length === 0 ? (
-            <div className="muted-empty">
-              {t('assets.expNoSw', 'Chưa gắn phần mềm.')}
-            </div>
-          ) : (
-            software.map((s) => (
-              <div className="row" key={s.id}>
-                {s.licenseName ?? (
-                  <span className="mono">{s.code}</span>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-      <div>
-        <h5>{t('assets.expNotes', 'Ghi chú gần đây')}</h5>
-        {notes.length === 0 ? (
-          <div className="muted-empty">—</div>
-        ) : (
-          notes.slice(0, 3).map((n) => (
-            <div className="row" key={n.id}>
-              {n.note ?? ''}
-            </div>
-          ))
-        )}
-        <div style={{ marginTop: 6 }}>
-          <Link to={`/tai-san/${asset.id}`}>
-            {t('assets.expDetail', 'Xem chi tiết →')}
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+/** Trang chi tiết 1 nhóm license (/phan-mem/license/:name) — liệt kê từng bản (seat). */
+export function SoftwareLicensePage({ me }: { me: Me }) {
+  const { name } = useParams<{ name: string }>();
+  return <AssetsPage me={me} softwareOnly licenseName={name ?? ''} />;
 }

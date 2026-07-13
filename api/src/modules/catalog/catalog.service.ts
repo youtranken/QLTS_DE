@@ -27,13 +27,15 @@ const ASSET_COLUMN: Record<CatalogKind, string> = {
   type: 'type',
   brand: 'brand',
   configuration: 'configuration',
+  // 'place' = cột floor trên assets (hồi sinh sau 7.6) → dropdown Place trong form.
+  place: 'floor',
 };
 
 function assertKind(kind: string): asserts kind is CatalogKind {
   if (!(CATALOG_KINDS as readonly string[]).includes(kind)) {
     throw new BadRequestException({
       code: 'CATALOG_KIND_INVALID',
-      message: 'kind phải là type | brand | configuration.',
+      message: 'kind phải là type | brand | configuration | place.',
     });
   }
 }

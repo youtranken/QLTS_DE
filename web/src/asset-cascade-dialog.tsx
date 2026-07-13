@@ -1,8 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDateTime } from './asset-types';
-import type { PendingCascade } from './asset-types';
-import type { LifecycleRun } from './asset-lifecycle-panel';
+import type { LifecycleRun, PendingCascade } from './asset-types';
 
 /**
  * Popup xác nhận cascade (3.13) — danh sách booking bị hủy/thu hồi + cờ báo mail, khi Gỡ pool/Thanh lý.

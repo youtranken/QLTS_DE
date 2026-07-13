@@ -216,6 +216,7 @@ export function BookingSheet({
         url = '/api/admin/tickets/create-for';
         body.borrowerSub = borrower!.sub;
         body.mode = 'schedule';
+        if (note.trim()) body.note = note.trim();
       } else if (note.trim()) {
         body.note = note.trim();
       }
@@ -410,8 +411,8 @@ export function BookingSheet({
             </div>
           </div>
 
-          {/* Ghi chú (member; admin không có ô này) — phòng ban đã ẩn (9.7). */}
-          {mode !== 'recurring' && !isAdmin && (
+          {/* Ghi chú — cho cả member lẫn admin (create-for nhận note). Phòng ban đã ẩn (9.7). */}
+          {mode !== 'recurring' && (
             <div className="form-grid" style={{ marginBottom: '1rem' }}>
               <label className="field span-2">
                 <span>{t('bookingSheet.note')}</span>
@@ -429,7 +430,6 @@ export function BookingSheet({
               <RecurringAdminBuilder
                 me={me}
                 borrowerSub={borrower?.sub ?? ''}
-                departmentId=""
                 onBooked={() => {
                   onBooked();
                   onClose();
@@ -511,9 +511,32 @@ export function BookingSheet({
                     : t('bookingSheet.suggestTo', 'Gợi ý giờ trả')}
                 </span>
                 <div className="slot-suggest-chips">
-                  {PICKUP_SLOTS.map((s) => {
+                  {(() => {
+                    // Hôm nay: chỉ gợi ý giờ SAU giờ hiện tại (13:30 → ẩn 08–13, còn 14,15).
+                    // Giờ trả cùng ngày nhận: phải sau giờ nhận đã chọn.
+                    const activeDate = slotTarget === 'from' ? fromDate : toDate;
+                    const isToday = activeDate === todayLocal();
+                    const nowT = nowTimeLocal();
+                    const chips = PICKUP_SLOTS.filter((s) => {
+                      if (isToday && s < nowT) return false;
+                      if (
+                        slotTarget === 'to' &&
+                        toDate === fromDate &&
+                        fromTime &&
+                        s <= fromTime
+                      )
+                        return false;
+                      return true;
+                    });
+                    if (chips.length === 0) {
+                      return (
+                        <span className="muted" style={{ fontSize: '0.82rem' }}>
+                          {t('bookingSheet.noSlotToday', 'Hết giờ gợi ý — chọn ngày khác.')}
+                        </span>
+                      );
+                    }
                     const cur = slotTarget === 'from' ? fromTime : toTime;
-                    return (
+                    return chips.map((s) => (
                       <button
                         key={s}
                         type="button"
@@ -524,8 +547,8 @@ export function BookingSheet({
                       >
                         {s}
                       </button>
-                    );
-                  })}
+                    ));
+                  })()}
                 </div>
               </div>
               {weekendBlocked && (
@@ -607,12 +630,10 @@ interface SessionRow {
 function RecurringAdminBuilder({
   me,
   borrowerSub,
-  departmentId,
   onBooked,
 }: {
   me: Me;
   borrowerSub: string;
-  departmentId: string;
   onBooked: () => void;
 }) {
   const { t } = useTranslation();
@@ -666,7 +687,6 @@ function RecurringAdminBuilder({
             from: new Date(s.from).toISOString(),
             to: new Date(s.to).toISOString(),
           })),
-          ...(departmentId ? { departmentId } : {}),
         }),
       });
       if (res.status === 201) {
@@ -680,7 +700,7 @@ function RecurringAdminBuilder({
     } finally {
       setBusy(false);
     }
-  }, [borrowerSub, assetId, valid, sessions, departmentId, me.csrfToken, onBooked, t]);
+  }, [borrowerSub, assetId, valid, sessions, me.csrfToken, onBooked, t]);
 
   return (
     <div className="form-section">

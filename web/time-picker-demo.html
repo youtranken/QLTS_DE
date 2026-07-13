@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TimePicker — Demo</title>
+    <!-- Đặt theme trước render (giống index.html) để không chớp sáng/tối. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('qlts_theme');
+          if (t !== 'dark' && t !== 'light') {
+            t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/time-picker-demo.tsx"></script>
+  </body>
+</html>

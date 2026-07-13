@@ -19,6 +19,7 @@ const baseInput: AssetInput = {
   cost: 15000000,
   startDate: '2026-01-15',
   endDate: null,
+  floor: null,
   note: null,
   serial: null,
   brand: null,
@@ -189,7 +190,8 @@ describe('AssetsService (story 2.1)', () => {
     const { svc, audit } = makeService(db);
     const res = await svc.update(
       'uuid-1',
-      { ...baseInput, cost: 20000000, assignedUserSub: 'sub-m1' },
+      // floor: '3' khớp old_floor → chỉ cost + người đứng tên vào diff (floor giờ editable).
+      { ...baseInput, cost: 20000000, floor: '3', assignedUserSub: 'sub-m1' },
       1,
       'admin-1',
       'bàn giao kèm sạc',
@@ -607,7 +609,7 @@ describe('diffChanged', () => {
         old_type: 'laptop',
         old_cost: '15000000',
         old_start_date: '2026-01-15',
-        old_floor: '3',
+        old_floor: null,
       },
       baseInput,
     );
@@ -621,13 +623,29 @@ describe('diffChanged', () => {
         old_type: 'laptop',
         old_cost: '15000000',
         old_start_date: '2026-01-15',
-        old_floor: '3',
+        old_floor: null,
         old_note: null,
       },
       { ...baseInput, note: 'máy trầy góc' },
     );
     expect(changed).toEqual({
       note: { from: null, to: 'máy trầy góc' },
+    });
+  });
+
+  it('floor (Place) hồi sinh sau 7.6 → sửa được ghi nhận diff', () => {
+    const changed = diffChanged(
+      {
+        old_code: baseInput.code,
+        old_type: 'laptop',
+        old_cost: '15000000',
+        old_start_date: '2026-01-15',
+        old_floor: 'Tầng 3',
+      },
+      { ...baseInput, floor: 'Tầng 5' },
+    );
+    expect(changed).toEqual({
+      floor: { from: 'Tầng 3', to: 'Tầng 5' },
     });
   });
 });

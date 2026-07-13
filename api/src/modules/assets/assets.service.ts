@@ -32,6 +32,8 @@ export interface AssetInput {
   cost: number | null;
   startDate: string | null;
   endDate: string | null;
+  /** Vị trí đặt máy (Place). Hồi sinh sau 7.6 theo yêu cầu UAT — cột floor sẵn có. */
+  floor: string | null;
   note: string | null;
   serial: string | null;
   brand: string | null;
@@ -50,12 +52,19 @@ export interface AssetListQuery {
   status?: string;
   /** 7.7: lọc "sắp hết hạn" (end_date ≤ ngưỡng) — gộp thiết bị + license. */
   expiring?: boolean;
+  /** Sổ tài sản (máy) loại phần mềm ra — /phan-mem là danh sách phần mềm riêng. */
+  excludeSoftware?: boolean;
+  /** Lọc theo dõi hạn: end_date ∈ [endFrom, endTo] (YYYY-MM-DD, mỗi vế tuỳ chọn). */
+  endFrom?: string;
+  endTo?: string;
+  /** Chi tiết nhóm license: lọc đúng tên license → liệt kê từng bản (seat). */
+  licenseName?: string;
   /** Sắp xếp server-side (P1): cột (whitelist ở DTO) + hướng. Mặc định code asc. */
   sort?: string;
   dir?: string;
 }
 
-// 7.6: model/floor gỡ khỏi form/audit (cột DB giữ nullable, không drop — dữ liệu lịch sử).
+// 7.6 gỡ model/floor khỏi form; UAT sau đó hồi sinh 'floor' (Place) — 'model' vẫn gỡ.
 const EDITABLE_FIELDS = [
   'code',
   'type',
@@ -63,6 +72,7 @@ const EDITABLE_FIELDS = [
   'cost',
   'start_date',
   'end_date',
+  'floor',
   'note',
   'serial',
   'brand',
@@ -144,6 +154,7 @@ export class AssetsService {
             cost: input.cost,
             startDate: input.startDate,
             endDate: input.endDate,
+            floor: input.floor,
             note: input.note,
             serial: input.serial,
             brand: input.brand,
@@ -233,6 +244,7 @@ export class AssetsService {
               cost = ${input.cost},
               start_date = ${input.startDate},
               end_date = ${input.endDate},
+              floor = ${input.floor},
               note = ${input.note},
               serial = ${input.serial},
               brand = ${input.brand},
@@ -510,6 +522,12 @@ export class AssetsService {
           type: assetsTable.type,
           status: assetsTable.status,
           isPool: assetsTable.isPool,
+          // Thông số hiển thị ở bảng /tai-san (đại tu UAT): cấu hình/giá/ngày dùng/vị trí/hãng.
+          configuration: assetsTable.configuration,
+          cost: assetsTable.cost,
+          startDate: assetsTable.startDate,
+          floor: assetsTable.floor,
+          brand: assetsTable.brand,
           // Máy tính license_name (định danh phần mềm thay mã) + host để tab Phần mềm hiển thị
           licenseName: assetsTable.licenseName,
           licenseType: assetsTable.licenseType,
@@ -661,7 +679,9 @@ export class AssetsService {
     actorSub: string,
     spec: {
       action: string;
-      guard: (row: LifecycleRow) => 'NOT_MACHINE' | 'INVALID_STATE' | null;
+      guard: (
+        row: LifecycleRow,
+      ) => 'NOT_MACHINE' | 'INVALID_STATE' | 'NOT_POOL' | null;
       apply: (
         tx: LifecycleTx,
         row: LifecycleRow,
@@ -689,7 +709,9 @@ export class AssetsService {
     actorSub: string,
     spec: {
       action: string;
-      guard: (row: LifecycleRow) => 'NOT_MACHINE' | 'INVALID_STATE' | null;
+      guard: (
+        row: LifecycleRow,
+      ) => 'NOT_MACHINE' | 'INVALID_STATE' | 'NOT_POOL' | null;
       apply: (
         tx: LifecycleTx,
         row: LifecycleRow,
@@ -732,6 +754,12 @@ export class AssetsService {
         message: `Trạng thái hiện tại (${row.status}) không cho phép thao tác này.`,
       });
     }
+    if (violation === 'NOT_POOL') {
+      throw new ConflictException({
+        code: 'NOT_POOL',
+        message: 'Chỉ khóa sửa chữa được máy trong pool cho mượn.',
+      });
+    }
     const detail = await spec.apply(tx, row);
     if (detail === null) {
       return { ok: true, version: row.version };
@@ -758,6 +786,8 @@ export class AssetsService {
       guard: (row: LifecycleRow) => {
         if (row.type === 'software') return 'NOT_MACHINE' as const;
         if (row.status !== 'in_use') return 'INVALID_STATE' as const;
+        // Khóa sửa chữa CHỈ cho máy pool (yêu cầu UAT): máy ngoài pool không đi luồng khóa.
+        if (!row.isPool) return 'NOT_POOL' as const;
         return null;
       },
       apply: async (tx: LifecycleTx, row: LifecycleRow) => {
@@ -765,6 +795,8 @@ export class AssetsService {
           .update(assetsTable)
           .set({
             status: 'locked_repair',
+            // lock_eta = ETA → sweep auto-unlock khi tới ngày (0036).
+            lockEta: eta,
             version: row.version + 1,
             updatedAt: new Date(),
           })
@@ -792,6 +824,7 @@ export class AssetsService {
           .set({
             status: 'disposed',
             isPool: false,
+            lockEta: null, // thanh lý → xóa ETA khóa còn sót (dữ liệu sạch)
             version: row.version + 1,
             updatedAt: new Date(),
             ...(row.type === 'software' ? { installedOnAssetId: null } : {}),
@@ -845,6 +878,7 @@ export class AssetsService {
           .update(assetsTable)
           .set({
             status: 'in_use',
+            lockEta: null, // mở khóa → xóa ETA (sweep không đụng nữa)
             version: row.version + 1,
             updatedAt: new Date(),
           })
@@ -918,6 +952,43 @@ export class AssetsService {
       actorSub,
       this.setPoolSpec(id, isPool),
     );
+  }
+
+  /**
+   * Auto-unlock (0036): máy POOL đang khóa sửa chữa mà ETA đã tới (ngày VN) → tự mở khóa
+   * để mượn lại. Sweep chạy ở worker (đăng ký ở AssetsSweepRegistrar). Bump version +
+   * ghi note kind='unlock' + audit 'assets.auto_unlock' (actor 'system'). Trả số máy đã mở.
+   */
+  async autoUnlockExpiredLocks(): Promise<number> {
+    return this.db.transaction(async (tx) => {
+      // KHÔNG lọc is_pool: máy đã khóa vốn TỪNG là pool (guard lock chỉ cho pool); nếu sau
+      // đó bị gỡ pool lúc đang khóa vẫn phải tự mở khi tới ETA (tránh kẹt khóa vĩnh viễn).
+      const unlocked = await tx.execute<{ id: string }>(sql`
+        UPDATE assets
+        SET status = 'in_use', lock_eta = NULL, version = version + 1, updated_at = now()
+        WHERE status = 'locked_repair'
+          AND lock_eta IS NOT NULL
+          AND lock_eta <= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+        RETURNING id
+      `);
+      for (const r of unlocked.rows) {
+        await tx.insert(assetNoteTable).values({
+          assetId: r.id,
+          kind: 'unlock',
+          note: 'Tự mở khóa: đã tới ngày dự kiến (ETA).',
+          eta: null,
+          actor: 'system',
+        });
+        await this.audit.appendWithin(tx, {
+          actor: 'system',
+          action: 'assets.auto_unlock',
+          objectType: 'asset',
+          objectId: r.id,
+          detail: {},
+        });
+      }
+      return unlocked.rows.length;
+    });
   }
 
   /** Máy đích để cài software (2.4): tồn tại, KHÔNG phải software, KHÔNG thanh lý. */
@@ -998,6 +1069,7 @@ export class AssetsService {
         cost: assetsTable.cost,
         startDate: assetsTable.startDate,
         endDate: assetsTable.endDate,
+        floor: assetsTable.floor,
         status: assetsTable.status,
         note: assetsTable.note,
         serial: assetsTable.serial,
@@ -1043,6 +1115,7 @@ export function diffChanged(
     cost: input.cost,
     start_date: input.startDate,
     end_date: input.endDate,
+    floor: input.floor,
     note: input.note,
     serial: input.serial,
     brand: input.brand,

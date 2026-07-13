@@ -16,6 +16,13 @@ export function buildAssetListConditions(
     type?: string;
     status?: string;
     expiring?: boolean;
+    /** Sổ tài sản (máy) LOẠI phần mềm ra — phần mềm có trang riêng (/phan-mem). */
+    excludeSoftware?: boolean;
+    /** Lọc theo dõi hạn: end_date trong khoảng [endFrom, endTo] (YYYY-MM-DD, mỗi vế tuỳ chọn). */
+    endFrom?: string;
+    endTo?: string;
+    /** Lọc CHÍNH XÁC tên license — trang chi tiết nhóm license liệt kê từng bản (seat). */
+    licenseName?: string;
   },
   expiringBefore: string | null = null,
   hostHolderName?: AnyColumn | SQL,
@@ -37,6 +44,19 @@ export function buildAssetListConditions(
         )
       : undefined,
     query.type ? eq(assetsTable.type, query.type) : undefined,
+    // Chi tiết nhóm license: chỉ các bản (seat) đúng tên license này.
+    query.licenseName ? eq(assetsTable.licenseName, query.licenseName) : undefined,
+    // Sổ tài sản chỉ máy: loại phần mềm (danh sách phần mềm tách riêng ở /phan-mem).
+    query.excludeSoftware
+      ? sql`${assetsTable.type} <> 'software'`
+      : undefined,
+    // Theo dõi hạn: lọc end_date theo khoảng ngày tự chọn (mỗi vế độc lập).
+    query.endFrom
+      ? sql`${assetsTable.endDate} >= ${query.endFrom}::date`
+      : undefined,
+    query.endTo
+      ? sql`${assetsTable.endDate} <= ${query.endTo}::date`
+      : undefined,
     query.status ? eq(assetsTable.status, query.status) : undefined,
     // 7.7 "sắp hết hạn": thiết bị bất kỳ có endDate, HOẶC license term đang gắn máy
     // (installed IS NOT NULL ⇒ host chưa thanh lý — máy disposed tự detach license 2.5).

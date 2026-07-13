@@ -14,9 +14,10 @@ export const catalogTable = pgTable('catalog', {
     .defaultNow(),
 });
 
-export type CatalogKind = 'type' | 'brand' | 'configuration';
+export type CatalogKind = 'type' | 'brand' | 'configuration' | 'place';
 export const CATALOG_KINDS: readonly CatalogKind[] = [
   'type',
   'brand',
   'configuration',
+  'place',
 ];
