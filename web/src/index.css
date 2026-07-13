@@ -1150,8 +1150,15 @@ button.link.session-toggle {
   display: flex;
   gap: 0.25rem;
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 .tab {
+  flex-shrink: 0;
+  white-space: nowrap;
   padding: 0.5rem 0.95rem;
   border: none;
   border-bottom: 2px solid transparent;
