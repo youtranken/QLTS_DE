@@ -741,7 +741,9 @@ button.link.session-toggle {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(20, 26, 38, 0.5);
+  background: rgba(20, 26, 20, 0.44);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
   z-index: 50;
@@ -1225,7 +1227,22 @@ input.search {
   color: var(--ink-2);
 }
 
-@media (max-width: 560px) {
+@media (max-width: 680px) {
+  /* Overlay chiếm gần full màn trên mobile — sheet full-bleed, không bo góc. */
+  .modal-backdrop {
+    padding: 0;
+  }
+  .sheet {
+    max-width: 100%;
+    max-height: 100vh;
+    max-height: 100dvh;
+    height: 100dvh;
+    border-radius: 0;
+  }
+  .modal {
+    align-self: end;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+  }
   .sheet-header,
   .sheet-footer {
     padding: 0.85rem 1rem;
