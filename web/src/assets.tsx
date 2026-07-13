@@ -670,6 +670,7 @@ export function AssetsPage({
         // ▸ chỉ hiện khi máy CÓ phần mềm đã gắn; bung ra là bảng phần mềm của máy đó.
         canExpand={(a) => !!a.installedSoftware}
         renderExpanded={(a) => <AssetSoftwareExpand assetId={a.id} />}
+        stackOnMobile
       />
       {items.length > 0 && (
       <div

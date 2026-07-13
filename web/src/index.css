@@ -443,6 +443,7 @@ a.linkbtn:hover {
 .page-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 1rem;
   margin-bottom: 1.25rem;
 }
@@ -580,7 +581,7 @@ table.table tbody tr.row-highlight td:first-child {
   cursor: pointer;
 }
 .table tbody tr.clickable:hover {
-  background: var(--row-hover, rgba(127, 127, 127, 0.08));
+  background: var(--primary-soft);
 }
 
 /* Toast lỗi thao tác vòng đời (kebab) — nổi trên cùng, tự đóng bằng ✕. */

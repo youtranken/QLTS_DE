@@ -169,7 +169,14 @@ export function DataTable<T>({
                 return (
                   <Fragment key={row.id}>
                     <tr
-                      className={rowClassName?.(row.original) || undefined}
+                      className={
+                        [
+                          onRowClick ? 'clickable' : '',
+                          rowClassName?.(row.original) || '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ') || undefined
+                      }
                       onClick={
                         onRowClick ? () => onRowClick(row.original) : undefined
                       }
