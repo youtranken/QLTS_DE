@@ -605,6 +605,7 @@ export function BorrowBoardPage({ me }: { me: Me }) {
           }
           searchPlaceholder={t('board.search')}
           tableClassName="board-table"
+          stackOnMobile
           rowClassName={(r) =>
             `${r.isOverdue ? 'row-overdue' : ''}${
               flash && r.isMine ? ' row-flash' : ''

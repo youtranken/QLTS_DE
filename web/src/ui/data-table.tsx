@@ -34,6 +34,8 @@ interface DataTableProps<T> {
   renderExpanded?: (row: T) => ReactNode;
   /** Chỉ hiện mũi tên ▸ khi hàm này trả true (vd máy có phần mềm). Mặc định: mọi dòng. */
   canExpand?: (row: T) => boolean;
+  /** ≤680px gập bảng thành thẻ dọc (mỗi ô 1 dòng có nhãn cột). */
+  stackOnMobile?: boolean;
 }
 
 /**
@@ -55,6 +57,7 @@ export function DataTable<T>({
   onRowClick,
   renderExpanded,
   canExpand,
+  stackOnMobile,
 }: DataTableProps<T>) {
   const [internalSort, setInternalSort] = useState<SortingState>(initialSort);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -98,7 +101,15 @@ export function DataTable<T>({
         <SearchBox onChange={setGlobalFilter} placeholder={searchPlaceholder} />
       )}
       <div className="table-wrap">
-        <table className={tableClassName ? `table ${tableClassName}` : 'table'}>
+        <table
+          className={[
+            'table',
+            tableClassName,
+            stackOnMobile ? 'table-stack' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           <thead>
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
@@ -194,14 +205,22 @@ export function DataTable<T>({
                           )}
                         </td>
                       )}
-                      {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </td>
-                      ))}
+                      {row.getVisibleCells().map((cell) => {
+                        const h = cell.column.columnDef.header;
+                        return (
+                          <td
+                            key={cell.id}
+                            data-label={
+                              typeof h === 'string' ? h : cell.column.id
+                            }
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </td>
+                        );
+                      })}
                     </tr>
                     {expanded && renderExpanded && (
                       <tr className="exp">
