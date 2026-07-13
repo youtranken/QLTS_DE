@@ -430,6 +430,16 @@ export default {
     sessErrDelivered:
       'This session was delivered or closed — it cannot be cancelled.',
   },
+  cmd: {
+    placeholder: 'Search pages, actions…',
+    navigate: 'Navigate',
+    actions: 'Actions',
+    toggleTheme: 'Toggle light/dark theme',
+    empty: 'No results.',
+    move: 'move',
+    openHint: 'open',
+    closeHint: 'close',
+  },
   calendar: {
     title: 'Machine calendar {{code}}',
     openLink: 'Calendar',

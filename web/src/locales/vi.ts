@@ -428,6 +428,16 @@ export default {
     sessErrPickup: 'Đã tới giờ nhận buổi này — không thể hủy.',
     sessErrDelivered: 'Buổi đã giao hoặc kết thúc — không thể hủy.',
   },
+  cmd: {
+    placeholder: 'Tìm trang, hành động…',
+    navigate: 'Điều hướng',
+    actions: 'Hành động',
+    toggleTheme: 'Đổi giao diện sáng/tối',
+    empty: 'Không có kết quả.',
+    move: 'di chuyển',
+    openHint: 'mở',
+    closeHint: 'đóng',
+  },
   calendar: {
     title: 'Lịch máy {{code}}',
     openLink: 'Lịch máy',

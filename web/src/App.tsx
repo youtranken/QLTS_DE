@@ -8,6 +8,7 @@ import {
   useLocation,
 } from 'react-router-dom';
 import { BorrowBoardPage } from './borrow-board';
+import { CommandPalette } from './command-palette';
 import { NotFound } from './load-state';
 import { ChunkErrorBoundary } from './chunk-error-boundary';
 import { savedLanguage, setLanguage } from './i18n';
@@ -580,6 +581,12 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
           </ChunkErrorBoundary>
         </main>
       </div>
+      <CommandPalette
+        navItems={navGroups(me.role).flatMap((g) =>
+          g.items.map((i) => ({ to: i.to, label: t(i.key) })),
+        )}
+        onLogout={onLogout}
+      />
     </div>
   );
 }
