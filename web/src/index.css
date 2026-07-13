@@ -336,7 +336,7 @@ a.linkbtn:hover {
   width: 26px;
   height: 26px;
   border-radius: var(--r-sm);
-  background: linear-gradient(135deg, var(--primary), #7d92f7);
+  background: var(--grad);
   color: #fff;
   display: grid;
   place-items: center;
@@ -373,6 +373,7 @@ a.linkbtn:hover {
 .nav-item.active {
   background: var(--sidebar-active-bg);
   color: var(--sidebar-active-ink);
+  box-shadow: inset 3px 0 0 var(--warm);
 }
 .content {
   flex: 1;
