@@ -99,15 +99,15 @@ describe('Audit log viewer (story 6.2)', () => {
     expect(times).toEqual([...times].sort((a, b) => b - a)); // desc
   });
 
-  it('AC1 — Admin + member → 403 cả /audit lẫn /actions (chỉ SA)', async () => {
+  it('AC1 — Admin xem được (admin+sa); member → 403 cả /audit lẫn /actions', async () => {
     const asMember = { 'x-dev-user-sub': 'mem-av', 'x-dev-role': 'member' };
-    const a1 = await list('', asAdmin).expect(403);
-    expect(a1.body.code).toBe('FORBIDDEN_ROLE');
-    await list('', asMember).expect(403);
+    await list('', asAdmin).expect(200);
     await request(app.getHttpServer())
       .get('/api/admin/audit/actions')
       .set(asAdmin)
-      .expect(403);
+      .expect(200);
+    const m1 = await list('', asMember).expect(403);
+    expect(m1.body.code).toBe('FORBIDDEN_ROLE');
     await request(app.getHttpServer())
       .get('/api/admin/audit/actions')
       .set(asMember)

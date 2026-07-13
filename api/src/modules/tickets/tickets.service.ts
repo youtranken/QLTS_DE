@@ -31,7 +31,6 @@ export interface SubmitBookingInput {
   from: string;
   to: string;
   note?: string | null;
-  departmentId?: string | null;
 }
 
 export interface MyTicket {
@@ -85,6 +84,18 @@ export class TicketsService {
     actorSub: string,
     notify = true,
   ) {
+    // ETA phải SAU hôm nay (VN): auto-unlock chạy mỗi 60s, ETA ≤ hôm nay sẽ mở lại tức thì.
+    if (eta) {
+      const todayVn = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+      });
+      if (eta <= todayVn) {
+        throw new BadRequestException({
+          code: 'LOCK_ETA_PAST',
+          message: 'Ngày dự kiến xong phải sau hôm nay.',
+        });
+      }
+    }
     // Task 2 (3.10): caller bọc mapPgError — lỗi PG-level trong cascade (deadlock 40P01
     // review F11, trigger P0001…) dịch 409 thay vì 500 thô. Nest exception (STALE_VERSION…)
     // đi qua nguyên vẹn vì mapBookingPgError trả về error gốc khi không khớp code.
@@ -382,10 +393,6 @@ export class TicketsService {
         `);
         const ticketId = ticketRows.rows[0].id;
 
-        // 7.2: phòng ban (nếu gửi) phải tồn tại & active — validate trong tx trước INSERT.
-        if (input.departmentId) {
-          await this.assertDepartmentActive(tx, input.departmentId);
-        }
         const note = input.note?.trim() ? input.note.trim() : null;
 
         // Expire-on-conflict (AD-9, 3.5b): giải phóng dòng held CŨ đã quá giờ nhận trên máy
@@ -399,10 +406,9 @@ export class TicketsService {
         );
 
         const bookingRows = await tx.execute<{ id: string }>(sql`
-          INSERT INTO booking (ticket_id, asset_id, kind, state, period, note, department_id)
+          INSERT INTO booking (ticket_id, asset_id, kind, state, period, note)
           VALUES (${ticketId}, ${input.assetId}, 'normal', ${bookingState},
-                  tstzrange(${input.from}, ${input.to}, '[)'),
-                  ${note}, ${input.departmentId ?? null})
+                  tstzrange(${input.from}, ${input.to}, '[)'), ${note})
           RETURNING id
         `);
         const bookingId = bookingRows.rows[0].id;
@@ -464,7 +470,6 @@ export class TicketsService {
       mode: 'now' | 'schedule';
       note: string | null;
       photoIds: string[];
-      departmentId?: string | null;
     },
     actorSub: string,
   ): Promise<{ ticketId: string; ticketState: string }> {
@@ -543,12 +548,6 @@ export class TicketsService {
         `);
         const ticketId = ticketRows.rows[0].id;
 
-        // 7.2: phòng ban (nếu gửi) phải tồn tại & active. booking.note KHÔNG set ở luồng tạo hộ
-        // (note của createForMember là note tình trạng handover → asset_note; borrow-note chỉ member).
-        if (input.departmentId) {
-          await this.assertDepartmentActive(tx, input.departmentId);
-        }
-
         // Expire-on-conflict (nhất quán submitOwnBooking): nhả held cũ quá giờ chồng khung
         // → tránh SLOT_TAKEN giả trước khi sweep chạy (review Low1).
         await this.expireStaleHoldsForAsset(
@@ -559,9 +558,9 @@ export class TicketsService {
         );
 
         await tx.execute(sql`
-          INSERT INTO booking (ticket_id, asset_id, kind, state, period, department_id)
+          INSERT INTO booking (ticket_id, asset_id, kind, state, period)
           VALUES (${ticketId}, ${input.assetId}, 'normal', ${bookingState},
-                  tstzrange(${input.from}, ${input.to}, '[)'), ${input.departmentId ?? null})
+                  tstzrange(${input.from}, ${input.to}, '[)'))
         `);
 
         // giao ngay → gắn note/ảnh tình trạng đầu (reuse 3.6, kiểm file tồn tại)
@@ -996,8 +995,7 @@ export class TicketsService {
    * Trả: MỌI ticket in_use (delivered) toàn hệ + vé chờ nhận/chờ duyệt của CHÍNH caller.
    * AD-5: read-only join, KHÔNG sub/email — chỉ full_name; borrowerName hiện cho mọi vai
    * (chốt 2026-07-09, khác in-use-now). Map trạng thái: in_use↔delivered, awaiting_pickup↔pending,
-   * pending_approval(long-term)↔held (AD-16). Department LEFT JOIN theo id (KHÔNG lọc active —
-   * giữ tên phòng ban lịch sử dù đã disabled). is_overdue = cờ reversible (AD-14) cho badge+sort.
+   * pending_approval(long-term)↔held (AD-16). is_overdue = cờ reversible (AD-14) cho badge+sort.
    */
   async listBoard(callerSub: string): Promise<
     Array<{
@@ -1005,7 +1003,6 @@ export class TicketsService {
       assetCode: string | null;
       type: string | null;
       borrowerName: string | null;
-      department: string | null;
       from: string | null;
       due: string | null;
       state: string;
@@ -1020,7 +1017,6 @@ export class TicketsService {
       asset_code: string | null;
       type: string | null;
       borrower_name: string | null;
-      department: string | null;
       from_ts: string | null;
       due_ts: string | null;
       state: string;
@@ -1030,7 +1026,7 @@ export class TicketsService {
       recurring_count: number | null;
     }>(sql`
       SELECT t.id AS ticket_id, a.code AS asset_code, a.type,
-        u.full_name AS borrower_name, d.name AS department,
+        u.full_name AS borrower_name,
         lower(b.period) AS from_ts, upper(b.period) AS due_ts,
         t.state, t.is_overdue,
         (t.borrower_sub = ${callerSub}) AS is_mine,
@@ -1045,7 +1041,6 @@ export class TicketsService {
       JOIN booking b ON b.ticket_id = t.id
       LEFT JOIN assets a ON a.id = b.asset_id
       LEFT JOIN users u ON u.sub = t.borrower_sub
-      LEFT JOIN department d ON d.id = b.department_id
       WHERE (t.state = 'in_use' AND b.state = 'delivered')
          OR (t.borrower_sub = ${callerSub}
              AND ((t.state = 'awaiting_pickup' AND b.state = 'pending')
@@ -1057,7 +1052,6 @@ export class TicketsService {
       assetCode: r.asset_code,
       type: r.type,
       borrowerName: r.borrower_name,
-      department: r.department,
       from: r.from_ts ? new Date(r.from_ts).toISOString() : null,
       due: r.due_ts ? new Date(r.due_ts).toISOString() : null,
       state: r.state,
@@ -1299,26 +1293,6 @@ export class TicketsService {
    * THỨ TỰ KHÓA ticket → booking (giống sweep) để KHÔNG deadlock (review Med): tìm ticket_id
    * (không FOR UPDATE booking) → khóa ticket trước → cancelExpiredWithin update booking sau.
    */
-  /**
-   * Validate phòng ban (7.2) tồn tại & active trong CÙNG tx. Đọc bảng department (leaf catalog,
-   * chiều tickets→departments hợp lệ AD-1) bằng raw SQL — không inject DepartmentsService (giữ tx).
-   * 400 gộp "không tồn tại" + "đã tắt": FE dropdown chỉ show active nên chỉ xảy ra khi race.
-   */
-  private async assertDepartmentActive(
-    tx: Pick<Database, 'execute'>,
-    departmentId: string,
-  ): Promise<void> {
-    const rows = await tx.execute<{ active: boolean }>(sql`
-      SELECT active FROM department WHERE id = ${departmentId}
-    `);
-    if (rows.rows.length === 0 || !rows.rows[0].active) {
-      throw new BadRequestException({
-        code: 'DEPARTMENT_INVALID',
-        message: 'Phòng ban không hợp lệ.',
-      });
-    }
-  }
-
   private async expireStaleHoldsForAsset(
     tx: Pick<Database, 'execute' | 'insert'>,
     assetId: string,

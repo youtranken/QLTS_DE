@@ -67,9 +67,11 @@ describe('Config admin (story 6.3)', () => {
     expect(res.body).not.toHaveProperty('mail_consumer_baseline_at');
   });
 
-  it('AC1 — Admin → 403 (GET + PUT)', async () => {
-    await getCfg(asAdmin).expect(403);
-    await putCfg({ booking_window_days: 45 }, asAdmin).expect(403);
+  it('AC1 — Admin xem được (admin+sa); member → 403 (GET + PUT)', async () => {
+    const asMember = { 'x-dev-user-sub': 'mem-cf', 'x-dev-role': 'member' };
+    await getCfg(asAdmin).expect(200);
+    await getCfg(asMember).expect(403);
+    await putCfg({ booking_window_days: 45 }, asMember).expect(403);
   });
 
   it('AC2 — PUT hợp lệ đổi giá trị + audit config.update from→to', async () => {

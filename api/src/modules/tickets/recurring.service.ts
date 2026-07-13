@@ -262,14 +262,13 @@ export class RecurringService {
    * Admin đặt chuỗi định kỳ HỘ member (7.5) — BỎ QUA quyền can_recurring + quota (như FR-12
    * create-for), VẪN validate buổi + EXCLUDE all-or-nothing (AD-3). Coi như ĐÃ DUYỆT:
    * ticket 'awaiting_pickup' + mỗi buổi 'pending' (khác submit: pending_approval/held) — KHÔNG mail duyệt.
-   * borrower phải là member ≠ actor. department (nếu gửi) validate active trong tx.
+   * borrower phải là member ≠ actor.
    */
   async createRecurringForMember(
     assetId: string,
     sessions: RecurringSession[],
     borrowerSub: string,
     actorSub: string,
-    departmentId?: string | null,
   ): Promise<{ ticketId: string; count: number }> {
     if (borrowerSub === actorSub) {
       throw new ForbiddenException({
@@ -295,17 +294,6 @@ export class RecurringService {
             message: 'Chỉ tạo hộ cho member (Admin/SA không đi luồng mượn).',
           });
         }
-        if (departmentId) {
-          const d = await tx.execute<{ active: boolean }>(sql`
-            SELECT active FROM department WHERE id = ${departmentId}
-          `);
-          if (d.rows.length === 0 || !d.rows[0].active) {
-            throw new BadRequestException({
-              code: 'DEPARTMENT_INVALID',
-              message: 'Phòng ban không hợp lệ.',
-            });
-          }
-        }
         const ticketRows = await tx.execute<{ id: string }>(sql`
           INSERT INTO ticket (kind, state, borrower_sub, created_by_sub)
           VALUES ('recurring', 'awaiting_pickup', ${borrowerSub}, ${actorSub})
@@ -315,10 +303,9 @@ export class RecurringService {
         for (let i = 0; i < sessions.length; i++) {
           try {
             await tx.execute(sql`
-              INSERT INTO booking (ticket_id, asset_id, kind, state, period, department_id)
+              INSERT INTO booking (ticket_id, asset_id, kind, state, period)
               VALUES (${ticketId}, ${assetId}, 'recurring', 'pending',
-                tstzrange(${sessions[i].from}, ${sessions[i].to}, '[)'),
-                ${departmentId ?? null})
+                tstzrange(${sessions[i].from}, ${sessions[i].to}, '[)'))
             `);
           } catch (e) {
             (e as { stuckSession?: number }).stuckSession = i;

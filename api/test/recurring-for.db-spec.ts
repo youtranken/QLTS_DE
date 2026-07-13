@@ -33,8 +33,6 @@ describe('Recurring create-for (story 7.5)', () => {
   let app: INestApplication;
   let pool: Pool;
   let machine: string;
-  let deptActive: string;
-  let deptDisabled: string;
 
   const post = (body: Record<string, unknown>) =>
     request(app.getHttpServer())
@@ -62,11 +60,6 @@ describe('Recurring create-for (story 7.5)', () => {
        VALUES ('RF-1','laptop',true,'in_use') RETURNING id`,
     );
     machine = a.rows[0].id;
-    const d = await pool.query<{ id: string }>(
-      `INSERT INTO department (name, active) VALUES ('Kế toán',true),('Cũ',false) RETURNING id`,
-    );
-    deptActive = d.rows[0].id;
-    deptDisabled = d.rows[1].id;
     app = await createTestApp();
   });
 
@@ -81,7 +74,7 @@ describe('Recurring create-for (story 7.5)', () => {
     await pool.query('DELETE FROM ticket');
   });
 
-  it('AC6 — bỏ quota/quyền: 2 buổi khác tuần → ticket awaiting_pickup, buổi pending + department', async () => {
+  it('AC6 — bỏ quota/quyền: 2 buổi khác tuần → ticket awaiting_pickup, buổi pending', async () => {
     // seed borrower đầy quota (2 ticket active) → vẫn tạo hộ được
     for (let i = 0; i < 2; i++) {
       await pool.query(
@@ -92,7 +85,6 @@ describe('Recurring create-for (story 7.5)', () => {
       borrowerSub: 'mem-rf',
       assetId: machine,
       sessions: [sess(3), sess(11)],
-      departmentId: deptActive,
     }).expect(201);
     expect(res.body.count).toBe(2);
     const tk = await pool.query<{ state: string; kind: string }>(
@@ -103,13 +95,12 @@ describe('Recurring create-for (story 7.5)', () => {
       state: 'awaiting_pickup',
       kind: 'recurring',
     });
-    const bk = await pool.query<{ state: string; department_id: string }>(
-      `SELECT state, department_id FROM booking WHERE ticket_id=$1`,
+    const bk = await pool.query<{ state: string }>(
+      `SELECT state FROM booking WHERE ticket_id=$1`,
       [res.body.ticketId],
     );
     expect(bk.rows).toHaveLength(2);
     expect(bk.rows.every((r) => r.state === 'pending')).toBe(true);
-    expect(bk.rows.every((r) => r.department_id === deptActive)).toBe(true);
   });
 
   it('AC6 — borrower = actor → 403 SELF_CREATE_FORBIDDEN', async () => {
@@ -128,15 +119,5 @@ describe('Recurring create-for (story 7.5)', () => {
       sessions: [sess(3, 2, 4), sess(3, 6, 8)],
     }).expect(400);
     expect(res.body.code).toBe('RECUR_WEEK_DUP');
-  });
-
-  it('AC6 — department disabled → 400 DEPARTMENT_INVALID', async () => {
-    const res = await post({
-      borrowerSub: 'mem-rf',
-      assetId: machine,
-      sessions: [sess(3)],
-      departmentId: deptDisabled,
-    }).expect(400);
-    expect(res.body.code).toBe('DEPARTMENT_INVALID');
   });
 });

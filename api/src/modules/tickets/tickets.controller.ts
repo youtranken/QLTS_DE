@@ -55,10 +55,6 @@ class SubmitBookingDto {
   @IsString()
   @MaxLength(500)
   note?: string;
-
-  @IsOptional()
-  @IsUUID()
-  departmentId?: string;
 }
 
 class RecurringSessionDto {
@@ -125,7 +121,6 @@ export class TicketsController {
         from: body.from,
         to: body.to,
         note: body.note ?? null,
-        departmentId: body.departmentId ?? null,
       },
       requireSub(req),
     );

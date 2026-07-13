@@ -24,7 +24,6 @@ interface BoardRow {
   assetCode: string | null;
   type: string | null;
   borrowerName: string | null;
-  department: string | null;
   from: string | null;
   due: string | null;
   state: string;
@@ -38,8 +37,6 @@ describe('Borrow board (story 7.4)', () => {
   let app: INestApplication;
   let pool: Pool;
   let assetIds: string[];
-  let deptActive: string;
-  let deptDisabled: string;
 
   const mkTicket = async (
     state: string,
@@ -59,11 +56,11 @@ describe('Borrow board (story 7.4)', () => {
     state: string,
     fromMs: number,
     toMs: number,
-    opts: { note?: string | null; deptId?: string | null; kind?: string } = {},
+    opts: { note?: string | null; kind?: string } = {},
   ) =>
     pool.query(
-      `INSERT INTO booking (ticket_id, asset_id, kind, state, period, note, department_id)
-       VALUES ($1,$2,$3,$4, tstzrange($5,$6,'[)'), $7, $8)`,
+      `INSERT INTO booking (ticket_id, asset_id, kind, state, period, note)
+       VALUES ($1,$2,$3,$4, tstzrange($5,$6,'[)'), $7)`,
       [
         ticketId,
         assetId,
@@ -72,7 +69,6 @@ describe('Borrow board (story 7.4)', () => {
         iso(fromMs),
         iso(toMs),
         opts.note ?? null,
-        opts.deptId ?? null,
       ],
     );
 
@@ -107,11 +103,6 @@ describe('Borrow board (story 7.4)', () => {
        RETURNING id`,
     );
     assetIds = a.rows.map((r) => r.id);
-    const d = await pool.query<{ id: string }>(
-      `INSERT INTO department (name, active) VALUES ('Kế toán', true), ('Cũ', false) RETURNING id`,
-    );
-    deptActive = d.rows[0].id;
-    deptDisabled = d.rows[1].id;
     app = await createTestApp();
   });
 
@@ -122,20 +113,17 @@ describe('Borrow board (story 7.4)', () => {
   });
 
   it('trả in_use toàn hệ + vé caller; ẩn vé người khác chưa giao, ẩn đã trả/đóng', async () => {
-    // 1: in_use other, dept disabled, note, due +5h
+    // 1: in_use other, note, due +5h
     const t1 = await mkTicket('in_use', 'mem-o');
     await mkBooking(t1, assetIds[0], 'delivered', -1 * H, 5 * H, {
       note: 'Ghi chú 1',
-      deptId: deptDisabled,
     });
     // 2: in_use other OVERDUE, due -1h
     const t2 = await mkTicket('in_use', 'mem-o', { overdue: true });
     await mkBooking(t2, assetIds[1], 'delivered', -10 * H, -1 * H);
     // 3: in_use other, due +20h
     const t3 = await mkTicket('in_use', 'mem-o');
-    await mkBooking(t3, assetIds[2], 'delivered', -1 * H, 20 * H, {
-      deptId: deptActive,
-    });
+    await mkBooking(t3, assetIds[2], 'delivered', -1 * H, 20 * H);
     // 4: awaiting_pickup CALLER (pending), due +30h → thấy; có note của CHÍNH caller
     const t4 = await mkTicket('awaiting_pickup', 'mem-bd');
     await mkBooking(t4, assetIds[3], 'pending', 28 * H, 30 * H, {
@@ -165,7 +153,6 @@ describe('Borrow board (story 7.4)', () => {
     const r1 = rows.find((r) => r.ticketId === t1)!;
     expect(r1.borrowerName).toBe('Other O');
     expect(r1.isMine).toBe(false);
-    expect(r1.department).toBe('Cũ'); // disabled vẫn hiện tên
     // Note của người khác KHÔNG public trên board — chỉ chủ vé thấy (P0 3.1, AD-5)
     expect(r1.note).toBeNull();
     const r4 = rows.find((r) => r.ticketId === t4)!;

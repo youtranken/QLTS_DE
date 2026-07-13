@@ -77,6 +77,9 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0032_sessions_local_sa.sql',
       '0033_software_code_nullable.sql',
       '0034_catalog_resync_orphan_types.sql',
+      '0035_catalog_add_place.sql',
+      '0036_assets_lock_eta.sql',
+      '0037_drop_department.sql',
     ]);
   });
 

@@ -124,11 +124,6 @@ class CreateForDto {
   @IsArray()
   @IsUUID('4', { each: true })
   photoIds?: string[];
-
-  /** Phòng ban (7.2) — lưu vào booking.department_id (validate active trong service). */
-  @IsOptional()
-  @IsUUID()
-  departmentId?: string;
 }
 
 class RecurringForSessionDto {
@@ -156,10 +151,6 @@ class RecurringForDto {
   @ValidateNested({ each: true })
   @Type(() => RecurringForSessionDto)
   sessions!: RecurringForSessionDto[];
-
-  @IsOptional()
-  @IsUUID()
-  departmentId?: string;
 }
 
 /** Hàng đợi duyệt request (3.4) — CHỈ Admin/SA (NFR-7); member 403 từ RolesGuard. */
@@ -388,7 +379,6 @@ export class AdminTicketsController {
         mode: body.mode,
         note: body.note ?? null,
         photoIds: body.photoIds ?? [],
-        departmentId: body.departmentId ?? null,
       },
       requireSub(req),
     );
@@ -403,7 +393,6 @@ export class AdminTicketsController {
       body.sessions,
       body.borrowerSub,
       requireSub(req),
-      body.departmentId ?? null,
     );
   }
 
