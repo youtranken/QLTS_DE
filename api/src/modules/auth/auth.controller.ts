@@ -128,6 +128,9 @@ export class AuthController {
         message: 'Sai tài khoản hoặc mật khẩu.',
       });
     }
+    // Bảo đảm SA có users row (thoả FK created_by_sub khi SA tạo-hộ) — SA vẫn vô hình
+    // ở màn Quản trị/picker (list() loại LOCAL_SA_SUB). Idempotent mỗi lần login.
+    await this.users.ensureLocalSa();
     const session = await this.sessions.createLocalSa();
     res.cookie(SESSION_COOKIE, session.id, {
       httpOnly: true,

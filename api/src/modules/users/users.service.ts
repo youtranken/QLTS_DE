@@ -5,11 +5,16 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { and, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, ne, or, sql } from 'drizzle-orm';
 import { escapeLike } from '../../common/sql';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
+import {
+  LOCAL_SA_EMAIL,
+  LOCAL_SA_FULL_NAME,
+  LOCAL_SA_SUB,
+} from '../auth/local-sa-env';
 import { usersTable } from './users.schema';
 
 /** Claims tối thiểu từ PMH ID (hợp đồng ver:1 — docs integration). */
@@ -47,6 +52,33 @@ export class UsersService {
     private readonly audit: AuditWriterService,
   ) {}
 
+  /**
+   * Bảo đảm SA local có users row — thoả FK `created_by_sub → users` khi SA tạo-hộ
+   * (create-for). SA vốn KHÔNG nằm trong users (10.1); trước đây tạo-hộ bằng SA vỡ FK → 500.
+   * role='admin' (users_role_check cấm 'sa'; vai THẬT của phiên vẫn = 'sa', lấy từ session,
+   * KHÔNG từ row này). SA vẫn vô hình ở list()/picker nhờ loại LOCAL_SA_SUB. Gọi lúc SA login.
+   */
+  async ensureLocalSa(): Promise<void> {
+    await this.db
+      .insert(usersTable)
+      .values({
+        sub: LOCAL_SA_SUB,
+        fullName: LOCAL_SA_FULL_NAME,
+        email: LOCAL_SA_EMAIL,
+        role: 'admin',
+        status: 'active',
+      })
+      .onConflictDoUpdate({
+        target: usersTable.sub,
+        set: {
+          fullName: LOCAL_SA_FULL_NAME,
+          email: LOCAL_SA_EMAIL,
+          status: 'active',
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+
   /** Màn Vai trò (1.5): tìm theo tên/email, phân trang SERVER-side (NFR-5). */
   async list(query: UserListQuery): Promise<{
     items: UserListItem[];
@@ -56,7 +88,12 @@ export class UsersService {
   }> {
     // Chỉ hiện user đang active (10.2): user bị PMH ID khoá/xoá (webhook/directory-sync
     // set status locked/deleted) không còn trơ trong màn Quản trị như "member" nữa.
-    const activeOnly = eq(usersTable.status, 'active');
+    // Loại SA local: tuy có users row (để thoả FK created_by_sub khi SA tạo-hộ), SA vẫn
+    // KHÔNG được hiện ở màn Quản trị lẫn picker người mượn — giữ bất biến "SA vô hình".
+    const activeOnly = and(
+      eq(usersTable.status, 'active'),
+      ne(usersTable.sub, LOCAL_SA_SUB),
+    );
     const where = query.search
       ? and(
           activeOnly,
