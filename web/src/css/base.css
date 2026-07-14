@@ -1,0 +1,302 @@
+/* --- Form controls -------------------------------------------------------- */
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  padding: 0.55rem 0.7rem;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease),
+    background 0.15s var(--ease);
+}
+input::placeholder {
+  color: var(--ink-3);
+}
+input:hover:not(:focus):not(:disabled),
+select:hover:not(:focus):not(:disabled),
+textarea:hover:not(:focus):not(:disabled) {
+  border-color: var(--ink-3);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+input:disabled {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+select {
+  cursor: pointer;
+  appearance: none;
+  padding-right: 1.9rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238a908a' d='M6 8.5 2.5 5h7z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+}
+label {
+  font-size: 0.82rem;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+/* --- Buttons -------------------------------------------------------------- */
+button {
+  font: inherit;
+  font-weight: 550;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  padding: 0.48rem 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease), transform 0.08s var(--ease), opacity 0.15s;
+  white-space: nowrap;
+}
+button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button.primary {
+  color: #fff;
+  background: var(--grad);
+  border-color: transparent;
+  box-shadow: 0 8px 18px -8px var(--warm-ink);
+}
+button.primary:hover:not(:disabled) {
+  /* PHẢI khai báo lại background: rule chung `button:hover{background:surface-2}` có
+     specificity cao hơn base `button.primary` → nếu không, hover đè nền sáng + chữ trắng
+     = nút "biến mất" ở theme sáng. */
+  background: var(--grad);
+  filter: brightness(1.04);
+  box-shadow: 0 10px 22px -8px var(--warm-ink);
+}
+button.warm {
+  color: #fff;
+  background: var(--warm);
+  border-color: transparent;
+}
+button.warm:hover:not(:disabled) {
+  background: var(--warm-ink);
+}
+button.danger {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+button.danger:hover:not(:disabled) {
+  background: #a5271b;
+}
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+  padding: 0.42rem 0.55rem;
+}
+button.ghost:hover:not(:disabled) {
+  background: var(--muted-soft);
+  color: var(--ink);
+}
+button.sm {
+  padding: 0.28rem 0.6rem;
+  font-size: 0.82rem;
+}
+a.linkbtn {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 550;
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  padding: 0.48rem 0.9rem;
+  text-decoration: none;
+  transition: background 0.15s var(--ease);
+}
+a.linkbtn:hover {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+
+/* --- Shell: sidebar tối + topbar ----------------------------------------- */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: 236px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  padding: 1.1rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: var(--sidebar-ink-2);
+  padding: 0.1rem 0.6rem 1rem;
+}
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  background: var(--grad);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.nav-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sidebar-label);
+  padding: 0.9rem 0.65rem 0.3rem;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--r-sm);
+  color: var(--sidebar-ink);
+  font-weight: 550;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease),
+    transform 0.12s var(--ease);
+}
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sidebar-ink-2);
+  text-decoration: none;
+  transform: translateX(2px);
+}
+.nav-item.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-ink);
+  box-shadow: inset 3px 0 0 var(--warm);
+}
+/* Drawer mobile (≤900px): sidebar cố định trượt vào, có backdrop mờ ấm. */
+.sidebar.is-drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  box-shadow: var(--shadow-lg);
+  animation: drawerIn 0.2s var(--ease) both;
+}
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  background: rgba(20, 26, 20, 0.44);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: rowIn 0.15s var(--ease) both;
+}
+@keyframes drawerIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 56px;
+  padding: 0 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.topbar .spacer {
+  flex: 1;
+}
+.topbar .hello {
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+.topbar .hello strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.page {
+  padding: 1.5rem;
+  max-width: 1180px;
+  width: 100%;
+  margin-inline: auto;
+  animation: pageIn 0.25s var(--ease) both;
+}
+
+/* --- Page header + toolbar ----------------------------------------------- */
+.page-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.page-header h1 {
+  margin-right: auto;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.toolbar .grow {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* --- Card ----------------------------------------------------------------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.section-gap {
+  margin-top: 1.5rem;
+}
+

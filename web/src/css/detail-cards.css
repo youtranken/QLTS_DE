@@ -1,0 +1,93 @@
+/* --- Chi tiết tài sản: card Người giữ + Bảo hành ------------------------- */
+.detail-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 0.5rem 0 1.25rem;
+}
+.detail-cards .mini-card {
+  padding: 1rem 1.1rem;
+}
+.mini-card .mc-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin-bottom: 0.4rem;
+}
+.mini-card .mc-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.warranty-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin: 0.4rem 0 0.6rem;
+}
+.warranty-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.warranty-fill.ok {
+  background: var(--ok);
+}
+.warranty-fill.warn {
+  background: var(--warn);
+}
+.warranty-fill.danger {
+  background: var(--danger);
+}
+.warranty-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+@media (max-width: 680px) {
+  .detail-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Ô mật khẩu có nút hiện/ẩn (login SA) -------------------------------- */
+.pw-field {
+  position: relative;
+  display: flex;
+}
+.pw-field input {
+  flex: 1;
+  width: 100%;
+  padding-right: 2.6rem;
+}
+.pw-eye {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  padding: 0;
+}
+.pw-eye:hover {
+  color: var(--primary-ink);
+}
+.pw-eye:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+.pw-eye svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+

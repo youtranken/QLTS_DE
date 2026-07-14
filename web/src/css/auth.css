@@ -1,0 +1,154 @@
+/* --- Đăng nhập: 2 cột branded (hero gradient + card), 1 cột ≤820px ---------- */
+.auth {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  min-height: 100vh;
+}
+.auth-hero {
+  background: var(--grad);
+  color: #fff;
+  padding: 3rem 2.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.75rem;
+}
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.auth-hero .brand-mark {
+  width: 44px;
+  height: 44px;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.18);
+}
+.auth-name {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.auth-sub {
+  font-size: 0.82rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.auth-slogan {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.35;
+  max-width: 22ch;
+  margin: 0;
+}
+.auth-perks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-width: 34ch;
+  font-weight: 500;
+}
+.auth-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  background: var(--canvas);
+}
+.auth-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: pageIn 0.3s var(--ease) both;
+}
+.auth-switches {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+@media (max-width: 820px) {
+  .auth {
+    grid-template-columns: 1fr;
+  }
+  .auth-hero {
+    padding: 2.25rem 1.5rem;
+    gap: 1rem;
+  }
+  .auth-slogan {
+    font-size: 1.15rem;
+  }
+}
+.error-state {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-align: center;
+  animation: pageIn 0.3s var(--ease) both;
+}
+.error-state .error-code {
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.error-state h1 {
+  margin: 0.25rem 0 0;
+}
+.error-state .primary {
+  margin-top: 0.5rem;
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 2.25rem 1rem;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 0.9rem;
+  background: var(--surface-2);
+  border: 1px dashed var(--border-2);
+  border-radius: var(--r-lg);
+}
+/* Icon "khay rỗng" (Lucide inbox) — biến empty text trôi thành khối có chủ đích */
+.empty::before {
+  content: '';
+  width: 38px;
+  height: 38px;
+  background: center / contain no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='38' height='38' viewBox='0 0 24 24' fill='none' stroke='%238a908a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
+}
+/* Empty-state có thêm gợi ý phụ + nút hành động (dùng với component EmptyState) */
+.empty .empty-hint {
+  font-size: 0.82rem;
+  color: var(--ink-3);
+  max-width: 32ch;
+}
+.empty .empty-action {
+  margin-top: 0.35rem;
+}
+.spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.6s linear infinite;
+  vertical-align: -2px;
+}
+
