@@ -74,11 +74,6 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
     }
   };
 
-  const termOf = (row: AssetRow) =>
-    row.licenseType === 'perpetual'
-      ? t('assets.licensePerpetual')
-      : (row.endDate ?? '—');
-
   // Tải seats (nếu chưa) rồi mở dialog gắn máy cho MỘT bản còn trống.
   const loadSeats = async (name: string): Promise<AssetRow[]> => {
     const cached = seatsByLicense[name];
@@ -279,15 +274,18 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
                                           <span className="mono">
                                             {s.installedOnCode}
                                           </span>
-                                          <small>{termOf(s)}</small>
+                                          {/* Người giữ derive theo máy — phụ, mờ dưới mã thiết bị. */}
+                                          <small>
+                                            {s.assignedUserName ??
+                                              s.assignedUserSub ??
+                                              t('assets.assigneeEmpty')}
+                                          </small>
                                         </div>
-                                        <div className="inst-who">
-                                          {s.assignedUserName ??
-                                            s.assignedUserSub ??
-                                            '—'}
-                                        </div>
+                                        {/* Kỳ hạn: start → end (perpetual = Vĩnh viễn). */}
                                         <div className="inst-day">
-                                          {s.startDate ?? '—'}
+                                          {s.licenseType === 'perpetual'
+                                            ? t('assets.licensePerpetual')
+                                            : `${s.startDate ?? '—'} → ${s.endDate ?? '—'}`}
                                         </div>
                                       </div>
                                     ))

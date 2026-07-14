@@ -2740,7 +2740,7 @@ table.table td.right {
 }
 .inst {
   display: grid;
-  grid-template-columns: 1.4fr 1fr auto;
+  grid-template-columns: 1fr auto;
   gap: 12px;
   align-items: center;
   padding: 10px 14px;
