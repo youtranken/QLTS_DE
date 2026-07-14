@@ -105,33 +105,19 @@ export function useAssetPageActions(ctx: {
     [t, me.csrfToken, queryClient, loadMeta, setError],
   );
 
-  // Xóa VĨNH VIỄN máy đã thanh lý (Kho thanh lý) — cascade lịch sử/booking; audit_log vẫn giữ.
-  const handlePurge = useCallback(
-    async (row: AssetRow) => {
-      setError(null);
-      const label = row.code ?? row.licenseName ?? '';
-      if (
-        !window.confirm(
-          t('assets.purgeConfirm', {
-            code: label,
-            defaultValue:
-              'Xóa VĨNH VIỄN "{{code}}"? Không thể hoàn tác. Lịch sử cấp phát/booking của máy sẽ bị xóa (vết audit vẫn được giữ).',
-          }),
-        )
-      ) {
-        return;
-      }
+  // Xóa VĨNH VIỄN 1 máy đã thanh lý (Kho thanh lý) — cascade lịch sử/booking; audit_log vẫn giữ.
+  // KHÔNG tự confirm/invalidate: xác nhận do ConfirmDialog lo, invalidate do người gọi lo (để
+  // gộp 1 lần cho cả bulk). Trả {ok, error} cho từng máy — bulk cộng dồn kết quả.
+  const purgeById = useCallback(
+    async (id: string): Promise<{ ok: boolean; error?: string }> => {
       try {
         const detailRes = await fetch(
-          `/api/admin/assets/${encodeURIComponent(row.id)}`,
+          `/api/admin/assets/${encodeURIComponent(id)}`,
         );
-        if (!detailRes.ok) {
-          setError(t('assets.deleteFailed'));
-          return;
-        }
+        if (!detailRes.ok) return { ok: false, error: t('assets.deleteFailed') };
         const { version } = (await detailRes.json()) as AssetDetail;
         const res = await fetch(
-          `/api/admin/assets/${encodeURIComponent(row.id)}/purge`,
+          `/api/admin/assets/${encodeURIComponent(id)}/purge`,
           {
             method: 'DELETE',
             headers: {
@@ -145,17 +131,15 @@ export function useAssetPageActions(ctx: {
           const body = (await res.json().catch(() => null)) as {
             message?: string;
           } | null;
-          setError(body?.message ?? t('assets.deleteFailed'));
-          return;
+          return { ok: false, error: body?.message ?? t('assets.deleteFailed') };
         }
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void loadMeta();
+        return { ok: true };
       } catch {
-        setError(t('app.serverUnreachable'));
+        return { ok: false, error: t('app.serverUnreachable') };
       }
     },
-    [t, me.csrfToken, queryClient, loadMeta, setError],
+    [t, me.csrfToken],
   );
 
-  return { openEdit, copyFrom, handleDelete, handlePurge };
+  return { openEdit, copyFrom, handleDelete, purgeById };
 }

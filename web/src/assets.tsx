@@ -16,6 +16,7 @@ import { useAssetPageActions } from './use-asset-page-actions';
 import { useAssetColumns } from './assets-columns';
 import { AssetsFilterBar } from './assets-filter-bar';
 import { AssetsPageHeader } from './assets-page-header';
+import { ConfirmDialog } from './confirm-dialog';
 
 // Re-export để App.tsx tiếp tục import cả hai từ './assets' (route không đổi).
 export { AssetDetailPage } from './asset-detail';
@@ -75,6 +76,11 @@ export function AssetsPage({
   // 5.1: chọn nhiều dòng để "Xuất đã chọn". Chỉ dùng ở sổ tài sản (không phải phần mềm).
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const bulkSelectable = !softwareOnly;
+  // Xác nhận Xóa vĩnh viễn (Kho thanh lý) — 1 dòng (có label) hoặc nhiều dòng đã chọn.
+  const [purgeTarget, setPurgeTarget] = useState<
+    { ids: string[]; label?: string } | null
+  >(null);
+  const [purgeBusy, setPurgeBusy] = useState(false);
   const onSortingChange: OnChangeFn<SortingState> = (updater) => {
     setSorting((prev) =>
       typeof updater === 'function' ? updater(prev) : updater,
@@ -177,13 +183,39 @@ export function AssetsPage({
   const total = listData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const { openEdit, copyFrom, handleDelete, handlePurge } = useAssetPageActions({
+  const { openEdit, copyFrom, handleDelete, purgeById } = useAssetPageActions({
     me,
     setForm,
     setError,
     queryClient,
     loadMeta,
   });
+
+  // Chạy purge sau khi xác nhận: gộp bulk, invalidate 1 lần, tóm tắt lỗi nếu có dòng hỏng.
+  const runPurge = async () => {
+    if (!purgeTarget) return;
+    setPurgeBusy(true);
+    setError(null);
+    const results = await Promise.all(purgeTarget.ids.map((id) => purgeById(id)));
+    const okCount = results.filter((r) => r.ok).length;
+    const failed = results.length - okCount;
+    setPurgeBusy(false);
+    setPurgeTarget(null);
+    setSelected(new Set());
+    void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    void loadMeta();
+    if (failed > 0) {
+      setError(
+        results.length === 1
+          ? (results[0].error ?? t('assets.deleteFailed'))
+          : t('assets.purgeBulkPartial', {
+              ok: okCount,
+              total: results.length,
+              failed,
+            }),
+      );
+    }
+  };
 
   // Vòng đời máy (Khóa sửa chữa/Mở khóa/Pool) TỪ kebab — thay khối Vòng đời trong form.
   const lifecycle = useAssetLifecycle({
@@ -201,7 +233,11 @@ export function AssetsPage({
     openEdit,
     copyFrom,
     handleDelete,
-    handlePurge,
+    onPurge: (row) =>
+      setPurgeTarget({
+        ids: [row.id],
+        label: row.code ?? row.licenseName ?? undefined,
+      }),
     setTransferSw,
     lifecycleActionsFor: lifecycle.actionsFor,
   });
@@ -276,6 +312,15 @@ export function AssetsPage({
           >
             {t('assets.exportSelected', 'Xuất đã chọn')}
           </a>
+          {disposedOnly && (
+            <button
+              type="button"
+              className="danger sm"
+              onClick={() => setPurgeTarget({ ids: [...selected] })}
+            >
+              {t('assets.purgeSelected', { count: selected.size })}
+            </button>
+          )}
           <button
             type="button"
             className="ghost sm"
@@ -368,6 +413,22 @@ export function AssetsPage({
               void loadMeta();
             }
           }}
+        />
+      )}
+
+      {purgeTarget && (
+        <ConfirmDialog
+          title={t('assets.purgeConfirmTitle')}
+          message={
+            purgeTarget.label
+              ? t('assets.purgeConfirm', { code: purgeTarget.label })
+              : t('assets.purgeConfirmBulk', { count: purgeTarget.ids.length })
+          }
+          confirmLabel={t('assets.purge')}
+          danger
+          busy={purgeBusy}
+          onConfirm={() => void runPurge()}
+          onCancel={() => setPurgeTarget(null)}
         />
       )}
 

@@ -38,7 +38,9 @@ export function AssetsPageHeader({
         {licenseName
           ? licenseName
           : disposedOnly
-            ? t('disposed.title', 'Kho thanh lý')
+            ? softwareOnly
+              ? t('nav.disposedSoftware')
+              : t('nav.disposedDevices')
             : softwareOnly
               ? t('software.title')
               : t('nav.assets')}

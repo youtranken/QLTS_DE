@@ -20,7 +20,7 @@ export function useAssetColumns(opts: {
   openEdit: (id: string) => void | Promise<void>;
   copyFrom: (id: string) => void | Promise<void>;
   handleDelete: (row: AssetRow) => void | Promise<void>;
-  handlePurge: (row: AssetRow) => void | Promise<void>;
+  onPurge: (row: AssetRow) => void;
   setTransferSw: (a: AssetRow) => void;
   lifecycleActionsFor: (a: AssetRow) => RowAction[];
 }): ColumnDef<AssetRow, unknown>[] {
@@ -32,7 +32,7 @@ export function useAssetColumns(opts: {
     openEdit,
     copyFrom,
     handleDelete,
-    handlePurge,
+    onPurge,
     setTransferSw,
     lifecycleActionsFor,
   } = opts;
@@ -74,7 +74,7 @@ export function useAssetColumns(opts: {
               {
                 label: t('assets.purge', 'Xóa vĩnh viễn'),
                 danger: true,
-                onClick: () => void handlePurge(a),
+                onClick: () => onPurge(a),
               },
             ]
           : [
@@ -151,7 +151,7 @@ export function useAssetColumns(opts: {
     }
     // Bảng Tài sản (đại tu UAT): cột thông số theo tên English cố định. Thông số mới
     // (Configuration/Cost/Start Date/Place/Pool) không sort — BE chỉ whitelist code/type/status/assignee.
-    return [
+    const deviceCols: ColumnDef<AssetRow, unknown>[] = [
       noCol,
       {
         id: 'code',
@@ -204,14 +204,26 @@ export function useAssetColumns(opts: {
         enableSorting: false,
         cell: ({ row }) => row.original.startDate ?? '—',
       },
-      {
-        id: 'place',
-        header: t('assets.col.place'),
+    ];
+    // Kho thanh lý (hồ sơ đã chốt): thêm End Date để tra mốc hết hạn tại thời điểm thanh lý.
+    if (disposedOnly) {
+      deviceCols.push({
+        id: 'endDate',
+        header: t('assets.col.endDate'),
         enableSorting: false,
-        cell: ({ row }) => row.original.floor ?? '—',
-      },
-      statusCol,
-      {
+        cell: ({ row }) => row.original.endDate ?? '—',
+      });
+    }
+    deviceCols.push({
+      id: 'place',
+      header: t('assets.col.place'),
+      enableSorting: false,
+      cell: ({ row }) => row.original.floor ?? '—',
+    });
+    deviceCols.push(statusCol);
+    // Cột Pool vô nghĩa trong Kho thanh lý (máy đã rời pool khi thanh lý) → chỉ hiện ở sổ tài sản.
+    if (!disposedOnly) {
+      deviceCols.push({
         id: 'pool',
         header: t('assets.col.pool'),
         enableSorting: false,
@@ -221,9 +233,10 @@ export function useAssetColumns(opts: {
           ) : (
             <span className="muted">—</span>
           ),
-      },
-      actionsCol,
-    ];
+      });
+    }
+    deviceCols.push(actionsCol);
+    return deviceCols;
   }, [
     t,
     page,
@@ -232,7 +245,7 @@ export function useAssetColumns(opts: {
     openEdit,
     copyFrom,
     handleDelete,
-    handlePurge,
+    onPurge,
     setTransferSw,
     lifecycleActionsFor,
   ]);

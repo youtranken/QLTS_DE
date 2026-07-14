@@ -152,6 +152,10 @@ export function AppRoutes({ me }: { me: Me }) {
             path="/phan-mem/license/:name"
             element={admin(<SoftwareLicensePage me={me} />)}
           />
+          <Route
+            path="/phan-mem/thanh-ly"
+            element={admin(<AssetsPage me={me} disposedOnly softwareOnly />)}
+          />
           <Route path="/tai-san/import" element={admin(<ImportPage me={me} />)} />
           <Route
             path="/tai-san/kiem-ke"

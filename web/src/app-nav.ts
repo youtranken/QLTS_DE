@@ -27,7 +27,8 @@ export function navGroups(role: string): NavGroup[] {
         { to: '/phan-mem', key: 'nav.software' },
         { to: '/pool-may-muon', key: 'nav.pool' },
         { to: '/tai-san/kiem-ke', key: 'nav.inventory' },
-        { to: '/tai-san/thanh-ly', key: 'nav.disposed' },
+        { to: '/tai-san/thanh-ly', key: 'nav.disposedDevices' },
+        { to: '/phan-mem/thanh-ly', key: 'nav.disposedSoftware' },
         { to: '/bao-cao', key: 'nav.reports' },
       ],
     });
