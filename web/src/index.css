@@ -2764,8 +2764,9 @@ html[data-theme='dark']
 }
 .mcal-scroll {
   overflow: auto;
-  /* Cố định ~10 máy (48px header + 10×64px) rồi cuộn dọc — chừa chỗ cho bảng đang mượn. */
-  max-height: 688px;
+  /* Cao bằng panel "Máy trống — đặt nhanh" (title + list 460px ≈ 520) cho gọn, cân 2 cột;
+     header ngày dính khi cuộn dọc danh sách máy dài. */
+  max-height: 520px;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface);
