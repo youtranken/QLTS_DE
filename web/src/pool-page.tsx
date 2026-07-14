@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
+import { PoolTable } from './pool-table';
 import type { Me } from './panels';
 
 interface AssetOption {
@@ -11,7 +12,7 @@ interface AssetOption {
   isPool: boolean;
 }
 
-interface PoolItem {
+export interface PoolItem {
   id: string;
   code: string;
   type: string;
@@ -20,27 +21,17 @@ interface PoolItem {
   status: string;
   version: number;
   assignedUserName: string | null;
-  // B1 (UAT 2026-07-12): phần mềm đang cài trên máy (comma-joined), lấy từ BE pool list.
+  // B1 (UAT 2026-07-12): phần mềm đang cài trên máy (comma-joined).
   installedSoftware: string | null;
+  // Người đang mượn (booking delivered / ticket in_use). null = máy sẵn sàng.
+  currentBorrowerName: string | null;
 }
 
-const typeIcon = (type: string | null): string => {
-  const ty = (type ?? '').toLowerCase();
-  if (ty.includes('laptop')) return '💻';
-  if (ty.includes('desktop') || ty.includes('pc')) return '🖥️';
-  if (ty.includes('printer') || ty.includes('máy in')) return '🖨️';
-  if (ty.includes('monitor') || ty.includes('màn')) return '🖥️';
-  if (ty.includes('phone') || ty.includes('điện thoại')) return '📱';
-  return '📦';
-};
-
 /**
- * Pool máy cho mượn (8.4): admin thêm máy vào pool bằng MTS (mã tài sản) — thông tin kéo từ QLTS.
- * Đây là nguồn máy member thấy khi Đặt máy (availability lọc is_pool + in_use). Gỡ khỏi pool
- * dùng endpoint pool sẵn có (cascade hủy booking tương lai + báo mail).
- *
- * GET /api/admin/pool KHÔNG trả trạng thái rảnh/đang mượn (chỉ asset.status = in_use + chủ máy),
- * nên summary chỉ hiện tổng số máy và thẻ máy không gắn badge rảnh/bận.
+ * Pool máy cho mượn (8.4 + đại tu pool.html): admin thêm máy vào pool bằng MTS.
+ * Trên cùng 3 thẻ (Tổng / Sẵn sàng / Đang mượn) — "đang mượn" từ read-model in-use-now (BE).
+ * Bảng No/Code/User/Asset Type/Software (cột Software bung khi ≥2 phần mềm). Lọc client-side
+ * (danh sách pool nhỏ, tải đầy đủ) theo search + Loại + Trạng thái, có chip lọc đang bật.
  */
 export function PoolPage({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -50,6 +41,10 @@ export function PoolPage({ me }: { me: Me }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  // Lọc bảng (client-side): tìm + Loại + Trạng thái (available/borrowing).
+  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
 
   const headers = useMemo(
     () => ({
@@ -165,6 +160,38 @@ export function PoolPage({ me }: { me: Me }) {
     [headers, load, t],
   );
 
+  const total = items.length;
+  const borrowing = items.filter((it) => it.currentBorrowerName).length;
+  const available = total - borrowing;
+  const typeOptions = useMemo(
+    () => [...new Set(items.map((it) => it.type))].sort(),
+    [items],
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((it) => {
+      if (
+        q &&
+        !`${it.code} ${it.currentBorrowerName ?? ''} ${it.type} ${it.installedSoftware ?? ''}`
+          .toLowerCase()
+          .includes(q)
+      )
+        return false;
+      if (filterType && it.type !== filterType) return false;
+      if (filterStatus === 'available' && it.currentBorrowerName) return false;
+      if (filterStatus === 'borrowing' && !it.currentBorrowerName) return false;
+      return true;
+    });
+  }, [items, search, filterType, filterStatus]);
+
+  const hasFilter = search !== '' || filterType !== '' || filterStatus !== '';
+  const clearFilters = () => {
+    setSearch('');
+    setFilterType('');
+    setFilterStatus('');
+  };
+
   return (
     <section>
       <h1 style={{ fontSize: '1.2rem', marginBottom: '0.25rem' }}>
@@ -177,14 +204,32 @@ export function PoolPage({ me }: { me: Me }) {
       {error && <p className="alert error">{error}</p>}
       {ok && <p className="alert ok">{ok}</p>}
 
-      {/* API pool không trả rảnh/bận → chỉ hiện tổng số máy trong pool. */}
-      <div className="stat-grid" style={{ marginBottom: '1rem' }}>
-        <div className="stat-card" style={{ cursor: 'default' }}>
-          <div className="stat-num">{items.length}</div>
-          <div className="stat-label">{t('pool.statTotal', 'Máy trong pool')}</div>
+      {/* 3 thẻ trên 1 hàng: Tổng / Sẵn sàng / Đang mượn (theo pool.html). */}
+      <div className="pool-stats">
+        <div className="pool-stat">
+          <div className="k">
+            <span className="dot" />
+            {t('pool.statTotal', 'Tổng trong pool')}
+          </div>
+          <div className="v">{total}</div>
+        </div>
+        <div className="pool-stat">
+          <div className="k">
+            <span className="dot ok" />
+            {t('pool.statAvailable', 'Sẵn sàng')}
+          </div>
+          <div className="v">{available}</div>
+        </div>
+        <div className="pool-stat">
+          <div className="k">
+            <span className="dot warn" />
+            {t('pool.statBorrowing', 'Đang mượn')}
+          </div>
+          <div className="v">{borrowing}</div>
         </div>
       </div>
 
+      {/* Thêm máy vào pool bằng MTS (combobox gợi ý). */}
       <div className="catalog-toolbar">
         <div style={{ flex: 1, minWidth: 240, maxWidth: 420 }}>
           <Combobox
@@ -216,48 +261,73 @@ export function PoolPage({ me }: { me: Me }) {
       {items.length === 0 ? (
         <p className="muted">{t('pool.empty')}</p>
       ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t('pool.colCode', 'Mã tài sản')}</th>
-                <th>{t('pool.colType', 'Loại')}</th>
-                <th>{t('pool.colConfig', 'Cấu hình')}</th>
-                <th>{t('pool.colSoftware', 'Phần mềm')}</th>
-                <th>{t('pool.owner', 'Chủ máy')}</th>
-                <th aria-label={t('pool.remove')} />
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => (
-                <tr key={it.id}>
-                  <td>
-                    <span className="mono">
-                      {typeIcon(it.type)} {it.code}
-                    </span>
-                  </td>
-                  <td>
-                    {it.type}
-                    {it.brand ? ` · ${it.brand}` : ''}
-                  </td>
-                  <td>{it.configuration ?? '—'}</td>
-                  <td>{it.installedSoftware ?? '—'}</td>
-                  <td>{it.assignedUserName ?? '—'}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="sm danger"
-                      disabled={busy}
-                      onClick={() => void remove(it)}
-                    >
-                      {t('pool.remove')}
-                    </button>
-                  </td>
-                </tr>
+        <>
+          {/* Lọc bảng: tìm + Loại + Trạng thái + chip đang bật. */}
+          <div className="filter-bar">
+            <input
+              className="grow search"
+              placeholder={t('pool.searchTable', 'Tìm mã, người mượn, phần mềm…')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              aria-label={t('pool.colAssetType', 'Asset Type')}
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+            >
+              <option value="">{t('pool.filterType', 'Loại — tất cả')}</option>
+              {typeOptions.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </select>
+            <select
+              aria-label={t('pool.filterStatusLabel', 'Trạng thái')}
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">{t('pool.filterStatus', 'Trạng thái — tất cả')}</option>
+              <option value="available">{t('pool.statAvailable', 'Sẵn sàng')}</option>
+              <option value="borrowing">{t('pool.statBorrowing', 'Đang mượn')}</option>
+            </select>
+            {hasFilter && (
+              <button type="button" onClick={clearFilters}>
+                {t('assets.clearFilters')}
+              </button>
+            )}
+          </div>
+          {(filterType || filterStatus) && (
+            <div className="active-filters">
+              <span className="af-label">{t('assets.activeFilters', 'Đang lọc')}</span>
+              {filterType && (
+                <span className="chip filter-chip">
+                  <b>{t('pool.colAssetType', 'Asset Type')}:</b>
+                  {filterType}
+                  <button type="button" aria-label={t('assets.clearFilters')} onClick={() => setFilterType('')}>
+                    ✕
+                  </button>
+                </span>
+              )}
+              {filterStatus && (
+                <span className="chip filter-chip">
+                  <b>{t('pool.filterStatusLabel', 'Trạng thái')}:</b>
+                  {filterStatus === 'available'
+                    ? t('pool.statAvailable', 'Sẵn sàng')
+                    : t('pool.statBorrowing', 'Đang mượn')}
+                  <button type="button" aria-label={t('assets.clearFilters')} onClick={() => setFilterStatus('')}>
+                    ✕
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
+          {filtered.length === 0 ? (
+            <p className="muted">{t('assets.noMatch')}</p>
+          ) : (
+            <PoolTable items={filtered} busy={busy} onRemove={(it) => void remove(it)} />
+          )}
+        </>
       )}
     </section>
   );

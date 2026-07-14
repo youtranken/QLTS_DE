@@ -102,28 +102,39 @@ export function RolesPanel({
   viewerRole: string;
 }) {
   const { t } = useTranslation();
+  // Tìm: gõ tự do (searchInput) → search sau debounce 300ms (đồng bộ các trang khác).
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [rows, setRows] = useState<UserRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Bổ nhiệm/miễn nhiệm admin là ĐỘC QUYỀN SSA (10.1) — admin chỉ vận hành, không cấp vai.
   const canChangeRole = viewerRole === 'sa';
+  const PAGE_SIZE = 20;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setError(null);
       try {
         const res = await fetch(
-          `/api/admin/users?search=${encodeURIComponent(search)}&page=1&pageSize=20`,
+          `/api/admin/users?search=${encodeURIComponent(search)}&page=${page}&pageSize=${PAGE_SIZE}`,
           { signal },
         );
         if (res.status === 401) {
           window.location.href = '/';
           return;
         }
-        const body = (await res.json()) as { items?: UserRow[]; message?: string };
+        const body = (await res.json()) as {
+          items?: UserRow[];
+          total?: number;
+          message?: string;
+        };
         if (res.ok && Array.isArray(body.items)) {
           setRows(body.items);
+          setTotal(body.total ?? body.items.length);
         } else {
           setError(body.message ?? t('roles.loadFailed'));
         }
@@ -133,7 +144,7 @@ export function RolesPanel({
         }
       }
     },
-    [search, t],
+    [search, page, t],
   );
 
   useEffect(() => {
@@ -141,6 +152,22 @@ export function RolesPanel({
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
+
+  // Debounce ô tìm → search; đổi từ khóa về trang 1 (tránh rơi ra ngoài phạm vi).
+  useEffect(() => {
+    const value = searchInput.trim();
+    if (value === search) return;
+    const timer = setTimeout(() => {
+      setSearch(value);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, search]);
+
+  // Xóa dòng cuối trang khiến trang vượt phạm vi → kẹp về trang cuối hợp lệ.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const put = useCallback(
     async (url: string, payload: unknown, failMsg: string) => {
@@ -191,9 +218,11 @@ export function RolesPanel({
       <h2>{t('roles.title')}</h2>
       <div className="toolbar">
         <input
+          className="search"
+          aria-label={t('roles.searchPlaceholder')}
           placeholder={t('roles.searchPlaceholder')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
         />
       </div>
       {error && <p className="alert error">{error}</p>}
@@ -262,6 +291,34 @@ export function RolesPanel({
           </tbody>
         </table>
       </div>
+      {total > PAGE_SIZE && (
+        <div
+          style={{
+            marginTop: '0.75rem',
+            display: 'flex',
+            gap: '0.75rem',
+            alignItems: 'center',
+          }}
+        >
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            ‹ {t('assets.prev')}
+          </button>
+          <span className="muted" style={{ fontSize: '0.85rem' }}>
+            {t('assets.pageOf', { page, totalPages, total })}
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            {t('assets.next')} ›
+          </button>
+        </div>
+      )}
     </section>
   );
 }

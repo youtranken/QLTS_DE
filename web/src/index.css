@@ -13,11 +13,13 @@
 @import './css/auth.css';          /* màn đăng nhập 2 cột branded */
 @import './css/form-layout.css';   /* segmented, form section, combobox, chip, sheet editor */
 @import './css/detail-tabs.css';   /* data grid, tabs, filter bar, stat card */
+@import './css/filters.css';       /* chip lọc đang bật (hàng dưới filter-bar) — /tai-san, /phan-mem */
 @import './css/primitives.css';    /* redesign primitives dùng chung (catalog/pool/danh mục) */
 @import './css/booking.css';       /* booking redesign: ngày/giờ, chip gợi ý, catalog gọn */
 @import './css/profile.css';       /* hồ sơ người dùng (UP-5.2, không avatar) */
 @import './css/datepicker.css';    /* DatePicker thay input type=date */
 @import './css/software.css';      /* software: ô Đã cấp X/Y + thanh ghế */
+@import './css/pool.css';          /* /pool-may-muon: 3 thẻ + bảng No/Code/User/AssetType/Software */
 @import './css/detail-cards.css';  /* chi tiết tài sản: card Người giữ + Bảo hành + ô mật khẩu */
 @import './css/calendar.css';      /* lịch máy tổng (mục sidebar) */
 @import './css/lightbox.css';      /* lightbox ảnh biên bản (UP-5.5) */

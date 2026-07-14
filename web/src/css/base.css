@@ -34,9 +34,10 @@ select {
   cursor: pointer;
   appearance: none;
   padding-right: 1.9rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238a908a' d='M6 8.5 2.5 5h7z'/%3E%3C/svg%3E");
+  /* Mũi tên chevron › (khớp caret nav/expand) — 1 loại mũi tên duy nhất toàn app. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%238a908a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.6rem center;
+  background-position: right 0.62rem center;
 }
 label {
   font-size: 0.82rem;

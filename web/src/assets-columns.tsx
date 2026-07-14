@@ -202,17 +202,25 @@ export function useAssetColumns(opts: {
     // (Configuration/Cost/Start Date/Place/Pool) không sort — BE chỉ whitelist code/type/status/assignee.
     const deviceCols: ColumnDef<AssetRow, unknown>[] = [
       {
+        // Asset Type ở ĐẦU + là ô mở/đóng phần mềm (caret nằm trong ô này).
+        id: 'type',
+        accessorKey: 'type',
+        header: t('assets.col.type'),
+        cell: ({ row, table }) => (
+          <TypeCell
+            row={row.original}
+            rowId={row.id}
+            meta={table.options.meta as ExpandMeta<AssetRow> | undefined}
+            softwareLabel={t('assets.kindSoftware')}
+          />
+        ),
+      },
+      {
         id: 'code',
         accessorKey: 'code',
         header: t('assets.col.code'),
         // Sổ tài sản có thể lẫn dòng phần mềm (không mã) → hiện Tên license thay mã.
-        cell: ({ row, table }) => (
-          <CodeCell
-            row={row.original}
-            rowId={row.id}
-            meta={table.options.meta as ExpandMeta<AssetRow> | undefined}
-          />
-        ),
+        cell: ({ row }) => <CodeCell row={row.original} />,
       },
       {
         id: 'assignee',
@@ -220,14 +228,6 @@ export function useAssetColumns(opts: {
         header: t('assets.col.user'),
         cell: ({ row }) =>
           row.original.assignedUserName ?? row.original.assignedUserSub ?? '—',
-      },
-      {
-        id: 'type',
-        accessorKey: 'type',
-        header: t('assets.col.type'),
-        cell: ({ row }) => (
-          <TypeCell row={row.original} softwareLabel={t('assets.kindSoftware')} />
-        ),
       },
       {
         id: 'configuration',

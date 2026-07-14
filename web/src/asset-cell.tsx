@@ -4,61 +4,73 @@ import type { AssetRow } from './asset-types';
 
 /**
  * Các ô "giàu" của bảng /tai-san (làm đẹp — không đổi dữ liệu). Tách khỏi assets-columns (§6):
- * Mã (mono + hãng + caret expand) và Loại (icon + nhãn). Chỉ dùng cho nhánh máy (device).
+ * Loại (ô ĐẦU: caret expand + icon + nhãn, bấm cả ô để mở/đóng phần mềm) và Mã (mono + hãng).
+ * Chỉ dùng cho nhánh máy (device).
  */
 
 /**
- * Mã (mono đậm) + dòng phụ Hãng + caret › ở ĐẦU ô (mở/đóng hàng phần mềm) như /phan-mem.
- * Caret đọc trạng thái expand qua `meta` (table.meta) — stopPropagation để không mở trang chi tiết.
+ * Loại (ô đầu tiên): caret › + icon + nhãn (software → "Phần mềm"). Khi máy CÓ phần mềm cài
+ * (canExpand) → cả ô là nút mở/đóng hàng phần mềm; stopPropagation để không mở trang chi tiết.
+ * Không có phần mềm → ô tĩnh, click rơi xuống row (mở trang chi tiết).
  */
-export function CodeCell({
+export function TypeCell({
   row,
   rowId,
   meta,
+  softwareLabel,
 }: {
   row: AssetRow;
   rowId?: string;
   meta?: ExpandMeta<AssetRow>;
+  softwareLabel: string;
 }) {
-  const label = row.code ?? row.licenseName ?? '—';
   const canExpand = !!(rowId && meta?.canExpandRow(row));
   const open = !!(rowId && meta?.expandedId === rowId);
-  return (
-    <div className="cell-code">
+  const body = (
+    <>
       {canExpand ? (
-        <button
-          type="button"
-          className={`cell-caret${open ? ' open' : ''}`}
-          aria-expanded={open}
-          aria-label={open ? 'Thu gọn' : 'Mở rộng'}
-          onClick={(e) => {
-            e.stopPropagation();
-            meta?.toggleExpand(rowId!);
-          }}
-        >
+        <span className={`cell-caret${open ? ' open' : ''}`} aria-hidden="true">
           ›
-        </button>
+        </span>
       ) : (
         <span className="cell-caret-spacer" aria-hidden="true" />
       )}
-      <span className="cell-code-txt">
-        {row.code ? (
-          <span className="mono cell-code-id">{row.code}</span>
-        ) : (
-          <span>{label}</span>
-        )}
-        {row.brand && <span className="cell-sub">{row.brand}</span>}
+      <span className="cell-type-main">
+        <AssetTypeIcon type={row.type} />
+        <span>{row.type === 'software' ? softwareLabel : row.type}</span>
       </span>
-    </div>
+    </>
   );
+  if (canExpand) {
+    return (
+      <button
+        type="button"
+        className={`cell-type cell-type-btn${open ? ' open' : ''}`}
+        aria-expanded={open}
+        aria-label={open ? 'Thu gọn' : 'Mở rộng'}
+        onClick={(e) => {
+          e.stopPropagation();
+          meta?.toggleExpand(rowId!);
+        }}
+      >
+        {body}
+      </button>
+    );
+  }
+  return <div className="cell-type">{body}</div>;
 }
 
-/** Loại: icon theo loại + nhãn (software → "Phần mềm"). Giữ nguyên chữ loại từ catalog. */
-export function TypeCell({ row, softwareLabel }: { row: AssetRow; softwareLabel: string }) {
+/** Mã (mono đậm) + dòng phụ Hãng. Caret expand nằm ở ô Loại (ô đầu) nên ô Mã chỉ còn nội dung. */
+export function CodeCell({ row }: { row: AssetRow }) {
+  const label = row.code ?? row.licenseName ?? '—';
   return (
-    <div className="cell-type">
-      <AssetTypeIcon type={row.type} />
-      <span>{row.type === 'software' ? softwareLabel : row.type}</span>
-    </div>
+    <span className="cell-code-txt">
+      {row.code ? (
+        <span className="mono cell-code-id">{row.code}</span>
+      ) : (
+        <span>{label}</span>
+      )}
+      {row.brand && <span className="cell-sub">{row.brand}</span>}
+    </span>
   );
 }

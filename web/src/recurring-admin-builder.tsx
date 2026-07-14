@@ -132,7 +132,11 @@ export function RecurringAdminBuilder({
         </button>
       </div>
       {machines !== null && (
-        <select value={assetId} onChange={(e) => setAssetId(e.target.value)}>
+        <select
+          aria-label={t('bookingSheet.pickMachine')}
+          value={assetId}
+          onChange={(e) => setAssetId(e.target.value)}
+        >
           <option value="">{t('bookingSheet.pickMachine')}</option>
           {machines.map((m) => (
             <option key={m.id} value={m.id}>

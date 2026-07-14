@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
 import type { FreeMachine, UserOption } from './booking-types';
@@ -30,7 +31,6 @@ export function BookingTopRow({
   setUserQuery,
   userOptions,
   setUserOptions,
-  assetId,
   setAssetId,
   poolList,
   selected,
@@ -38,6 +38,16 @@ export function BookingTopRow({
   setEditMachine,
 }: BookingTopRowProps) {
   const { t } = useTranslation();
+  // Chọn máy: combobox gõ-để-tìm (pool có thể dài). Chỉ lọc khi có từ khóa → menu không
+  // bung sẵn cả danh sách (giống combobox thêm máy ở pool). Lọc theo mã/loại/cấu hình.
+  const [machineQuery, setMachineQuery] = useState('');
+  const machineOptions = machineQuery.trim()
+    ? poolList.filter((m) =>
+        `${m.code} ${m.type} ${m.configuration ?? ''}`
+          .toLowerCase()
+          .includes(machineQuery.trim().toLowerCase()),
+      )
+    : [];
   return (
     <div className="sheet-toprow">
       {isAdmin && (
@@ -79,24 +89,27 @@ export function BookingTopRow({
       <div className="topcell">
         <span className="topcell-label">{t('bookingSheet.machine', 'Máy')}</span>
         {editMachine || !selected ? (
-          <select
-            className="machine-select"
-            value={assetId}
-            onChange={(e) => {
-              setAssetId(e.target.value);
-              if (e.target.value) setEditMachine(false);
+          <Combobox
+            placeholder={t('bookingSheet.pickMachine', '— Chọn máy —')}
+            query={machineQuery}
+            onQuery={setMachineQuery}
+            options={machineOptions}
+            getKey={(m) => m.id}
+            renderOption={(m) => (
+              <>
+                <span className="mono">{m.code}</span>
+                <small>
+                  {m.type}
+                  {m.configuration ? ` · ${m.configuration}` : ''}
+                </small>
+              </>
+            )}
+            onSelect={(m) => {
+              setAssetId(m.id);
+              setEditMachine(false);
+              setMachineQuery('');
             }}
-          >
-            <option value="">
-              {t('bookingSheet.pickMachine', '— Chọn máy —')}
-            </option>
-            {poolList.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.code} · {m.type}
-                {m.configuration ? ` · ${m.configuration}` : ''}
-              </option>
-            ))}
-          </select>
+          />
         ) : (
           <div className="picked-machine compact">
             <span className="pm-ico">🖥️</span>

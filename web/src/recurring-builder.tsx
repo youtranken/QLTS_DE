@@ -188,7 +188,11 @@ export function RecurringBuilder({
           {t('recur.preview', { n: sessions.length })}
         </p>
         {machines !== null && (
-          <select value={assetId} onChange={(e) => setAssetId(e.target.value)}>
+          <select
+            aria-label={t('recur.pickMachine')}
+            value={assetId}
+            onChange={(e) => setAssetId(e.target.value)}
+          >
             <option value="">{t('recur.pickMachine')}</option>
             {machines.map((m) => (
               <option key={m.id} value={m.id}>

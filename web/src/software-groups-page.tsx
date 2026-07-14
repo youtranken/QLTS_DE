@@ -268,6 +268,25 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
           ))}
         </select>
       </div>
+      {(endFrom || endTo) && (
+        <div className="active-filters">
+          <span className="af-label">{t('assets.activeFilters', 'Đang lọc')}</span>
+          <span className="chip filter-chip">
+            <b>{t('assets.endDate')}:</b>
+            {`${endFrom ? formatDmy(endFrom) : '…'} → ${endTo ? formatDmy(endTo) : '…'}`}
+            <button
+              type="button"
+              aria-label={t('assets.clearFilters')}
+              onClick={() => {
+                setEndFrom('');
+                setEndTo('');
+              }}
+            >
+              ✕
+            </button>
+          </span>
+        </div>
+      )}
       <div className="table-wrap">
         <table className="table">
           <thead>

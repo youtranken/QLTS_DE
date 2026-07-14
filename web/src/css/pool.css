@@ -1,0 +1,134 @@
+/* --- /pool-may-muon: 3 thẻ 1 hàng + bảng (No/Code/User/Asset Type/Software) theo pool.html --- */
+
+/* 3 thẻ thống kê trên 1 hàng (Tổng / Sẵn sàng / Đang mượn) — dot màu theo trạng thái. */
+.pool-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+}
+.pool-stat {
+  flex: 1 1 150px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow-sm);
+}
+.pool-stat .k {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.pool-stat .k .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.pool-stat .k .dot.ok {
+  background: var(--ok);
+}
+.pool-stat .k .dot.warn {
+  background: var(--warn);
+}
+.pool-stat .v {
+  font-size: 1.5rem;
+  font-weight: 720;
+  margin-top: 4px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ô Asset Type: icon nhỏ + nhãn nằm ngang (bảng pool 1 dòng). */
+.pool-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pool-type .type-ic {
+  width: 28px;
+  height: 28px;
+}
+.pool-type .type-ic svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Ô User (người đang mượn) — avatar tròn nhỏ + tên; "—" khi máy sẵn sàng. */
+.pool-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pool-av {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--grad);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+/* Cột Software: 1 phần mềm → tên trực tiếp; nhiều → chip "N phần mềm ›" bung hàng liệt kê. */
+.sw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+  border: 1px solid transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.sw-chip:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+.sw-chip-caret {
+  font-size: 1.05rem;
+  line-height: 1;
+  transition: transform 0.18s var(--ease);
+}
+.sw-chip.open .sw-chip-caret {
+  transform: rotate(90deg);
+}
+.pool-sw-one {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--ink-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.pool-sw-row td {
+  background: var(--surface-2);
+}
+.pool-sw-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.pool-sw-item {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}

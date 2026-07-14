@@ -23,6 +23,9 @@ export interface PoolItem {
   assignedUserName: string | null;
   // B1 (UAT 2026-07-12): phần mềm đang cài trên máy (comma-joined) — cột "Phần mềm" ở bảng pool.
   installedSoftware: string | null;
+  // Người ĐANG mượn máy pool này (booking delivered / ticket in_use — read-model in-use-now,
+  // story 3.11). null = máy đang sẵn sàng. FE dùng để đếm thẻ Sẵn sàng/Đang mượn + cột User.
+  currentBorrowerName: string | null;
 }
 
 /**
@@ -55,6 +58,18 @@ export class PoolService {
           FROM assets sw
           WHERE sw.installed_on_asset_id = ${assetsTable.id}
             AND sw.type = 'software'
+        )`,
+        // Người đang mượn (booking delivered + ticket in_use). null = sẵn sàng.
+        currentBorrowerName: sql<string | null>`(
+          SELECT bu.full_name
+          FROM booking bk
+          JOIN ticket tk ON tk.id = bk.ticket_id
+          JOIN users bu ON bu.sub = tk.borrower_sub
+          WHERE bk.asset_id = ${assetsTable.id}
+            AND bk.state = 'delivered'
+            AND tk.state = 'in_use'
+          ORDER BY lower(bk.period) DESC
+          LIMIT 1
         )`,
       })
       .from(assetsTable)
@@ -137,6 +152,18 @@ export class PoolService {
           FROM assets sw
           WHERE sw.installed_on_asset_id = ${assetsTable.id}
             AND sw.type = 'software'
+        )`,
+        // Người đang mượn (booking delivered + ticket in_use). null = sẵn sàng.
+        currentBorrowerName: sql<string | null>`(
+          SELECT bu.full_name
+          FROM booking bk
+          JOIN ticket tk ON tk.id = bk.ticket_id
+          JOIN users bu ON bu.sub = tk.borrower_sub
+          WHERE bk.asset_id = ${assetsTable.id}
+            AND bk.state = 'delivered'
+            AND tk.state = 'in_use'
+          ORDER BY lower(bk.period) DESC
+          LIMIT 1
         )`,
       })
       .from(assetsTable)

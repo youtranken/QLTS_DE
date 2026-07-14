@@ -79,8 +79,8 @@ describe('Tab Phần mềm — cột định danh bằng Tên license (AC6)', ()
     // Máy gắn + người đứng tên derive từ máy
     expect(screen.getByText('PC-01')).toBeInTheDocument();
     expect(screen.getByText('Trần Thị Bình')).toBeInTheDocument();
-    // Kỳ hạn: term → ngày hết hạn; perpetual → "Vĩnh viễn"
-    expect(screen.getByText('2028-07-01')).toBeInTheDocument();
+    // Kỳ hạn: term → ngày hết hạn (định dạng dd/mm/yyyy qua formatDmy); perpetual → "Vĩnh viễn"
+    expect(screen.getByText('01/07/2028')).toBeInTheDocument();
     expect(screen.getByText('Vĩnh viễn')).toBeInTheDocument();
   });
 });

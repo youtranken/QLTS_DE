@@ -18,7 +18,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Cột đầu "#": chỉ số thứ tự (caret › nằm ở ô Mã, giống /phan-mem). */
+/* Cột đầu "#": chỉ số thứ tự (caret › nằm ở ô Loại — ô đầu, mở/đóng phần mềm). */
 .lead {
   text-align: left;
   white-space: nowrap;
@@ -31,13 +31,7 @@
   text-align: left;
 }
 
-/* Ô Mã: caret › (đầu ô) + [mã mono đậm / Hãng mờ] — caret mở/đóng hàng phần mềm như /phan-mem. */
-.cell-code {
-  display: flex;
-  align-items: flex-start;
-  gap: 5px;
-  line-height: 1.25;
-}
+/* Ô Mã: [mã mono đậm / Hãng mờ] — caret đã chuyển sang ô Loại. */
 .cell-code-txt {
   display: flex;
   flex-direction: column;
@@ -51,41 +45,57 @@
   font-size: 0.72rem;
   color: var(--ink-3);
 }
-/* Caret › đầu ô Mã: TO + vùng bấm rộng, xoay 90° + đổi màu primary khi mở (giống .sw-caret). */
-.cell-caret {
-  all: unset;
-  cursor: pointer;
-  flex: none;
-  margin: -4px 0 0 -6px;
-  padding: 2px 6px;
-  color: var(--ink-3);
-  font-size: 1.5rem;
-  line-height: 1;
-  transition: transform 0.2s var(--ease), color 0.2s var(--ease);
-}
-.cell-caret:hover {
-  color: var(--primary-ink);
-}
-.cell-caret.open {
-  transform: rotate(90deg);
-  color: var(--primary-ink);
-}
-.cell-caret-spacer {
-  flex: none;
-  width: 0.9rem;
-}
 
-/* Ô Loại: icon TRÊN, nhãn loại DƯỚI (canh giữa); hover hàng → icon phóng nhẹ + đổi màu primary. */
+/* Ô Loại (ô đầu): caret › + khối icon-trên-nhãn-dưới. Cả ô là nút mở/đóng phần mềm. */
 .cell-type {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+button.cell-type-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: inherit;
+}
+button.cell-type-btn:hover:not(:disabled) {
+  background: none;
+}
+/* Khối icon TRÊN + nhãn loại DƯỚI (canh giữa). */
+.cell-type-main {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 5px;
   text-align: center;
 }
-.cell-type > span {
+.cell-type-main > span {
   font-size: 0.82rem;
   color: var(--ink-2);
+}
+/* Caret › đầu ô Loại: TO, xoay 90° + đổi màu primary khi mở (giống .sw-caret). */
+.cell-caret {
+  flex: none;
+  width: 1.1rem;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 1.5rem;
+  line-height: 1;
+  transition: transform 0.2s var(--ease), color 0.2s var(--ease);
+}
+.cell-caret.open {
+  transform: rotate(90deg);
+  color: var(--primary-ink);
+}
+button.cell-type-btn:hover .cell-caret {
+  color: var(--primary-ink);
+}
+.cell-caret-spacer {
+  flex: none;
+  width: 1.1rem;
 }
 .type-ic {
   width: 34px;

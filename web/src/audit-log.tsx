@@ -113,11 +113,13 @@ export function AuditLogPage() {
 
       <div className="toolbar" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
         <input
+          aria-label={t('audit.actor')}
           placeholder={t('audit.actor')}
           value={draft.actor}
           onChange={(e) => set('actor')(e.target.value)}
         />
         <select
+          aria-label={t('audit.allActions')}
           value={draft.action}
           onChange={(e) => set('action')(e.target.value)}
         >
@@ -129,11 +131,13 @@ export function AuditLogPage() {
           ))}
         </select>
         <input
+          aria-label={t('audit.objectType')}
           placeholder={t('audit.objectType')}
           value={draft.objectType}
           onChange={(e) => set('objectType')(e.target.value)}
         />
         <input
+          aria-label={t('audit.objectId')}
           placeholder={t('audit.objectId')}
           value={draft.objectId}
           onChange={(e) => set('objectId')(e.target.value)}

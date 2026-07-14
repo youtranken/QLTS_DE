@@ -157,6 +157,14 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
       : data.machines;
   }, [data, machineFilter]);
 
+  // Đổi tuần mà máy đã lọc không còn trong danh sách tuần mới → reset (khỏi lưới rỗng giả
+  // như "không có máy" trong khi các máy khác vẫn có; mẫu reset filter mồ côi ở assets).
+  useEffect(() => {
+    if (data && machineFilter && !data.machines.some((m) => m.id === machineFilter)) {
+      setMachineFilter('');
+    }
+  }, [data, machineFilter]);
+
   const placeBlocks = useCallback(
     (m: CalMachine): PlacedBlock[] => {
       if (!data) return [];
@@ -220,7 +228,6 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
         </button>
         <span style={{ flex: 1 }} />
         <select
-          className="combobox"
           value={machineFilter}
           onChange={(e) => setMachineFilter(e.target.value)}
           aria-label={t('calendar.filterMachine')}
@@ -233,7 +240,6 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
           ))}
         </select>
         <select
-          className="combobox"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as '' | BlockType)}
           aria-label={t('calendar.filterType')}
@@ -242,7 +248,50 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
           <option value="borrow">{t('calendar.borrow')}</option>
           <option value="pending">{t('calendar.pending')}</option>
         </select>
+        {(machineFilter || typeFilter) && (
+          <button
+            type="button"
+            className="ghost sm"
+            onClick={() => {
+              setMachineFilter('');
+              setTypeFilter('');
+            }}
+          >
+            {t('assets.clearFilters')}
+          </button>
+        )}
       </div>
+      {(machineFilter || typeFilter) && (
+        <div className="active-filters">
+          <span className="af-label">{t('assets.activeFilters', 'Đang lọc')}</span>
+          {machineFilter && (
+            <span className="chip filter-chip">
+              <b>{t('calendar.filterMachine')}:</b>
+              {data.machines.find((m) => m.id === machineFilter)?.code ?? machineFilter}
+              <button
+                type="button"
+                aria-label={t('assets.clearFilters')}
+                onClick={() => setMachineFilter('')}
+              >
+                ✕
+              </button>
+            </span>
+          )}
+          {typeFilter && (
+            <span className="chip filter-chip">
+              <b>{t('calendar.filterType')}:</b>
+              {typeLabel(typeFilter)}
+              <button
+                type="button"
+                aria-label={t('assets.clearFilters')}
+                onClick={() => setTypeFilter('')}
+              >
+                ✕
+              </button>
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="mcal-layout">
         {/* Lịch (chính) */}
