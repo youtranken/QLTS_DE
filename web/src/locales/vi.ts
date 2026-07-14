@@ -583,7 +583,8 @@ export default {
     purgeSelected: 'Xóa vĩnh viễn ({{count}})',
     purgeConfirmBulk:
       'Xóa VĨNH VIỄN {{count}} tài sản đã chọn? Chúng sẽ bị ẩn khỏi mọi danh sách (coi như đã xóa) và không thể khôi phục; lịch sử cấp phát + audit vẫn được giữ nguyên.',
-    purgeBulkPartial: 'Đã xóa {{ok}}/{{total}}. {{failed}} tài sản không xóa được.',
+    purgeBulkPartial:
+      'Đã xóa {{ok}}/{{total}}. {{failed}} tài sản không xóa được — các dòng lỗi vẫn được chọn để thử lại.',
     disposeSelected: 'Thanh lý ({{count}})',
     disposeConfirmTitle: 'Thanh lý?',
     disposeConfirmOne:
@@ -591,7 +592,7 @@ export default {
     disposeConfirmBulk:
       'Thanh lý {{count}} bản đã chọn? Chúng chuyển sang Kho thanh lý và gỡ khỏi máy.',
     disposeBulkPartial:
-      'Đã thanh lý {{ok}}/{{total}}. {{failed}} bản không thanh lý được.',
+      'Đã thanh lý {{ok}}/{{total}}. {{failed}} bản không thanh lý được — các dòng lỗi vẫn được chọn để thử lại.',
     close: 'Đóng',
     viewTitle: 'Xem',
     save: 'Lưu',
@@ -853,8 +854,10 @@ export default {
     detach: 'Gỡ',
     detachTitle: 'Gỡ khỏi máy?',
     detachConfirm: 'Gỡ bản này khỏi máy "{{code}}"? Ghế sẽ trống để gán máy khác.',
+    detachFailed: 'Gỡ khỏi máy không thành công.',
     pageSize: 'Số dòng mỗi trang',
     perPage: '{{n}}/trang',
+    pageOf: 'Trang {{page}}/{{totalPages}} — {{total}} nhóm',
     expiringN: '{{n}} bản sắp hết hạn',
     nextExpiryShort: 'Hạn gần nhất {{d}}',
     installedTitle: 'Máy đang cài ({{n}})',

@@ -206,14 +206,17 @@ export function AssetsPage({
   // Chạy purge sau khi xác nhận: gộp bulk, invalidate 1 lần, tóm tắt lỗi nếu có dòng hỏng.
   const runPurge = async () => {
     if (!purgeTarget) return;
+    const ids = purgeTarget.ids;
     setPurgeBusy(true);
     setError(null);
-    const results = await Promise.all(purgeTarget.ids.map((id) => purgeById(id)));
+    const results = await Promise.all(ids.map((id) => purgeById(id)));
     const okCount = results.filter((r) => r.ok).length;
     const failed = results.length - okCount;
+    const failedIds = ids.filter((_, i) => !results[i].ok);
     setPurgeBusy(false);
     setPurgeTarget(null);
-    setSelected(new Set());
+    // Giữ dòng LỖI được chọn (chỉ trong tập đã chọn trước đó) để thử lại; dòng thành công bỏ chọn.
+    setSelected((prev) => new Set(failedIds.filter((id) => prev.has(id))));
     void queryClient.invalidateQueries({ queryKey: ['assets'] });
     void loadMeta();
     if (failed > 0) {
@@ -232,16 +235,17 @@ export function AssetsPage({
   // Thanh lý phần mềm (→ Kho thanh lý): giống runPurge nhưng dùng dispose; invalidate cả nhóm.
   const runDispose = async () => {
     if (!disposeTarget) return;
+    const ids = disposeTarget.ids;
     setDisposeBusy(true);
     setError(null);
-    const results = await Promise.all(
-      disposeTarget.ids.map((id) => disposeById(id)),
-    );
+    const results = await Promise.all(ids.map((id) => disposeById(id)));
     const okCount = results.filter((r) => r.ok).length;
     const failed = results.length - okCount;
+    const failedIds = ids.filter((_, i) => !results[i].ok);
     setDisposeBusy(false);
     setDisposeTarget(null);
-    setSelected(new Set());
+    // Giữ dòng LỖI được chọn (trong tập đã chọn) để thử lại; dòng thành công bỏ chọn.
+    setSelected((prev) => new Set(failedIds.filter((id) => prev.has(id))));
     void queryClient.invalidateQueries({ queryKey: ['assets'] });
     void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
     if (failed > 0) {

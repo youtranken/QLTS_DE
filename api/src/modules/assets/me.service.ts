@@ -28,6 +28,7 @@ export class MeService {
       WHERE assigned_user_sub = ${sub}
         AND type <> 'software'
         AND status <> 'disposed'
+        AND purged_at IS NULL
       ORDER BY code
     `);
 
@@ -47,6 +48,7 @@ export class MeService {
       WHERE s.type = 'software'
         AND host.assigned_user_sub = ${sub}
         AND s.status <> 'disposed'
+        AND s.purged_at IS NULL
       ORDER BY s.license_name
     `);
 

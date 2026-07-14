@@ -44,7 +44,7 @@ export function SoftwareTransferDialog({
     const timer = setTimeout(
       () => {
         fetch(
-          `/api/admin/assets?excludeSoftware=true&page=1&pageSize=20${
+          `/api/admin/assets?excludeSoftware=true&excludeDisposed=true&page=1&pageSize=50${
             q ? `&search=${encodeURIComponent(q)}` : ''
           }`,
           { signal: c.signal },

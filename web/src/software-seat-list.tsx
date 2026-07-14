@@ -41,7 +41,8 @@ export function SoftwareSeatList({
   const endNode = (s: AssetRow) => {
     if (s.licenseType === 'perpetual') return t('assets.licensePerpetual');
     if (!s.endDate) return '—';
-    const n = daysUntil(s.endDate);
+    // Chỉ 'term' mới cảnh báo hạn — bản không rõ loại (licenseType null) chỉ hiện ngày, không blink.
+    const n = s.licenseType === 'term' ? daysUntil(s.endDate) : NaN;
     if (Number.isFinite(n) && n <= EXPIRY_SOON_DAYS) {
       const label =
         n < 0

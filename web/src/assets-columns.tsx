@@ -176,7 +176,8 @@ export function useAssetColumns(opts: {
             const r = row.original;
             if (r.licenseType === 'perpetual') return t('assets.licensePerpetual');
             if (!r.endDate) return '—';
-            const n = daysUntil(r.endDate);
+            // Chỉ 'term' mới cảnh báo hạn — bản không rõ loại (licenseType null) chỉ hiện ngày.
+            const n = r.licenseType === 'term' ? daysUntil(r.endDate) : NaN;
             // ≤30 ngày (hoặc quá hạn) → đỏ nhấp nháy + đếm ngược.
             if (Number.isFinite(n) && n <= EXPIRY_SOON_DAYS) {
               return (

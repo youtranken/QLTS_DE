@@ -95,6 +95,11 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
     setPage(1);
   }, [search, endFrom, endTo, pageSize]);
 
+  // Dispose seat cuối làm nhóm biến mất → kẹp trang về trong phạm vi (khỏi bảng trống dù còn data).
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   const seatsUrl = (name: string) =>
     `/api/admin/assets?type=software&licenseName=${encodeURIComponent(name)}&excludeDisposed=true&pageSize=100`;
 
@@ -172,8 +177,13 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
     if (r.ok) {
       if (seat.licenseName) await reloadSeats(seat.licenseName);
       void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
+      // Gỡ/thanh lý seat đổi phần mềm cài trên máy → /tai-san phải refetch (không chỉ nhóm).
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
     } else {
-      setActionErr(r.message ?? t('assets.saveFailed'));
+      setActionErr(
+        r.message ??
+          t(kind === 'detach' ? 'software.detachFailed' : 'assets.saveFailed'),
+      );
     }
   };
 
@@ -448,7 +458,12 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
             ‹ {t('assets.prev')}
           </button>
           <span className="muted" style={{ fontSize: '0.85rem' }}>
-            {t('assets.pageOf', { page, totalPages, total })}
+            {t('software.pageOf', {
+              page,
+              totalPages,
+              total,
+              defaultValue: 'Trang {{page}}/{{totalPages}} — {{total}} nhóm',
+            })}
           </span>
           <button
             type="button"
@@ -512,6 +527,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
             setTransferSw(null);
             if (changed) {
               void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
+              void queryClient.invalidateQueries({ queryKey: ['assets'] });
               if (name) void reloadSeats(name);
             }
           }}

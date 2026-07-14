@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 import { navGroups, type NavItem } from './app-nav';
@@ -91,7 +91,11 @@ function NavDropdown({
   const { t } = useTranslation();
   const childActive = item.children!.some((c) => c.to === activeTo);
   const [open, setOpen] = useState(childActive);
-  const expanded = open || childActive;
+  // Vào 1 route con thì tự mở; nhưng cho phép người dùng thu lại (không ép mở theo childActive).
+  useEffect(() => {
+    if (childActive) setOpen(true);
+  }, [childActive]);
+  const expanded = open;
   return (
     <div className="nav-dropdown">
       <button

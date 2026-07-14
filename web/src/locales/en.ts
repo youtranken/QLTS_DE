@@ -585,7 +585,8 @@ export default {
     purgeSelected: 'Delete permanently ({{count}})',
     purgeConfirmBulk:
       'Permanently delete the {{count}} selected assets? They will be hidden from all lists (treated as deleted) and cannot be restored; the allocation history and audit log are kept.',
-    purgeBulkPartial: 'Deleted {{ok}}/{{total}}. {{failed}} could not be deleted.',
+    purgeBulkPartial:
+      'Deleted {{ok}}/{{total}}. {{failed}} could not be deleted — failed rows stay selected to retry.',
     disposeSelected: 'Dispose ({{count}})',
     disposeConfirmTitle: 'Dispose?',
     disposeConfirmOne:
@@ -593,7 +594,7 @@ export default {
     disposeConfirmBulk:
       'Dispose the {{count}} selected seats? They move to the Disposed store and detach from their machines.',
     disposeBulkPartial:
-      'Disposed {{ok}}/{{total}}. {{failed}} could not be disposed.',
+      'Disposed {{ok}}/{{total}}. {{failed}} could not be disposed — failed rows stay selected to retry.',
     close: 'Close',
     viewTitle: 'View',
     save: 'Save',
@@ -855,8 +856,10 @@ export default {
     detach: 'Detach',
     detachTitle: 'Detach from machine?',
     detachConfirm: 'Detach this seat from machine "{{code}}"? The seat frees up for another machine.',
+    detachFailed: 'Could not detach from machine.',
     pageSize: 'Rows per page',
     perPage: '{{n}}/page',
+    pageOf: 'Page {{page}}/{{totalPages}} — {{total}} groups',
     expiringN: '{{n}} seats expiring',
     nextExpiryShort: 'Next expiry {{d}}',
     installedTitle: 'Installed on ({{n}})',
