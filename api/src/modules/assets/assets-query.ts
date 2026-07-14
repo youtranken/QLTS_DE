@@ -29,6 +29,8 @@ export function buildAssetListConditions(
 ): SQL | undefined {
   const pat = query.search ? `%${escapeLike(query.search)}%` : null;
   const conditions = [
+    // Soft-purge (0038): máy đã "xóa vĩnh viễn" ẨN khỏi MỌI list (kể cả Kho thanh lý).
+    sql`${assetsTable.purgedAt} IS NULL`,
     pat
       ? or(
           ilike(assetsTable.code, pat),

@@ -80,6 +80,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0035_catalog_add_place.sql',
       '0036_assets_lock_eta.sql',
       '0037_drop_department.sql',
+      '0038_assets_purged_at.sql',
     ]);
   });
 

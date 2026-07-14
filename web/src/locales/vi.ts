@@ -570,6 +570,9 @@ export default {
     saveOwner: 'Lưu người đứng tên',
     ownerSaved: 'Đã cập nhật người đứng tên.',
     reuse: 'Tái sử dụng',
+    purge: 'Xóa vĩnh viễn',
+    purgeConfirm:
+      'Xóa VĨNH VIỄN "{{code}}"? Máy sẽ bị ẩn khỏi mọi danh sách (coi như đã xóa) và không thể khôi phục; lịch sử cấp phát + audit vẫn được giữ nguyên.',
     save: 'Lưu',
     cancel: 'Hủy',
     prev: 'Trước',

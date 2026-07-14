@@ -572,6 +572,9 @@ export default {
     saveOwner: 'Save assignee',
     ownerSaved: 'Assignee updated.',
     reuse: 'Reuse',
+    purge: 'Delete permanently',
+    purgeConfirm:
+      'Permanently delete "{{code}}"? It will be hidden from all lists (treated as deleted) and cannot be restored; the allocation history and audit log are kept.',
     save: 'Save',
     cancel: 'Cancel',
     prev: 'Prev',

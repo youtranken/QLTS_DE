@@ -401,6 +401,57 @@ export class AssetsService {
   }
 
   /**
+   * SOFT-PURGE máy ĐÃ THANH LÝ (Kho thanh lý, "không còn dùng nữa"): set purged_at → ẨN khỏi
+   * MỌI danh sách (coi như đã xóa) NHƯNG GIỮ nguyên row + allocation_history/asset_note (append-only
+   * AD-10/14 — không xóa được) + audit. Hard-delete bất khả vì FK NOT NULL + trigger append-only.
+   * CHỈ áp cho status='disposed' và chưa purge. Ghi audit 'assets.purge'.
+   */
+  async purgeDisposedAsset(id: string, version: number, actorSub: string) {
+    return await this.db.transaction(async (tx) => {
+      const current = await tx
+        .select({
+          id: assetsTable.id,
+          version: assetsTable.version,
+          status: assetsTable.status,
+          code: assetsTable.code,
+          purgedAt: assetsTable.purgedAt,
+        })
+        .from(assetsTable)
+        .where(eq(assetsTable.id, id))
+        .for('update');
+      if (current.length === 0 || current[0].purgedAt != null) {
+        throw new NotFoundException({
+          code: 'ASSET_NOT_FOUND',
+          message: 'Không tìm thấy tài sản này.',
+        });
+      }
+      if (current[0].version !== version) {
+        throw new ConflictException({
+          code: 'STALE_VERSION',
+          message: 'Trạng thái đã thay đổi, tải lại.',
+        });
+      }
+      if (current[0].status !== 'disposed') {
+        throw new ConflictException({
+          code: 'NOT_DISPOSED',
+          message: 'Chỉ xóa vĩnh viễn máy đã Thanh lý.',
+        });
+      }
+      await tx.execute(
+        sql`UPDATE assets SET purged_at = now(), version = version + 1, updated_at = now() WHERE id = ${id}`,
+      );
+      await this.audit.appendWithin(tx, {
+        actor: actorSub,
+        action: 'assets.purge',
+        objectType: 'asset',
+        objectId: id,
+        detail: { code: current[0].code, note: 'soft-purge disposed (hidden)' },
+      });
+      return { ok: true };
+    });
+  }
+
+  /**
    * Đổi người đứng tên MÁY như thao tác RIÊNG (story 11.2, B3) — tách khỏi "Lưu thông tin máy".
    * CHỈ đụng assigned_user_sub (không ghi đè trường máy khác). Optimistic lock; đổi người →
    * append allocation_history (2.3). Phần mềm KHÔNG có người đứng tên (holder derive từ máy).

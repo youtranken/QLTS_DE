@@ -37,6 +37,8 @@ export const assetsTable = pgTable('assets', {
   importedUserText: text('imported_user_text'),
   needsUserMatch: boolean('needs_user_match').notNull().default(false),
   isPool: boolean('is_pool').notNull().default(false),
+  /** Soft-purge (0038): máy thanh lý "không còn dùng" → ẩn khỏi mọi list, giữ lịch sử/audit. */
+  purgedAt: timestamp('purged_at', { withTimezone: true }),
   version: integer('version').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()

@@ -471,6 +471,16 @@ export class AssetsAdminController {
   ) {
     return this.assets.deleteAsset(id, body.version, requireSub(req));
   }
+
+  /** Xóa VĨNH VIỄN máy ĐÃ THANH LÝ (không còn dùng) — cascade booking/history/note, giữ audit_log. */
+  @Delete(':id/purge')
+  purge(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: VersionDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.assets.purgeDisposedAsset(id, body.version, requireSub(req));
+  }
 }
 
 function requireSub(req: AuthedRequest): string {

@@ -273,6 +273,58 @@ export function AssetsPage({
     [t, me.csrfToken, queryClient, loadMeta],
   );
 
+  // Xóa VĨNH VIỄN máy đã thanh lý (Kho thanh lý) — cascade lịch sử/booking; audit_log vẫn giữ.
+  const handlePurge = useCallback(
+    async (row: AssetRow) => {
+      setError(null);
+      const label = row.code ?? row.licenseName ?? '';
+      if (
+        !window.confirm(
+          t('assets.purgeConfirm', {
+            code: label,
+            defaultValue:
+              'Xóa VĨNH VIỄN "{{code}}"? Không thể hoàn tác. Lịch sử cấp phát/booking của máy sẽ bị xóa (vết audit vẫn được giữ).',
+          }),
+        )
+      ) {
+        return;
+      }
+      try {
+        const detailRes = await fetch(
+          `/api/admin/assets/${encodeURIComponent(row.id)}`,
+        );
+        if (!detailRes.ok) {
+          setError(t('assets.deleteFailed'));
+          return;
+        }
+        const { version } = (await detailRes.json()) as AssetDetail;
+        const res = await fetch(
+          `/api/admin/assets/${encodeURIComponent(row.id)}/purge`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+            },
+            body: JSON.stringify({ version }),
+          },
+        );
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as {
+            message?: string;
+          } | null;
+          setError(body?.message ?? t('assets.deleteFailed'));
+          return;
+        }
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+        void loadMeta();
+      } catch {
+        setError(t('app.serverUnreachable'));
+      }
+    },
+    [t, me.csrfToken, queryClient, loadMeta],
+  );
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // Vòng đời máy (Khóa sửa chữa/Mở khóa/Pool) TỪ kebab — thay khối Vòng đời trong form.
@@ -318,7 +370,14 @@ export function AssetsPage({
         // Dòng đã thanh lý (kể cả khi lọc status=disposed ở sổ tài sản): hồ sơ đã chốt →
         // chỉ "Tái sử dụng", KHÔNG Sửa/Xóa (BE chặn, tránh action ra lỗi khó hiểu).
         const actions: RowAction[] = (disposedOnly || a.status === 'disposed')
-          ? [{ label: t('assets.reuse', 'Tái sử dụng'), onClick: () => void copyFrom(a.id) }]
+          ? [
+              { label: t('assets.reuse', 'Tái sử dụng'), onClick: () => void copyFrom(a.id) },
+              {
+                label: t('assets.purge', 'Xóa vĩnh viễn'),
+                danger: true,
+                onClick: () => void handlePurge(a),
+              },
+            ]
           : [
               { label: t('assets.edit'), onClick: () => void openEdit(a.id) },
               ...(softwareOnly
@@ -474,6 +533,7 @@ export function AssetsPage({
     openEdit,
     copyFrom,
     handleDelete,
+    handlePurge,
     lifecycle.actionsFor,
   ]);
 
