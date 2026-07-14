@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DatePicker } from './ui/date-picker';
 
 type Tab = 'asset' | 'user' | 'overdue';
 
@@ -137,12 +138,12 @@ export function ReportsPage() {
         <label>
           {t('reports.from')}
           <br />
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <DatePicker value={from} onChange={setFrom} ariaLabel={t('reports.from')} />
         </label>
         <label>
           {t('reports.to')}
           <br />
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <DatePicker value={to} onChange={setTo} ariaLabel={t('reports.to')} />
         </label>
         <button onClick={run}>{t('reports.run')}</button>
       </div>

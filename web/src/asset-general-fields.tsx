@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatVnd, parseVnd } from './asset-types';
 import type { FormState } from './asset-types';
+import { DatePicker } from './ui/date-picker';
 
 /**
  * Khối "Thông tin chung" (máy + trường license phần mềm) tách khỏi asset-form (§6).
@@ -159,10 +160,10 @@ export function AssetGeneralFields({
       {!hideDatesNote && (
       <label className="field">
         <span>{t('assets.startDate')}</span>
-        <input
-          type="date"
+        <DatePicker
           value={form.startDate}
-          onChange={(e) => set('startDate')(e.target.value)}
+          ariaLabel={t('assets.startDate')}
+          onChange={set('startDate')}
         />
       </label>
       )}
@@ -176,9 +177,9 @@ export function AssetGeneralFields({
           </span>
           {/* Hạn phải SAU ngày đưa vào dùng — min = ngày kế tiếp (loại trừ bằng nhau, khớp
               validate `endDate <= startDate` khi Lưu); asset-form validate lại lần cuối. */}
-          <input
-            type="date"
-            required={form.isSoftware && form.licenseType === 'term'}
+          <DatePicker
+            value={form.endDate}
+            ariaLabel={t('assets.endDate')}
             min={
               form.startDate
                 ? new Date(new Date(form.startDate).getTime() + 86400000)
@@ -186,8 +187,7 @@ export function AssetGeneralFields({
                     .slice(0, 10)
                 : undefined
             }
-            value={form.endDate}
-            onChange={(e) => set('endDate')(e.target.value)}
+            onChange={set('endDate')}
           />
         </label>
       )}

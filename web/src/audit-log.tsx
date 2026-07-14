@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DatePicker } from './ui/date-picker';
 
 interface AuditRow {
   id: string;
@@ -137,15 +138,17 @@ export function AuditLogPage() {
           value={draft.objectId}
           onChange={(e) => set('objectId')(e.target.value)}
         />
-        <input
-          type="date"
+        <DatePicker
           value={draft.from}
-          onChange={(e) => set('from')(e.target.value)}
+          onChange={set('from')}
+          placeholder={t('audit.from', 'Từ ngày')}
+          ariaLabel={t('audit.from', 'Từ ngày')}
         />
-        <input
-          type="date"
+        <DatePicker
           value={draft.to}
-          onChange={(e) => set('to')(e.target.value)}
+          onChange={set('to')}
+          placeholder={t('audit.to', 'Đến ngày')}
+          ariaLabel={t('audit.to', 'Đến ngày')}
         />
         <button type="button" className="primary" onClick={apply}>
           {t('audit.filter')}

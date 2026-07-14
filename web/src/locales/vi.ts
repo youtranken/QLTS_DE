@@ -35,6 +35,8 @@ export default {
     saLoginInvalid: 'Sai tài khoản hoặc mật khẩu.',
     saLoginLocked: 'Quá nhiều lần sai — tạm khoá. Thử lại sau ít phút.',
     saLoginError: 'Không đăng nhập được — thử lại.',
+    pwShow: 'Hiện mật khẩu',
+    pwHide: 'Ẩn mật khẩu',
   },
   profile: {
     myProfile: 'Hồ sơ của tôi',
@@ -478,6 +480,12 @@ export default {
     close: 'Đóng',
     prev: 'Ảnh trước',
     next: 'Ảnh sau',
+  },
+  datePicker: {
+    choose: 'Chọn ngày',
+    clear: 'Xóa ngày',
+    prev: 'Trước',
+    next: 'Sau',
   },
   calendar: {
     title: 'Lịch máy {{code}}',

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
+import { DatePicker } from './ui/date-picker';
 import { RecurringBuilder } from './recurring-builder';
 import type { Me } from './panels';
 
@@ -456,11 +457,12 @@ export function BookingSheet({
               >
                 <label className="field">
                   <span>{t('bookingSheet.pickupDate')}</span>
-                  <input
-                    type="date"
+                  <DatePicker
                     min={todayLocal()}
                     value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
+                    clearable={false}
+                    ariaLabel={t('bookingSheet.pickupDate')}
+                    onChange={setFromDate}
                   />
                 </label>
                 <label className="field">
@@ -482,11 +484,12 @@ export function BookingSheet({
                 </label>
                 <label className="field">
                   <span>{t('bookingSheet.returnDate')}</span>
-                  <input
-                    type="date"
+                  <DatePicker
                     min={fromDate || todayLocal()}
                     value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
+                    clearable={false}
+                    ariaLabel={t('bookingSheet.returnDate')}
+                    onChange={setToDate}
                   />
                 </label>
                 <label className="field">

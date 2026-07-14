@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AssetCascadeDialog } from './asset-cascade-dialog';
+import { DatePicker } from './ui/date-picker';
 import type {
   AssetRow,
   CascadePreview,
@@ -250,15 +251,16 @@ export function useAssetLifecycle({
               </span>
               {/* ETA bắt buộc & phải SAU hôm nay (min=ngày mai) → sweep auto-unlock mỗi 60s,
                   chọn hôm nay/quá khứ sẽ mở lại tức thì (BE cũng chặn LOCK_ETA_PAST). */}
-              <input
-                type="date"
+              <DatePicker
+                value={lockEta}
+                clearable={false}
+                ariaLabel={t('assets.lockEta')}
                 min={(() => {
                   const d = new Date();
                   d.setDate(d.getDate() + 1);
                   return d.toLocaleDateString('en-CA');
                 })()}
-                value={lockEta}
-                onChange={(e) => setLockEta(e.target.value)}
+                onChange={setLockEta}
               />
             </label>
             <p className="muted" style={{ fontSize: '0.82rem', margin: '0 0 1rem' }}>

@@ -11,6 +11,7 @@ import { RowActionsMenu } from './asset-row-actions';
 import type { RowAction } from './asset-row-actions';
 import { useAssetLifecycle } from './asset-lifecycle-actions';
 import { DataTable } from './ui/data-table';
+import { DatePicker } from './ui/date-picker';
 import {
   EMPTY_FORM,
   STATUS_BADGE,
@@ -600,24 +601,24 @@ export function AssetsPage({
         {/* Theo dõi hạn: lọc end_date theo khoảng ngày tự chọn (cả sổ tài sản & phần mềm). */}
         <label className="field-inline">
           <span className="muted">{t('assets.endFrom', 'Hết hạn từ')}</span>
-          <input
-            type="date"
+          <DatePicker
             value={endFrom}
             max={endTo || undefined}
-            onChange={(e) => {
-              setEndFrom(e.target.value);
+            ariaLabel={t('assets.endFrom', 'Hết hạn từ')}
+            onChange={(v) => {
+              setEndFrom(v);
               setPage(1);
             }}
           />
         </label>
         <label className="field-inline">
           <span className="muted">{t('assets.endTo', 'đến')}</span>
-          <input
-            type="date"
+          <DatePicker
             value={endTo}
             min={endFrom || undefined}
-            onChange={(e) => {
-              setEndTo(e.target.value);
+            ariaLabel={t('assets.endTo', 'đến')}
+            onChange={(v) => {
+              setEndTo(v);
               setPage(1);
             }}
           />

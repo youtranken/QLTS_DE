@@ -35,6 +35,8 @@ export default {
     saLoginInvalid: 'Wrong username or password.',
     saLoginLocked: 'Too many attempts — temporarily locked. Try again shortly.',
     saLoginError: 'Sign-in failed — try again.',
+    pwShow: 'Show password',
+    pwHide: 'Hide password',
   },
   profile: {
     myProfile: 'My profile',
@@ -478,6 +480,12 @@ export default {
   lightbox: {
     title: 'Record photos',
     close: 'Close',
+    prev: 'Previous',
+    next: 'Next',
+  },
+  datePicker: {
+    choose: 'Choose date',
+    clear: 'Clear date',
     prev: 'Previous',
     next: 'Next',
   },
