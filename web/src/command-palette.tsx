@@ -32,7 +32,7 @@ export function CommandPalette({
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Mở bằng ⌘K / Ctrl+K ở bất kỳ đâu.
+  // Mở bằng ⌘K / Ctrl+K ở bất kỳ đâu; hoặc nút search ở topbar phát event 'qlts:cmdk'.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -40,8 +40,13 @@ export function CommandPalette({
         setOpen((v) => !v);
       }
     };
+    const onOpen = () => setOpen(true);
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('qlts:cmdk', onOpen);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('qlts:cmdk', onOpen);
+    };
   }, []);
 
   useEffect(() => {

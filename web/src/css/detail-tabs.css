@@ -1,21 +1,40 @@
 /* --- Data grid (chi tiết tài sản: cặp nhãn/giá trị) ----------------------- */
 .data-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 0.9rem 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+/* Mỗi thông tin là 1 Ô có viền (trước đây dt/dd trơ, "nhìn xấu"). */
+.data-item {
+  padding: 0.6rem 0.8rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  min-width: 0;
 }
 .data-item dt {
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--ink-3);
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.2rem;
 }
 .data-item dd {
   margin: 0;
   color: var(--ink);
   font-weight: 500;
+  overflow-wrap: anywhere;
+}
+/* Nội dung tab (lịch sử/mượn/ghi chú): dài thì cuộn trong khung, thead dính đầu. */
+.detail-tabs-body .table-wrap {
+  max-height: 460px;
+  overflow-y: auto;
+}
+.detail-tabs-body .table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 /* --- Tabs (chi tiết tài sản) ---------------------------------------------- */

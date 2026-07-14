@@ -1,0 +1,118 @@
+/* Trang bảng rộng (/tai-san, /phan-mem): nới content để đỡ khoảng trống 2 bên trên màn lớn. */
+.page-wide {
+  max-width: 1560px;
+}
+
+/* --- /tai-san "làm đẹp" (scope .assets-table) — tách khỏi table.css (§6) ----- */
+/* Bỏ zebra sọc (rối) → hàng phẳng, chỉ hover đổi nền như /phan-mem. */
+.assets-table tbody tr:nth-child(even) td {
+  background: transparent;
+}
+.assets-table tbody tr:hover td {
+  background: var(--primary-soft);
+}
+.assets-table tbody td {
+  padding: 0.7rem 1rem;
+}
+.assets-table .mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cột đầu "#": chỉ số thứ tự (caret › nằm ở ô Mã, giống /phan-mem). */
+.lead {
+  text-align: left;
+  white-space: nowrap;
+}
+.lead .row-no {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.lead-col {
+  text-align: left;
+}
+
+/* Ô Mã: caret › (đầu ô) + [mã mono đậm / Hãng mờ] — caret mở/đóng hàng phần mềm như /phan-mem. */
+.cell-code {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  line-height: 1.25;
+}
+.cell-code-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cell-code-id {
+  font-weight: 600;
+  color: var(--ink);
+}
+.cell-sub {
+  font-size: 0.72rem;
+  color: var(--ink-3);
+}
+/* Caret › đầu ô Mã: TO + vùng bấm rộng, xoay 90° + đổi màu primary khi mở (giống .sw-caret). */
+.cell-caret {
+  all: unset;
+  cursor: pointer;
+  flex: none;
+  margin: -4px 0 0 -6px;
+  padding: 2px 6px;
+  color: var(--ink-3);
+  font-size: 1.5rem;
+  line-height: 1;
+  transition: transform 0.2s var(--ease), color 0.2s var(--ease);
+}
+.cell-caret:hover {
+  color: var(--primary-ink);
+}
+.cell-caret.open {
+  transform: rotate(90deg);
+  color: var(--primary-ink);
+}
+.cell-caret-spacer {
+  flex: none;
+  width: 0.9rem;
+}
+
+/* Ô Loại: icon TRÊN, nhãn loại DƯỚI (canh giữa); hover hàng → icon phóng nhẹ + đổi màu primary. */
+.cell-type {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  text-align: center;
+}
+.cell-type > span {
+  font-size: 0.82rem;
+  color: var(--ink-2);
+}
+.type-ic {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  transition: color 0.16s var(--ease), border-color 0.16s var(--ease),
+    transform 0.16s var(--ease);
+}
+.type-ic svg {
+  width: 18px;
+  height: 18px;
+}
+.assets-table tbody tr:hover .type-ic {
+  color: var(--primary-ink);
+  border-color: var(--primary);
+  transform: scale(1.1);
+}
+
+/* Card "Phần mềm đang cài" trong hàng bung: hover rõ (viền + nền primary) + nhấc nhẹ. */
+.inst-list .seat-card.clickable:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: var(--shadow-sm);
+}

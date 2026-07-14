@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { ColumnDef } from '@tanstack/react-table';
 import { RowActionsMenu } from './asset-row-actions';
 import type { RowAction } from './asset-row-actions';
+import { CodeCell, TypeCell } from './asset-cell';
+import type { ExpandMeta } from './ui/data-table';
 import {
   STATUS_BADGE,
   formatVnd,
@@ -12,15 +14,12 @@ import {
 } from './asset-types';
 import type { AssetRow } from './asset-types';
 
-const PAGE_SIZE = 20;
-
 /**
  * Bộ cột DataTable của sổ tài sản. Tab Phần mềm (softwareOnly) và Sổ tài sản dùng bộ cột
  * KHÁC nhau (sw-license-model-redesign): phần mềm định danh bằng Tên license + Máy + Kỳ hạn;
  * máy có cột thông số English cố định + "Pool". Tách khỏi AssetsPage (§6) — chỉ dựng cột.
  */
 export function useAssetColumns(opts: {
-  page: number;
   softwareOnly: boolean;
   disposedOnly: boolean;
   openEdit: (id: string) => void | Promise<void>;
@@ -33,7 +32,6 @@ export function useAssetColumns(opts: {
 }): ColumnDef<AssetRow, unknown>[] {
   const { t } = useTranslation();
   const {
-    page,
     softwareOnly,
     disposedOnly,
     openEdit,
@@ -47,16 +45,6 @@ export function useAssetColumns(opts: {
 
   // id cột KHỚP whitelist BE (code/type/status/assignee) → map thẳng sang ?sort=.
   return useMemo<ColumnDef<AssetRow, unknown>[]>(() => {
-    // No = STT liên tục theo trang (page-size 20) — chỉ hiển thị, không sort.
-    const noCol: ColumnDef<AssetRow, unknown> = {
-      id: 'no',
-      header: t('assets.col.no', 'No'),
-      enableSorting: false,
-      cell: ({ row, table }) =>
-        (page - 1) * PAGE_SIZE +
-        table.getRowModel().rows.findIndex((r) => r.id === row.id) +
-        1,
-    };
     const statusCol: ColumnDef<AssetRow, unknown> = {
       id: 'status',
       accessorKey: 'status',
@@ -116,7 +104,6 @@ export function useAssetColumns(opts: {
     };
     if (softwareOnly) {
       return [
-        noCol,
         {
           id: 'license',
           accessorKey: 'licenseName',
@@ -214,18 +201,18 @@ export function useAssetColumns(opts: {
     // Bảng Tài sản (đại tu UAT): cột thông số theo tên English cố định. Thông số mới
     // (Configuration/Cost/Start Date/Place/Pool) không sort — BE chỉ whitelist code/type/status/assignee.
     const deviceCols: ColumnDef<AssetRow, unknown>[] = [
-      noCol,
       {
         id: 'code',
         accessorKey: 'code',
         header: t('assets.col.code'),
         // Sổ tài sản có thể lẫn dòng phần mềm (không mã) → hiện Tên license thay mã.
-        cell: ({ row }) =>
-          row.original.code ? (
-            <span className="mono">{row.original.code}</span>
-          ) : (
-            (row.original.licenseName ?? '—')
-          ),
+        cell: ({ row, table }) => (
+          <CodeCell
+            row={row.original}
+            rowId={row.id}
+            meta={table.options.meta as ExpandMeta<AssetRow> | undefined}
+          />
+        ),
       },
       {
         id: 'assignee',
@@ -238,10 +225,9 @@ export function useAssetColumns(opts: {
         id: 'type',
         accessorKey: 'type',
         header: t('assets.col.type'),
-        cell: ({ row }) =>
-          row.original.type === 'software'
-            ? t('assets.kindSoftware')
-            : row.original.type,
+        cell: ({ row }) => (
+          <TypeCell row={row.original} softwareLabel={t('assets.kindSoftware')} />
+        ),
       },
       {
         id: 'configuration',
@@ -283,25 +269,10 @@ export function useAssetColumns(opts: {
       cell: ({ row }) => row.original.floor ?? '—',
     });
     deviceCols.push(statusCol);
-    // Cột Pool vô nghĩa trong Kho thanh lý (máy đã rời pool khi thanh lý) → chỉ hiện ở sổ tài sản.
-    if (!disposedOnly) {
-      deviceCols.push({
-        id: 'pool',
-        header: t('assets.col.pool'),
-        enableSorting: false,
-        cell: ({ row }) =>
-          row.original.isPool ? (
-            <span className="badge ok plain">{t('assets.pool')}</span>
-          ) : (
-            <span className="muted">—</span>
-          ),
-      });
-    }
     deviceCols.push(actionsCol);
     return deviceCols;
   }, [
     t,
-    page,
     softwareOnly,
     disposedOnly,
     openEdit,

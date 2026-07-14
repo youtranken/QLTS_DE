@@ -286,7 +286,6 @@ export function AssetsPage({
   });
 
   const columns = useAssetColumns({
-    page,
     softwareOnly,
     disposedOnly,
     openEdit,
@@ -408,6 +407,8 @@ export function AssetsPage({
       <DataTable
         data={items}
         columns={columns}
+        tableClassName={softwareOnly ? undefined : 'assets-table'}
+        rowNumberOffset={(page - 1) * PAGE_SIZE}
         emptyText={hasFilter ? t('assets.noMatch') : t('assets.empty')}
         selection={
           bulkSelectable

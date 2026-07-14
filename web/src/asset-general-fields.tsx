@@ -40,7 +40,7 @@ export function AssetGeneralFields({
   const { t } = useTranslation();
   const isEditing = form.id != null;
   return (
-    <div className="form-grid">
+    <div className="form-grid asset-grid">
       {/* Phần mềm định danh bằng Tên license → KHÔNG có Mã tài sản (sw-license-model-redesign) */}
       {!form.isSoftware && (
         <label className="field">
@@ -109,6 +109,26 @@ export function AssetGeneralFields({
             value={form.licenseName}
             onChange={(e) => set('licenseName')(e.target.value)}
           />
+        </label>
+      )}
+      {/* Trạng thái ở HÀNG ĐẦU cạnh Code/Type (đủ 3 cột). Tạo mới luôn "Đang dùng" → ẩn.
+          Sửa + đang dùng: đổi sang Thanh lý (chạy luồng thanh lý + preview cascade); khác → tĩnh. */}
+      {isEditing && (
+        <label className="field">
+          <span>{t('assets.statusLabel')}</span>
+          {form.status === 'in_use' && onDispose ? (
+            <select
+              value={form.status}
+              onChange={(e) => {
+                if (e.target.value === 'disposed') onDispose();
+              }}
+            >
+              <option value="in_use">{t('assets.status.in_use')}</option>
+              <option value="disposed">{t('assets.status.disposed')}</option>
+            </select>
+          ) : (
+            <input disabled value={t(`assets.status.${form.status}`)} />
+          )}
         </label>
       )}
       {/* Cấu hình: chỉ dành cho máy — phần mềm không có (sw-license-model-redesign) */}
@@ -189,26 +209,6 @@ export function AssetGeneralFields({
             }
             onChange={set('endDate')}
           />
-        </label>
-      )}
-      {/* Tạo mới LUÔN là "Đang dùng" → ẩn ô Trạng thái. Chỉ hiện khi SỬA: đang dùng thì cho
-          đổi sang Thanh lý (chạy luồng thanh lý + preview cascade); trạng thái khác hiển thị tĩnh. */}
-      {isEditing && (
-        <label className="field">
-          <span>{t('assets.statusLabel')}</span>
-          {form.status === 'in_use' && onDispose ? (
-            <select
-              value={form.status}
-              onChange={(e) => {
-                if (e.target.value === 'disposed') onDispose();
-              }}
-            >
-              <option value="in_use">{t('assets.status.in_use')}</option>
-              <option value="disposed">{t('assets.status.disposed')}</option>
-            </select>
-          ) : (
-            <input disabled value={t(`assets.status.${form.status}`)} />
-          )}
         </label>
       )}
       <label className="field">

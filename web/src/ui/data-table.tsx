@@ -10,6 +10,13 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 
+/** Trạng thái expand đưa xuống cột (qua table.meta) để ô đầu tự vẽ caret › như /phan-mem. */
+export interface ExpandMeta<T> {
+  expandedId: string | null;
+  canExpandRow: (row: T) => boolean;
+  toggleExpand: (id: string) => void;
+}
+
 interface DataTableProps<T> {
   data: T[];
   columns: ColumnDef<T, unknown>[];
@@ -36,6 +43,8 @@ interface DataTableProps<T> {
   canExpand?: (row: T) => boolean;
   /** ≤680px gập bảng thành thẻ dọc (mỗi ô 1 dòng có nhãn cột). */
   stackOnMobile?: boolean;
+  /** Có giá trị → cột đầu (cùng ô ▸) hiện số thứ tự "#" = offset + vị trí + 1. Cần renderExpanded. */
+  rowNumberOffset?: number;
   /** Chọn nhiều dòng (5.1): checkbox đầu dòng + chọn-tất-cả theo trang hiện tại. */
   selection?: {
     selected: Set<string>;
@@ -65,6 +74,7 @@ export function DataTable<T>({
   canExpand,
   stackOnMobile,
   selection,
+  rowNumberOffset,
 }: DataTableProps<T>) {
   const [internalSort, setInternalSort] = useState<SortingState>(initialSort);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -92,6 +102,13 @@ export function DataTable<T>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    // Cột đầu (Code) tự vẽ caret › mở/đóng như /phan-mem — đọc qua cell.table.options.meta.
+    meta: {
+      expandedId,
+      canExpandRow: (r: T) => !!renderExpanded && (canExpand?.(r) ?? true),
+      toggleExpand: (id: string) =>
+        setExpandedId((cur) => (cur === id ? null : id)),
+    } satisfies ExpandMeta<T>,
   });
 
   const rows = table.getRowModel().rows;
@@ -139,7 +156,13 @@ export function DataTable<T>({
                   </th>
                 )}
                 {renderExpanded && (
-                  <th aria-hidden="true" style={{ width: 34 }} />
+                  <th
+                    className="lead-col"
+                    aria-hidden={rowNumberOffset == null || undefined}
+                    style={{ width: rowNumberOffset != null ? 56 : 34 }}
+                  >
+                    {rowNumberOffset != null ? '#' : null}
+                  </th>
                 )}
                 {hg.headers.map((h) => {
                   const sorted = h.column.getIsSorted();
@@ -189,7 +212,7 @@ export function DataTable<T>({
                 </td>
               </tr>
             ) : (
-              rows.map((row) => {
+              rows.map((row, rowIndex) => {
                 const rowCanExpand =
                   !!renderExpanded && (canExpand?.(row.original) ?? true);
                 const expanded = rowCanExpand && expandedId === row.id;
@@ -235,20 +258,11 @@ export function DataTable<T>({
                         </td>
                       )}
                       {renderExpanded && (
-                        <td className="caret">
-                          {rowCanExpand && (
-                            <button
-                              type="button"
-                              className="caret-btn"
-                              aria-expanded={expanded}
-                              aria-label={expanded ? 'Thu gọn' : 'Mở rộng'}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setExpandedId(expanded ? null : row.id);
-                              }}
-                            >
-                              {expanded ? '▾' : '▸'}
-                            </button>
+                        <td className="lead">
+                          {rowNumberOffset != null && (
+                            <span className="row-no">
+                              {rowNumberOffset + rowIndex + 1}
+                            </span>
                           )}
                         </td>
                       )}

@@ -57,8 +57,9 @@
 }
 .sw-caret {
   color: var(--ink-3);
-  font-size: 1.1rem;
+  font-size: 1.5rem;
   line-height: 1;
+  padding: 2px 4px;
   transition: transform 0.2s var(--ease), color 0.2s var(--ease);
   flex: none;
 }
@@ -182,6 +183,12 @@ table.table td.right {
    auto co theo nội dung ("—") nên lệch cột. Fixed px → thẳng hàng dù ô rỗng. */
 .seat-list {
   --seat-cols: minmax(110px, 1.1fr) minmax(90px, 1fr) 112px 108px 108px minmax(0, 1.2fr) 40px;
+}
+/* Hàng bung /tai-san (phần mềm đang cài trên máy): License/Loại/Start/End/Trạng thái (5 cột).
+   Dùng fr cho MỌI cột để slack chia đều (khỏi gap lớn sau tên khi bảng rộng). */
+.seat-list.inst-list {
+  --seat-cols: minmax(180px, 2.6fr) minmax(110px, 1fr) minmax(90px, 1fr)
+    minmax(120px, 1fr) minmax(120px, 1.1fr);
 }
 .seat-hd {
   display: grid;

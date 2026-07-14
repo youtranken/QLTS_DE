@@ -171,8 +171,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
   }
 
   const info: Array<[string, React.ReactNode]> = [
-    // Phần mềm không có Mã tài sản (định danh bằng Tên license, hiển thị ở khối software bên dưới).
-    [t('assets.code'), detail.type === 'software' ? null : detail.code],
+    // Mã đã hiện ở tiêu đề (h1) → không lặp lại trong lưới thông tin.
     [
       t('assets.type'),
       detail.type === 'software' ? t('assets.kindSoftware') : detail.type,
@@ -189,13 +188,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
     [t('assets.endDate'), detail.endDate],
     [t('assets.serial'), detail.serial],
     [t('assets.brand'), detail.brand],
-    [
-      t('assets.assignee'),
-      detail.assignedUserSub
-        ? (detail.assignedUserName ?? detail.assignedUserSub)
-        : t('assets.assigneeEmpty'),
-    ],
-    [t('assets.pool'), detail.isPool ? '✓' : '—'],
+    // User + Pool bỏ khỏi lưới thông tin — đã có ở panel "Người giữ hiện tại" (tránh trùng).
     [t('assets.note'), detail.note],
   ];
   if (detail.type === 'software') {
@@ -346,7 +339,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
           {t('assets.notesTab')}
         </button>
       </div>
-      <div style={{ marginTop: '0.75rem' }}>
+      <div className="detail-tabs-body" style={{ marginTop: '0.75rem' }}>
         {tab === 'alloc' &&
           (allocations.length === 0 ? (
             <p className="empty">{t('assets.noAllocations')}</p>

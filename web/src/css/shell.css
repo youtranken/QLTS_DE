@@ -1,0 +1,221 @@
+/* --- Shell theo app-shell.html: icon/badge/footer sidebar + rail + topbar mới --------- */
+
+.sidebar {
+  transition: width 0.2s var(--ease);
+}
+.nav-ic {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.nav-item .lbl,
+.nav-parent .lbl {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-badge {
+  flex: none;
+  font-size: 0.66rem;
+  font-weight: 800;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--sidebar-ink-2);
+}
+.nav-badge.warn {
+  background: var(--warm);
+  color: #1f231c;
+}
+.nav-parent .nav-caret {
+  flex: none;
+}
+/* Nút <button> mặc định text-align:center → nhãn bị dồn giữa ô, lệch phải. Ép trái như <a>. */
+.nav-parent {
+  text-align: left;
+}
+/* Mũi tên dropdown DÙNG CHUNG 1 kiểu: chevron › xoay 90° khi mở (như caret expand bảng). */
+.nav-caret {
+  font-size: 1.05rem;
+  line-height: 1;
+  opacity: 0.75;
+  transition: transform 0.18s var(--ease);
+}
+.nav-caret.open {
+  transform: rotate(90deg);
+}
+
+/* Footer sidebar: avatar + tên + vai. */
+.sb-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.sb-av {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.72rem;
+  background: var(--grad);
+}
+.sb-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sb-who b {
+  color: var(--sidebar-ink-2);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-who span {
+  color: var(--sidebar-label);
+  font-size: 0.72rem;
+}
+
+/* Rail thu gọn (desktop): ẩn nhãn/badge/label, canh giữa icon. */
+.app-shell.collapsed .sidebar {
+  width: 72px;
+}
+.app-shell.collapsed .lbl,
+.app-shell.collapsed .nav-label,
+.app-shell.collapsed .nav-badge,
+.app-shell.collapsed .nav-children {
+  display: none;
+}
+.app-shell.collapsed .nav-item,
+.app-shell.collapsed .nav-parent,
+.app-shell.collapsed .brand,
+.app-shell.collapsed .sb-foot {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+.app-shell.collapsed .nav-item:hover {
+  transform: none;
+}
+
+/* --- Topbar mới ---------------------------------------------------------------------- */
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.icon-btn:hover {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+}
+/* Nút 3-gạch sát mép sidebar hơn — giảm padding-trái topbar (đối xứng vẫn giữ phải 1.5rem). */
+.topbar {
+  padding-left: 0.6rem;
+}
+.tb-menu {
+  position: relative;
+  flex: none;
+}
+.tb-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.8rem;
+  background: var(--grad);
+  display: grid;
+  place-items: center;
+}
+.tb-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 40;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tb-dd-head {
+  padding: 8px 10px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.tb-dd-head b {
+  display: block;
+  font-size: 0.9rem;
+}
+.tb-dd-head span {
+  color: var(--ink-3);
+  font-size: 0.76rem;
+}
+.tb-dd-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+}
+.tb-dd-item:hover {
+  background: var(--surface-2);
+}
+/* Đè global .danger (nền đỏ) — item menu chỉ CHỮ đỏ, nền trong suốt (đỏ-trên-đỏ = mất chữ). */
+.tb-dropdown .tb-dd-item.danger {
+  background: transparent;
+  color: var(--danger);
+}
+.tb-dropdown .tb-dd-item.danger:hover {
+  background: var(--danger-soft);
+}
+.tb-dd-badge {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 1px 7px;
+}

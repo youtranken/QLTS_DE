@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from './api-client';
-import { STATUS_BADGE } from './asset-types';
+import { STATUS_BADGE, formatDmy } from './asset-types';
 
 /** Phần mềm/license đang cài trên một máy (GET /assets/:id/software). */
 export interface InstalledSoftware {
@@ -32,53 +32,57 @@ export function AssetSoftwareTable({ items }: { items: InstalledSoftware[] }) {
           `/phan-mem/license/${encodeURIComponent(s.licenseName)}?seat=${s.id}`,
         )
       : navigate(`/tai-san/${s.id}`);
+  // Card kiểu /phan-mem (.seat-list): License / Loại / Start / End / Trạng thái. Click → license.
   return (
-    <div className="table-wrap">
-      <table className="table">
-        <thead>
-          <tr>
-            <th>{t('assets.licenseName')}</th>
-            <th>{t('assets.licenseType')}</th>
-            <th>{t('assets.startDate')}</th>
-            <th>{t('assets.endDate')}</th>
-            <th>{t('assets.statusLabel')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((s) => (
-            <tr
-              key={s.id}
-              className="clickable"
-              onClick={() => openSoftware(s)}
-            >
-              <td>{s.licenseName ?? <span className="mono">{s.code}</span>}</td>
-              <td>
-                {s.licenseType === 'term'
-                  ? t('assets.licenseTerm')
-                  : s.licenseType === 'perpetual'
-                    ? t('assets.licensePerpetual')
-                    : '—'}
-              </td>
-              <td>{s.startDate ?? '—'}</td>
-              <td>
-                {s.licenseType === 'perpetual'
-                  ? t('assets.licensePerpetual')
-                  : (s.endDate ?? '—')}
-              </td>
-              <td>
-                {s.status ? (
-                  <span className={`badge ${STATUS_BADGE[s.status] ?? 'muted'}`}>
-                    {t(`assets.status.${s.status}`)}
-                  </span>
-                ) : (
-                  '—'
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className="sw-detail-head">
+        {t('assets.installedTitle', { n: items.length, defaultValue: 'Phần mềm đang cài ({{n}})' })}
+      </div>
+      <div className="seat-list inst-list">
+        <div className="seat-hd">
+          <span>{t('assets.licenseName')}</span>
+          <span>{t('assets.licenseType')}</span>
+          <span>{t('assets.startDate')}</span>
+          <span>{t('assets.endDate')}</span>
+          <span>{t('assets.statusLabel')}</span>
+        </div>
+        {items.map((s) => (
+          <div
+            key={s.id}
+            className="seat-card clickable"
+            onClick={() => openSoftware(s)}
+          >
+            <div className="seat-mc">
+              {s.licenseName ?? <span className="mono">{s.code}</span>}
+            </div>
+            <div>
+              {s.licenseType === 'term' ? (
+                <span className="badge warn">{t('assets.licenseTerm')}</span>
+              ) : s.licenseType === 'perpetual' ? (
+                <span className="badge ok">{t('assets.licensePerpetual')}</span>
+              ) : (
+                <span className="muted">—</span>
+              )}
+            </div>
+            <div className="seat-date">{formatDmy(s.startDate)}</div>
+            <div className="seat-date">
+              {s.licenseType === 'perpetual'
+                ? t('assets.licensePerpetual')
+                : formatDmy(s.endDate)}
+            </div>
+            <div>
+              {s.status ? (
+                <span className={`badge ${STATUS_BADGE[s.status] ?? 'muted'}`}>
+                  {t(`assets.status.${s.status}`)}
+                </span>
+              ) : (
+                <span className="muted">—</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 

@@ -6,7 +6,9 @@
  * ========================================================================== */
 @import './css/tokens.css';        /* :root token + dark override + body + animations */
 @import './css/base.css';          /* form controls, buttons, shell (sidebar/topbar), page header, card */
+@import './css/shell.css';         /* app-shell: nav icon/badge/footer, rail collapse, topbar (search ⌘K, avatar menu) */
 @import './css/table.css';         /* bảng chữ ký, menu ⋯, badge/pill, recurring expander */
+@import './css/assets-table.css';  /* /tai-san: caret ô Mã, icon Loại, #, hover (scope .assets-table) */
 @import './css/overlays.css';      /* alerts, field, modal, command palette (⌘K), utilities */
 @import './css/auth.css';          /* màn đăng nhập 2 cột branded */
 @import './css/form-layout.css';   /* segmented, form section, combobox, chip, sheet editor */
