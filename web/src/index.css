@@ -1791,19 +1791,19 @@ input.search {
 .dmtabs label:active {
   transform: scale(0.97);
 }
+/* Tab active nhã như mockup: nền surface nổi trên track + chữ primary (không xanh đậm). */
 .dmtabs label:has(input:checked) {
-  background: var(--primary);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  background: var(--surface);
+  color: var(--primary-ink);
+  box-shadow: var(--shadow-sm);
 }
-/* Đếm số: nhạt trên nền thường, sáng trên tab đang chọn. */
 .dmtabs .badge {
   margin-left: 0.1rem;
   transition: background 0.2s var(--ease), color 0.2s var(--ease);
 }
 .dmtabs label:has(input:checked) .badge {
-  background: rgba(255, 255, 255, 0.25);
-  color: #fff;
+  background: var(--primary-soft);
+  color: var(--primary-ink);
 }
 .dmcol {
   border: 1px solid var(--border);
