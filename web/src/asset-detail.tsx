@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { AssetForm } from './asset-form';
 import { AssetSoftwareTable } from './asset-software-list';
 import type { InstalledSoftware } from './asset-software-list';
-import { detailToForm } from './asset-types';
+import { detailToForm, STATUS_BADGE } from './asset-types';
 import type { AllocationRow, AssetDetail, NoteRow } from './asset-types';
 import type { Me } from './panels';
 import { PhotoLightbox } from './photo-lightbox';
@@ -218,6 +218,21 @@ export function AssetDetailPage({ me }: { me: Me }) {
     );
   }
 
+  // Bảo hành/hạn dùng: % đã trôi + số ngày còn lại (chỉ khi có đủ start+end). endDate = hạn.
+  const warranty = (() => {
+    if (detail.type === 'software' || !detail.startDate || !detail.endDate) {
+      return null;
+    }
+    const start = new Date(detail.startDate).getTime();
+    const end = new Date(detail.endDate).getTime();
+    const now = Date.now();
+    if (!(end > start)) return null;
+    const pct = Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100));
+    const daysLeft = Math.ceil((end - now) / 86400000);
+    const tone = daysLeft < 0 ? 'danger' : daysLeft <= 30 ? 'warn' : 'ok';
+    return { pct, daysLeft, tone };
+  })();
+
   return (
     <>
       <p style={{ marginBottom: '0.5rem' }}>
@@ -225,6 +240,9 @@ export function AssetDetailPage({ me }: { me: Me }) {
       </p>
       <div className="page-header">
         <h1>{detail.code ?? detail.licenseName ?? '—'}</h1>
+        <span className={`badge ${STATUS_BADGE[detail.status] ?? 'muted'}`}>
+          {t(`assets.status.${detail.status}`)}
+        </span>
         {detail.type !== 'software' && (
           <Link className="linkbtn" to={`/lich-may/${id}`}>
             {t('calendar.openLink', 'Lịch máy')}
@@ -247,6 +265,54 @@ export function AssetDetailPage({ me }: { me: Me }) {
             ))}
         </dl>
       </div>
+      {detail.type !== 'software' && (
+        <div className="detail-cards">
+          <div className="card mini-card">
+            <div className="mc-label">{t('assets.currentHolder', 'Người giữ hiện tại')}</div>
+            {detail.assignedUserSub ? (
+              <div className="mc-value">
+                {detail.assignedUserName ?? detail.assignedUserSub}
+              </div>
+            ) : (
+              <div className="mc-value muted">{t('assets.assigneeEmpty')}</div>
+            )}
+            {detail.isPool && (
+              <span className="badge ok" style={{ marginTop: '0.5rem' }}>
+                {t('assets.pool')}
+              </span>
+            )}
+          </div>
+          <div className="card mini-card">
+            <div className="mc-label">{t('assets.warranty', 'Bảo hành / hạn dùng')}</div>
+            {warranty ? (
+              <>
+                <div className="warranty-bar">
+                  <div
+                    className={`warranty-fill ${warranty.tone}`}
+                    style={{ width: `${warranty.pct}%` }}
+                  />
+                </div>
+                <div className="warranty-meta">
+                  <span className="muted">
+                    {detail.startDate} → {detail.endDate}
+                  </span>
+                  <span className={`badge ${warranty.tone}`}>
+                    {warranty.daysLeft < 0
+                      ? t('assets.warrantyExpired', 'Đã hết hạn')
+                      : t('assets.warrantyDaysLeft', 'Còn {{d}} ngày', {
+                          d: warranty.daysLeft,
+                        })}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="mc-value muted">
+                {t('assets.warrantyNone', 'Chưa có mốc bảo hành')}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {detail.type !== 'software' && (
         <div style={{ margin: '0.75rem 0 1.25rem' }}>
           <h3 style={{ margin: '0 0 0.4rem' }}>{t('assets.installedSoftware')}</h3>

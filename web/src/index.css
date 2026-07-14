@@ -2604,6 +2604,61 @@ html[data-theme='dark']
   background: transparent;
 }
 
+/* --- Chi tiết tài sản: card Người giữ + Bảo hành ------------------------- */
+.detail-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 0.5rem 0 1.25rem;
+}
+.detail-cards .mini-card {
+  padding: 1rem 1.1rem;
+}
+.mini-card .mc-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin-bottom: 0.4rem;
+}
+.mini-card .mc-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.warranty-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin: 0.4rem 0 0.6rem;
+}
+.warranty-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.warranty-fill.ok {
+  background: var(--ok);
+}
+.warranty-fill.warn {
+  background: var(--warn);
+}
+.warranty-fill.danger {
+  background: var(--danger);
+}
+.warranty-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+@media (max-width: 680px) {
+  .detail-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* --- Ô mật khẩu có nút hiện/ẩn (login SA) -------------------------------- */
 .pw-field {
   position: relative;
