@@ -256,6 +256,10 @@ button.primary {
   box-shadow: 0 8px 18px -8px var(--warm-ink);
 }
 button.primary:hover:not(:disabled) {
+  /* PHẢI khai báo lại background: rule chung `button:hover{background:surface-2}` có
+     specificity cao hơn base `button.primary` → nếu không, hover đè nền sáng + chữ trắng
+     = nút "biến mất" ở theme sáng. */
+  background: var(--grad);
   filter: brightness(1.04);
   box-shadow: 0 10px 22px -8px var(--warm-ink);
 }
@@ -2682,12 +2686,97 @@ html[data-theme='dark']
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* Bố cục: lịch (chính) + rail máy trống (phải); ≤980px xếp dọc */
+.mcal-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 1rem;
+  align-items: start;
+}
+.mcal-main {
+  min-width: 0;
+}
+.mcal-rail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 0.9rem;
+}
+.mcal-rail h2 {
+  font-size: 0.95rem;
+  margin: 0 0 0.6rem;
+}
+.mcal-freelist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 460px;
+  overflow-y: auto;
+}
+.mcal-freecard {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.mcal-freecard .fc-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mcal-freecard .fc-code {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mcal-freecard .fc-spec {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mcal-freecard button {
+  flex: none;
+}
+.mcal-active-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.6rem;
+}
+.mcal-active-head h2 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+@media (max-width: 980px) {
+  .mcal-layout {
+    grid-template-columns: 1fr;
+  }
+  .mcal-freelist {
+    max-height: none;
+  }
+}
 .mcal-scroll {
-  overflow-x: auto;
+  overflow: auto;
+  /* Cố định ~10 máy (48px header + 10×64px) rồi cuộn dọc — chừa chỗ cho bảng đang mượn. */
+  max-height: 688px;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+}
+/* Header ngày dính khi cuộn dọc danh sách máy dài. */
+.mcal-scroll .mcal-corner,
+.mcal-scroll .mcal-dhead {
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 .mcal-grid {
   display: grid;

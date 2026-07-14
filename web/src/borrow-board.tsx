@@ -56,16 +56,6 @@ const hOnly = (iso: string | null): string =>
       })
     : '—';
 
-const typeIcon = (type: string | null): string => {
-  const ty = (type ?? '').toLowerCase();
-  if (ty.includes('laptop')) return '💻';
-  if (ty.includes('desktop') || ty.includes('pc')) return '🖥️';
-  if (ty.includes('printer') || ty.includes('máy in')) return '🖨️';
-  if (ty.includes('monitor') || ty.includes('màn')) return '🖥️';
-  if (ty.includes('phone') || ty.includes('điện thoại')) return '📱';
-  return '📦';
-};
-
 interface CalBusy {
   from: string;
   to: string;
@@ -293,7 +283,6 @@ export function BorrowBoardPage({ me }: { me: Me }) {
           const r = row.original;
           return (
             <>
-              <span style={{ marginRight: 6 }}>{typeIcon(r.type)}</span>
               <span className="mono">{r.assetCode ?? '—'}</span>
               <small className="muted" style={{ marginLeft: 6 }}>
                 {r.type ?? ''}
@@ -457,7 +446,6 @@ export function BorrowBoardPage({ me }: { me: Me }) {
                   return (
                     <div key={m.id} className="mcard mcard-sm">
                       <div className="mc-head">
-                        <span className="mc-ico">{typeIcon(m.type)}</span>
                         <span className="mc-code">{m.code}</span>
                         {busy ? (
                           <span className="avail busy">

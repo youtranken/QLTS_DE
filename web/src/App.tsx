@@ -457,7 +457,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             {/* Landing 7.5: borrow board cho MỌI vai (thay dashboard/đặt-máy cũ ở '/'). */}
             <Route path="/" element={<BorrowBoardPage me={me} />} />
             <Route path="/lich-may/:id" element={<MachineCalendarPage />} />
-            <Route path="/lich-may" element={<CalendarOverviewPage />} />
+            <Route path="/lich-may" element={<CalendarOverviewPage me={me} />} />
             <Route path="/ho-so" element={<ProfilePage me={me} />} />
             <Route
               path="/xu-ly-muon"

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LoadError } from './load-state';
+import { BookingSheet } from './booking-sheet';
+import type { Me } from './panels';
 
 interface BusyBlock {
   from: string;
@@ -20,35 +22,55 @@ interface PoolCalendar {
   weekEnd: string;
   machines: CalMachine[];
 }
+interface FreeMachine {
+  id: string;
+  code: string;
+  type: string;
+  configuration: string | null;
+}
+interface BoardRow {
+  ticketId: string;
+  assetCode: string | null;
+  type: string | null;
+  borrowerName: string | null;
+  from: string | null;
+  due: string | null;
+  state: string;
+  isOverdue: boolean;
+  isMine: boolean;
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-// held = đã giữ chỗ chờ duyệt → "chờ duyệt"; pending/delivered → "đang mượn" (AD-5: không tên).
+// held = giữ chỗ chờ duyệt → "chờ duyệt"; pending/delivered → "đang mượn" (AD-5: không tên).
 type BlockType = 'borrow' | 'pending';
 const blockType = (state: string): BlockType =>
   state === 'held' ? 'pending' : 'borrow';
 
 interface PlacedBlock {
-  startDay: number; // 0..6 (T2..CN)
-  span: number; // số ngày trong tuần
+  startDay: number;
+  span: number;
   type: BlockType;
   key: string;
 }
 
-/** UP: Lịch máy tổng (mọi máy pool) — route /lich-may, mục sidebar riêng. */
-export function CalendarOverviewPage() {
+/** UP: Lịch máy tổng + panel đặt nhanh (máy trống) + bảng đang mượn — route /lich-may. */
+export function CalendarOverviewPage({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
   const [weekStart, setWeekStart] = useState<string | null>(null);
   const [data, setData] = useState<PoolCalendar | null>(null);
+  const [free, setFree] = useState<FreeMachine[]>([]);
+  const [board, setBoard] = useState<BoardRow[]>([]);
   const [error, setError] = useState(false);
   const [machineFilter, setMachineFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState<'' | BlockType>('');
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [preset, setPreset] = useState<FreeMachine | undefined>(undefined);
+  const [boardMine, setBoardMine] = useState(false);
 
-  const load = useCallback(async () => {
+  const loadCalendar = useCallback(async () => {
     setError(false);
     try {
-      const qs = weekStart
-        ? `?weekStart=${encodeURIComponent(weekStart)}`
-        : '';
+      const qs = weekStart ? `?weekStart=${encodeURIComponent(weekStart)}` : '';
       const res = await fetch(`/api/booking/calendar${qs}`);
       if (res.status === 401) {
         window.location.href = '/';
@@ -64,9 +86,43 @@ export function CalendarOverviewPage() {
     }
   }, [weekStart]);
 
+  const loadSide = useCallback(async () => {
+    try {
+      const [fRes, bRes] = await Promise.all([
+        fetch('/api/booking/pool-machines'),
+        fetch('/api/booking/board'),
+      ]);
+      if (fRes.ok) setFree((await fRes.json()) as FreeMachine[]);
+      if (bRes.ok) setBoard((await bRes.json()) as BoardRow[]);
+    } catch {
+      /* rail/board phụ trợ — lỗi không chặn lịch */
+    }
+  }, []);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadCalendar();
+  }, [loadCalendar]);
+  useEffect(() => {
+    void loadSide();
+  }, [loadSide]);
+
+  const openBooking = (m?: FreeMachine) => {
+    setPreset(m);
+    setSheetOpen(true);
+  };
+
+  const fmtDate = useCallback(
+    (iso: string | null) =>
+      iso
+        ? new Date(iso).toLocaleString(i18n.language, {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '—',
+    [i18n.language],
+  );
 
   const days = useMemo(() => {
     if (!data) return [];
@@ -101,7 +157,6 @@ export function CalendarOverviewPage() {
       : data.machines;
   }, [data, machineFilter]);
 
-  // Clamp block [from,to) vào tuần → (startDay, span). Bỏ block ngoài loại lọc.
   const placeBlocks = useCallback(
     (m: CalMachine): PlacedBlock[] => {
       if (!data) return [];
@@ -131,13 +186,22 @@ export function CalendarOverviewPage() {
   const typeLabel = (tp: BlockType) =>
     tp === 'pending' ? t('calendar.pending') : t('calendar.borrow');
 
-  if (error) return <LoadError onRetry={load} />;
+  const boardRows = useMemo(
+    () => (boardMine ? board.filter((r) => r.isMine) : board),
+    [board, boardMine],
+  );
+
+  if (error) return <LoadError onRetry={loadCalendar} />;
   if (!data) return null;
 
   return (
     <div className="mcal-page">
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <h1>{t('calendar.overviewTitle')}</h1>
+        <span style={{ flex: 1 }} />
+        <button type="button" className="primary" onClick={() => openBooking()}>
+          {t('board.bookMachine')}
+        </button>
       </div>
       <p className="muted mcal-sub">{t('calendar.overviewSub')}</p>
 
@@ -180,107 +244,226 @@ export function CalendarOverviewPage() {
         </select>
       </div>
 
-      {machines.length === 0 ? (
-        <p className="empty">{t('calendar.empty')}</p>
-      ) : (
-        <>
-          {/* Desktop: lưới máy × 7 ngày */}
-          <div className="mcal-scroll desktop-only">
-            <div
-              className="mcal-grid"
-              style={{ gridTemplateRows: `48px repeat(${machines.length}, 64px)` }}
-            >
-              <div className="mcal-corner" style={{ gridColumn: 1, gridRow: 1 }}>
-                {t('calendar.machineCol')}
-              </div>
-              {days.map((dy, i) => (
+      <div className="mcal-layout">
+        {/* Lịch (chính) */}
+        <div className="mcal-main">
+          {machines.length === 0 ? (
+            <p className="empty">{t('calendar.overviewEmpty')}</p>
+          ) : (
+            <>
+              <div className="mcal-scroll desktop-only">
                 <div
-                  key={i}
-                  className={`mcal-dhead${dy.weekend ? ' we' : ''}`}
-                  style={{ gridColumn: 2 + i, gridRow: 1 }}
+                  className="mcal-grid"
+                  style={{ gridTemplateRows: `48px repeat(${machines.length}, 64px)` }}
                 >
-                  <span className="dw">{dy.w}</span>
-                  <span className="dn">{dy.d}</span>
+                  <div className="mcal-corner" style={{ gridColumn: 1, gridRow: 1 }}>
+                    {t('calendar.machineCol')}
+                  </div>
+                  {days.map((dy, i) => (
+                    <div
+                      key={i}
+                      className={`mcal-dhead${dy.weekend ? ' we' : ''}`}
+                      style={{ gridColumn: 2 + i, gridRow: 1 }}
+                    >
+                      <span className="dw">{dy.w}</span>
+                      <span className="dn">{dy.d}</span>
+                    </div>
+                  ))}
+                  {machines.map((m, mi) => (
+                    <div key={`row-${m.id}`} style={{ display: 'contents' }}>
+                      <div className="mcal-mcell" style={{ gridColumn: 1, gridRow: mi + 2 }}>
+                        <span className="mn">{m.code ?? '—'}</span>
+                        <span className="mm">
+                          {m.type}
+                          {m.configuration ? ` · ${m.configuration}` : ''}
+                        </span>
+                      </div>
+                      {days.map((dy, c) => (
+                        <div
+                          key={`cell-${m.id}-${c}`}
+                          className={`mcal-daycell${dy.weekend ? ' we' : ''}`}
+                          style={{ gridColumn: 2 + c, gridRow: mi + 2 }}
+                        />
+                      ))}
+                      {placeBlocks(m).map((b) => (
+                        <div
+                          key={b.key}
+                          className={`mcal-block ${b.type}`}
+                          style={{
+                            gridColumn: `${2 + b.startDay} / span ${b.span}`,
+                            gridRow: mi + 2,
+                          }}
+                          title={typeLabel(b.type)}
+                        >
+                          {typeLabel(b.type)}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
                 </div>
-              ))}
-              {machines.map((m, mi) => (
-                <div key={`row-${m.id}`} style={{ display: 'contents' }}>
-                  <div className="mcal-mcell" style={{ gridColumn: 1, gridRow: mi + 2 }}>
-                    <span className="mn">{m.code ?? '—'}</span>
-                    <span className="mm">
+              </div>
+
+              <div className="mcal-mobile mobile-only">
+                {machines.map((m) => {
+                  const blocks = placeBlocks(m);
+                  return (
+                    <div className="mcal-mcard" key={`mob-${m.id}`}>
+                      <div className="mcal-mhead">
+                        <span className="mn">{m.code ?? '—'}</span>
+                        <span className="mm">{m.type}</span>
+                      </div>
+                      <div className="mcal-mbody">
+                        {blocks.length === 0 ? (
+                          <div className="mcal-free">{t('calendar.freeWeek')}</div>
+                        ) : (
+                          blocks.map((b) => (
+                            <div className="mcal-slot" key={b.key}>
+                              <span className={`mcal-bar ${b.type}`} />
+                              <span className="rng">
+                                {days[b.startDay]?.d}
+                                {b.span > 1
+                                  ? ` → ${days[Math.min(6, b.startDay + b.span - 1)]?.d}`
+                                  : ''}
+                              </span>
+                              <span className={`badge ${b.type === 'pending' ? 'warn' : 'ok'}`}>
+                                {typeLabel(b.type)}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mcal-legend">
+                <span className="lg">
+                  <span className="sw borrow" />
+                  {t('calendar.borrow')}
+                </span>
+                <span className="lg">
+                  <span className="sw pending" />
+                  {t('calendar.pending')}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Rail máy trống — đặt nhanh (bên phải) */}
+        <aside className="mcal-rail">
+          <h2>{t('calendar.railTitle')}</h2>
+          {free.length === 0 ? (
+            <p className="muted" style={{ fontSize: '0.85rem' }}>
+              {t('calendar.railEmpty')}
+            </p>
+          ) : (
+            <div className="mcal-freelist">
+              {free.map((m) => (
+                <div className="mcal-freecard" key={m.id}>
+                  <div className="fc-main">
+                    <span className="fc-code">{m.code}</span>
+                    <span className="fc-spec">
                       {m.type}
                       {m.configuration ? ` · ${m.configuration}` : ''}
                     </span>
                   </div>
-                  {days.map((dy, c) => (
-                    <div
-                      key={`cell-${m.id}-${c}`}
-                      className={`mcal-daycell${dy.weekend ? ' we' : ''}`}
-                      style={{ gridColumn: 2 + c, gridRow: mi + 2 }}
-                    />
-                  ))}
-                  {placeBlocks(m).map((b) => (
-                    <div
-                      key={b.key}
-                      className={`mcal-block ${b.type}`}
-                      style={{
-                        gridColumn: `${2 + b.startDay} / span ${b.span}`,
-                        gridRow: mi + 2,
-                      }}
-                      title={typeLabel(b.type)}
-                    >
-                      {typeLabel(b.type)}
-                    </div>
-                  ))}
+                  <button type="button" className="primary sm" onClick={() => openBooking(m)}>
+                    {t('board.book', 'Đặt')}
+                  </button>
                 </div>
               ))}
             </div>
-          </div>
+          )}
+        </aside>
+      </div>
 
-          {/* Mobile: list theo máy */}
-          <div className="mcal-mobile mobile-only">
-            {machines.map((m) => {
-              const blocks = placeBlocks(m);
-              return (
-                <div className="mcal-mcard" key={`mob-${m.id}`}>
-                  <div className="mcal-mhead">
-                    <span className="mn">{m.code ?? '—'}</span>
-                    <span className="mm">{m.type}</span>
-                  </div>
-                  <div className="mcal-mbody">
-                    {blocks.length === 0 ? (
-                      <div className="mcal-free">{t('calendar.freeWeek')}</div>
-                    ) : (
-                      blocks.map((b) => (
-                        <div className="mcal-slot" key={b.key}>
-                          <span className={`mcal-bar ${b.type}`} />
-                          <span className="rng">
-                            {days[b.startDay]?.d}/{' '}
-                            {b.span > 1 ? `→ ${days[Math.min(6, b.startDay + b.span - 1)]?.d}` : ''}
-                          </span>
-                          <span className={`badge ${b.type === 'pending' ? 'warn' : 'ok'}`}>
-                            {typeLabel(b.type)}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+      {/* Máy đang mượn / chờ giao (dưới) */}
+      <section className="section-gap">
+        <div className="mcal-active-head">
+          <h2>{t('calendar.activeTitle')}</h2>
+          <span className="segmented">
+            <label>
+              <input
+                type="radio"
+                name="calBoardFilter"
+                checked={!boardMine}
+                onChange={() => setBoardMine(false)}
+              />
+              {t('board.filterAll', 'Tất cả')}
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="calBoardFilter"
+                checked={boardMine}
+                onChange={() => setBoardMine(true)}
+              />
+              {t('board.filterMine', 'Của tôi')}
+            </label>
+          </span>
+        </div>
+        {boardRows.length === 0 ? (
+          <p className="empty">{t('calendar.activeEmpty')}</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>{t('board.colDevice')}</th>
+                  <th>{t('board.colBorrower')}</th>
+                  <th>{t('board.colFromDate', 'Ngày nhận')}</th>
+                  <th>{t('board.colToDate', 'Ngày trả')}</th>
+                  <th>{t('board.colStatus')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {boardRows.map((r) => {
+                  const cls = r.isOverdue
+                    ? 'danger'
+                    : r.state === 'in_use'
+                      ? 'ok'
+                      : r.state === 'awaiting_pickup'
+                        ? 'warn'
+                        : 'muted';
+                  return (
+                    <tr key={r.ticketId}>
+                      <td>
+                        <span className="mono">{r.assetCode ?? '—'}</span>
+                        {r.type ? <span className="muted"> · {r.type}</span> : null}
+                      </td>
+                      <td>
+                        {r.borrowerName ?? '—'}
+                        {r.isMine && <span className="badge ok"> {t('board.you')}</span>}
+                      </td>
+                      <td>{fmtDate(r.from)}</td>
+                      <td>{fmtDate(r.due)}</td>
+                      <td>
+                        <span className={`badge ${cls}`}>
+                          {t(`board.state.${r.state}`, r.state)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
+        )}
+      </section>
 
-          <div className="mcal-legend">
-            <span className="lg">
-              <span className="sw borrow" />
-              {t('calendar.borrow')}
-            </span>
-            <span className="lg">
-              <span className="sw pending" />
-              {t('calendar.pending')}
-            </span>
-          </div>
-        </>
+      {sheetOpen && (
+        <BookingSheet
+          me={me}
+          presetMachine={preset}
+          onClose={() => setSheetOpen(false)}
+          onBooked={() => {
+            setSheetOpen(false);
+            void loadCalendar();
+            void loadSide();
+          }}
+        />
       )}
     </div>
   );
