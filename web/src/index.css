@@ -1812,29 +1812,49 @@ input.search {
   overflow: hidden;
 }
 .dmcol .dm-h {
-  padding: 0.7rem 0.9rem;
+  padding: 0.75rem 1.1rem;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-weight: 600;
+  /* Khớp .list-head mockup: nhãn hoa nhỏ, xám. */
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
 }
 .dmrow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0.55rem 0.9rem;
+  gap: 10px;
+  padding: 0.7rem 1.1rem;
   border-bottom: 1px solid var(--border);
+  transition: background 0.15s var(--ease);
+}
+.dmrow:hover {
+  background: var(--primary-soft);
 }
 .dmrow:last-of-type {
   border-bottom: none;
 }
 .dmrow .dm-g {
   flex: 1;
+  font-weight: 600;
 }
+/* Count "N máy" dạng pill (mockup .badge) */
 .dmrow .dm-ct {
   font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  white-space: nowrap;
+}
+.dmrow.is-empty .dm-ct {
   color: var(--ink-3);
 }
 .dmrow.is-empty .dm-g {
@@ -2602,6 +2622,38 @@ html[data-theme='dark']
 }
 .dp-cell:disabled:hover {
   background: transparent;
+}
+
+/* --- Software: ô "Đã cấp X/Y" + thanh ghế (software.html) ---------------- */
+.seat-cell {
+  min-width: 110px;
+}
+.seat-cell .seat-val {
+  font-weight: 600;
+  margin-bottom: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.seat-cell .seat-val small {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.seat-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.seat-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--grad);
+}
+.seat-bar span.high {
+  background: var(--warn);
+}
+.seat-bar span.full {
+  background: var(--danger);
 }
 
 /* --- Chi tiết tài sản: card Người giữ + Bảo hành ------------------------- */

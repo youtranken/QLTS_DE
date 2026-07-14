@@ -114,8 +114,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
               <th style={{ width: '2.2rem' }} />
               <th>{t('assets.licenseName')}</th>
               <th>{t('assets.licenseType')}</th>
-              <th className="num">{t('software.colTotal')}</th>
-              <th className="num">{t('software.colAssigned')}</th>
+              <th>{t('software.colAssigned')}</th>
               <th className="num">{t('software.colFree')}</th>
               <th className="num">{t('software.colExpiring')}</th>
               <th>{t('software.colNextExpiry')}</th>
@@ -124,7 +123,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
           <tbody>
             {groups.length === 0 ? (
               <tr>
-                <td colSpan={8} className="empty">
+                <td colSpan={7} className="empty">
                   {search ? t('assets.noMatch') : t('software.empty')}
                 </td>
               </tr>
@@ -157,14 +156,36 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
                     </td>
                     <td>{g.licenseName}</td>
                     <td>
-                      {g.licenseType === 'term'
-                        ? t('assets.licenseTerm')
-                        : g.licenseType === 'perpetual'
-                          ? t('assets.licensePerpetual')
-                          : '—'}
+                      {g.licenseType === 'term' ? (
+                        <span className="badge warn">{t('assets.licenseTerm')}</span>
+                      ) : g.licenseType === 'perpetual' ? (
+                        <span className="badge ok">{t('assets.licensePerpetual')}</span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
                     </td>
-                    <td className="num">{g.total}</td>
-                    <td className="num">{g.assigned}</td>
+                    <td>
+                      {(() => {
+                        const ratio = g.total > 0 ? g.assigned / g.total : 0;
+                        // ≥80% ghế đã cấp → amber (sắp hết ghế). Đầy 100% với license 1 ghế
+                        // là bình thường nên KHÔNG tô đỏ.
+                        const tone = ratio >= 0.8 ? 'high' : '';
+                        return (
+                          <div className="seat-cell">
+                            <div className="seat-val">
+                              {g.assigned}
+                              <small>/{g.total}</small>
+                            </div>
+                            <div className="seat-bar">
+                              <span
+                                className={tone}
+                                style={{ width: `${Math.min(100, ratio * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="num">
                       {g.free > 0 ? (
                         <span className="badge ok plain">{g.free}</span>
@@ -186,7 +207,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
                   canExpand && isOpen ? (
                     <tr key={`${g.licenseName}-seats`}>
                       <td />
-                      <td colSpan={7}>
+                      <td colSpan={6}>
                         {seats === 'loading' || seats === undefined ? (
                           <span className="muted">…</span>
                         ) : seats.length === 0 ? (
