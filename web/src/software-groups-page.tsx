@@ -6,7 +6,7 @@ import { apiFetch } from './api-client';
 import { AssetForm } from './asset-form';
 import { RowActionsMenu } from './asset-row-actions';
 import { SoftwareTransferDialog } from './software-transfer-dialog';
-import { EMPTY_FORM, STATUS_BADGE } from './asset-types';
+import { EMPTY_FORM } from './asset-types';
 import type { AssetRow } from './asset-types';
 import type { Me } from './panels';
 
@@ -19,6 +19,7 @@ interface LicenseGroup {
   free: number;
   expiring: number;
   nextExpiry: string | null;
+  holders: number;
 }
 
 /**
@@ -78,6 +79,26 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
       ? t('assets.licensePerpetual')
       : (row.endDate ?? '—');
 
+  // Tải seats (nếu chưa) rồi mở dialog gắn máy cho MỘT bản còn trống.
+  const loadSeats = async (name: string): Promise<AssetRow[]> => {
+    const cached = seatsByLicense[name];
+    if (cached && cached !== 'loading') return cached;
+    const body = await apiFetch<{ items: AssetRow[] }>(
+      `/api/admin/assets?type=software&licenseName=${encodeURIComponent(name)}&pageSize=100`,
+    );
+    setSeatsByLicense((p) => ({ ...p, [name]: body.items }));
+    return body.items;
+  };
+  const assignMachine = async (name: string) => {
+    try {
+      const seats = await loadSeats(name);
+      const free = seats.find((s) => !s.installedOnCode && s.status !== 'disposed');
+      if (free) setTransferSw(free);
+    } catch {
+      /* lỗi tải seats — bỏ qua, user thử lại */
+    }
+  };
+
   return (
     <>
       <div className="page-header">
@@ -111,50 +132,66 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
         <table className="table">
           <thead>
             <tr>
-              <th style={{ width: '2.2rem' }} />
               <th>{t('assets.licenseName')}</th>
               <th>{t('assets.licenseType')}</th>
+              <th>{t('software.colTotal')}</th>
               <th>{t('software.colAssigned')}</th>
-              <th className="num">{t('software.colFree')}</th>
-              <th className="num">{t('software.colExpiring')}</th>
-              <th>{t('software.colNextExpiry')}</th>
+              <th>{t('software.colHolders')}</th>
+              <th className="right">{t('software.colAction')}</th>
             </tr>
           </thead>
           <tbody>
             {groups.length === 0 ? (
               <tr>
-                <td colSpan={7} className="empty">
+                <td colSpan={6} className="empty">
                   {search ? t('assets.noMatch') : t('software.empty')}
                 </td>
               </tr>
             ) : (
               groups.map((g) => {
-                const canExpand = g.total > 1;
                 const isOpen = expanded.has(g.licenseName);
                 const seats = seatsByLicense[g.licenseName];
+                const ratio = g.total > 0 ? g.assigned / g.total : 0;
+                const tone = ratio >= 0.8 ? 'high' : '';
                 return [
                   <tr
                     key={g.licenseName}
-                    className="clickable"
-                    onClick={() =>
-                      navigate(
-                        `/phan-mem/license/${encodeURIComponent(g.licenseName)}`,
-                      )
-                    }
+                    className={`sw-lic-row${isOpen ? ' open' : ''}`}
+                    onClick={() => void toggle(g.licenseName)}
                   >
-                    <td onClick={(e) => e.stopPropagation()}>
-                      {canExpand && (
-                        <button
-                          type="button"
-                          className="ghost sm"
-                          aria-label={isOpen ? 'Thu gọn' : 'Mở rộng'}
-                          onClick={() => void toggle(g.licenseName)}
-                        >
-                          {isOpen ? '▾' : '▸'}
-                        </button>
-                      )}
+                    <td>
+                      <div className="sw-name">
+                        <span className="sw-caret" aria-hidden="true">
+                          ›
+                        </span>
+                        <span className="sw-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                            <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                          </svg>
+                        </span>
+                        <div>
+                          <div className="sw-nm">{g.licenseName}</div>
+                          {g.expiring > 0 ? (
+                            <div className="sw-sub warn">
+                              {t('software.expiringN', {
+                                n: g.expiring,
+                                defaultValue: '{{n}} bản sắp hết hạn',
+                              })}
+                            </div>
+                          ) : g.licenseType !== 'perpetual' && g.nextExpiry ? (
+                            <div className="sw-sub">
+                              {t('software.nextExpiryShort', {
+                                d: g.nextExpiry,
+                                defaultValue: 'Hạn gần nhất {{d}}',
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
                     </td>
-                    <td>{g.licenseName}</td>
                     <td>
                       {g.licenseType === 'term' ? (
                         <span className="badge warn">{t('assets.licenseTerm')}</span>
@@ -165,116 +202,101 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
                       )}
                     </td>
                     <td>
-                      {(() => {
-                        const ratio = g.total > 0 ? g.assigned / g.total : 0;
-                        // ≥80% ghế đã cấp → amber (sắp hết ghế). Đầy 100% với license 1 ghế
-                        // là bình thường nên KHÔNG tô đỏ.
-                        const tone = ratio >= 0.8 ? 'high' : '';
-                        return (
-                          <div className="seat-cell">
-                            <div className="seat-val">
-                              {g.assigned}
-                              <small>/{g.total}</small>
-                            </div>
-                            <div className="seat-bar">
-                              <span
-                                className={tone}
-                                style={{ width: `${Math.min(100, ratio * 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td className="num">
-                      {g.free > 0 ? (
-                        <span className="badge ok plain">{g.free}</span>
-                      ) : (
-                        <span className="muted">0</span>
-                      )}
-                    </td>
-                    <td className="num">
-                      {g.expiring > 0 ? (
-                        <span className="badge warn">{g.expiring}</span>
-                      ) : (
-                        <span className="muted">0</span>
-                      )}
+                      <strong>{g.total}</strong>
                     </td>
                     <td>
-                      {g.licenseType === 'perpetual' ? '—' : (g.nextExpiry ?? '—')}
+                      <div className="seat-cell">
+                        <div className="seat-val">
+                          {g.assigned}
+                          <small>/{g.total}</small>
+                        </div>
+                        <div className="seat-bar">
+                          <span
+                            className={tone}
+                            style={{ width: `${Math.min(100, ratio * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="sw-holders">
+                      {t('software.holdersVal', {
+                        machines: g.assigned,
+                        people: g.holders,
+                        defaultValue: '{{machines}} máy / {{people}} người',
+                      })}
+                    </td>
+                    <td className="right" onClick={(e) => e.stopPropagation()}>
+                      <div className="sw-row-actions">
+                        <button
+                          type="button"
+                          className="sm"
+                          disabled={g.free === 0}
+                          onClick={() => void assignMachine(g.licenseName)}
+                        >
+                          {t('software.assignMachine')}
+                        </button>
+                        <RowActionsMenu
+                          actions={[
+                            {
+                              label: t('software.detail', 'Xem chi tiết'),
+                              onClick: () =>
+                                navigate(
+                                  `/phan-mem/license/${encodeURIComponent(g.licenseName)}`,
+                                ),
+                            },
+                          ]}
+                        />
+                      </div>
                     </td>
                   </tr>,
-                  canExpand && isOpen ? (
-                    <tr key={`${g.licenseName}-seats`}>
-                      <td />
+                  isOpen ? (
+                    <tr key={`${g.licenseName}-inst`} className="sw-detail-row">
                       <td colSpan={6}>
-                        {seats === 'loading' || seats === undefined ? (
-                          <span className="muted">…</span>
-                        ) : seats.length === 0 ? (
-                          <span className="muted">{t('software.empty')}</span>
-                        ) : (
-                          <table className="table">
-                            <thead>
-                              <tr>
-                                <th>{t('assets.hostCol')}</th>
-                                <th>{t('assets.assignee')}</th>
-                                <th>{t('assets.startDate')}</th>
-                                <th>{t('assets.endDate')}</th>
-                                <th>{t('assets.statusLabel')}</th>
-                                <th />
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {seats.map((s) => (
-                                <tr
-                                  key={s.id}
-                                  className="clickable"
-                                  onClick={() =>
-                                    navigate(
-                                      `/phan-mem/license/${encodeURIComponent(g.licenseName)}?seat=${s.id}`,
-                                    )
-                                  }
-                                >
-                                  <td>
-                                    {s.installedOnCode ? (
-                                      <span className="mono">
-                                        {s.installedOnCode}
-                                      </span>
-                                    ) : (
-                                      <span className="muted">
-                                        {t('assets.installedNone')}
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {s.assignedUserName ??
-                                      s.assignedUserSub ??
-                                      '—'}
-                                  </td>
-                                  <td>{s.startDate ?? '—'}</td>
-                                  <td>{termOf(s)}</td>
-                                  <td>
-                                    <span
-                                      className={`badge ${STATUS_BADGE[s.status] ?? 'muted'}`}
-                                    >
-                                      {t(`assets.status.${s.status}`)}
-                                    </span>
-                                  </td>
-                                  <td onClick={(e) => e.stopPropagation()}>
-                                    <RowActionsMenu
-                                      actions={[
-                                        {
-                                          label: t('software.assignMachine'),
-                                          onClick: () => setTransferSw(s),
-                                        },
-                                      ]}
-                                    />
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
+                        <div className="sw-detail-wrap">
+                          {seats === 'loading' || seats === undefined ? (
+                            <span className="muted">…</span>
+                          ) : (
+                            (() => {
+                              const installed = seats.filter(
+                                (s) => s.installedOnCode,
+                              );
+                              return (
+                                <>
+                                  <div className="sw-detail-head">
+                                    {t('software.installedTitle', {
+                                      n: installed.length,
+                                      defaultValue: 'Máy đang cài ({{n}})',
+                                    })}
+                                  </div>
+                                  {installed.length === 0 ? (
+                                    <div className="sw-detail-empty">
+                                      {t('software.notInstalled', 'Chưa cài trên máy nào.')}
+                                    </div>
+                                  ) : (
+                                    installed.map((s) => (
+                                      <div className="inst" key={s.id}>
+                                        <div className="inst-mc">
+                                          <span className="mono">
+                                            {s.installedOnCode}
+                                          </span>
+                                          <small>{termOf(s)}</small>
+                                        </div>
+                                        <div className="inst-who">
+                                          {s.assignedUserName ??
+                                            s.assignedUserSub ??
+                                            '—'}
+                                        </div>
+                                        <div className="inst-day">
+                                          {s.startDate ?? '—'}
+                                        </div>
+                                      </div>
+                                    ))
+                                  )}
+                                </>
+                              );
+                            })()
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ) : null,

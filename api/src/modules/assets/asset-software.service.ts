@@ -65,21 +65,25 @@ export class AssetSoftwareService {
       free: number;
       expiring: number;
       nextExpiry: string | null;
+      holders: number;
     }>(sql`
-      SELECT license_name AS "licenseName",
-             min(license_type) AS "licenseType",
+      SELECT s.license_name AS "licenseName",
+             min(s.license_type) AS "licenseType",
              count(*)::int AS total,
-             count(*) FILTER (WHERE installed_on_asset_id IS NOT NULL)::int AS assigned,
-             count(*) FILTER (WHERE installed_on_asset_id IS NULL)::int AS free,
+             count(*) FILTER (WHERE s.installed_on_asset_id IS NOT NULL)::int AS assigned,
+             count(*) FILTER (WHERE s.installed_on_asset_id IS NULL)::int AS free,
              count(*) FILTER (
-               WHERE license_type = 'term' AND end_date IS NOT NULL AND end_date <= ${before}::date
+               WHERE s.license_type = 'term' AND s.end_date IS NOT NULL AND s.end_date <= ${before}::date
              )::int AS expiring,
-             min(end_date) FILTER (WHERE license_type = 'term')::text AS "nextExpiry"
-      FROM assets
-      WHERE type = 'software' AND status <> 'disposed' AND license_name IS NOT NULL
-        ${pattern ? sql`AND license_name ILIKE ${pattern}` : sql``}
-      GROUP BY license_name
-      ORDER BY license_name
+             min(s.end_date) FILTER (WHERE s.license_type = 'term')::text AS "nextExpiry",
+             -- Người giữ = chủ máy đang cài (holder derive theo máy); NULL (ghế trống) bị count distinct bỏ qua
+             count(DISTINCT host.assigned_user_sub)::int AS holders
+      FROM assets s
+      LEFT JOIN assets host ON host.id = s.installed_on_asset_id
+      WHERE s.type = 'software' AND s.status <> 'disposed' AND s.license_name IS NOT NULL
+        ${pattern ? sql`AND s.license_name ILIKE ${pattern}` : sql``}
+      GROUP BY s.license_name
+      ORDER BY s.license_name
     `);
     return rows.rows;
   }
