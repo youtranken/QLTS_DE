@@ -40,6 +40,11 @@ const MachineCalendarPage = lazy(() =>
 const ProfilePage = lazy(() =>
   import('./profile').then((m) => ({ default: m.ProfilePage })),
 );
+const CalendarOverviewPage = lazy(() =>
+  import('./calendar-overview').then((m) => ({
+    default: m.CalendarOverviewPage,
+  })),
+);
 const ApprovalQueuePage = lazy(() =>
   import('./approval-queue').then((m) => ({ default: m.ApprovalQueuePage })),
 );
@@ -308,6 +313,7 @@ function navGroups(role: string): NavGroup[] {
   // "Máy đang mượn" đã gộp vào Trang chủ (bảng board giàu hơn) → không còn mục riêng.
   const borrow = [{ to: '/', key: isAdmin ? 'nav.dashboard' : 'nav.booking' }];
   if (isAdmin) borrow.push({ to: '/xu-ly-muon', key: 'nav.lending' });
+  if (isAdmin) borrow.push({ to: '/lich-may', key: 'nav.calendar' });
   groups.push({ label: 'nav.groupBorrow', items: borrow });
 
   // Domain Quản lý tài sản (admin/sa)
@@ -451,6 +457,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             {/* Landing 7.5: borrow board cho MỌI vai (thay dashboard/đặt-máy cũ ở '/'). */}
             <Route path="/" element={<BorrowBoardPage me={me} />} />
             <Route path="/lich-may/:id" element={<MachineCalendarPage />} />
+            <Route path="/lich-may" element={<CalendarOverviewPage />} />
             <Route path="/ho-so" element={<ProfilePage me={me} />} />
             <Route
               path="/xu-ly-muon"

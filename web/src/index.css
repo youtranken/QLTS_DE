@@ -2406,6 +2406,258 @@ html[data-theme='dark']
   }
 }
 
+/* --- Lịch máy tổng (mục sidebar) ----------------------------------------- */
+.mcal-sub {
+  margin-top: -0.4rem;
+  margin-bottom: 1rem;
+  max-width: 60ch;
+}
+.mcal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1.1rem;
+}
+.mcal-weeknav {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 0.25rem;
+  box-shadow: var(--shadow-sm);
+}
+.mcal-weeknav button {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.mcal-weeknav button:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.mcal-weeknav .wlabel {
+  font-weight: 700;
+  padding: 0 0.5rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.mcal-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.mcal-grid {
+  display: grid;
+  grid-template-columns: 160px repeat(7, minmax(78px, 1fr));
+  min-width: 700px;
+}
+.mcal-corner {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+}
+.mcal-dhead {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0.4rem 0.2rem;
+}
+.mcal-dhead.we {
+  background: var(--warm-soft);
+}
+.mcal-dhead .dw {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.mcal-dhead .dn {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.mcal-mcell {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 1rem;
+  min-width: 0;
+}
+.mcal-mcell .mn {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mcal-mcell .mm {
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mcal-daycell {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+.mcal-daycell.we {
+  background: color-mix(in srgb, var(--warm-soft) 45%, transparent);
+}
+.mcal-block {
+  align-self: center;
+  margin: 0 4px;
+  min-width: 0;
+  z-index: 2;
+  position: relative;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: var(--shadow-sm);
+}
+.mcal-block.borrow {
+  background: var(--grad);
+  color: #fff;
+}
+.mcal-block.pending {
+  background: var(--warm-soft);
+  color: var(--warm-ink);
+  border: 1px solid var(--warm);
+}
+.mcal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.1rem;
+  margin-top: 1rem;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.mcal-legend .lg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.mcal-legend .sw {
+  width: 26px;
+  height: 14px;
+  border-radius: 5px;
+}
+.mcal-legend .sw.borrow {
+  background: var(--grad);
+}
+.mcal-legend .sw.pending {
+  background: var(--warm-soft);
+  border: 1px solid var(--warm);
+}
+/* Mobile list */
+.mcal-mcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 0.8rem;
+}
+.mcal-mhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.mcal-mhead .mn {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.mcal-mhead .mm {
+  font-size: 0.72rem;
+  color: var(--ink-3);
+}
+.mcal-mbody {
+  padding: 0.3rem 0.9rem 0.6rem;
+}
+.mcal-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px dashed var(--border-2);
+}
+.mcal-slot:last-child {
+  border-bottom: none;
+}
+.mcal-slot .mcal-bar {
+  width: 5px;
+  align-self: stretch;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+.mcal-slot .mcal-bar.borrow {
+  background: var(--primary);
+}
+.mcal-slot .mcal-bar.pending {
+  background: var(--warm);
+}
+.mcal-slot .rng {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.mcal-free {
+  padding: 0.8rem 0;
+  color: var(--ink-3);
+  font-size: 0.82rem;
+}
+.desktop-only {
+  display: block;
+}
+.mobile-only {
+  display: none;
+}
+@media (max-width: 680px) {
+  .desktop-only {
+    display: none;
+  }
+  .mobile-only {
+    display: block;
+  }
+}
+
 /* --- Lightbox ảnh biên bản (UP-5.5) -------------------------------------- */
 .lightbox {
   position: fixed;

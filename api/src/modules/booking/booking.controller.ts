@@ -86,4 +86,10 @@ export class BookingController {
   ) {
     return this.booking.machineCalendar(id, query.weekStart ?? null);
   }
+
+  /** Lịch tuần TỔNG mọi máy pool (mục sidebar "Lịch máy") — AD-5: không lộ người mượn. */
+  @Get('calendar')
+  poolCalendar(@Query() query: CalendarQueryDto) {
+    return this.booking.poolCalendar(query.weekStart ?? null);
+  }
 }

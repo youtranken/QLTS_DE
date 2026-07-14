@@ -38,6 +38,26 @@ export interface MachineCalendar {
   busy: BusyBlock[];
 }
 
+/** Busy block trong lịch tổng — kèm state để FE phân loại "đang mượn"/"chờ duyệt". KHÔNG lộ người mượn (AD-5). */
+export interface PoolBusyBlock {
+  from: string;
+  to: string;
+  kind: string;
+  state: string;
+}
+export interface PoolCalendarMachine {
+  id: string;
+  code: string | null;
+  type: string;
+  configuration: string | null;
+  busy: PoolBusyBlock[];
+}
+export interface PoolCalendar {
+  weekStart: string;
+  weekEnd: string;
+  machines: PoolCalendarMachine[];
+}
+
 @Injectable()
 export class BookingService {
   constructor(
@@ -267,6 +287,85 @@ export class BookingService {
       weekStart: new Date(row.week_start).toISOString(),
       weekEnd: new Date(row.week_end).toISOString(),
       busy: row.busy,
+    };
+  }
+
+  /**
+   * Lịch tuần TỔNG của mọi máy pool (mục sidebar "Lịch máy") — 1 hàng/máy, 7 cột ngày.
+   * Neo tuần theo giờ VN như machineCalendar. AD-5: chỉ trạng thái bận + kind/state,
+   * TUYỆT ĐỐI không tên người mượn. weekStart null → tuần hiện tại.
+   */
+  async poolCalendar(weekStartIso: string | null): Promise<PoolCalendar> {
+    const anchor = weekStartIso
+      ? sql`${weekStartIso}::timestamptz`
+      : sql`now()`;
+    const occupying = sql.join(
+      OCCUPYING_STATES.map((s) => sql`${s}`),
+      sql`, `,
+    );
+    const rows = await this.db.execute<{
+      id: string;
+      code: string | null;
+      type: string;
+      configuration: string | null;
+      week_start: string;
+      week_end: string;
+      busy: PoolBusyBlock[];
+    }>(sql`
+      WITH wk AS (
+        SELECT date_trunc('week', (${anchor} AT TIME ZONE 'Asia/Ho_Chi_Minh')) AS ws_local
+      ),
+      bounds AS (
+        SELECT
+          (ws_local AT TIME ZONE 'Asia/Ho_Chi_Minh') AS ws,
+          ((ws_local + interval '7 days') AT TIME ZONE 'Asia/Ho_Chi_Minh') AS we
+        FROM wk
+      )
+      SELECT a.id, a.code, a.type, a.configuration,
+        (SELECT ws FROM bounds) AS week_start,
+        (SELECT we FROM bounds) AS week_end,
+        COALESCE(
+          json_agg(json_build_object(
+            'from', lower(b.period), 'to', upper(b.period), 'kind', b.kind, 'state', b.state
+          ) ORDER BY lower(b.period)) FILTER (WHERE b.id IS NOT NULL),
+          '[]'
+        ) AS busy
+      FROM assets a
+      CROSS JOIN bounds
+      LEFT JOIN booking b
+        ON b.asset_id = a.id
+        AND b.state IN (${occupying})
+        AND b.period && tstzrange((SELECT ws FROM bounds), (SELECT we FROM bounds), '[)')
+      WHERE a.is_pool = true AND a.type <> 'software' AND a.status <> 'disposed'
+      GROUP BY a.id, a.code, a.type, a.configuration
+      ORDER BY a.code
+    `);
+    if (rows.rows.length === 0) {
+      // Không có máy pool: vẫn trả mốc tuần để FE hiện lịch rỗng đúng tuần.
+      const b = await this.db.execute<{ week_start: string; week_end: string }>(sql`
+        WITH wk AS (
+          SELECT date_trunc('week', (${anchor} AT TIME ZONE 'Asia/Ho_Chi_Minh')) AS ws_local
+        )
+        SELECT (ws_local AT TIME ZONE 'Asia/Ho_Chi_Minh') AS week_start,
+               ((ws_local + interval '7 days') AT TIME ZONE 'Asia/Ho_Chi_Minh') AS week_end
+        FROM wk
+      `);
+      return {
+        weekStart: new Date(b.rows[0].week_start).toISOString(),
+        weekEnd: new Date(b.rows[0].week_end).toISOString(),
+        machines: [],
+      };
+    }
+    return {
+      weekStart: new Date(rows.rows[0].week_start).toISOString(),
+      weekEnd: new Date(rows.rows[0].week_end).toISOString(),
+      machines: rows.rows.map((r) => ({
+        id: r.id,
+        code: r.code,
+        type: r.type,
+        configuration: r.configuration,
+        busy: r.busy,
+      })),
     };
   }
 }
