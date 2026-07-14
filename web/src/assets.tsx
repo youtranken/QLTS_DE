@@ -9,8 +9,8 @@ import { AssetSoftwareExpand } from './asset-software-list';
 import { SoftwareTransferDialog } from './software-transfer-dialog';
 import { useAssetLifecycle } from './asset-lifecycle-actions';
 import { DataTable } from './ui/data-table';
-import { EMPTY_FORM } from './asset-types';
-import type { AssetRow, FormState } from './asset-types';
+import { EMPTY_FORM, detailToForm } from './asset-types';
+import type { AssetDetail, AssetRow, FormState } from './asset-types';
 import type { Me } from './panels';
 import { useAssetPageActions } from './use-asset-page-actions';
 import { useAssetColumns } from './assets-columns';
@@ -75,12 +75,20 @@ export function AssetsPage({
   const [sorting, setSorting] = useState<SortingState>([]);
   // 5.1: chọn nhiều dòng để "Xuất đã chọn". Chỉ dùng ở sổ tài sản (không phải phần mềm).
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const bulkSelectable = !softwareOnly;
+  // Bulk cho máy (mọi trạng thái) + phần mềm chưa thanh lý (chi tiết license → Thanh lý hàng loạt).
+  const bulkSelectable = !softwareOnly || !disposedOnly;
   // Xác nhận Xóa vĩnh viễn (Kho thanh lý) — 1 dòng (có label) hoặc nhiều dòng đã chọn.
   const [purgeTarget, setPurgeTarget] = useState<
     { ids: string[]; label?: string } | null
   >(null);
   const [purgeBusy, setPurgeBusy] = useState(false);
+  // Xác nhận Thanh lý phần mềm (→ Kho thanh lý) — 1 bản (có label) hoặc nhiều bản đã chọn.
+  const [disposeTarget, setDisposeTarget] = useState<
+    { ids: string[]; label?: string } | null
+  >(null);
+  const [disposeBusy, setDisposeBusy] = useState(false);
+  // Xem chi tiết 1 bản phần mềm (popup read-only giống Sửa) — click dòng ở chi tiết license.
+  const [viewForm, setViewForm] = useState<FormState | null>(null);
   const onSortingChange: OnChangeFn<SortingState> = (updater) => {
     setSorting((prev) =>
       typeof updater === 'function' ? updater(prev) : updater,
@@ -138,6 +146,7 @@ export function AssetsPage({
         endTo,
         softwareOnly,
         disposedOnly,
+        excludeDisposed: softwareOnly && !disposedOnly,
         licenseName: licenseName ?? null,
         sort: sorting[0]?.id ?? null,
         dir: sorting[0]?.desc ? 'desc' : 'asc',
@@ -167,6 +176,8 @@ export function AssetsPage({
       // Kho thanh lý: khóa cứng status=disposed (bỏ qua dropdown trạng thái).
       if (disposedOnly) params.set('status', 'disposed');
       else if (status) params.set('status', status);
+      // /phan-mem (danh sách + chi tiết license): ẩn bản đã thanh lý (đã sang Kho thanh lý).
+      if (softwareOnly && !disposedOnly) params.set('excludeDisposed', 'true');
       if (expiring) params.set('expiring', 'true');
       if (sorting.length > 0) {
         params.set('sort', sorting[0].id);
@@ -183,13 +194,14 @@ export function AssetsPage({
   const total = listData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const { openEdit, copyFrom, handleDelete, purgeById } = useAssetPageActions({
-    me,
-    setForm,
-    setError,
-    queryClient,
-    loadMeta,
-  });
+  const { openEdit, copyFrom, handleDelete, purgeById, disposeById } =
+    useAssetPageActions({
+      me,
+      setForm,
+      setError,
+      queryClient,
+      loadMeta,
+    });
 
   // Chạy purge sau khi xác nhận: gộp bulk, invalidate 1 lần, tóm tắt lỗi nếu có dòng hỏng.
   const runPurge = async () => {
@@ -217,6 +229,49 @@ export function AssetsPage({
     }
   };
 
+  // Thanh lý phần mềm (→ Kho thanh lý): giống runPurge nhưng dùng dispose; invalidate cả nhóm.
+  const runDispose = async () => {
+    if (!disposeTarget) return;
+    setDisposeBusy(true);
+    setError(null);
+    const results = await Promise.all(
+      disposeTarget.ids.map((id) => disposeById(id)),
+    );
+    const okCount = results.filter((r) => r.ok).length;
+    const failed = results.length - okCount;
+    setDisposeBusy(false);
+    setDisposeTarget(null);
+    setSelected(new Set());
+    void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
+    if (failed > 0) {
+      setError(
+        results.length === 1
+          ? (results[0].error ?? t('assets.saveFailed'))
+          : t('assets.disposeBulkPartial', {
+              ok: okCount,
+              total: results.length,
+              failed,
+            }),
+      );
+    }
+  };
+
+  // Popup xem chi tiết 1 bản (read-only): lấy detail tươi → mở AssetForm khóa input.
+  const openView = async (id: string) => {
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/assets/${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        setError(t('assets.loadFailed'));
+        return;
+      }
+      setViewForm(detailToForm((await res.json()) as AssetDetail));
+    } catch {
+      setError(t('app.serverUnreachable'));
+    }
+  };
+
   // Vòng đời máy (Khóa sửa chữa/Mở khóa/Pool) TỪ kebab — thay khối Vòng đời trong form.
   const lifecycle = useAssetLifecycle({
     me,
@@ -237,6 +292,11 @@ export function AssetsPage({
       setPurgeTarget({
         ids: [row.id],
         label: row.code ?? row.licenseName ?? undefined,
+      }),
+    onDispose: (row) =>
+      setDisposeTarget({
+        ids: [row.id],
+        label: row.installedOnCode ?? row.licenseName ?? undefined,
       }),
     setTransferSw,
     lifecycleActionsFor: lifecycle.actionsFor,
@@ -306,19 +366,30 @@ export function AssetsPage({
           <span className="bulk-count">
             {t('assets.selectedCount', { count: selected.size })}
           </span>
-          <a
-            className="linkbtn primary sm"
-            href={`/api/admin/assets/export?ids=${[...selected].join(',')}`}
-          >
-            {t('assets.exportSelected', 'Xuất đã chọn')}
-          </a>
-          {disposedOnly && (
+          {!softwareOnly && (
+            <a
+              className="linkbtn primary sm"
+              href={`/api/admin/assets/export?ids=${[...selected].join(',')}`}
+            >
+              {t('assets.exportSelected', 'Xuất đã chọn')}
+            </a>
+          )}
+          {disposedOnly && !softwareOnly && (
             <button
               type="button"
               className="danger sm"
               onClick={() => setPurgeTarget({ ids: [...selected] })}
             >
               {t('assets.purgeSelected', { count: selected.size })}
+            </button>
+          )}
+          {softwareOnly && !disposedOnly && (
+            <button
+              type="button"
+              className="danger sm"
+              onClick={() => setDisposeTarget({ ids: [...selected] })}
+            >
+              {t('assets.disposeSelected', { count: selected.size })}
             </button>
           )}
           <button
@@ -365,6 +436,11 @@ export function AssetsPage({
         onRowClick={(a) => {
           // đang bôi đen copy mã → không phải ý định mở trang (review 2.2)
           if (window.getSelection()?.toString()) return;
+          // Phần mềm: xem chi tiết bản = popup read-only (không chuyển trang). Máy: mở trang detail.
+          if (softwareOnly) {
+            void openView(a.id);
+            return;
+          }
           navigate(`/tai-san/${a.id}`);
         }}
         // ▸ chỉ hiện khi máy CÓ phần mềm đã gắn; bung ra là bảng phần mềm của máy đó.
@@ -429,6 +505,40 @@ export function AssetsPage({
           busy={purgeBusy}
           onConfirm={() => void runPurge()}
           onCancel={() => setPurgeTarget(null)}
+        />
+      )}
+
+      {disposeTarget && (
+        <ConfirmDialog
+          title={t('assets.disposeConfirmTitle', 'Thanh lý?')}
+          message={
+            disposeTarget.label
+              ? t('assets.disposeConfirmOne', {
+                  name: disposeTarget.label,
+                  defaultValue:
+                    'Thanh lý bản "{{name}}"? Bản sẽ chuyển sang Kho thanh lý và gỡ khỏi máy.',
+                })
+              : t('assets.disposeConfirmBulk', {
+                  count: disposeTarget.ids.length,
+                  defaultValue:
+                    'Thanh lý {{count}} bản đã chọn? Chúng chuyển sang Kho thanh lý và gỡ khỏi máy.',
+                })
+          }
+          confirmLabel={t('assets.disposeAction', 'Thanh lý')}
+          danger
+          busy={disposeBusy}
+          onConfirm={() => void runDispose()}
+          onCancel={() => setDisposeTarget(null)}
+        />
+      )}
+
+      {viewForm && (
+        <AssetForm
+          me={me}
+          initial={viewForm}
+          lockSoftware={softwareOnly}
+          readOnly
+          onDone={() => setViewForm(null)}
         />
       )}
 

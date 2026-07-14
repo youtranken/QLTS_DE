@@ -80,7 +80,8 @@ export class AssetSoftwareService {
              count(DISTINCT host.assigned_user_sub)::int AS holders
       FROM assets s
       LEFT JOIN assets host ON host.id = s.installed_on_asset_id
-      WHERE s.type = 'software' AND s.status <> 'disposed' AND s.license_name IS NOT NULL
+      WHERE s.type = 'software' AND s.status <> 'disposed' AND s.purged_at IS NULL
+        AND s.license_name IS NOT NULL
         ${pattern ? sql`AND s.license_name ILIKE ${pattern}` : sql``}
       GROUP BY s.license_name
       ORDER BY s.license_name
@@ -103,7 +104,11 @@ export class AssetSoftwareService {
         status: assetsTable.status,
       })
       .from(assetsTable)
-      .where(eq(assetsTable.installedOnAssetId, assetId))
+      .where(
+        sql`${assetsTable.installedOnAssetId} = ${assetId}
+          AND ${assetsTable.status} <> 'disposed'
+          AND ${assetsTable.purgedAt} IS NULL`,
+      )
       .orderBy(assetsTable.licenseName);
   }
 

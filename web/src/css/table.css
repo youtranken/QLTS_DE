@@ -188,6 +188,15 @@ table.table tbody tr.row-highlight td:first-child {
   font-size: 0.85em;
   letter-spacing: -0.01em;
 }
+/* Ghi chú trong ô bảng: rút gọn 1 dòng + ellipsis (đầy đủ ở title hover). */
+.cell-note {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
 
 /* --- Status badge / pill -------------------------------------------------- */
 .badge {

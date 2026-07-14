@@ -3,7 +3,13 @@ import { useTranslation } from 'react-i18next';
 import type { ColumnDef } from '@tanstack/react-table';
 import { RowActionsMenu } from './asset-row-actions';
 import type { RowAction } from './asset-row-actions';
-import { STATUS_BADGE, formatVnd } from './asset-types';
+import {
+  STATUS_BADGE,
+  formatVnd,
+  formatDmy,
+  daysUntil,
+  EXPIRY_SOON_DAYS,
+} from './asset-types';
 import type { AssetRow } from './asset-types';
 
 const PAGE_SIZE = 20;
@@ -21,6 +27,7 @@ export function useAssetColumns(opts: {
   copyFrom: (id: string) => void | Promise<void>;
   handleDelete: (row: AssetRow) => void | Promise<void>;
   onPurge: (row: AssetRow) => void;
+  onDispose: (row: AssetRow) => void;
   setTransferSw: (a: AssetRow) => void;
   lifecycleActionsFor: (a: AssetRow) => RowAction[];
 }): ColumnDef<AssetRow, unknown>[] {
@@ -33,6 +40,7 @@ export function useAssetColumns(opts: {
     copyFrom,
     handleDelete,
     onPurge,
+    onDispose,
     setTransferSw,
     lifecycleActionsFor,
   } = opts;
@@ -90,11 +98,18 @@ export function useAssetColumns(opts: {
                 : []),
               // Khóa sửa chữa / Mở khóa / Pool (chỉ máy; software → []).
               ...lifecycleActionsFor(a),
-              {
-                label: t('assets.delete'),
-                danger: true,
-                onClick: () => void handleDelete(a),
-              },
+              // Phần mềm: Thanh lý (→ Kho thanh lý) thay Xóa cứng; máy: Xóa cứng như cũ.
+              softwareOnly
+                ? {
+                    label: t('assets.disposeAction', 'Thanh lý'),
+                    danger: true,
+                    onClick: () => onDispose(a),
+                  }
+                : {
+                    label: t('assets.delete'),
+                    danger: true,
+                    onClick: () => void handleDelete(a),
+                  },
             ];
         return <RowActionsMenu actions={actions} />;
       },
@@ -137,13 +152,59 @@ export function useAssetColumns(opts: {
           },
         },
         {
-          id: 'term',
-          header: t('assets.termCol'),
+          id: 'cost',
+          header: t('assets.col.cost'),
           enableSorting: false,
           cell: ({ row }) =>
-            row.original.licenseType === 'perpetual'
-              ? t('assets.licensePerpetual')
-              : (row.original.endDate ?? '—'),
+            row.original.cost == null ? (
+              '—'
+            ) : (
+              <span className="mono">{formatVnd(row.original.cost)}</span>
+            ),
+        },
+        {
+          id: 'startDate',
+          header: t('assets.col.startDate'),
+          enableSorting: false,
+          cell: ({ row }) => formatDmy(row.original.startDate),
+        },
+        {
+          id: 'endDate',
+          header: t('assets.col.endDate'),
+          enableSorting: false,
+          cell: ({ row }) => {
+            const r = row.original;
+            if (r.licenseType === 'perpetual') return t('assets.licensePerpetual');
+            if (!r.endDate) return '—';
+            const n = daysUntil(r.endDate);
+            // ≤30 ngày (hoặc quá hạn) → đỏ nhấp nháy + đếm ngược.
+            if (Number.isFinite(n) && n <= EXPIRY_SOON_DAYS) {
+              return (
+                <span className="seat-due due-over">
+                  <span>{formatDmy(r.endDate)}</span>
+                  <small>
+                    {n < 0
+                      ? t('software.overdueDays', { n: Math.abs(n) })
+                      : t('software.daysLeft', { n })}
+                  </small>
+                </span>
+              );
+            }
+            return formatDmy(r.endDate);
+          },
+        },
+        {
+          id: 'note',
+          header: t('assets.col.note', 'Ghi chú'),
+          enableSorting: false,
+          cell: ({ row }) =>
+            row.original.note ? (
+              <span className="cell-note" title={row.original.note}>
+                {row.original.note}
+              </span>
+            ) : (
+              '—'
+            ),
         },
         statusCol,
         actionsCol,
@@ -246,6 +307,7 @@ export function useAssetColumns(opts: {
     copyFrom,
     handleDelete,
     onPurge,
+    onDispose,
     setTransferSw,
     lifecycleActionsFor,
   ]);

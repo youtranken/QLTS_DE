@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export interface RowAction {
@@ -8,29 +8,49 @@ export interface RowAction {
 }
 
 /**
- * Menu "⋯" gom thao tác hàng (Sửa/Xóa/Copy/Tái sử dụng) cho bảng /tai-san gọn.
- * Đóng khi bấm ra ngoài (overlay fixed); dừng nổi bọt để không kích onRowClick.
+ * Menu "⋯" gom thao tác hàng (Sửa/Xóa/Thanh lý…). Menu dùng position:fixed neo theo nút
+ * (getBoundingClientRect) để KHÔNG bị .table-wrap (overflow) cắt — trước đây absolute nên
+ * "tràn xuống"/bị che. Tự lật LÊN khi dưới thiếu chỗ. Đóng khi bấm overlay.
  */
 export function RowActionsMenu({ actions }: { actions: RowAction[] }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   if (actions.length === 0) return null;
+
+  const openMenu = () => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) {
+      const menuH = actions.length * 36 + 12; // ước lượng để quyết định lật lên/xuống
+      const below = window.innerHeight - r.bottom;
+      const top = below < menuH && r.top > menuH ? r.top - menuH - 4 : r.bottom + 4;
+      setPos({ top, right: window.innerWidth - r.right });
+    }
+    setOpen(true);
+  };
+
   return (
     <div className="row-actions" onClick={(e) => e.stopPropagation()}>
       <button
+        ref={btnRef}
         type="button"
         className="sm kebab"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={t('assets.rowActions', 'Thao tác')}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
       >
         ⋯
       </button>
-      {open && (
+      {open && pos && (
         <>
           <div className="row-actions-overlay" onClick={() => setOpen(false)} />
-          <div className="row-actions-menu" role="menu">
+          <div
+            className="row-actions-menu fixed"
+            role="menu"
+            style={{ position: 'fixed', top: pos.top, right: pos.right }}
+          >
             {actions.map((a) => (
               <button
                 key={a.label}

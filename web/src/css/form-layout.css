@@ -171,6 +171,14 @@
 }
 
 /* --- Chip (giá trị đã chọn, gỡ được) -------------------------------------- */
+/* Bọc read-only: fieldset[disabled] khóa mọi input. KHÔNG dùng display:contents — Chrome bỏ
+   qua thuộc tính disabled khi fieldset không sinh box. Giữ block + reset viền/lề mặc định. */
+.ff-contents {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
 .chip {
   display: inline-flex;
   align-items: center;
@@ -206,7 +214,7 @@
   flex-direction: column;
   width: 100%;
   max-width: 780px;
-  max-height: min(90vh, 900px);
+  max-height: min(94vh, 1000px);
   background: var(--surface);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
@@ -215,7 +223,7 @@
 }
 /* Form Thêm/Sửa tài sản & phần mềm rộng hơn → nhiều cột input mỗi hàng, thoáng hơn. */
 .sheet.sheet-wide {
-  max-width: 960px;
+  max-width: 1080px;
 }
 .sheet-header,
 .sheet-footer {

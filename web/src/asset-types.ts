@@ -25,6 +25,8 @@ export interface AssetRow {
   /** Vị trí đặt máy (Place). */
   floor?: string | null;
   brand?: string | null;
+  /** Ghi chú — list trả kèm để hiện cột "Ghi chú" ở chi tiết license (/phan-mem). */
+  note?: string | null;
 }
 
 export interface AssetDetail extends AssetRow {
@@ -198,6 +200,26 @@ export const formatVnd = (value: number | string | null | undefined): string => 
 /** Bỏ mọi ký tự không phải số khỏi ô Giá đã format (để lưu số nguyên). */
 export const parseVnd = (formatted: string): string =>
   formatted.replace(/\D/g, '');
+
+/** Ngày dạng dd/mm/yyyy từ chuỗi date-only 'YYYY-MM-DD' (không đụng timezone). */
+export const formatDmy = (iso: string | null | undefined): string => {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return y && m && d ? `${d}/${m}/${y}` : iso;
+};
+
+/** Số ngày từ HÔM NAY tới ngày 'YYYY-MM-DD' (âm = đã quá hạn). Theo ngày lịch địa phương. */
+export const daysUntil = (iso: string): number => {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return NaN;
+  const target = new Date(y, m - 1, d).getTime();
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.round((target - today) / 86400000);
+};
+
+/** Ngưỡng "sắp hết hạn" cho cảnh báo đỏ nhấp nháy ở /phan-mem (bản/nhóm sắp hết hạn). */
+export const EXPIRY_SOON_DAYS = 30;
 
 export const fmtDateTime = (iso: string | null): string =>
   iso

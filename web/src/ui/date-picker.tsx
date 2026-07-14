@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -30,6 +37,24 @@ export function DatePicker({
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'day' | 'month' | 'year'>('day');
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Popover dùng position:fixed neo theo nút → KHÔNG bị overflow của sheet/table cắt (lịch to
+  // trong popup Thêm phần mềm trước đây bị che). Tự lật LÊN khi dưới thiếu chỗ.
+  const [popStyle, setPopStyle] = useState<CSSProperties>();
+  useEffect(() => {
+    if (!open) return;
+    const r = triggerRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const POP_W = 268;
+    const POP_H = 336;
+    const below = window.innerHeight - r.bottom;
+    const top =
+      below < POP_H && r.top > POP_H ? r.top - POP_H - 4 : r.bottom + 4;
+    let left = r.left;
+    if (left + POP_W > window.innerWidth - 8)
+      left = Math.max(8, window.innerWidth - POP_W - 8);
+    setPopStyle({ position: 'fixed', top, left, zIndex: 1000 });
+  }, [open]);
 
   // Ngày đang chọn (parse value) + tháng đang xem.
   const selected = useMemo(() => parseISO(value), [value]);
@@ -118,6 +143,7 @@ export function DatePicker({
   return (
     <div className={`dp${open ? ' open' : ''}`} ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         id={id}
         className="dp-trigger"
@@ -158,10 +184,12 @@ export function DatePicker({
       </button>
 
       {open && (
-        <div className="dp-pop" role="dialog">
+        <div className="dp-pop" role="dialog" style={popStyle}>
           <div className="dp-head">
             <button type="button" className="dp-nav" onClick={() => step(-1)} aria-label={t('datePicker.prev')}>
-              ‹
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m15 18-6-6 6-6" />
+              </svg>
             </button>
             <button
               type="button"
@@ -177,7 +205,9 @@ export function DatePicker({
                   : `${decadeStart(cursor)}–${decadeStart(cursor) + 9}`}
             </button>
             <button type="button" className="dp-nav" onClick={() => step(1)} aria-label={t('datePicker.next')}>
-              ›
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
             </button>
           </div>
           <div className="dp-body">

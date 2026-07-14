@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BrowserRouter, Link, NavLink, useLocation } from 'react-router-dom';
+import { BrowserRouter, Link, useLocation } from 'react-router-dom';
 import { CommandPalette } from './command-palette';
 import type { Me } from './panels';
 import { LoginScreen } from './login-screen';
 import { LanguageSwitch, ThemeSwitch } from './switches';
 import { navGroups } from './app-nav';
+import { SidebarNav } from './app-sidebar-nav';
 import { AppRoutes } from './app-routes';
 
 type AuthState =
@@ -153,50 +154,11 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
       )}
       {showSidebar && (
         <nav className={narrow ? 'sidebar is-drawer' : 'sidebar'}>
-          <div className="brand">
-            <span className="brand-mark">QL</span> QLTS
-          </div>
-          {(() => {
-            const groups = navGroups(me.role);
-            // "Prefix dài nhất thắng": sáng ĐÚNG một mục — mục con khớp cả path con
-            // (vd /tai-san/import, /tai-san/:id vẫn sáng "Tài sản"), nhưng khi có mục
-            // con cụ thể hơn (/tai-san/kiem-ke) thì mục đó thắng, cha không sáng kèm.
-            const allTos = groups.flatMap((g) => g.items.map((i) => i.to));
-            let activeTo: string | null = null;
-            let bestLen = 0;
-            for (const to of allTos) {
-              const len =
-                to === '/'
-                  ? pathname === '/'
-                    ? 1
-                    : 0
-                  : pathname === to || pathname.startsWith(`${to}/`)
-                    ? to.length
-                    : 0;
-              if (len > bestLen) {
-                bestLen = len;
-                activeTo = to;
-              }
-            }
-            return groups.map((group) => (
-              <div key={group.label}>
-                <div className="nav-label">{t(group.label)}</div>
-                {group.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end
-                    onClick={() => setMenuOpen(false)}
-                    className={
-                      item.to === activeTo ? 'nav-item active' : 'nav-item'
-                    }
-                  >
-                    {t(item.key)}
-                  </NavLink>
-                ))}
-              </div>
-            ));
-          })()}
+          <SidebarNav
+            role={me.role}
+            pathname={pathname}
+            onNavigate={() => setMenuOpen(false)}
+          />
         </nav>
       )}
       <div className="content">
@@ -226,7 +188,13 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
       </div>
       <CommandPalette
         navItems={navGroups(me.role).flatMap((g) =>
-          g.items.map((i) => ({ to: i.to, label: t(i.key) })),
+          g.items.flatMap((i) =>
+            i.children
+              ? i.children.map((c) => ({ to: c.to, label: t(c.key) }))
+              : i.to
+                ? [{ to: i.to, label: t(i.key) }]
+                : [],
+          ),
         )}
         onLogout={onLogout}
       />

@@ -124,6 +124,19 @@ export function CommandPalette({
         onKeyDown={onKeyDown}
       >
         <div className="cp-search">
+          <span className="cp-search-ic" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          </span>
           <input
             ref={inputRef}
             type="text"
@@ -136,7 +149,21 @@ export function CommandPalette({
         </div>
         <div className="cp-list">
           {filtered.length === 0 ? (
-            <p className="cp-empty show">{t('cmd.empty', 'Không có kết quả.')}</p>
+            <div className="cp-empty">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <p>{t('cmd.empty', 'Không có kết quả.')}</p>
+            </div>
           ) : (
             groups.map((g) => (
               <div className="cp-group" key={g}>
@@ -156,6 +183,18 @@ export function CommandPalette({
                       >
                         <span className="it-ic">{c.label.charAt(0)}</span>
                         <span className="it-name">{c.label}</span>
+                        <span className="it-arrow" aria-hidden="true">
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="m9 18 6-6-6-6" />
+                          </svg>
+                        </span>
                       </button>
                     );
                   })}

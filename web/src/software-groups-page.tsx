@@ -1,13 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from './api-client';
 import { AssetForm } from './asset-form';
 import { RowActionsMenu } from './asset-row-actions';
 import { SoftwareTransferDialog } from './software-transfer-dialog';
-import { EMPTY_FORM } from './asset-types';
-import type { AssetRow } from './asset-types';
+import { SoftwareSeatList } from './software-seat-list';
+import { ConfirmDialog } from './confirm-dialog';
+import { DatePicker } from './ui/date-picker';
+import { detachSeat, disposeSeat } from './software-seat-ops';
+import {
+  EMPTY_FORM,
+  detailToForm,
+  formatDmy,
+  daysUntil,
+  EXPIRY_SOON_DAYS,
+} from './asset-types';
+import type { AssetDetail, AssetRow, FormState } from './asset-types';
 import type { Me } from './panels';
 
 /** 1 dòng = 1 tên license (nhiều bản/seat gộp lại) — đếm bản/đã gắn/còn dư/sắp hết hạn. */
@@ -22,23 +31,35 @@ interface LicenseGroup {
   holders: number;
 }
 
+const PAGE_SIZES = [10, 20, 50, 100];
+
 /**
- * Trang "Phần mềm" GOM NHÓM theo tên license (1 license mua nhiều bản, mỗi bản máy/hạn riêng).
- * Click 1 nhóm → trang chi tiết liệt kê từng bản (seat) + gắn/chuyển máy. Nhóm CÓ NHIỀU BẢN
- * (≥2) hiện mũi tên ▸ bung nhanh danh sách bản đang gán (Máy/User/Start/End/Status).
+ * Trang "Phần mềm" GOM NHÓM theo tên license (software.html). Click 1 nhóm → bung danh sách
+ * TỪNG bản (seat) với cột Máy/User/Start/End/Ghi chú + action mỗi bản (Sửa/Gỡ/Thanh lý) và
+ * ghế trống (Gắn vào máy). Phân trang + lọc hạn client-side. Người giữ derive theo máy.
  */
 export function SoftwareGroupsPage({ me }: { me: Me }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [form, setForm] = useState<typeof EMPTY_FORM | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [endFrom, setEndFrom] = useState('');
+  const [endTo, setEndTo] = useState('');
+  const [form, setForm] = useState<FormState | null>(null);
+  const [viewForm, setViewForm] = useState<FormState | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [seatsByLicense, setSeatsByLicense] = useState<
     Record<string, AssetRow[] | 'loading'>
   >({});
   const [transferSw, setTransferSw] = useState<AssetRow | null>(null);
+  const [confirm, setConfirm] = useState<{
+    kind: 'detach' | 'dispose';
+    seat: AssetRow;
+  } | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [actionErr, setActionErr] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchInput.trim()), 300);
@@ -55,6 +76,44 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
   });
   const groups = data ?? [];
 
+  // Lọc theo hạn (nextExpiry) + phân trang client-side (endpoint trả cả danh sách).
+  const filtered = useMemo(() => {
+    if (!endFrom && !endTo) return groups;
+    return groups.filter((g) => {
+      if (!g.nextExpiry) return false; // vĩnh viễn / chưa có hạn → loại khi lọc theo ngày
+      if (endFrom && g.nextExpiry < endFrom) return false;
+      if (endTo && g.nextExpiry > endTo) return false;
+      return true;
+    });
+  }, [groups, endFrom, endTo]);
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pageGroups = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  // Đổi bộ lọc/kích thước trang → về trang 1 (tránh rơi ra ngoài phạm vi).
+  useEffect(() => {
+    setPage(1);
+  }, [search, endFrom, endTo, pageSize]);
+
+  const seatsUrl = (name: string) =>
+    `/api/admin/assets?type=software&licenseName=${encodeURIComponent(name)}&excludeDisposed=true&pageSize=100`;
+
+  const loadSeats = async (name: string): Promise<AssetRow[]> => {
+    const cached = seatsByLicense[name];
+    if (cached && cached !== 'loading') return cached;
+    const body = await apiFetch<{ items: AssetRow[] }>(seatsUrl(name));
+    setSeatsByLicense((p) => ({ ...p, [name]: body.items }));
+    return body.items;
+  };
+  const reloadSeats = async (name: string) => {
+    try {
+      const body = await apiFetch<{ items: AssetRow[] }>(seatsUrl(name));
+      setSeatsByLicense((p) => ({ ...p, [name]: body.items }));
+    } catch {
+      /* giữ nguyên cache cũ nếu tải lại lỗi */
+    }
+  };
+
   const toggle = async (name: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -62,35 +121,68 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
       else next.add(name);
       return next;
     });
-    if (seatsByLicense[name]) return; // đã tải (cache) — không gọi lại
+    if (seatsByLicense[name]) return;
     setSeatsByLicense((p) => ({ ...p, [name]: 'loading' }));
     try {
-      const body = await apiFetch<{ items: AssetRow[] }>(
-        `/api/admin/assets?type=software&licenseName=${encodeURIComponent(name)}&pageSize=100`,
-      );
+      const body = await apiFetch<{ items: AssetRow[] }>(seatsUrl(name));
       setSeatsByLicense((p) => ({ ...p, [name]: body.items }));
     } catch {
       setSeatsByLicense((p) => ({ ...p, [name]: [] }));
     }
   };
 
-  // Tải seats (nếu chưa) rồi mở dialog gắn máy cho MỘT bản còn trống.
-  const loadSeats = async (name: string): Promise<AssetRow[]> => {
-    const cached = seatsByLicense[name];
-    if (cached && cached !== 'loading') return cached;
-    const body = await apiFetch<{ items: AssetRow[] }>(
-      `/api/admin/assets?type=software&licenseName=${encodeURIComponent(name)}&pageSize=100`,
-    );
-    setSeatsByLicense((p) => ({ ...p, [name]: body.items }));
-    return body.items;
-  };
   const assignMachine = async (name: string) => {
     try {
       const seats = await loadSeats(name);
-      const free = seats.find((s) => !s.installedOnCode && s.status !== 'disposed');
-      if (free) setTransferSw(free);
+      const seat = seats.find((s) => !s.installedOnCode && s.status !== 'disposed');
+      if (seat) setTransferSw(seat);
     } catch {
-      /* lỗi tải seats — bỏ qua, user thử lại */
+      /* lỗi tải seats — bỏ qua */
+    }
+  };
+
+  // Mở form (Sửa) / popup xem read-only cho 1 bản: lấy detail tươi rồi map sang FormState.
+  const openSeat = async (seat: AssetRow, mode: 'edit' | 'view') => {
+    setActionErr(null);
+    try {
+      const res = await fetch(`/api/admin/assets/${encodeURIComponent(seat.id)}`);
+      if (!res.ok) {
+        setActionErr(t('assets.loadFailed'));
+        return;
+      }
+      const f = detailToForm((await res.json()) as AssetDetail);
+      if (mode === 'edit') setForm(f);
+      else setViewForm(f);
+    } catch {
+      setActionErr(t('app.serverUnreachable'));
+    }
+  };
+
+  const runConfirm = async () => {
+    if (!confirm) return;
+    const { kind, seat } = confirm;
+    setConfirmBusy(true);
+    setActionErr(null);
+    const r =
+      kind === 'detach'
+        ? await detachSeat(seat.id, me.csrfToken)
+        : await disposeSeat(seat.id, me.csrfToken);
+    setConfirmBusy(false);
+    setConfirm(null);
+    if (r.ok) {
+      if (seat.licenseName) await reloadSeats(seat.licenseName);
+      void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
+    } else {
+      setActionErr(r.message ?? t('assets.saveFailed'));
+    }
+  };
+
+  const afterFormDone = (saved: boolean) => {
+    setForm(null);
+    if (saved) {
+      void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
+      setSeatsByLicense({});
+      setExpanded(new Set());
     }
   };
 
@@ -114,7 +206,9 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
           {t('software.add')}
         </button>
       </div>
-      {isError && <p className="alert error">{t('assets.loadFailed')}</p>}
+      {(isError || actionErr) && (
+        <p className="alert error">{actionErr ?? t('assets.loadFailed')}</p>
+      )}
       <div className="filter-bar">
         <input
           className="grow search"
@@ -122,13 +216,55 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
         />
+        <label className="field-inline">
+          <span className="muted">{t('assets.endFrom', 'Hết hạn từ')}</span>
+          <DatePicker
+            value={endFrom}
+            max={endTo || undefined}
+            ariaLabel={t('assets.endFrom', 'Hết hạn từ')}
+            onChange={setEndFrom}
+          />
+        </label>
+        <label className="field-inline">
+          <span className="muted">{t('assets.endTo', 'đến')}</span>
+          <DatePicker
+            value={endTo}
+            min={endFrom || undefined}
+            ariaLabel={t('assets.endTo', 'đến')}
+            onChange={setEndTo}
+          />
+        </label>
+        {(endFrom || endTo) && (
+          <button
+            type="button"
+            onClick={() => {
+              setEndFrom('');
+              setEndTo('');
+            }}
+          >
+            {t('assets.clearFilters')}
+          </button>
+        )}
+        <select
+          className="page-size"
+          aria-label={t('software.pageSize', 'Số dòng mỗi trang')}
+          value={pageSize}
+          onChange={(e) => setPageSize(Number(e.target.value))}
+        >
+          {PAGE_SIZES.map((n) => (
+            <option key={n} value={n}>
+              {t('software.perPage', '{{n}}/trang', { n })}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="table-wrap">
         <table className="table">
           <thead>
             <tr>
-              <th>{t('assets.licenseName')}</th>
-              <th>{t('assets.licenseType')}</th>
+              <th style={{ width: '3rem' }}>#</th>
+              <th>{t('software.hdrSoftware', 'Software')}</th>
+              <th>{t('software.hdrLicense', 'License')}</th>
               <th>{t('software.colTotal')}</th>
               <th>{t('software.colAssigned')}</th>
               <th>{t('software.colHolders')}</th>
@@ -136,24 +272,28 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
             </tr>
           </thead>
           <tbody>
-            {groups.length === 0 ? (
+            {pageGroups.length === 0 ? (
               <tr>
-                <td colSpan={6} className="empty">
-                  {search ? t('assets.noMatch') : t('software.empty')}
+                <td colSpan={7} className="empty">
+                  {search || endFrom || endTo
+                    ? t('assets.noMatch')
+                    : t('software.empty')}
                 </td>
               </tr>
             ) : (
-              groups.map((g) => {
+              pageGroups.map((g, i) => {
                 const isOpen = expanded.has(g.licenseName);
+                const stt = (page - 1) * pageSize + i + 1;
                 const seats = seatsByLicense[g.licenseName];
                 const ratio = g.total > 0 ? g.assigned / g.total : 0;
-                const tone = ratio >= 0.8 ? 'high' : '';
+                const tone = ratio >= 1 ? 'full' : ratio >= 0.8 ? 'high' : '';
                 return [
                   <tr
                     key={g.licenseName}
                     className={`sw-lic-row${isOpen ? ' open' : ''}`}
                     onClick={() => void toggle(g.licenseName)}
                   >
+                    <td className="muted">{stt}</td>
                     <td>
                       <div className="sw-name">
                         <span className="sw-caret" aria-hidden="true">
@@ -169,21 +309,55 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
                         </span>
                         <div>
                           <div className="sw-nm">{g.licenseName}</div>
-                          {g.expiring > 0 ? (
-                            <div className="sw-sub warn">
-                              {t('software.expiringN', {
-                                n: g.expiring,
-                                defaultValue: '{{n}} bản sắp hết hạn',
-                              })}
-                            </div>
-                          ) : g.licenseType !== 'perpetual' && g.nextExpiry ? (
-                            <div className="sw-sub">
-                              {t('software.nextExpiryShort', {
-                                d: g.nextExpiry,
-                                defaultValue: 'Hạn gần nhất {{d}}',
-                              })}
-                            </div>
-                          ) : null}
+                          {(() => {
+                            const exp = g.nextExpiry;
+                            const n =
+                              exp && g.licenseType !== 'perpetual'
+                                ? daysUntil(exp)
+                                : NaN;
+                            // Hạn gần nhất ≤30 ngày (hoặc quá hạn) → đỏ nhấp nháy + đếm ngược.
+                            if (exp && Number.isFinite(n) && n <= EXPIRY_SOON_DAYS) {
+                              return (
+                                <div className="sw-sub due-over">
+                                  {t('software.nextExpiryShort', {
+                                    d: formatDmy(exp),
+                                    defaultValue: 'Hạn gần nhất {{d}}',
+                                  })}{' '}
+                                  ·{' '}
+                                  {n < 0
+                                    ? t('software.overdueDays', {
+                                        n: Math.abs(n),
+                                        defaultValue: 'quá hạn {{n}} ngày',
+                                      })
+                                    : t('software.daysLeft', {
+                                        n,
+                                        defaultValue: 'còn {{n}} ngày',
+                                      })}
+                                </div>
+                              );
+                            }
+                            if (g.expiring > 0) {
+                              return (
+                                <div className="sw-sub warn">
+                                  {t('software.expiringN', {
+                                    n: g.expiring,
+                                    defaultValue: '{{n}} bản sắp hết hạn',
+                                  })}
+                                </div>
+                              );
+                            }
+                            if (exp && g.licenseType !== 'perpetual') {
+                              return (
+                                <div className="sw-sub">
+                                  {t('software.nextExpiryShort', {
+                                    d: formatDmy(exp),
+                                    defaultValue: 'Hạn gần nhất {{d}}',
+                                  })}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                     </td>
@@ -234,10 +408,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
                           actions={[
                             {
                               label: t('software.detail', 'Xem chi tiết'),
-                              onClick: () =>
-                                navigate(
-                                  `/phan-mem/license/${encodeURIComponent(g.licenseName)}`,
-                                ),
+                              onClick: () => void toggle(g.licenseName),
                             },
                           ]}
                         />
@@ -246,53 +417,19 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
                   </tr>,
                   isOpen ? (
                     <tr key={`${g.licenseName}-inst`} className="sw-detail-row">
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <div className="sw-detail-wrap">
                           {seats === 'loading' || seats === undefined ? (
                             <span className="muted">…</span>
                           ) : (
-                            (() => {
-                              const installed = seats.filter(
-                                (s) => s.installedOnCode,
-                              );
-                              return (
-                                <>
-                                  <div className="sw-detail-head">
-                                    {t('software.installedTitle', {
-                                      n: installed.length,
-                                      defaultValue: 'Máy đang cài ({{n}})',
-                                    })}
-                                  </div>
-                                  {installed.length === 0 ? (
-                                    <div className="sw-detail-empty">
-                                      {t('software.notInstalled', 'Chưa cài trên máy nào.')}
-                                    </div>
-                                  ) : (
-                                    installed.map((s) => (
-                                      <div className="inst" key={s.id}>
-                                        <div className="inst-mc">
-                                          <span className="mono">
-                                            {s.installedOnCode}
-                                          </span>
-                                          {/* Người giữ derive theo máy — phụ, mờ dưới mã thiết bị. */}
-                                          <small>
-                                            {s.assignedUserName ??
-                                              s.assignedUserSub ??
-                                              t('assets.assigneeEmpty')}
-                                          </small>
-                                        </div>
-                                        {/* Kỳ hạn: start → end (perpetual = Vĩnh viễn). */}
-                                        <div className="inst-day">
-                                          {s.licenseType === 'perpetual'
-                                            ? t('assets.licensePerpetual')
-                                            : `${s.startDate ?? '—'} → ${s.endDate ?? '—'}`}
-                                        </div>
-                                      </div>
-                                    ))
-                                  )}
-                                </>
-                              );
-                            })()
+                            <SoftwareSeatList
+                              seats={seats}
+                              onView={(s) => void openSeat(s, 'view')}
+                              onEdit={(s) => void openSeat(s, 'edit')}
+                              onDetach={(s) => setConfirm({ kind: 'detach', seat: s })}
+                              onDispose={(s) => setConfirm({ kind: 'dispose', seat: s })}
+                              onAssign={(s) => setTransferSw(s)}
+                            />
                           )}
                         </div>
                       </td>
@@ -305,20 +442,63 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
         </table>
       </div>
 
-      {form && (
+      {total > pageSize && (
+        <div className="sw-pager">
+          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            ‹ {t('assets.prev')}
+          </button>
+          <span className="muted" style={{ fontSize: '0.85rem' }}>
+            {t('assets.pageOf', { page, totalPages, total })}
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            {t('assets.next')} ›
+          </button>
+        </div>
+      )}
+
+      {form && <AssetForm me={me} initial={form} lockSoftware onDone={afterFormDone} />}
+
+      {viewForm && (
         <AssetForm
           me={me}
-          initial={form}
+          initial={viewForm}
           lockSoftware
-          onDone={(saved) => {
-            setForm(null);
-            if (saved) {
-              // Tạo thêm bản → tổng/seat đổi: refetch nhóm + xoá cache seat đã bung.
-              void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
-              setSeatsByLicense({});
-              setExpanded(new Set());
-            }
-          }}
+          readOnly
+          onDone={() => setViewForm(null)}
+        />
+      )}
+
+      {confirm && (
+        <ConfirmDialog
+          title={
+            confirm.kind === 'detach'
+              ? t('software.detachTitle', 'Gỡ khỏi máy?')
+              : t('assets.disposeConfirmTitle', 'Thanh lý?')
+          }
+          message={
+            confirm.kind === 'detach'
+              ? t('software.detachConfirm', {
+                  code: confirm.seat.installedOnCode ?? '',
+                  defaultValue:
+                    'Gỡ bản này khỏi máy "{{code}}"? Ghế sẽ trống để gán máy khác.',
+                })
+              : t('assets.disposeConfirmOne', {
+                  name: confirm.seat.installedOnCode ?? confirm.seat.licenseName ?? '',
+                })
+          }
+          confirmLabel={
+            confirm.kind === 'detach'
+              ? t('software.detach', 'Gỡ')
+              : t('assets.disposeAction', 'Thanh lý')
+          }
+          danger
+          busy={confirmBusy}
+          onConfirm={() => void runConfirm()}
+          onCancel={() => setConfirm(null)}
         />
       )}
 
@@ -328,11 +508,11 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
           softwareId={transferSw.id}
           currentHostCode={transferSw.installedOnCode}
           onDone={(changed) => {
+            const name = transferSw.licenseName;
             setTransferSw(null);
             if (changed) {
               void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
-              setSeatsByLicense({});
-              setExpanded(new Set());
+              if (name) void reloadSeats(name);
             }
           }}
         />

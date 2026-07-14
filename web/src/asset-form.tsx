@@ -19,12 +19,15 @@ export function AssetForm({
   initial,
   onDone,
   lockSoftware = false,
+  readOnly = false,
 }: {
   me: Me;
   initial: FormState;
   onDone: (saved: boolean) => void;
   /** Form phần mềm THUẦN (từ /phan-mem, chi tiết license): ẩn toggle Thiết bị/Phần mềm. */
   lockSoftware?: boolean;
+  /** Xem chi tiết (không sửa): khóa mọi input (fieldset disabled), ẩn nút Lưu. */
+  readOnly?: boolean;
 }) {
   const {
     t,
@@ -90,7 +93,7 @@ export function AssetForm({
           <span className="sheet-title">
             {form.id ? (
               <>
-                {t('assets.edit')} ·{' '}
+                {readOnly ? t('assets.viewTitle', 'Xem') : t('assets.edit')} ·{' '}
                 {initial.isSoftware ? (
                   initial.licenseName || t('assets.kindSoftware')
                 ) : (
@@ -125,6 +128,7 @@ export function AssetForm({
           }}
         >
           <div className="sheet-body">
+           <fieldset disabled={readOnly} className="ff-contents">
             {error && (
               <p className="alert error">
                 {error}{' '}
@@ -323,23 +327,25 @@ export function AssetForm({
                 machineId={form.id}
               />
             )}
-
+           </fieldset>
           </div>
 
           <div className="sheet-footer">
             <span className="spacer" />
             <button type="button" disabled={busy} onClick={close}>
-              {t('assets.cancel')}
+              {readOnly ? t('assets.close', 'Đóng') : t('assets.cancel')}
             </button>
             {/* disposed = hồ sơ đã chốt (F2) — server cũng chặn 409 DISPOSED_TERMINAL */}
-            <button
-              type="submit"
-              className="primary"
-              disabled={busy || (!!form.id && form.status === 'disposed')}
-            >
-              {busy && <span className="spinner" style={{ marginRight: 6 }} />}
-              {t('assets.save')}
-            </button>
+            {!readOnly && (
+              <button
+                type="submit"
+                className="primary"
+                disabled={busy || (!!form.id && form.status === 'disposed')}
+              >
+                {busy && <span className="spinner" style={{ marginRight: 6 }} />}
+                {t('assets.save')}
+              </button>
+            )}
           </div>
         </form>
       </div>

@@ -87,20 +87,29 @@
   color: #fff;
 }
 .dp-nav {
-  width: 2rem;
-  height: 2rem;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
   border: none;
-  border-radius: var(--r-sm);
+  border-radius: 50%;
   cursor: pointer;
   color: #fff;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.16);
   display: grid;
   place-items: center;
-  font-size: 1.1rem;
   line-height: 1;
+  transition: background 0.14s var(--ease), transform 0.14s var(--ease);
 }
-.dp-nav:hover {
-  background: rgba(255, 255, 255, 0.3);
+/* :not(:disabled) để THẮNG base `button:hover{background:surface-2}` — nếu không nút mũi tên
+   bị nền sáng trên header gradient = "hover trắng" xấu. */
+.dp-nav:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.32);
+  transform: scale(1.08);
+}
+.dp-nav svg {
+  display: block;
+  width: 15px;
+  height: 15px;
 }
 .dp-title {
   flex: 1;
@@ -113,7 +122,7 @@
   padding: 0.4rem;
   border-radius: var(--r-sm);
 }
-.dp-title:hover {
+.dp-title:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.18);
 }
 .dp-body {

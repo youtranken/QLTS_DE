@@ -141,5 +141,40 @@ export function useAssetPageActions(ctx: {
     [t, me.csrfToken],
   );
 
-  return { openEdit, copyFrom, handleDelete, purgeById };
+  // Thanh lý 1 bản phần mềm (→ Kho thanh lý): POST :id/dispose (status=disposed). Không tự
+  // confirm/invalidate (ConfirmDialog + người gọi lo) — trả {ok,error} để bulk cộng dồn.
+  const disposeById = useCallback(
+    async (id: string): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        const detailRes = await fetch(
+          `/api/admin/assets/${encodeURIComponent(id)}`,
+        );
+        if (!detailRes.ok) return { ok: false, error: t('assets.saveFailed') };
+        const { version } = (await detailRes.json()) as AssetDetail;
+        const res = await fetch(
+          `/api/admin/assets/${encodeURIComponent(id)}/dispose`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {}),
+            },
+            body: JSON.stringify({ version }),
+          },
+        );
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as {
+            message?: string;
+          } | null;
+          return { ok: false, error: body?.message ?? t('assets.saveFailed') };
+        }
+        return { ok: true };
+      } catch {
+        return { ok: false, error: t('app.serverUnreachable') };
+      }
+    },
+    [t, me.csrfToken],
+  );
+
+  return { openEdit, copyFrom, handleDelete, purgeById, disposeById };
 }

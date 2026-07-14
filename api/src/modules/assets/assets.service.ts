@@ -59,6 +59,8 @@ export interface AssetListQuery {
   endTo?: string;
   /** Chi tiết nhóm license: lọc đúng tên license → liệt kê từng bản (seat). */
   licenseName?: string;
+  /** Ẩn bản đã thanh lý (status=disposed) — /phan-mem chỉ hiện bản còn hiệu lực. */
+  excludeDisposed?: boolean;
   /** Sắp xếp server-side (P1): cột (whitelist ở DTO) + hướng. Mặc định code asc. */
   sort?: string;
   dir?: string;
@@ -579,6 +581,8 @@ export class AssetsService {
           startDate: assetsTable.startDate,
           floor: assetsTable.floor,
           brand: assetsTable.brand,
+          // Ghi chú: cột "Ghi chú" ở chi tiết license (/phan-mem) — hiển thị rút gọn + title.
+          note: assetsTable.note,
           // Máy tính license_name (định danh phần mềm thay mã) + host để tab Phần mềm hiển thị
           licenseName: assetsTable.licenseName,
           licenseType: assetsTable.licenseType,
@@ -593,6 +597,7 @@ export class AssetsService {
             WHERE sw.installed_on_asset_id = ${assetsTable.id}
               AND sw.type = 'software'
               AND sw.status <> 'disposed'
+              AND sw.purged_at IS NULL
               AND sw.license_name IS NOT NULL
           )`,
           // Người đứng tên: phần mềm DERIVE từ host (đi theo máy); máy thì của chính nó.

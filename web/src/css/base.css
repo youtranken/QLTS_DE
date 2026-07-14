@@ -202,6 +202,39 @@ a.linkbtn:hover {
   color: var(--sidebar-active-ink);
   box-shadow: inset 3px 0 0 var(--warm);
 }
+/* Mục cha dạng dropdown (vd "Kho thanh lý"): button trông như nav-item, caret đẩy phải. */
+.nav-parent {
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 550;
+  font-size: 0.9rem;
+}
+/* Đè `button:hover{background:surface-2}` (specificity cao hơn .nav-item:hover) — nếu không,
+   nút dropdown bị nền sáng + chữ sáng của sidebar = "trắng không thấy gì". */
+.nav-parent:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sidebar-ink-2);
+}
+.nav-parent .nav-caret {
+  margin-left: auto;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+.nav-children {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 2px 0.9rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+.nav-children .nav-item {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
 /* Drawer mobile (≤900px): sidebar cố định trượt vào, có backdrop mờ ấm. */
 .sidebar.is-drawer {
   position: fixed;

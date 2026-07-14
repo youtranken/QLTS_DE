@@ -19,3 +19,4 @@
 @import './css/detail-cards.css';  /* chi tiết tài sản: card Người giữ + Bảo hành + ô mật khẩu */
 @import './css/calendar.css';      /* lịch máy tổng (mục sidebar) */
 @import './css/lightbox.css';      /* lightbox ảnh biên bản (UP-5.5) */
+@import './css/command-palette.css'; /* command palette ⌘K — port giao diện demo */

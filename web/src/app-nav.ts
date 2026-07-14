@@ -1,6 +1,12 @@
+export interface NavItem {
+  to?: string; // link lá (bỏ trống khi là mục cha có children)
+  key: string; // khóa i18n cho nhãn
+  children?: Array<{ to: string; key: string }>; // dropdown gấp gọn
+}
+
 export interface NavGroup {
   label: string;
-  items: Array<{ to: string; key: string }>;
+  items: NavItem[];
 }
 
 /**
@@ -27,8 +33,13 @@ export function navGroups(role: string): NavGroup[] {
         { to: '/phan-mem', key: 'nav.software' },
         { to: '/pool-may-muon', key: 'nav.pool' },
         { to: '/tai-san/kiem-ke', key: 'nav.inventory' },
-        { to: '/tai-san/thanh-ly', key: 'nav.disposedDevices' },
-        { to: '/phan-mem/thanh-ly', key: 'nav.disposedSoftware' },
+        {
+          key: 'nav.disposed',
+          children: [
+            { to: '/tai-san/thanh-ly', key: 'nav.disposedKindDevice' },
+            { to: '/phan-mem/thanh-ly', key: 'nav.disposedKindSoftware' },
+          ],
+        },
         { to: '/bao-cao', key: 'nav.reports' },
       ],
     });

@@ -244,6 +244,12 @@ class ListAssetsQueryDto {
   @MaxLength(200)
   licenseName?: string;
 
+  /** /phan-mem: ẩn bản đã thanh lý (?excludeDisposed=true). */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  excludeDisposed?: boolean;
+
   /** Sắp xếp server-side (P1): whitelist cột — chặn SQL injection qua tên cột. */
   @IsOptional()
   @IsIn(['code', 'type', 'status', 'assignee'])
@@ -297,6 +303,7 @@ export class AssetsAdminController {
       endFrom: query.endFrom,
       endTo: query.endTo,
       licenseName: query.licenseName,
+      excludeDisposed: query.excludeDisposed,
       sort: query.sort,
       dir: query.dir,
     });

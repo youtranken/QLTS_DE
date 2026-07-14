@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { formatVnd, parseVnd } from './asset-types';
+import { DatePicker } from './ui/date-picker';
 
 /** 1 bản (seat) khi TẠO phần mềm: mỗi bản có kỳ hạn + giá + ghi chú riêng (mua nhiều bản chung tên). */
 export interface Seat {
@@ -79,20 +80,20 @@ export function SoftwareSeatsFields({
               <tr key={i}>
                 <td>{i + 1}</td>
                 <td>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={s.startDate}
-                    onChange={(e) => update(i, 'startDate', e.target.value)}
+                    max={s.endDate || undefined}
+                    ariaLabel={t('assets.startDate')}
+                    onChange={(v) => update(i, 'startDate', v)}
                   />
                 </td>
                 {!isPerpetual && (
                   <td>
-                    <input
-                      type="date"
-                      required={isTerm}
-                      min={s.startDate ? nextDay(s.startDate) : undefined}
+                    <DatePicker
                       value={s.endDate}
-                      onChange={(e) => update(i, 'endDate', e.target.value)}
+                      min={s.startDate ? nextDay(s.startDate) : undefined}
+                      ariaLabel={t('assets.endDate')}
+                      onChange={(v) => update(i, 'endDate', v)}
                     />
                   </td>
                 )}

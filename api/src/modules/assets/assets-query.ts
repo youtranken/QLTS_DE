@@ -23,6 +23,8 @@ export function buildAssetListConditions(
     endTo?: string;
     /** Lọc CHÍNH XÁC tên license — trang chi tiết nhóm license liệt kê từng bản (seat). */
     licenseName?: string;
+    /** Ẩn bản đã thanh lý (status=disposed) — /phan-mem chỉ hiện bản còn hiệu lực. */
+    excludeDisposed?: boolean;
   },
   expiringBefore: string | null = null,
   hostHolderName?: AnyColumn | SQL,
@@ -60,6 +62,10 @@ export function buildAssetListConditions(
       ? sql`${assetsTable.endDate} <= ${query.endTo}::date`
       : undefined,
     query.status ? eq(assetsTable.status, query.status) : undefined,
+    // /phan-mem (list + chi tiết license): ẩn bản đã thanh lý (đã sang Kho thanh lý).
+    query.excludeDisposed
+      ? sql`${assetsTable.status} <> 'disposed'`
+      : undefined,
     // 7.7 "sắp hết hạn": thiết bị bất kỳ có endDate, HOẶC license term đang gắn máy
     // (installed IS NOT NULL ⇒ host chưa thanh lý — máy disposed tự detach license 2.5).
     query.expiring && expiringBefore
