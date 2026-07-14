@@ -1,112 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ColumnDef } from '@tanstack/react-table';
 import { AdminDashboard } from './admin-dashboard';
 import { apiFetch } from './api-client';
-import { BookingSheet, PICKUP_SLOTS } from './booking-sheet';
+import { BookingSheet } from './booking-sheet';
 import { LoadError } from './load-state';
 import type { Me } from './panels';
 import { DataTable } from './ui/data-table';
-
-interface BoardRow {
-  ticketId: string;
-  assetCode: string | null;
-  type: string | null;
-  borrowerName: string | null;
-  from: string | null;
-  due: string | null;
-  state: string;
-  isOverdue: boolean;
-  isMine: boolean;
-  note: string | null;
-  recurringCount: number | null;
-}
-
-interface FreePoolMachine {
-  id: string;
-  code: string;
-  type: string;
-  configuration: string | null;
-  // Phase 1b: null = rảnh ngay; else ISO giờ máy hết bận ("bận đến …").
-  busyUntil?: string | null;
-}
-
-const POLL_MS = 30_000;
-// #1: catalog "Máy có thể mượn" chỉ hiện tối đa 5 thẻ; còn lại bung qua "Xem tất cả".
-const CATALOG_CAP = 5;
-// Gần tới giờ trả trong ngưỡng này → tô cam + chớp (cảnh báo sắp phải trả).
-const NEAR_DUE_MS = 2 * 60 * 60 * 1000;
-/** Ngày dd/MM theo giờ VN (tách cột Ngày). */
-const dOnly = (iso: string | null): string =>
-  iso
-    ? new Date(iso).toLocaleDateString('vi-VN', {
-        timeZone: 'Asia/Ho_Chi_Minh',
-        day: '2-digit',
-        month: '2-digit',
-      })
-    : '—';
-/** Giờ HH:MM theo giờ VN (tách cột Giờ). */
-const hOnly = (iso: string | null): string =>
-  iso
-    ? new Date(iso).toLocaleTimeString('vi-VN', {
-        timeZone: 'Asia/Ho_Chi_Minh',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '—';
-
-interface CalBusy {
-  from: string;
-  to: string;
-  kind: string;
-}
-interface MachineCal {
-  busy: CalBusy[];
-}
-interface SlotInfo {
-  /** 0 = hôm nay, 1 = ngày mai, … (-1 = kín cả tuần). */
-  dayOffset: number;
-  slots: string[];
-}
-
-/**
- * Giờ trống của 1 máy ở NGÀY LÀM GẦN NHẤT còn khung rảnh — tính trên ĐÚNG 6 khung gợi ý
- * (PICKUP_SLOTS, nhất quán với popup Đặt): bỏ khung đã qua & khung đang bận. Buổi tối/CN
- * hôm nay hết → tự nhảy sang ngày làm kế. Lịch busy chỉ có trong tuần fetch (BE chốt khi Đặt).
- */
-function freeSlotsSoon(busy: CalBusy[]): SlotInfo {
-  const now = Date.now();
-  const ranges = busy.map(
-    (b) => [new Date(b.from).getTime(), new Date(b.to).getTime()] as const,
-  );
-  for (let off = 0; off < 7; off++) {
-    const base = new Date();
-    base.setHours(0, 0, 0, 0);
-    base.setDate(base.getDate() + off);
-    if (base.getDay() === 0) continue; // CN nghỉ
-    const out: string[] = [];
-    for (const slot of PICKUP_SLOTS) {
-      const [h, mm] = slot.split(':').map(Number);
-      const t = new Date(base);
-      t.setHours(h, mm, 0, 0);
-      const ms = t.getTime();
-      if (ms <= now) continue; // đã qua
-      const busyAt = ranges.some(([bf, bt]) => bf <= ms && ms < bt);
-      if (!busyAt) out.push(slot);
-    }
-    if (out.length > 0) return { dayOffset: off, slots: out };
-  }
-  return { dayOffset: -1, slots: [] };
-}
+import {
+  POLL_MS,
+  freeSlotsSoon,
+  type BoardRow,
+  type CalBusy,
+  type FreePoolMachine,
+  type MachineCal,
+  type SlotInfo,
+} from './board-types';
+import { useBoardColumns } from './board-columns';
+import { BoardCatalog } from './board-catalog';
 
 /**
  * Trang chủ Borrow Board (7.5) — bảng máy đang mượn realtime cho member + admin.
  * Member: full màn + nút Đặt máy/Request của tôi ở đây (không sidebar). Admin: + dải thẻ số.
  * Poll /booking/board 30s; dòng quá hạn đỏ; đặt xong flash dòng của mình.
+ * Catalog máy-first + bộ cột bảng tách ra board-catalog / board-columns (§6).
  */
 export function BorrowBoardPage({ me }: { me: Me }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const isAdmin = me.role === 'admin' || me.role === 'sa';
   const queryClient = useQueryClient();
   const [now, setNow] = useState(() => Date.now());
@@ -118,11 +38,6 @@ export function BorrowBoardPage({ me }: { me: Me }) {
   const [flash, setFlash] = useState(false);
   // Filter bảng máy: 'all' = tất cả máy đang mượn/chờ giao; 'mine' = chỉ của tôi.
   const [boardFilter, setBoardFilter] = useState<'all' | 'mine'>('all');
-  // 9.5+: catalog máy-first — search client-side + lọc theo loại (distinct từ pool rảnh).
-  const [catalogSearch, setCatalogSearch] = useState('');
-  const [catalogType, setCatalogType] = useState('all');
-  // #1: nhiều máy → chỉ hiện CATALOG_CAP thẻ đầu, còn lại bung khi bấm "Xem tất cả".
-  const [showAllCatalog, setShowAllCatalog] = useState(false);
   // Part 2: xem giờ trống ngày làm gần nhất của 1 máy ngay trên card (trước khi mở popup đặt).
   const [slotMachine, setSlotMachine] = useState<string | null>(null);
   const [slots, setSlots] = useState<SlotInfo | null>(null);
@@ -184,21 +99,6 @@ export function BorrowBoardPage({ me }: { me: Me }) {
   });
   const free = freeData ?? [];
 
-  const freeTypes = useMemo(
-    () => Array.from(new Set(free.map((m) => m.type).filter(Boolean))).sort(),
-    [free],
-  );
-  const freeFiltered = useMemo(() => {
-    const q = catalogSearch.trim().toLowerCase();
-    return free.filter((m) => {
-      if (catalogType !== 'all' && m.type !== catalogType) return false;
-      if (!q) return true;
-      return `${m.code} ${m.type} ${m.configuration ?? ''}`
-        .toLowerCase()
-        .includes(q);
-    });
-  }, [free, catalogSearch, catalogType]);
-
   // Đồng hồ đếm ngược mỗi POLL_MS — tách khỏi fetch, chỉ để countdown re-render.
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), POLL_MS);
@@ -218,160 +118,7 @@ export function BorrowBoardPage({ me }: { me: Me }) {
     setTimeout(() => setFlash(false), 2500);
   }, [queryClient]);
 
-  const fmt = (iso: string | null) =>
-    iso
-      ? new Date(iso).toLocaleString(i18n.language === 'vi' ? 'vi-VN' : 'en-US', {
-          timeZone: 'Asia/Ho_Chi_Minh',
-          day: '2-digit',
-          month: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : '—';
-
-  const countdown = (due: string | null): string => {
-    if (!due) return '';
-    const ms = new Date(due).getTime() - now;
-    if (ms <= 0) return t('board.overdueBy', { d: fmtDur(-ms) });
-    return t('board.dueIn', { d: fmtDur(ms) });
-  };
-  const fmtDur = (ms: number): string => {
-    const m = Math.floor(ms / 60000);
-    const d = Math.floor(m / 1440);
-    const h = Math.floor((m % 1440) / 60);
-    if (d > 0) return `${d}${t('board.dUnit')} ${h}${t('board.hUnit')}`;
-    if (h > 0) return `${h}${t('board.hUnit')} ${m % 60}${t('board.mUnit')}`;
-    return `${m}${t('board.mUnit')}`;
-  };
-  // Nhãn ngày cho khối "giờ trống": Hôm nay / Ngày mai / thứ+ngày (khi phải nhảy ngày).
-  const slotDayLabel = (off: number): string => {
-    if (off <= 0) return t('board.today', 'Hôm nay');
-    if (off === 1) return t('board.tomorrow', 'Ngày mai');
-    const d = new Date();
-    d.setDate(d.getDate() + off);
-    return d.toLocaleDateString(i18n.language === 'vi' ? 'vi-VN' : 'en-US', {
-      weekday: 'short',
-      day: '2-digit',
-      month: '2-digit',
-    });
-  };
-
-  // Màu cột Trả: quá hạn → đỏ chớp; gần tới giờ trả (≤2h) → cam chớp; còn xa → thường.
-  const dueClass = (due: string | null): string => {
-    if (!due) return '';
-    const ms = new Date(due).getTime() - now;
-    if (ms <= 0) return 'due-over';
-    if (ms <= NEAR_DUE_MS) return 'due-near';
-    return '';
-  };
-
-  // Cột board: 4 cột Ngày/Giờ Nhận-Trả (màu cảnh báo ở cột Trả) + Tình trạng. Rebuild mỗi
-  // tick `now` để countdown + màu cập nhật. `#` là số thứ tự HIỂN THỊ, không sort.
-  const boardColumns = useMemo<ColumnDef<BoardRow, unknown>[]>(
-    () => [
-      {
-        id: 'idx',
-        header: '#',
-        enableSorting: false,
-        cell: ({ row, table }) =>
-          table.getRowModel().rows.findIndex((r) => r.id === row.id) + 1,
-      },
-      {
-        accessorKey: 'assetCode',
-        header: t('board.colDevice'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <>
-              <span className="mono">{r.assetCode ?? '—'}</span>
-              <small className="muted" style={{ marginLeft: 6 }}>
-                {r.type ?? ''}
-              </small>
-              {r.recurringCount != null && (
-                <span className="badge muted" style={{ marginLeft: 6 }}>
-                  {t('board.recurring', { n: r.recurringCount })}
-                </span>
-              )}
-            </>
-          );
-        },
-      },
-      {
-        accessorKey: 'borrowerName',
-        header: t('board.colBorrower'),
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <>
-              {r.borrowerName ?? '—'}
-              {r.isMine && (
-                <span className="badge ok" style={{ marginLeft: 6 }}>
-                  {t('board.you')}
-                </span>
-              )}
-            </>
-          );
-        },
-      },
-      {
-        accessorKey: 'from',
-        header: t('board.colFromDate', 'Ngày nhận'),
-        cell: ({ row }) => dOnly(row.original.from),
-      },
-      {
-        id: 'fromTime',
-        header: t('board.colFromTime', 'Giờ nhận'),
-        enableSorting: false,
-        cell: ({ row }) => <span className="mono">{hOnly(row.original.from)}</span>,
-      },
-      {
-        accessorKey: 'due',
-        header: t('board.colToDate', 'Ngày trả'),
-        cell: ({ row }) => (
-          <span className={dueClass(row.original.due)}>
-            {dOnly(row.original.due)}
-          </span>
-        ),
-      },
-      {
-        id: 'toTime',
-        header: t('board.colToTime', 'Giờ trả'),
-        enableSorting: false,
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <>
-              <span className={`mono ${dueClass(r.due)}`}>{hOnly(r.due)}</span>
-              <div style={{ fontSize: '0.78rem' }} className={dueClass(r.due)}>
-                {countdown(r.due)}
-              </div>
-            </>
-          );
-        },
-      },
-      {
-        accessorKey: 'state',
-        header: t('board.colStatus'),
-        cell: ({ row }) => {
-          const r = row.original;
-          // Đang mượn (xanh, đỏ nếu quá hạn) · Chờ giao (cam) · Chờ duyệt (xám).
-          const cls = r.isOverdue
-            ? 'danger'
-            : r.state === 'in_use'
-              ? 'ok'
-              : r.state === 'awaiting_pickup'
-                ? 'warn'
-                : 'muted';
-          return (
-            <span className={`badge ${cls}`}>
-              {t(`board.state.${r.state}`, r.state)}
-            </span>
-          );
-        },
-      },
-    ],
-    [t, i18n.language, now],
-  );
+  const boardColumns = useBoardColumns(now);
 
   return (
     <section>
@@ -388,165 +135,14 @@ export function BorrowBoardPage({ me }: { me: Me }) {
 
       {isAdmin && <AdminDashboard />}
 
-      {/* 9.5+: catalog "Máy có thể mượn" — pool đang rảnh dạng card grid, máy-first. */}
-      {free.length > 0 && (
-        <div className="section-gap">
-          <h2 style={{ fontSize: '1.05rem', marginBottom: '0.5rem' }}>
-            {t('board.freeTitle')}
-          </h2>
-          <div className="catalog-toolbar">
-            <input
-              className="table-search"
-              type="search"
-              value={catalogSearch}
-              placeholder={t('board.catalogSearch', 'Tìm máy: code, loại, cấu hình…')}
-              aria-label={t('board.catalogSearch', 'Tìm máy: code, loại, cấu hình…')}
-              onChange={(e) => setCatalogSearch(e.target.value)}
-              style={{ flex: 1, minWidth: 200 }}
-            />
-            <span className="segmented">
-              <label>
-                <input
-                  type="radio"
-                  name="catalogType"
-                  checked={catalogType === 'all'}
-                  onChange={() => setCatalogType('all')}
-                />
-                {t('board.catalogAll', 'Tất cả')}
-              </label>
-              {freeTypes.map((ty) => (
-                <label key={ty}>
-                  <input
-                    type="radio"
-                    name="catalogType"
-                    checked={catalogType === ty}
-                    onChange={() => setCatalogType(ty)}
-                  />
-                  {ty}
-                </label>
-              ))}
-            </span>
-            <button type="button" className="ghost" onClick={() => openBooking()}>
-              {t('board.catalogAdvanced', '+ Nâng cao')}
-            </button>
-          </div>
-          {freeFiltered.length === 0 ? (
-            <p className="empty">
-              {t('board.catalogEmpty', 'Không có máy khớp bộ lọc.')}
-            </p>
-          ) : (
-            <>
-              <div className="mcatalog dense">
-                {(showAllCatalog
-                  ? freeFiltered
-                  : freeFiltered.slice(0, CATALOG_CAP)
-                ).map((m) => {
-                  const busy = m.busyUntil != null;
-                  const slotsOpen = slotMachine === m.id;
-                  return (
-                    <div key={m.id} className="mcard mcard-sm">
-                      <div className="mc-head">
-                        <span className="mc-code">{m.code}</span>
-                        {busy ? (
-                          <span className="avail busy">
-                            {t('board.catalogBusyShort', 'Bận')}
-                          </span>
-                        ) : (
-                          <span className="avail free">
-                            {t('board.catalogFree', 'Rảnh ngay')}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mc-spec">
-                        {m.type}
-                        {m.configuration ? ` · ${m.configuration}` : ''}
-                        {busy && (
-                          <span className="muted">
-                            {' · '}
-                            {t('board.catalogBusyUntil', 'Bận đến {{time}}', {
-                              time: fmt(m.busyUntil ?? null),
-                            })}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mc-actions">
-                        {!busy && (
-                          <button
-                            type="button"
-                            className="ghost sm"
-                            aria-expanded={slotsOpen}
-                            onClick={() => void toggleSlots(m.id)}
-                          >
-                            {slotsOpen
-                              ? t('board.hideSlots', 'Ẩn giờ')
-                              : t('board.showSlots', 'Giờ trống ▾')}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className={busy ? 'sm' : 'primary sm'}
-                          onClick={() => openBooking(m)}
-                        >
-                          {busy
-                            ? t('board.catalogSchedule', 'Đặt lịch')
-                            : t('board.catalogBook', 'Đặt')}
-                        </button>
-                      </div>
-                      {slotsOpen && (
-                        <div className="slot-row">
-                          {slotsLoading ? (
-                            <span className="muted">…</span>
-                          ) : slots && slots.slots.length > 0 ? (
-                            <>
-                              <span className="slot-day">
-                                {slotDayLabel(slots.dayOffset)}
-                              </span>
-                              {slots.slots.map((s) => (
-                                <button
-                                  key={s}
-                                  type="button"
-                                  className="slotchip"
-                                  onClick={() => openBooking(m)}
-                                  title={t('board.bookAt', 'Đặt máy này lúc {{s}}', {
-                                    s,
-                                  })}
-                                >
-                                  {s}
-                                </button>
-                              ))}
-                            </>
-                          ) : (
-                            <span className="muted" style={{ fontSize: '0.8rem' }}>
-                              {t(
-                                'board.noSlotsWeek',
-                                'Kín lịch tuần này — bấm Đặt để chọn ngày khác',
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {freeFiltered.length > CATALOG_CAP && (
-                <button
-                  type="button"
-                  className="ghost sm"
-                  style={{ marginTop: '0.5rem' }}
-                  onClick={() => setShowAllCatalog((v) => !v)}
-                >
-                  {showAllCatalog
-                    ? t('board.catalogCollapse', 'Thu gọn')
-                    : t('board.catalogShowAll', 'Xem tất cả ({{n}}) →', {
-                        n: freeFiltered.length,
-                      })}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      )}
+      <BoardCatalog
+        free={free}
+        openBooking={openBooking}
+        slotMachine={slotMachine}
+        slots={slots}
+        slotsLoading={slotsLoading}
+        toggleSlots={toggleSlots}
+      />
 
       <div className="section-gap board-head">
         <h2 style={{ fontSize: '1.05rem', margin: 0 }}>
@@ -582,9 +178,7 @@ export function BorrowBoardPage({ me }: { me: Me }) {
         )
       ) : (
         <DataTable
-          data={
-            boardFilter === 'mine' ? rows.filter((r) => r.isMine) : rows
-          }
+          data={boardFilter === 'mine' ? rows.filter((r) => r.isMine) : rows}
           columns={boardColumns}
           emptyText={
             boardFilter === 'mine'
