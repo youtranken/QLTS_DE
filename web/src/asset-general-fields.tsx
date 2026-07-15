@@ -211,14 +211,17 @@ export function AssetGeneralFields({
           />
         </label>
       )}
-      <label className="field narrow">
-        <span>{t('assets.serial')}</span>
-        <input
-          maxLength={200}
-          value={form.serial}
-          onChange={(e) => set('serial')(e.target.value)}
-        />
-      </label>
+      {/* Serial: chỉ máy — phần mềm định danh bằng Tên license, không có số serial thiết bị. */}
+      {!form.isSoftware && (
+        <label className="field narrow">
+          <span>{t('assets.serial')}</span>
+          <input
+            maxLength={200}
+            value={form.serial}
+            onChange={(e) => set('serial')(e.target.value)}
+          />
+        </label>
+      )}
       {/* Place (vị trí đặt máy) — chỉ máy; dropdown từ danh mục (kind=place) + cho gõ tự do. */}
       {!form.isSoftware && (
         <label className="field">
@@ -236,20 +239,23 @@ export function AssetGeneralFields({
           </datalist>
         </label>
       )}
-      <label className="field">
-        <span>{t('assets.brand')}</span>
-        <select
-          value={form.brand}
-          onChange={(e) => set('brand')(e.target.value)}
-        >
-          <option value="">—</option>
-          {brandOptions.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/* Hãng: chỉ máy — phần mềm không gắn hãng thiết bị. */}
+      {!form.isSoftware && (
+        <label className="field">
+          <span>{t('assets.brand')}</span>
+          <select
+            value={form.brand}
+            onChange={(e) => set('brand')(e.target.value)}
+          >
+            <option value="">—</option>
+            {brandOptions.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {!hideDatesNote && (
       <label className="field span-2">
         <span>{t('assets.note')}</span>
