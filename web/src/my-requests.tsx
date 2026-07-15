@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MemberRecurringSessions } from './member-recurring-sessions';
 import { DateTimePicker } from './ui/date-time-picker';
+import { ConfirmDialog } from './confirm-dialog';
 import type { Me } from './panels';
 
 interface MyTicket {
@@ -40,6 +41,8 @@ export function MyRequestsPanel({
   const [extTicket, setExtTicket] = useState<MyTicket | null>(null);
   const [newDue, setNewDue] = useState('');
   const [extBusy, setExtBusy] = useState(false);
+  // Xác nhận hủy yêu cầu (thay window.confirm bằng ConfirmDialog nhất quán).
+  const [cancelTarget, setCancelTarget] = useState<MyTicket | null>(null);
   const [extErr, setExtErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -60,9 +63,8 @@ export function MyRequestsPanel({
     void load();
   }, [load, reloadKey]);
 
-  const cancel = useCallback(
+  const doCancel = useCallback(
     async (ticket: MyTicket) => {
-      if (!window.confirm(t('myreq.confirmCancel'))) return;
       setBusyId(ticket.id);
       setError(null);
       try {
@@ -272,16 +274,7 @@ export function MyRequestsPanel({
                       </span>
                     )}
                     {tk.isOverdue && (
-                      <span
-                        style={{
-                          marginLeft: 6,
-                          padding: '1px 6px',
-                          borderRadius: 3,
-                          background: '#c0392b',
-                          color: '#fff',
-                          fontSize: '0.75rem',
-                        }}
-                      >
+                      <span className="badge danger" style={{ marginLeft: 6 }}>
                         {t('myreq.overdue', {
                           h: Math.floor((tk.overdueMinutes ?? 0) / 60),
                           m: (tk.overdueMinutes ?? 0) % 60,
@@ -296,7 +289,7 @@ export function MyRequestsPanel({
                         type="button"
                         className="danger sm"
                         disabled={busyId !== null}
-                        onClick={() => void cancel(tk)}
+                        onClick={() => setCancelTarget(tk)}
                       >
                         {busyId === tk.id
                           ? t('myreq.cancelling')
@@ -378,6 +371,22 @@ export function MyRequestsPanel({
             </div>
           </div>
         </div>
+      )}
+
+      {cancelTarget && (
+        <ConfirmDialog
+          title={t('myreq.cancelTitle', 'Hủy yêu cầu?')}
+          message={t('myreq.confirmCancel')}
+          confirmLabel={t('myreq.cancel', 'Hủy yêu cầu')}
+          danger
+          busy={busyId === cancelTarget.id}
+          onConfirm={() => {
+            const tk = cancelTarget;
+            setCancelTarget(null);
+            void doCancel(tk);
+          }}
+          onCancel={() => setCancelTarget(null)}
+        />
       )}
     </section>
   );

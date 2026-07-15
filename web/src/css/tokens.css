@@ -11,7 +11,8 @@
   --surface-2: #f2f1ea;
   --ink: #1f231c;
   --ink-2: #5a615a;
-  --ink-3: #8a908a;
+  /* Đậm hơn (#8a908a→#6f756e) để chữ phụ nhỏ đạt tương phản AA trên nền trắng. */
+  --ink-3: #6f756e;
   --border: #e9eae2;
   --border-2: #d8dbd0;
 
@@ -74,7 +75,8 @@ html[data-theme='dark'] {
   --surface-2: #1d261d;
   --ink: #e9ede7;
   --ink-2: #a7b0a5;
-  --ink-3: #727c72;
+  /* Sáng hơn (#727c72→#868f86) để chữ phụ nhỏ đạt tương phản AA trên nền tối. */
+  --ink-3: #868f86;
   --border: #26312a;
   --border-2: #37453a;
   --primary: #34d399;

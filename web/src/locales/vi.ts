@@ -649,7 +649,7 @@ export default {
     stock: '(kho)',
     kindDevice: 'Thiết bị',
     kindSoftware: 'Phần mềm',
-    licenseType: 'Type License',
+    licenseType: 'License Type',
     licenseTerm: 'Thuê bao',
     licensePerpetual: 'Vĩnh viễn',
     licenseName: 'License Name',

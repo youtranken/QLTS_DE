@@ -7,8 +7,17 @@ import {
   useReactTable,
   type ColumnDef,
   type OnChangeFn,
+  type RowData,
   type SortingState,
 } from '@tanstack/react-table';
+
+// Cho phép cột khai báo className (vd 'num' căn phải cột số) qua columnDef.meta.
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    className?: string;
+  }
+}
 
 /** Trạng thái expand đưa xuống cột (qua table.meta) để ô đầu tự vẽ caret › như /phan-mem. */
 export interface ExpandMeta<T> {
@@ -166,9 +175,13 @@ export function DataTable<T>({
                 )}
                 {hg.headers.map((h) => {
                   const sorted = h.column.getIsSorted();
+                  const hm = h.column.columnDef.meta as
+                    | { className?: string }
+                    | undefined;
                   return (
                     <th
                       key={h.id}
+                      className={hm?.className}
                       aria-sort={
                         sorted === 'asc'
                           ? 'ascending'
@@ -206,9 +219,8 @@ export function DataTable<T>({
                     (renderExpanded ? 1 : 0) +
                     (selection ? 1 : 0)
                   }
-                  className="muted"
                 >
-                  {emptyText}
+                  <div className="empty">{emptyText}</div>
                 </td>
               </tr>
             ) : (
@@ -268,9 +280,13 @@ export function DataTable<T>({
                       )}
                       {row.getVisibleCells().map((cell) => {
                         const h = cell.column.columnDef.header;
+                        const cm = cell.column.columnDef.meta as
+                          | { className?: string }
+                          | undefined;
                         return (
                           <td
                             key={cell.id}
+                            className={cm?.className}
                             data-label={
                               typeof h === 'string' ? h : cell.column.id
                             }

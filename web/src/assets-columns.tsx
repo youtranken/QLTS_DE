@@ -239,6 +239,7 @@ export function useAssetColumns(opts: {
         id: 'cost',
         header: t('assets.col.cost'),
         enableSorting: false,
+        meta: { className: 'num' },
         cell: ({ row }) =>
           row.original.cost == null ? (
             '—'

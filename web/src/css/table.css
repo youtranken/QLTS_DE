@@ -187,6 +187,8 @@ table.table tbody tr.row-highlight td:first-child {
   font-family: var(--mono);
   font-size: 0.85em;
   letter-spacing: -0.01em;
+  /* Chữ số đều bề rộng → mã/tiền canh cột dọc thẳng hàng (mọi bảng dùng .mono). */
+  font-variant-numeric: tabular-nums;
 }
 /* Ghi chú trong ô bảng: rút gọn 1 dòng + ellipsis (đầy đủ ở title hover). */
 .cell-note {

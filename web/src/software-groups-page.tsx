@@ -294,7 +294,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
               <th style={{ width: '3rem' }}>#</th>
               <th>{t('software.hdrSoftware', 'Software')}</th>
               <th>{t('software.hdrLicense', 'License')}</th>
-              <th>{t('software.colTotal')}</th>
+              <th className="num">{t('software.colTotal')}</th>
               <th>{t('software.colAssigned')}</th>
               <th>{t('software.colHolders')}</th>
               <th className="right">{t('software.colAction')}</th>
@@ -399,7 +399,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
                         <span className="muted">—</span>
                       )}
                     </td>
-                    <td>
+                    <td className="num">
                       <strong>{g.total}</strong>
                     </td>
                     <td>

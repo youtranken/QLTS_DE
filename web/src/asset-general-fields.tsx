@@ -114,7 +114,7 @@ export function AssetGeneralFields({
       {/* Trạng thái ở HÀNG ĐẦU cạnh Code/Type (đủ 3 cột). Tạo mới luôn "Đang dùng" → ẩn.
           Sửa + đang dùng: đổi sang Thanh lý (chạy luồng thanh lý + preview cascade); khác → tĩnh. */}
       {isEditing && (
-        <label className="field">
+        <label className="field narrow">
           <span>{t('assets.statusLabel')}</span>
           {form.status === 'in_use' && onDispose ? (
             <select
@@ -166,7 +166,7 @@ export function AssetGeneralFields({
       )}
       {/* Giá: máy + sửa phần mềm dùng ô chung; TẠO phần mềm nhiều bản → Giá theo TỪNG bản. */}
       {!hideDatesNote && (
-        <label className="field">
+        <label className="field narrow">
           <span>{t('assets.cost')}</span>
           {/* Giá VND hiển thị dấu chấm ngăn nghìn (5.000.000); state giữ số nguyên (parseVnd). */}
           <input
@@ -178,7 +178,7 @@ export function AssetGeneralFields({
         </label>
       )}
       {!hideDatesNote && (
-      <label className="field">
+      <label className="field narrow">
         <span>{t('assets.startDate')}</span>
         <DatePicker
           value={form.startDate}
@@ -188,7 +188,7 @@ export function AssetGeneralFields({
       </label>
       )}
       {!hideDatesNote && !(form.isSoftware && form.licenseType === 'perpetual') && (
-        <label className="field">
+        <label className="field narrow">
           <span>
             {t('assets.endDate')}
             {form.isSoftware && form.licenseType === 'term' && (
@@ -211,7 +211,7 @@ export function AssetGeneralFields({
           />
         </label>
       )}
-      <label className="field">
+      <label className="field narrow">
         <span>{t('assets.serial')}</span>
         <input
           maxLength={200}

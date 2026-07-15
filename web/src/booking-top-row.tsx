@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
+import { AssetTypeIcon } from './asset-type-icon';
 import type { FreeMachine, UserOption } from './booking-types';
 
 /**
@@ -112,7 +113,7 @@ export function BookingTopRow({
           />
         ) : (
           <div className="picked-machine compact">
-            <span className="pm-ico">🖥️</span>
+            <AssetTypeIcon type={selected.type} />
             <div className="pm-info">
               <span className="mono pm-code">{selected.code}</span>
               <span className="muted pm-spec">

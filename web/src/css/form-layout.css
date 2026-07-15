@@ -114,6 +114,12 @@
 .form-grid.asset-grid {
   grid-template-columns: repeat(3, 1fr);
 }
+/* Ô dữ liệu NGẮN (ngày/giá/serial/số/trạng thái): giới hạn bề rộng input để không bị kéo
+   giãn trọn 1/3 hàng (~320px) trông rỗng. Input canh trái trong cell. */
+.field.narrow input,
+.field.narrow .dp {
+  max-width: 12rem;
+}
 @media (max-width: 860px) {
   .form-grid.asset-grid {
     grid-template-columns: 1fr 1fr;

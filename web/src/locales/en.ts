@@ -650,7 +650,7 @@ export default {
     stock: '(stock)',
     kindDevice: 'Device',
     kindSoftware: 'Software',
-    licenseType: 'Type License',
+    licenseType: 'License Type',
     licenseTerm: 'Subscription',
     licensePerpetual: 'Perpetual',
     licenseName: 'License Name',
