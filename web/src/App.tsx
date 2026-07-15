@@ -185,11 +185,8 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
           <ThemeSwitch />
           <TopbarMenu me={me} onLogout={onLogout} />
         </header>
-        <main
-          className={
-            /^\/(tai-san|phan-mem)\/?$/.test(pathname) ? 'page page-wide' : 'page'
-          }
-        >
+        {/* Mọi trang dùng bề ngang rộng (gần full) cho đồng nhất — đỡ trống 2 bên. */}
+        <main className="page page-wide">
           <AppRoutes me={me} />
         </main>
       </div>

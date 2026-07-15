@@ -1,3 +1,34 @@
+/* --- Chi tiết tài sản: các khu vực rõ ràng (Thông tin/Phần mềm/Lịch sử) --- */
+.detail-section {
+  margin: 0 0 1.4rem;
+}
+.detail-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+  margin: 0 0 0.6rem;
+}
+.detail-section-title::before {
+  content: '';
+  width: 3px;
+  height: 0.95rem;
+  border-radius: 2px;
+  background: var(--primary);
+}
+/* Bảo hành (timeline Start→End) ở CUỐI khu Thông tin tài sản — ngăn cách nhẹ. */
+.warranty-strip {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border-2);
+}
+.warranty-strip .mc-label {
+  margin-bottom: 0.4rem;
+}
+
 /* --- Chi tiết tài sản: card Người giữ + Bảo hành (gọn) ------------------- */
 .detail-cards {
   display: grid;

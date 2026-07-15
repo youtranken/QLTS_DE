@@ -191,6 +191,25 @@ export function AssetDetailPage({ me }: { me: Me }) {
     // User + Pool bỏ khỏi lưới thông tin — đã có ở panel "Người giữ hiện tại" (tránh trùng).
     [t('assets.note'), detail.note],
   ];
+  // Máy: Người giữ hiện tại NẰM TRONG "Thông tin tài sản" (chèn sau Trạng thái). Bảo hành
+  // (timeline Start→End) hiện riêng ở cuối section.
+  if (detail.type !== 'software') {
+    info.splice(2, 0, [
+      t('assets.currentHolder', 'Người giữ hiện tại'),
+      detail.assignedUserSub ? (
+        <>
+          {detail.assignedUserName ?? detail.assignedUserSub}
+          {detail.isPool && (
+            <span className="badge ok" style={{ marginLeft: 8 }}>
+              {t('assets.pool')}
+            </span>
+          )}
+        </>
+      ) : (
+        <span className="muted">{t('assets.assigneeEmpty')}</span>
+      ),
+    ]);
+  }
   if (detail.type === 'software') {
     info.push(
       [
@@ -236,86 +255,72 @@ export function AssetDetailPage({ me }: { me: Me }) {
         <span className={`badge ${STATUS_BADGE[detail.status] ?? 'muted'}`}>
           {t(`assets.status.${detail.status}`)}
         </span>
-        {detail.type !== 'software' && (
-          <Link className="linkbtn" to={`/lich-may/${id}`}>
-            {t('calendar.openLink', 'Lịch máy')}
-          </Link>
-        )}
         <button type="button" className="primary" onClick={() => setEditing(true)}>
           {t('assets.edit')}
         </button>
       </div>
       {error && <p className="alert error">{error}</p>}
-      <div className="card" style={{ padding: '1.25rem', margin: '0.5rem 0 1rem' }}>
-        <dl className="data-grid">
-          {info
-            .filter(([, v]) => v != null && v !== '')
-            .map(([label, value]) => (
-              <div className="data-item" key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-        </dl>
-      </div>
-      {detail.type !== 'software' && (
-        <div className="detail-cards">
-          <div className="card mini-card">
-            <div className="mc-label">{t('assets.currentHolder', 'Người giữ hiện tại')}</div>
-            {detail.assignedUserSub ? (
-              <div className="mc-value">
-                {detail.assignedUserName ?? detail.assignedUserSub}
-              </div>
-            ) : (
-              <div className="mc-value muted">{t('assets.assigneeEmpty')}</div>
-            )}
-            {detail.isPool && (
-              <span className="badge ok" style={{ marginTop: '0.5rem' }}>
-                {t('assets.pool')}
-              </span>
-            )}
-          </div>
-          <div className="card mini-card">
-            <div className="mc-label">{t('assets.warranty', 'Bảo hành / hạn dùng')}</div>
-            {warranty ? (
-              <>
-                <div className="warranty-bar">
-                  <div
-                    className={`warranty-fill ${warranty.tone}`}
-                    style={{ width: `${warranty.pct}%` }}
-                  />
+      {/* Khu 1: Thông tin tài sản — lưới thông tin (kèm Người giữ) + Bảo hành (timeline
+          Start→End) ở CUỐI section. */}
+      <section className="detail-section">
+        <h2 className="detail-section-title">
+          {t('assets.sectionAsset', 'Thông tin tài sản')}
+        </h2>
+        <div className="card" style={{ padding: '1.25rem' }}>
+          <dl className="data-grid">
+            {info
+              .filter(([, v]) => v != null && v !== '')
+              .map(([label, value]) => (
+                <div className="data-item" key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
                 </div>
-                <div className="warranty-meta">
-                  <span className="muted">
-                    {detail.startDate} → {detail.endDate}
-                  </span>
-                  <span className={`badge ${warranty.tone}`}>
-                    {warranty.daysLeft < 0
-                      ? t('assets.warrantyExpired', 'Đã hết hạn')
-                      : t('assets.warrantyDaysLeft', 'Còn {{d}} ngày', {
-                          d: warranty.daysLeft,
-                        })}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div className="mc-value muted">
-                {t('assets.warrantyNone', 'Chưa có mốc bảo hành')}
+              ))}
+          </dl>
+          {warranty && (
+            <div className="warranty-strip">
+              <div className="mc-label">
+                {t('assets.warranty', 'Bảo hành / hạn dùng')}
               </div>
-            )}
-          </div>
+              <div className="warranty-bar">
+                <div
+                  className={`warranty-fill ${warranty.tone}`}
+                  style={{ width: `${warranty.pct}%` }}
+                />
+              </div>
+              <div className="warranty-meta">
+                <span className="muted">
+                  {detail.startDate} → {detail.endDate}
+                </span>
+                <span className={`badge ${warranty.tone}`}>
+                  {warranty.daysLeft < 0
+                    ? t('assets.warrantyExpired', 'Đã hết hạn')
+                    : t('assets.warrantyDaysLeft', 'Còn {{d}} ngày', {
+                        d: warranty.daysLeft,
+                      })}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </section>
+
+      {/* Khu 2: Thông tin phần mềm (máy) — phần mềm đang cài. */}
       {detail.type !== 'software' && (
-        <div style={{ margin: '0.75rem 0 1.25rem' }}>
-          <h3 style={{ margin: '0 0 0.4rem' }}>{t('assets.installedSoftware')}</h3>
+        <section className="detail-section">
+          <h2 className="detail-section-title">
+            {t('assets.sectionSoftware', 'Thông tin phần mềm')}
+          </h2>
           <AssetSoftwareTable items={software} />
-        </div>
+        </section>
       )}
       {/* Phần mềm đi theo máy → không có lịch sử cấp phát / mượn-trả / note tình trạng riêng
           (người ta chỉ mượn máy). Ẩn toàn bộ tab cho phần mềm — chi tiết ở thẻ trên là đủ. */}
       {detail.type !== 'software' && (
-        <>
+        <section className="detail-section">
+          <h2 className="detail-section-title">
+            {t('assets.sectionHistory', 'Lịch sử & ghi chú')}
+          </h2>
       <div className="tabs">
         <button
           type="button"
@@ -476,7 +481,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
             </div>
           ))}
       </div>
-        </>
+        </section>
       )}
 
       {editing && (
