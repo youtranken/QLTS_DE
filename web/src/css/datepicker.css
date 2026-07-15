@@ -3,6 +3,20 @@
   position: relative;
   width: 100%;
 }
+/* DateTimePicker: DatePicker (co giãn) + ô giờ (thay input datetime-local). */
+.dtp {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.dtp .dp {
+  flex: 1;
+  min-width: 0;
+}
+.dtp-time {
+  flex: 0 0 auto;
+  width: 8.5rem;
+}
 .dp-trigger {
   width: 100%;
   display: flex;

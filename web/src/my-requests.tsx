@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MemberRecurringSessions } from './member-recurring-sessions';
+import { DateTimePicker } from './ui/date-time-picker';
 import type { Me } from './panels';
 
 interface MyTicket {
@@ -356,10 +357,10 @@ export function MyRequestsPanel({
             {extErr && <p className="alert error">{extErr}</p>}
             <label className="field" style={{ marginBottom: '1.25rem' }}>
               {t('extension.newDue')}
-              <input
-                type="datetime-local"
+              <DateTimePicker
                 value={newDue}
-                onChange={(e) => setNewDue(e.target.value)}
+                ariaLabel={t('extension.newDue')}
+                onChange={setNewDue}
               />
             </label>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

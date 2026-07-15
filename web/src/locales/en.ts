@@ -505,6 +505,7 @@ export default {
     clear: 'Clear date',
     prev: 'Previous',
     next: 'Next',
+    time: 'time',
   },
   calendar: {
     title: 'Machine calendar {{code}}',

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DateTimePicker } from './ui/date-time-picker';
 import type { Me } from './panels';
 import type { FreeMachine, SessionRow } from './booking-types';
 
@@ -86,18 +87,18 @@ export function RecurringAdminBuilder({
         <div key={i} className="form-grid" style={{ marginBottom: '0.5rem' }}>
           <label className="field">
             <span>{t('booking.from')}</span>
-            <input
-              type="datetime-local"
+            <DateTimePicker
               value={s.from}
-              onChange={(e) => setRow(i, { from: e.target.value })}
+              ariaLabel={t('booking.from')}
+              onChange={(v) => setRow(i, { from: v })}
             />
           </label>
           <label className="field">
             <span>{t('booking.to')}</span>
-            <input
-              type="datetime-local"
+            <DateTimePicker
               value={s.to}
-              onChange={(e) => setRow(i, { to: e.target.value })}
+              ariaLabel={t('booking.to')}
+              onChange={(v) => setRow(i, { to: v })}
             />
           </label>
           {sessions.length > 1 && (

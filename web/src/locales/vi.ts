@@ -504,6 +504,7 @@ export default {
     clear: 'Xóa ngày',
     prev: 'Trước',
     next: 'Sau',
+    time: 'giờ',
   },
   calendar: {
     title: 'Lịch máy {{code}}',

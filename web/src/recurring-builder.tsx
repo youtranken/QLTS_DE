@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DateTimePicker } from './ui/date-time-picker';
 import type { Me } from './panels';
 
 interface FreeMachine {
@@ -146,18 +147,18 @@ export function RecurringBuilder({
           >
             <label className="field">
               {t('recur.from')} {i + 1}
-              <input
-                type="datetime-local"
+              <DateTimePicker
                 value={s.from}
-                onChange={(e) => setRow(i, { from: e.target.value })}
+                ariaLabel={`${t('recur.from')} ${i + 1}`}
+                onChange={(v) => setRow(i, { from: v })}
               />
             </label>
             <label className="field">
               {t('recur.to')}
-              <input
-                type="datetime-local"
+              <DateTimePicker
                 value={s.to}
-                onChange={(e) => setRow(i, { to: e.target.value })}
+                ariaLabel={t('recur.to')}
+                onChange={(v) => setRow(i, { to: v })}
               />
             </label>
             {sessions.length > 1 && (
