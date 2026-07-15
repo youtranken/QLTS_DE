@@ -187,10 +187,20 @@ export function AssetForm({
                 addingConfig={addingConfig}
                 hideDatesNote={softwareCreate}
                 userField={
-                  // Người đứng tên (User) NẰM TRONG Thông tin chung khi TẠO máy — cùng hàng
-                  // Code/Asset Type. Sửa máy: đổi owner qua AssetOwnerPanel (thao tác riêng).
-                  !form.isSoftware && !form.id ? (
-                    form.assignedUserSub ? (
+                  // Người đứng tên (User) HIỆN TRONG Thông tin chung ở cả Thêm lẫn Sửa cho đồng nhất.
+                  // Thêm: chọn inline. Sửa: chỉ HIỂN THỊ người giữ hiện tại (đổi ở panel bên dưới).
+                  !form.isSoftware ? (
+                    form.id ? (
+                      <div className="picked-input">
+                        <span
+                          className={`pi-val${form.assignedUserSub ? '' : ' muted'}`}
+                        >
+                          {form.assignedUserSub
+                            ? form.assignedUserName || form.assignedUserSub
+                            : t('assets.assigneeEmpty')}
+                        </span>
+                      </div>
+                    ) : form.assignedUserSub ? (
                       // Đã chọn → hiện TÊN ngay trong ô (như input đã điền) + ✕ để đổi.
                       <div className="picked-input">
                         <span className="pi-val">
