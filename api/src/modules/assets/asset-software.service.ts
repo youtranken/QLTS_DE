@@ -101,6 +101,7 @@ export class AssetSoftwareService {
         startDate: assetsTable.startDate,
         endDate: assetsTable.endDate,
         brand: assetsTable.brand,
+        note: assetsTable.note,
         status: assetsTable.status,
       })
       .from(assetsTable)

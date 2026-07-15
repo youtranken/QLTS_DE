@@ -114,11 +114,16 @@
 .form-grid.asset-grid {
   grid-template-columns: repeat(3, 1fr);
 }
+/* Config & Ghi chú KHÔNG chiếm trọn 3 cột (quá to) → thu về 2/3 cho cân với các ô khác. */
+.form-grid.asset-grid .span-2 {
+  grid-column: span 2;
+}
 /* Ô dữ liệu NGẮN (ngày/giá/serial/số/trạng thái): giới hạn bề rộng input để không bị kéo
-   giãn trọn 1/3 hàng (~320px) trông rỗng. Input canh trái trong cell. */
+   giãn trọn 1/3 hàng (~320px) nhưng vẫn đủ rộng, không quá nhỏ. Input canh trái trong cell. */
 .field.narrow input,
-.field.narrow .dp {
-  max-width: 12rem;
+.field.narrow .dp,
+.field.narrow .fsel {
+  max-width: 14rem;
 }
 @media (max-width: 860px) {
   .form-grid.asset-grid {
@@ -133,6 +138,147 @@
 .field-req {
   color: var(--danger);
   font-weight: 600;
+}
+/* Ẩn mũi tên native của input[list] (Configuration/Place) — trông vuông/lạc kiểu; gợi ý vẫn
+   hiện khi gõ, và Configuration đã có nút ＋. */
+input[list]::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+/* --- Select tùy biến (thay <select> native — popup bo góc, mũi tên › thống nhất) --------- */
+.fsel {
+  position: relative;
+  display: inline-flex;
+}
+/* Trong form: Select lấp đầy ô .field như <input>/<select> cũ. */
+.field .fsel {
+  width: 100%;
+}
+/* Trong thanh lọc: rộng tối thiểu để không co rúm theo nhãn hiện tại (tránh nhảy width). */
+.filter-bar .fsel {
+  min-width: 10.5rem;
+}
+.fsel-trigger {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.55rem 2rem 0.55rem 0.7rem;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.fsel-trigger:hover:not(:disabled) {
+  border-color: var(--ink-3);
+}
+.fsel-trigger:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+.fsel-trigger:disabled {
+  background: var(--surface-2);
+  color: var(--ink-2);
+  cursor: default;
+}
+.fsel-val {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fsel-val.ph {
+  color: var(--ink-3);
+}
+.fsel-caret {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--ink-3);
+  pointer-events: none;
+  transition: transform 0.18s var(--ease), color 0.18s var(--ease);
+}
+.fsel-trigger[aria-expanded='true'] .fsel-caret {
+  transform: translateY(-50%) rotate(-90deg);
+  color: var(--primary);
+}
+.fsel-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0.3rem;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-pop);
+  animation: modalIn 0.13s var(--ease) both;
+}
+.fsel-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  background: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink);
+}
+.fsel-option:hover,
+.fsel-option.active {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+.fsel-option.sel {
+  font-weight: 600;
+}
+
+/* Ô đã-chọn (User): hiện giá trị NGAY trong khung như input đã điền + ✕ để đổi. */
+.picked-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.4rem 0.4rem 0.7rem;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  background: var(--surface);
+  min-height: 2.4rem;
+}
+.picked-input .pi-val {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.picked-input button {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.picked-input button:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 /* --- Combobox (autocomplete có style) ------------------------------------- */
@@ -189,6 +335,27 @@
   color: var(--ink-3);
   font-size: 0.85rem;
   text-align: center;
+}
+/* Gợi ý gắn phần mềm: tên license + badge Trống/Đang dùng để biết ghế nào gắn được ngay. */
+.sw-opt-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sw-opt-badge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  flex: none;
+}
+.sw-opt-badge.free {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.sw-opt-badge.used {
+  background: var(--surface-2);
+  color: var(--ink-3);
 }
 
 /* --- Chip (giá trị đã chọn, gỡ được) -------------------------------------- */

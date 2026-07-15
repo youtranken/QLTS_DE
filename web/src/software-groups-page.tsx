@@ -8,6 +8,7 @@ import { SoftwareTransferDialog } from './software-transfer-dialog';
 import { SoftwareSeatList } from './software-seat-list';
 import { ConfirmDialog } from './confirm-dialog';
 import { DatePicker } from './ui/date-picker';
+import { Select } from './ui/select';
 import { detachSeat, disposeSeat } from './software-seat-ops';
 import {
   EMPTY_FORM,
@@ -255,18 +256,16 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
             {t('assets.clearFilters')}
           </button>
         )}
-        <select
+        <Select
           className="page-size"
-          aria-label={t('software.pageSize', 'Số dòng mỗi trang')}
-          value={pageSize}
-          onChange={(e) => setPageSize(Number(e.target.value))}
-        >
-          {PAGE_SIZES.map((n) => (
-            <option key={n} value={n}>
-              {t('software.perPage', '{{n}}/trang', { n })}
-            </option>
-          ))}
-        </select>
+          ariaLabel={t('software.pageSize', 'Số dòng mỗi trang')}
+          value={String(pageSize)}
+          onChange={(v) => setPageSize(Number(v))}
+          options={PAGE_SIZES.map((n) => ({
+            value: String(n),
+            label: t('software.perPage', '{{n}}/trang', { n }),
+          }))}
+        />
       </div>
       {(endFrom || endTo) && (
         <div className="active-filters">

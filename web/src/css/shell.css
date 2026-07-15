@@ -135,9 +135,9 @@
   width: 20px;
   height: 20px;
 }
-/* Nút 3-gạch sát mép sidebar hơn — giảm padding-trái topbar (đối xứng vẫn giữ phải 1.5rem). */
+/* Nút 3-gạch gần mép sidebar nhưng chừa khoảng thở nhỏ (không dính sát vào sidebar). */
 .topbar {
-  padding-left: 0.6rem;
+  padding-left: 1rem;
 }
 .tb-menu {
   position: relative;

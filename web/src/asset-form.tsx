@@ -190,22 +190,24 @@ export function AssetForm({
                   // Người đứng tên (User) NẰM TRONG Thông tin chung khi TẠO máy — cùng hàng
                   // Code/Asset Type. Sửa máy: đổi owner qua AssetOwnerPanel (thao tác riêng).
                   !form.isSoftware && !form.id ? (
-                    <>
-                      {form.assignedUserSub ? (
-                        <span className="chip">
+                    form.assignedUserSub ? (
+                      // Đã chọn → hiện TÊN ngay trong ô (như input đã điền) + ✕ để đổi.
+                      <div className="picked-input">
+                        <span className="pi-val">
                           {form.assignedUserName || form.assignedUserSub}
-                          <button
-                            type="button"
-                            aria-label={t('assets.cancel')}
-                            onClick={() => {
-                              set('assignedUserSub')('');
-                              set('assignedUserName')('');
-                            }}
-                          >
-                            ✕
-                          </button>
                         </span>
-                      ) : null}
+                        <button
+                          type="button"
+                          aria-label={t('assets.cancel')}
+                          onClick={() => {
+                            set('assignedUserSub')('');
+                            set('assignedUserName')('');
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
                       <Combobox
                         placeholder={t('assets.assigneeSearch')}
                         query={userQuery}
@@ -228,7 +230,7 @@ export function AssetForm({
                           setUserOptions([]);
                         }}
                       />
-                    </>
+                    )
                   ) : undefined
                 }
                 onDispose={() => {

@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
+import { formatDmy } from './asset-types';
 import type { AssetRow } from './asset-types';
 
 export interface InstalledSoftwareRow {
@@ -132,12 +133,37 @@ export function AssetSoftwarePicker({
         options={options}
         disabled={busy}
         getKey={(a) => a.id}
-        renderOption={(a) => (
-          <>
-            <span>{a.licenseName ?? a.code}</span>
-            <small>{t('assets.kindSoftware')}</small>
-          </>
-        )}
+        renderOption={(a) => {
+          const typeLbl =
+            a.licenseType === 'term'
+              ? t('assets.licenseTerm')
+              : a.licenseType === 'perpetual'
+                ? t('assets.licensePerpetual')
+                : t('assets.kindSoftware');
+          const range =
+            a.licenseType !== 'perpetual' && a.endDate
+              ? `${formatDmy(a.startDate)} → ${formatDmy(a.endDate)}`
+              : '';
+          return (
+            <>
+              <span className="sw-opt-name">
+                {a.licenseName ?? a.code}
+                {/* Status ghế: Trống = gắn được ngay; Đang dùng = đang trên máy khác. */}
+                <span
+                  className={`sw-opt-badge ${a.installedOnCode ? 'used' : 'free'}`}
+                >
+                  {a.installedOnCode
+                    ? t('assets.status.in_use')
+                    : t('software.seatFree', 'Trống')}
+                </span>
+              </span>
+              <small>
+                {[typeLbl, range, a.note || null].filter(Boolean).join(' · ')}
+                {a.installedOnCode ? ` · ${a.installedOnCode}` : ''}
+              </small>
+            </>
+          );
+        }}
         onSelect={(a) => {
           if (isCreate) {
             setPendingSw((prev) => [...prev, a]);

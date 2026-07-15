@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { formatVnd, parseVnd } from './asset-types';
 import type { FormState } from './asset-types';
 import { DatePicker } from './ui/date-picker';
+import { Select } from './ui/select';
 
 /**
  * Khối "Thông tin chung" (máy + trường license phần mềm) tách khỏi asset-form (§6).
@@ -67,18 +68,15 @@ export function AssetGeneralFields({
           <span>
             {t('assets.type')} <span className="field-req">*</span>
           </span>
-          <select
-            required
+          <Select
+            ariaLabel={t('assets.type')}
             value={form.type}
-            onChange={(e) => set('type')(e.target.value)}
-          >
-            <option value="">—</option>
-            {typeOptions.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
+            onChange={set('type')}
+            options={[
+              { value: '', label: '—' },
+              ...typeOptions.map((v) => ({ value: v, label: v })),
+            ]}
+          />
         </label>
       )}
       {form.isSoftware && (
@@ -86,15 +84,16 @@ export function AssetGeneralFields({
           <span>
             {t('assets.licenseType')} <span className="field-req">*</span>
           </span>
-          <select
-            required
+          <Select
+            ariaLabel={t('assets.licenseType')}
             value={form.licenseType}
-            onChange={(e) => set('licenseType')(e.target.value)}
-          >
-            <option value="">—</option>
-            <option value="term">{t('assets.licenseTerm')}</option>
-            <option value="perpetual">{t('assets.licensePerpetual')}</option>
-          </select>
+            onChange={set('licenseType')}
+            options={[
+              { value: '', label: '—' },
+              { value: 'term', label: t('assets.licenseTerm') },
+              { value: 'perpetual', label: t('assets.licensePerpetual') },
+            ]}
+          />
         </label>
       )}
       {/* Tên license: định danh phần mềm — BẮT BUỘC mọi license (không chỉ vĩnh viễn) */}
@@ -117,15 +116,17 @@ export function AssetGeneralFields({
         <label className="field narrow">
           <span>{t('assets.statusLabel')}</span>
           {form.status === 'in_use' && onDispose ? (
-            <select
+            <Select
+              ariaLabel={t('assets.statusLabel')}
               value={form.status}
-              onChange={(e) => {
-                if (e.target.value === 'disposed') onDispose();
+              onChange={(v) => {
+                if (v === 'disposed') onDispose();
               }}
-            >
-              <option value="in_use">{t('assets.status.in_use')}</option>
-              <option value="disposed">{t('assets.status.disposed')}</option>
-            </select>
+              options={[
+                { value: 'in_use', label: t('assets.status.in_use') },
+                { value: 'disposed', label: t('assets.status.disposed') },
+              ]}
+            />
           ) : (
             <input disabled value={t(`assets.status.${form.status}`)} />
           )}
@@ -243,17 +244,15 @@ export function AssetGeneralFields({
       {!form.isSoftware && (
         <label className="field">
           <span>{t('assets.brand')}</span>
-          <select
+          <Select
+            ariaLabel={t('assets.brand')}
             value={form.brand}
-            onChange={(e) => set('brand')(e.target.value)}
-          >
-            <option value="">—</option>
-            {brandOptions.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
+            onChange={set('brand')}
+            options={[
+              { value: '', label: '—' },
+              ...brandOptions.map((v) => ({ value: v, label: v })),
+            ]}
+          />
         </label>
       )}
       {!hideDatesNote && (

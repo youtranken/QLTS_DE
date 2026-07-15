@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { DatePicker } from './ui/date-picker';
+import { Select } from './ui/select';
 import { formatDmy } from './asset-types';
 
 /**
@@ -108,41 +109,38 @@ export function AssetsFilterBar({
           onChange={(e) => setSearchInput(e.target.value)}
         />
         {!softwareOnly && (
-          <select
-            aria-label={t('assets.type')}
+          <Select
+            ariaLabel={t('assets.type')}
             value={type}
-            onChange={(e) => {
-              setType(e.target.value);
+            onChange={(v) => {
+              setType(v);
               setPage(1);
             }}
-          >
-            <option value="">{t('assets.filterType')}</option>
-            {/* Sổ tài sản không hiện phần mềm → bỏ 'software' khỏi bộ lọc Loại. */}
-            {types
-              .filter((v) => v !== 'software')
-              .map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-          </select>
+            options={[
+              { value: '', label: t('assets.filterType') },
+              // Sổ tài sản không hiện phần mềm → bỏ 'software' khỏi bộ lọc Loại.
+              ...types
+                .filter((v) => v !== 'software')
+                .map((v) => ({ value: v, label: v })),
+            ]}
+          />
         )}
         {!disposedOnly && (
-          <select
-            aria-label={t('assets.statusLabel')}
+          <Select
+            ariaLabel={t('assets.statusLabel')}
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
+            onChange={(v) => {
+              setStatus(v);
               setPage(1);
             }}
-          >
-            <option value="">{t('assets.filterStatus')}</option>
-            {['in_use', 'locked_repair', 'disposed'].map((v) => (
-              <option key={v} value={v}>
-                {t(`assets.status.${v}`)}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: t('assets.filterStatus') },
+              ...['in_use', 'locked_repair', 'disposed'].map((v) => ({
+                value: v,
+                label: t(`assets.status.${v}`),
+              })),
+            ]}
+          />
         )}
         {/* Theo dõi hạn: lọc end_date theo khoảng ngày tự chọn (cả sổ tài sản & phần mềm). */}
         <label className="field-inline">

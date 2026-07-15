@@ -187,8 +187,8 @@ table.table td.right {
 /* Hàng bung /tai-san (phần mềm đang cài trên máy): License/Loại/Start/End/Trạng thái (5 cột).
    Dùng fr cho MỌI cột để slack chia đều (khỏi gap lớn sau tên khi bảng rộng). */
 .seat-list.inst-list {
-  --seat-cols: minmax(180px, 2.6fr) minmax(110px, 1fr) minmax(90px, 1fr)
-    minmax(120px, 1fr) minmax(120px, 1.1fr);
+  --seat-cols: minmax(160px, 2.4fr) minmax(100px, 1fr) minmax(90px, 1fr)
+    minmax(100px, 1fr) minmax(110px, 1.4fr) minmax(110px, 1.1fr);
 }
 .seat-hd {
   display: grid;

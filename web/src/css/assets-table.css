@@ -1,6 +1,13 @@
-/* Trang bảng rộng (/tai-san, /phan-mem): nới content để đỡ khoảng trống 2 bên trên màn lớn. */
+/* Trang bảng rộng (/tai-san, /phan-mem): dùng gần trọn bề ngang màn lớn (đỡ trống 2 bên). */
 .page-wide {
-  max-width: 1560px;
+  max-width: min(1880px, 95vw);
+}
+/* Chữ bảng /tai-san to hơn một chút cho dễ đọc. */
+.assets-table {
+  font-size: 0.95rem;
+}
+.assets-table thead th {
+  font-size: 0.75rem;
 }
 
 /* --- /tai-san "làm đẹp" (scope .assets-table) — tách khỏi table.css (§6) ----- */

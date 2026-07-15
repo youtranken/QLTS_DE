@@ -12,6 +12,7 @@ export interface InstalledSoftware {
   licenseName: string | null;
   startDate?: string | null;
   endDate: string | null;
+  note?: string | null;
   status?: string | null;
 }
 
@@ -44,6 +45,7 @@ export function AssetSoftwareTable({ items }: { items: InstalledSoftware[] }) {
           <span>{t('assets.licenseType')}</span>
           <span>{t('assets.startDate')}</span>
           <span>{t('assets.endDate')}</span>
+          <span>{t('assets.note')}</span>
           <span>{t('assets.statusLabel')}</span>
         </div>
         {items.map((s) => (
@@ -69,6 +71,9 @@ export function AssetSoftwareTable({ items }: { items: InstalledSoftware[] }) {
               {s.licenseType === 'perpetual'
                 ? t('assets.licensePerpetual')
                 : formatDmy(s.endDate)}
+            </div>
+            <div className="seat-note" title={s.note ?? undefined}>
+              {s.note || '—'}
             </div>
             <div>
               {s.status ? (
