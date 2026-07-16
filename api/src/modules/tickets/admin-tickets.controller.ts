@@ -53,6 +53,12 @@ class RejectDto extends ApproveDto {
   reason!: string;
 }
 
+/** Admin gia hạn thẳng (đường B): chỉ cần hạn trả mới (ISO). Không cần version (admin override). */
+class AdminExtendDto {
+  @IsISO8601()
+  newDue!: string;
+}
+
 class DeliverDto extends ApproveDto {
   /** Note tình trạng lúc giao — TÙY CHỌN (FR-14). */
   @IsOptional()
@@ -243,6 +249,17 @@ export class AdminTicketsController {
       body.reason,
       requireSub(req),
     );
+  }
+
+  /** Admin gia hạn THẲNG (đường B) — :id là ticket đang mượn; đặt hạn trả mới ngay. */
+  @Post(':id/extend')
+  @HttpCode(200)
+  adminExtend(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: AdminExtendDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.extension.adminExtend(id, body.newDue, requireSub(req));
   }
 
   /** Hàng đợi giao/nhận từng buổi của chuỗi định kỳ (4.5a). */

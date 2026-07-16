@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -15,16 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
-import { Type } from 'class-transformer';
-import {
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  MaxLength,
-  Min,
-} from 'class-validator';
+import { IsIn } from 'class-validator';
 import type { Response } from 'express';
 import type { AuthedRequest } from '../auth/identity.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -35,19 +25,6 @@ import type { FileKind } from './file-validation';
 class UploadFileDto {
   @IsIn(['image', 'document'])
   kind!: FileKind;
-}
-
-class CreateRoundDto {
-  @Type(() => Number)
-  @IsInt()
-  @Min(2000)
-  @Max(2100)
-  year!: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  note?: string | null;
 }
 
 function requireSub(req: AuthedRequest): string {
@@ -144,63 +121,5 @@ export class FilesController {
       }
     });
     stream.pipe(res);
-  }
-}
-
-/** Đợt kiểm kê hằng năm (2.8, FR-39) — KHÔNG có endpoint xóa. */
-@Controller('admin/inventory-rounds')
-@Roles('sa', 'admin')
-export class InventoryController {
-  constructor(private readonly files: FilesService) {}
-
-  @Post()
-  createRound(@Body() body: CreateRoundDto, @Req() req: AuthedRequest) {
-    return this.files.createRound(
-      body.year,
-      body.note?.trim() || null,
-      requireSub(req),
-    );
-  }
-
-  @Get()
-  listRounds() {
-    return this.files.listRounds();
-  }
-
-  /** Upload biên bản vào đợt — nhận pdf/xlsx lẫn ảnh chụp biên bản giấy. */
-  @Post(':id/files')
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @UseInterceptors(FileInterceptor('file', { limits: MULTER_LIMIT }))
-  addFile(
-    @Param('id', ParseUUIDPipe) id: string,
-    @UploadedFile() file: Express.Multer.File | undefined,
-    @Req() req: AuthedRequest,
-  ) {
-    const f = requireFile(file);
-    return this.files.addFileToRound(
-      id,
-      f.buffer,
-      decodeOriginalName(f.originalname),
-      requireSub(req),
-    );
-  }
-
-  /** Xóa 1 biên bản khỏi đợt (9.4). */
-  @Delete(':id/files/:fileId')
-  deleteFile(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Param('fileId', ParseUUIDPipe) fileId: string,
-    @Req() req: AuthedRequest,
-  ) {
-    return this.files.deleteRoundFile(id, fileId, requireSub(req));
-  }
-
-  /** Xóa cả đợt kiểm kê kèm file (9.4). */
-  @Delete(':id')
-  deleteRound(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: AuthedRequest,
-  ) {
-    return this.files.deleteRound(id, requireSub(req));
   }
 }

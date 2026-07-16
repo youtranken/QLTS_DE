@@ -5,7 +5,7 @@ import request from 'supertest';
 import { runMigrations } from '../src/database/migration-runner';
 import { createTestApp } from './test-app.helper';
 
-/** Story 8.1 — danh mục Loại/Hãng/Cấu hình (catalog) + gộp giá trị trùng. */
+/** Story 8.1 — danh mục Loại/Hãng/Cấu hình (catalog): đếm tách máy/phần mềm, ẩn/hiện, rename. */
 if (!process.env.DATABASE_URL) {
   throw new Error('[catalog.db-spec] DATABASE_URL chưa đặt.');
 }
@@ -46,16 +46,22 @@ describe('Catalog danh mục (story 8.1)', () => {
     await runMigrations(pool, join(__dirname, '..', 'src', 'migrations'), {
       log: () => undefined,
     });
-    // assets có biến thể trùng hoa/thường + brand + 1 software → tính usage + gộp + loại trừ 'software'
+    // assets: biến thể trùng hoa/thường + brand + 1 software (brand Dell) → test đếm tách
+    // máy/phần mềm theo cùng giá trị danh mục + loại 'software' khỏi danh mục Loại.
     await pool.query(
       `INSERT INTO assets (code, type, brand) VALUES
         ('A1','Laptop','Dell'),
         ('A2','laptop','Dell'),
         ('A3','monitor',NULL)`,
     );
+    // Máy đã soft-purge (purged_at) KHÔNG được tính vào số liệu danh mục (khớp list/nav).
     await pool.query(
-      `INSERT INTO assets (code, type, license_type, license_name) VALUES
-        ('SW1','software','perpetual','WinX')`,
+      `INSERT INTO assets (code, type, brand, purged_at) VALUES
+        ('PURGED-1','Laptop','Dell', now())`,
+    );
+    await pool.query(
+      `INSERT INTO assets (code, type, license_type, license_name, brand) VALUES
+        ('SW1','software','perpetual','WinX','Dell')`,
     );
     // catalog: seed migration chạy lúc assets rỗng → tự thêm giá trị cho khớp assets trên
     await pool.query(
@@ -72,17 +78,21 @@ describe('Catalog danh mục (story 8.1)', () => {
     delete process.env.AUTH_DEV_MODE;
   });
 
-  it('AC1 — SA GET theo kind trả giá trị + usage (số tài sản exact)', async () => {
+  it('AC1 — SA GET theo kind trả giá trị + đếm tách máy/phần mềm (exact)', async () => {
+    type Row = { value: string; deviceCount: number; softwareCount: number };
     const res = await get('?kind=type').expect(200);
     const byValue = Object.fromEntries(
-      (res.body as Array<{ value: string; usage: number }>).map((r) => [
-        r.value,
-        r.usage,
-      ]),
+      (res.body as Row[]).map((r) => [r.value, r]),
     );
-    expect(byValue).toMatchObject({ Laptop: 1, laptop: 1, monitor: 1 });
+    expect(byValue.Laptop).toMatchObject({ deviceCount: 1, softwareCount: 0 });
+    expect(byValue.laptop).toMatchObject({ deviceCount: 1, softwareCount: 0 });
+    expect(byValue.monitor).toMatchObject({ deviceCount: 1, softwareCount: 0 });
     // 'software' là loại hệ thống → KHÔNG lộ trong danh mục Loại (review M1)
     expect(byValue).not.toHaveProperty('software');
+    // Brand Dell: 2 máy (A1,A2) + 1 phần mềm (SW1) → đếm tách đúng
+    const br = await get('?kind=brand').expect(200);
+    const dell = (br.body as Row[]).find((r) => r.value === 'Dell');
+    expect(dell).toMatchObject({ deviceCount: 2, softwareCount: 1 });
   });
 
   it('AC1 — member → 403', async () => {
@@ -119,56 +129,6 @@ describe('Catalog danh mục (story 8.1)', () => {
     );
     expect(values).not.toContain('monitor');
     expect(values).toContain('Laptop');
-  });
-
-  it('AC4 — gộp laptop → Laptop: preview đếm, merge đổi text + xóa nguồn + audit', async () => {
-    const fromId = await idOf('type', 'laptop');
-    const toId = await idOf('type', 'Laptop');
-    const prev = await get(`/merge-preview?from=${fromId}&to=${toId}`).expect(
-      200,
-    );
-    expect(prev.body).toMatchObject({
-      fromValue: 'laptop',
-      toValue: 'Laptop',
-      assetCount: 1,
-    });
-    const res = await post('/merge', { from: fromId, to: toId }).expect(201);
-    expect(res.body).toMatchObject({ assetsUpdated: 1 });
-    // asset A2 đổi 'laptop' → 'Laptop'
-    const a = await pool.query(
-      "SELECT count(*)::int n FROM assets WHERE type='Laptop'",
-    );
-    expect(a.rows[0].n).toBe(2);
-    // entry nguồn đã xóa
-    const gone = await pool.query(
-      "SELECT count(*)::int n FROM catalog WHERE kind='type' AND value='laptop'",
-    );
-    expect(gone.rows[0].n).toBe(0);
-    const audit = await pool.query(
-      "SELECT detail FROM audit_log WHERE action='catalog.merge' ORDER BY created_at DESC LIMIT 1",
-    );
-    expect(audit.rows[0].detail).toMatchObject({
-      from: 'laptop',
-      to: 'Laptop',
-      assetsUpdated: 1,
-    });
-  });
-
-  it('AC4 — gộp khác kind → 400', async () => {
-    const typeId = await idOf('type', 'Laptop');
-    const brandId = await idOf('brand', 'Dell');
-    await post('/merge', { from: brandId, to: typeId }).expect(400);
-  });
-
-  it('AC4 — chặn gộp dính loại hệ thống "software" → 400 (không 500)', async () => {
-    const swId = await idOf('type', 'software');
-    const laptopId = await idOf('type', 'Laptop');
-    await post('/merge', { from: swId, to: laptopId }).expect(400);
-    await post('/merge', { from: laptopId, to: swId }).expect(400);
-  });
-
-  it('AC4 — from/to không phải UUID → 400 (không 500)', async () => {
-    await post('/merge', { from: 'abc', to: 'xyz' }).expect(400);
   });
 
   it('Sửa — chặn rename qua/về loại hệ thống "software" → 400 (không 500)', async () => {
@@ -221,21 +181,5 @@ describe('Catalog danh mục (story 8.1)', () => {
       .set(asSa)
       .send({ value: 'LAPTOP' })
       .expect(409);
-  });
-
-  it('AC3 — gộp VÀO giá trị đang ẩn → tự bật lại active (review M3)', async () => {
-    // brand: Dell (asset A1,A2) + HP (tạo ở AC2). Ẩn HP rồi gộp Dell→HP → HP phải active lại.
-    const hpId = await idOf('brand', 'HP');
-    await request(app.getHttpServer())
-      .put(`/api/admin/catalog/${hpId}`)
-      .set(asSa)
-      .send({ active: false })
-      .expect(200);
-    const dellId = await idOf('brand', 'Dell');
-    await post('/merge', { from: dellId, to: hpId }).expect(201);
-    const r = await pool.query(
-      "SELECT active FROM catalog WHERE kind='brand' AND value='HP'",
-    );
-    expect(r.rows[0].active).toBe(true);
   });
 });

@@ -66,6 +66,7 @@ export class AssetExportService {
         cost: assetsTable.cost,
         startDate: assetsTable.startDate,
         endDate: assetsTable.endDate,
+        floor: assetsTable.floor,
         status: assetsTable.status,
         isPool: assetsTable.isPool,
         serial: assetsTable.serial,
@@ -80,35 +81,39 @@ export class AssetExportService {
     this.assertNotTooLarge(rows.length);
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Tai san');
+    // Cột theo đúng thứ tự bảng Tài sản trên FE (Type→Code→User→Config→Cost→Start→End→Place→
+    // Status), rồi các trường dữ liệu phụ (Serial/Brand/Note/Pool) ở cuối. KHÔNG kèm phần mềm.
     sheet.addRow([
-      'CODE',
       'TYPE',
+      'CODE',
       'USER',
       'CONFIGURATION',
       'COST',
       'START DATE',
       'END DATE',
+      'PLACE',
       'STATUS',
-      'POOL',
       'SERIAL',
       'BRAND',
       'NOTE',
+      'POOL',
     ]);
     const esc = (v: string | null) => (v == null ? '' : escapeCellDisplay(v));
     for (const r of rows) {
       sheet.addRow([
-        esc(r.code),
         esc(r.type),
+        esc(r.code),
         esc(r.assignedUserName ?? r.assignedUserSub),
         esc(r.configuration),
         r.cost ?? '',
         r.startDate ?? '',
         r.endDate ?? '',
+        esc(r.floor),
         esc(r.status),
-        r.isPool ? 'x' : '',
         esc(r.serial),
         esc(r.brand),
         esc(r.note),
+        r.isPool ? 'x' : '',
       ]);
     }
     await this.audit.append({
@@ -166,11 +171,12 @@ export class AssetExportService {
     this.assertNotTooLarge(rows.length);
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Phan mem');
+    // Cột A = TÊN PHẦN MỀM (gộp ô theo nhóm license); cột B+ = chi tiết TỪNG BẢN (seat).
     sheet.addRow([
-      'LICENSE NAME',
-      'MACHINE',
-      'USER',
-      'LICENSE TYPE',
+      'TÊN PHẦN MỀM',
+      'MÁY',
+      'NGƯỜI GIỮ',
+      'LOẠI LICENSE',
       'START DATE',
       'END DATE',
       'STATUS',
@@ -180,21 +186,36 @@ export class AssetExportService {
       'NOTE',
     ]);
     const esc = (v: string | null) => (v == null ? '' : escapeCellDisplay(v));
-    for (const r of rows) {
-      sheet.addRow([
-        esc(r.licenseName),
-        esc(r.installedOnCode),
-        esc(r.holderName ?? r.holderSub),
-        esc(r.licenseType),
-        r.startDate ?? '',
-        r.endDate ?? '',
-        esc(r.status),
-        r.cost ?? '',
-        esc(r.serial),
-        esc(r.brand),
-        esc(r.note),
-      ]);
+    // rows đã ORDER BY license_name → gom nhóm liên tiếp, cột A chỉ ghi ở dòng đầu nhóm rồi
+    // merge dọc để "1 phần mềm — nhiều bản" nhìn gọn.
+    let excelRow = 1; // dòng 1 là header
+    let g = 0;
+    while (g < rows.length) {
+      const name = rows[g].licenseName;
+      let gEnd = g;
+      while (gEnd < rows.length && rows[gEnd].licenseName === name) gEnd++;
+      const firstRow = excelRow + 1;
+      for (let k = g; k < gEnd; k++) {
+        const r = rows[k];
+        sheet.addRow([
+          k === g ? esc(r.licenseName) : '',
+          esc(r.installedOnCode),
+          esc(r.holderName ?? r.holderSub),
+          esc(r.licenseType),
+          r.startDate ?? '',
+          r.endDate ?? '',
+          esc(r.status),
+          r.cost ?? '',
+          esc(r.serial),
+          esc(r.brand),
+          esc(r.note),
+        ]);
+        excelRow++;
+      }
+      if (gEnd - g > 1) sheet.mergeCells(firstRow, 1, excelRow, 1);
+      g = gEnd;
     }
+    sheet.getColumn(1).alignment = { vertical: 'top' };
     await this.audit.append({
       actor: actorSub,
       action: 'assets.export_software',

@@ -21,7 +21,7 @@ const PNG = Buffer.concat([
 ]);
 const PDF = Buffer.from('%PDF-1.7\ntest bien ban kiem ke');
 
-describe('Module file + kiểm kê trên DB thật (story 2.8)', () => {
+describe('Module file trên DB thật (story 2.8)', () => {
   let app: INestApplication;
   let pool: Pool;
   let storageDir: string;
@@ -151,54 +151,6 @@ describe('Module file + kiểm kê trên DB thật (story 2.8)', () => {
     expect(audit.rows[0].object_id).toBe(fileId);
   });
 
-  it('kiểm kê: tạo đợt + upload nhiều biên bản + list theo năm giảm dần (AC 3, FR-39)', async () => {
-    const r2025 = await request(app.getHttpServer())
-      .post('/api/admin/inventory-rounds')
-      .set(asAdmin())
-      .send({ year: 2025, note: 'Kiểm kê cuối năm 2025' })
-      .expect(201);
-    const r2026 = await request(app.getHttpServer())
-      .post('/api/admin/inventory-rounds')
-      .set(asAdmin())
-      .send({ year: 2026 })
-      .expect(201);
-    // 2 biên bản vào đợt 2026 (pdf + ảnh chụp biên bản giấy)
-    await request(app.getHttpServer())
-      .post(`/api/admin/inventory-rounds/${r2026.body.id}/files`)
-      .set(asAdmin())
-      .attach('file', PDF, 'bien-ban-2026.pdf')
-      .expect(201);
-    await request(app.getHttpServer())
-      .post(`/api/admin/inventory-rounds/${r2026.body.id}/files`)
-      .set(asAdmin())
-      .attach('file', PNG, 'chup-bien-ban.png')
-      .expect(201);
-    const list = await request(app.getHttpServer())
-      .get('/api/admin/inventory-rounds')
-      .set(asAdmin())
-      .expect(200);
-    const rounds = list.body as Array<{
-      id: string;
-      year: number;
-      files: Array<{ originalName: string }>;
-    }>;
-    expect(rounds.map((r) => r.year)).toEqual([2026, 2025]);
-    expect(rounds[0].files.map((f) => f.originalName).sort()).toEqual([
-      'bien-ban-2026.pdf',
-      'chup-bien-ban.png',
-    ]);
-    expect(rounds[1].files).toEqual([]);
-    // đợt với uuid lạ → 404
-    await request(app.getHttpServer())
-      .post(
-        '/api/admin/inventory-rounds/2f6b2a1e-9d3c-4a7b-8e5f-1a2b3c4d5e6f/files',
-      )
-      .set(asAdmin())
-      .attach('file', PDF, 'x.pdf')
-      .expect(404);
-    void r2025;
-  });
-
   it('epic review: row có nhưng file mất trên đĩa → 500, không treo response', async () => {
     // upload file riêng để không phá fixture download của test trước
     const res = await request(app.getHttpServer())
@@ -214,47 +166,8 @@ describe('Module file + kiểm kê trên DB thật (story 2.8)', () => {
       .expect(500);
   });
 
-  // 9.4 (đảo AC 2.8 cũ): cho xóa file trong đợt + xóa cả đợt. /admin/files/:id vẫn KHÔNG có DELETE.
-  it('9.4: xóa file khỏi đợt + xóa cả đợt kiểm kê', async () => {
-    type Round = { id: string; files: Array<{ id: string }> };
-    const listRounds = () =>
-      request(app.getHttpServer())
-        .get('/api/admin/inventory-rounds')
-        .set(asAdmin());
-
-    const before = await listRounds().expect(200);
-    const round = (before.body as Round[]).find((r) => r.files.length > 0);
-    expect(round).toBeDefined();
-    const roundId = round!.id;
-    const roundFileId = round!.files[0].id;
-    const fileCount = round!.files.length;
-
-    // member không được xóa
-    await request(app.getHttpServer())
-      .delete(`/api/admin/inventory-rounds/${roundId}`)
-      .set({ 'x-dev-user-sub': 'mem-z', 'x-dev-role': 'member' })
-      .expect(403);
-
-    // xóa 1 biên bản khỏi đợt → 200 + rời khỏi danh sách + đĩa
-    await request(app.getHttpServer())
-      .delete(`/api/admin/inventory-rounds/${roundId}/files/${roundFileId}`)
-      .set(asAdmin())
-      .expect(200);
-    expect(readdirSync(storageDir)).not.toContain(roundFileId);
-    const mid = await listRounds().expect(200);
-    const r2 = (mid.body as Round[]).find((r) => r.id === roundId)!;
-    expect(r2.files).toHaveLength(fileCount - 1);
-    expect(r2.files.some((f) => f.id === roundFileId)).toBe(false);
-
-    // xóa cả đợt → 200 + biến mất khỏi list
-    await request(app.getHttpServer())
-      .delete(`/api/admin/inventory-rounds/${roundId}`)
-      .set(asAdmin())
-      .expect(200);
-    const after = await listRounds().expect(200);
-    expect((after.body as Round[]).some((r) => r.id === roundId)).toBe(false);
-
-    // generic /admin/files/:id vẫn không có DELETE (chỉ đợt kiểm kê mới cho xóa) → 404
+  // Module file dùng chung KHÔNG có endpoint xóa (generic /admin/files/:id) → 404.
+  it('generic /admin/files/:id không có DELETE → 404', async () => {
     await request(app.getHttpServer())
       .delete(`/api/admin/files/${fileId}`)
       .set(asAdmin())

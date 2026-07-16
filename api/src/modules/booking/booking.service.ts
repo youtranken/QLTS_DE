@@ -318,7 +318,8 @@ export class BookingService {
       bounds AS (
         SELECT
           (ws_local AT TIME ZONE 'Asia/Ho_Chi_Minh') AS ws,
-          ((ws_local + interval '7 days') AT TIME ZONE 'Asia/Ho_Chi_Minh') AS we
+          -- Lịch máy tổng: hiển thị 14 ngày (2 tuần) từ Thứ 2 mốc.
+          ((ws_local + interval '14 days') AT TIME ZONE 'Asia/Ho_Chi_Minh') AS we
         FROM wk
       )
       SELECT a.id, a.code, a.type, a.configuration,
@@ -347,7 +348,7 @@ export class BookingService {
           SELECT date_trunc('week', (${anchor} AT TIME ZONE 'Asia/Ho_Chi_Minh')) AS ws_local
         )
         SELECT (ws_local AT TIME ZONE 'Asia/Ho_Chi_Minh') AS week_start,
-               ((ws_local + interval '7 days') AT TIME ZONE 'Asia/Ho_Chi_Minh') AS week_end
+               ((ws_local + interval '14 days') AT TIME ZONE 'Asia/Ho_Chi_Minh') AS week_end
         FROM wk
       `);
       return {

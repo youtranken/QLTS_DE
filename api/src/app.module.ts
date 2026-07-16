@@ -17,7 +17,6 @@ import { BookingModule } from './modules/booking/booking.module';
 import { OutboxModule } from './modules/outbox/outbox.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { ReportsModule } from './modules/reports/reports.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { PoolModule } from './modules/pool/pool.module';
 
@@ -62,7 +61,6 @@ import { PoolModule } from './modules/pool/pool.module';
     OutboxModule,
     QueueModule,
     NotificationsModule,
-    ReportsModule,
     CatalogModule,
     PoolModule,
   ],

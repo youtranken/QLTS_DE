@@ -17,7 +17,6 @@ import {
   IsIn,
   IsOptional,
   IsString,
-  IsUUID,
   MaxLength,
 } from 'class-validator';
 import { Roles } from '../auth/roles.decorator';
@@ -62,22 +61,6 @@ class UpdateCatalogDto {
   active?: boolean;
 }
 
-class MergeDto {
-  @IsUUID()
-  from!: string;
-
-  @IsUUID()
-  to!: string;
-}
-
-class MergePreviewDto {
-  @IsUUID()
-  from!: string;
-
-  @IsUUID()
-  to!: string;
-}
-
 /** Danh mục Loại/Hãng/Cấu hình (8.1) — Admin/SA (form Thêm tài sản là admin-only). */
 @Controller('admin/catalog')
 @Roles('admin', 'sa')
@@ -89,19 +72,9 @@ export class CatalogAdminController {
     return this.catalog.listByKind(query.kind, query.activeOnly);
   }
 
-  @Get('merge-preview')
-  mergePreview(@Query() query: MergePreviewDto) {
-    return this.catalog.mergePreview(query.from, query.to);
-  }
-
   @Post()
   create(@Body() body: CreateCatalogDto, @Req() req: AuthedRequest) {
     return this.catalog.create(body.kind, body.value, requireSub(req));
-  }
-
-  @Post('merge')
-  merge(@Body() body: MergeDto, @Req() req: AuthedRequest) {
-    return this.catalog.merge(body.from, body.to, requireSub(req));
   }
 
   @Put(':id')

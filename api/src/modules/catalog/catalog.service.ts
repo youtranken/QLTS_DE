@@ -19,7 +19,8 @@ export interface CatalogItem {
   id: string;
   value: string;
   active: boolean;
-  usage: number; // số tài sản đang ghi đúng value này (exact)
+  deviceCount: number; // số THIẾT BỊ (type≠software) đang ghi đúng value này
+  softwareCount: number; // số PHẦN MỀM (type=software) đang ghi đúng value này
 }
 
 /** kind → tên cột trên bảng assets. Whitelist cứng — dùng trong sql.raw nên KHÔNG lấy từ input. */
@@ -73,8 +74,15 @@ export class CatalogService {
         id: catalogTable.id,
         value: catalogTable.value,
         active: catalogTable.active,
-        usage: sql<number>`(
-          SELECT count(*)::int FROM assets a WHERE a.${sql.raw(col)} = ${catalogTable.value}
+        deviceCount: sql<number>`(
+          SELECT count(*)::int FROM assets a
+          WHERE a.${sql.raw(col)} = ${catalogTable.value}
+            AND a.type <> 'software' AND a.purged_at IS NULL
+        )`,
+        softwareCount: sql<number>`(
+          SELECT count(*)::int FROM assets a
+          WHERE a.${sql.raw(col)} = ${catalogTable.value}
+            AND a.type = 'software' AND a.purged_at IS NULL
         )`,
       })
       .from(catalogTable)
@@ -137,7 +145,7 @@ export class CatalogService {
       objectId: row.id,
       detail: { kind, value: row.value },
     });
-    return { ...row, usage: 0 };
+    return { ...row, deviceCount: 0, softwareCount: 0 };
   }
 
   /**
@@ -234,107 +242,4 @@ export class CatalogService {
     });
   }
 
-  /** Preview gộp: đếm số tài sản sẽ đổi text từ `from` → `to` (cùng kind). */
-  async mergePreview(
-    fromId: string,
-    toId: string,
-  ): Promise<{ fromValue: string; toValue: string; assetCount: number }> {
-    const { from, to } = await this.loadPair(fromId, toId);
-    const col = ASSET_COLUMN[from.kind as CatalogKind];
-    const cnt = await this.db.execute(
-      sql`SELECT count(*)::int AS n FROM assets WHERE ${sql.raw(col)} = ${from.value}`,
-    );
-    const assetCount = Number((cnt.rows[0] as { n: number }).n);
-    return { fromValue: from.value, toValue: to.value, assetCount };
-  }
-
-  /**
-   * Gộp `from` vào `to` (8.1): mọi tài sản đang ghi from.value → to.value, rồi XÓA entry from.
-   * Một transaction: đổi text tài sản + xóa danh mục nguồn, audit kèm số tài sản đổi.
-   */
-  async merge(
-    fromId: string,
-    toId: string,
-    actorSub: string,
-  ): Promise<{ assetsUpdated: number }> {
-    const { from, to } = await this.loadPair(fromId, toId);
-    const col = ASSET_COLUMN[from.kind as CatalogKind];
-
-    const assetsUpdated = await this.db.transaction(async (tx) => {
-      // Bump version: admin đang mở sửa đúng máy này khi gộp → lần lưu sau nhận STALE_VERSION
-      // thay vì lặng lẽ ghi đè giá trị cũ về (optimistic lock AD-4).
-      const upd = await tx.execute(
-        sql`UPDATE assets SET ${sql.raw(col)} = ${to.value}, version = version + 1, updated_at = now() WHERE ${sql.raw(col)} = ${from.value}`,
-      );
-      await tx.delete(catalogTable).where(eq(catalogTable.id, fromId));
-      // Đích thành giá trị chuẩn → luôn hiện trong dropdown (usage vừa dồn vào đây; nếu nó đang ẩn
-      // thì tài sản sẽ trỏ giá trị không chọn lại được khi tạo mới — review 8.1 M3).
-      await tx
-        .update(catalogTable)
-        .set({ active: true, updatedAt: new Date() })
-        .where(eq(catalogTable.id, toId));
-      // Audit TRONG transaction (merge là thao tác phá hủy — xóa entry nguồn): commit-đổi mà
-      // audit lỗi ngoài tx sẽ để mất vết append-only (AD-10, review 8.1 M5).
-      await this.audit.appendWithin(tx, {
-        actor: actorSub,
-        action: 'catalog.merge',
-        objectType: 'catalog',
-        objectId: toId,
-        detail: {
-          kind: from.kind,
-          from: from.value,
-          to: to.value,
-          assetsUpdated: upd.rowCount ?? 0,
-        },
-      });
-      return upd.rowCount ?? 0;
-    });
-
-    return { assetsUpdated };
-  }
-
-  private async loadPair(
-    fromId: string,
-    toId: string,
-  ): Promise<{
-    from: { kind: string; value: string };
-    to: { kind: string; value: string };
-  }> {
-    if (fromId === toId) {
-      throw new BadRequestException({
-        code: 'CATALOG_MERGE_SAME',
-        message: 'Nguồn và đích gộp phải khác nhau.',
-      });
-    }
-    const rows = await this.db
-      .select({
-        id: catalogTable.id,
-        kind: catalogTable.kind,
-        value: catalogTable.value,
-      })
-      .from(catalogTable)
-      .where(sql`${catalogTable.id} IN (${fromId}, ${toId})`);
-    const from = rows.find((r) => r.id === fromId);
-    const to = rows.find((r) => r.id === toId);
-    if (!from || !to) throw new NotFoundException(NOT_FOUND);
-    if (from.kind !== to.kind) {
-      throw new BadRequestException({
-        code: 'CATALOG_MERGE_KIND',
-        message: 'Chỉ gộp được hai giá trị cùng loại danh mục.',
-      });
-    }
-    // Chặn gộp dính 'software': UPDATE assets.type qua/về 'software' vi phạm CHECK software-fields
-    // (0012) → 23514 rollback → 500 khó hiểu. 'software' vốn đã ẩn khỏi danh mục Loại (listByKind).
-    if (
-      from.kind === 'type' &&
-      (from.value.toLowerCase() === 'software' ||
-        to.value.toLowerCase() === 'software')
-    ) {
-      throw new BadRequestException({
-        code: 'CATALOG_MERGE_SOFTWARE',
-        message: 'Không gộp giá trị loại hệ thống "software".',
-      });
-    }
-    return { from, to };
-  }
 }
