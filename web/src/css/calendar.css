@@ -42,6 +42,23 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* Ô "Chọn ngày" (nhảy tới tuần chứa ngày, giới hạn trong tháng) cạnh nav tháng. */
+.mcal-daypick {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.mcal-daypick .muted {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.mcal-daypick .dp {
+  width: 12.5rem;
+}
+.mcal-weekrange {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
 /* Bố cục: lịch (chính) + rail máy trống (phải); ≤980px xếp dọc */
 .mcal-layout {
   display: grid;
@@ -67,7 +84,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-height: 460px;
+  /* Gọn, phần dư cuộn — cân chiều cao với lịch bên trái (mcal-scroll). */
+  max-height: 378px;
   overflow-y: auto;
 }
 .mcal-freecard {
@@ -120,9 +138,9 @@
 }
 .mcal-scroll {
   overflow: auto;
-  /* Cao bằng panel "Máy trống — đặt nhanh" (title + list 460px ≈ 520) cho gọn, cân 2 cột;
-     header ngày dính khi cuộn dọc danh sách máy dài. */
-  max-height: 520px;
+  /* Gọn ~5 máy (header ngày + 5 hàng), phần dư cuộn dọc; header ngày dính khi cuộn.
+     Cân chiều cao với panel "Máy trống — đặt nhanh" bên phải. */
+  max-height: 378px;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface);
@@ -137,8 +155,9 @@
 }
 .mcal-grid {
   display: grid;
-  grid-template-columns: 160px repeat(7, minmax(78px, 1fr));
-  min-width: 700px;
+  /* 14 ngày (2 tuần) — cột hẹp hơn, cuộn ngang trong .mcal-scroll khi cần. */
+  grid-template-columns: 150px repeat(14, minmax(52px, 1fr));
+  min-width: 980px;
 }
 .mcal-corner {
   background: var(--surface-2);

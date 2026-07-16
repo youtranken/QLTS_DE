@@ -123,18 +123,22 @@ export function HandoverQueues({
     [note, photo, uploadPhoto, me.csrfToken, load, t],
   );
 
-  const fmt = (iso: string | null) =>
+  const locale = i18n.language === 'vi' ? 'vi-VN' : 'en-US';
+  const fmtDate = (iso: string | null) =>
     iso
-      ? new Date(iso).toLocaleString(
-          i18n.language === 'vi' ? 'vi-VN' : 'en-US',
-          {
-            timeZone: 'Asia/Ho_Chi_Minh',
-            day: '2-digit',
-            month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-          },
-        )
+      ? new Date(iso).toLocaleDateString(locale, {
+          timeZone: 'Asia/Ho_Chi_Minh',
+          day: '2-digit',
+          month: '2-digit',
+        })
+      : '—';
+  const fmtTime = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleTimeString(locale, {
+          timeZone: 'Asia/Ho_Chi_Minh',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
       : '—';
 
   const renderQueue = (
@@ -152,6 +156,17 @@ export function HandoverQueues({
       ) : (
         <div className="table-wrap">
           <table className="table">
+            <thead>
+              <tr>
+                <th>{t('handover.colBorrower', 'Người mượn')}</th>
+                <th>{t('handover.colAsset', 'Thiết bị')}</th>
+                <th>{t('handover.colPickDate', 'Ngày nhận')}</th>
+                <th>{t('handover.colPickTime', 'Giờ nhận')}</th>
+                <th>{t('handover.colDueDate', 'Ngày trả')}</th>
+                <th>{t('handover.colDueTime', 'Giờ trả')}</th>
+                <th />
+              </tr>
+            </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className={row.isOverdue ? 'overdue' : undefined}>
@@ -184,9 +199,10 @@ export function HandoverQueues({
                       '—'
                     )}
                   </td>
-                  <td>
-                    {fmt(row.from)} → {fmt(row.to)}
-                  </td>
+                  <td>{fmtDate(row.from)}</td>
+                  <td className="mono">{fmtTime(row.from)}</td>
+                  <td>{fmtDate(row.to)}</td>
+                  <td className="mono">{fmtTime(row.to)}</td>
                   <td className="table-actions">
                     {actingId === row.id ? (
                       <span

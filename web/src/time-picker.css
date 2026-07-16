@@ -40,6 +40,20 @@
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
+/* Ô nhập giờ trực tiếp: bỏ viền/nền/padding của input, giữ kiểu chữ lớn của .tp-time. */
+input.tp-time {
+  width: 3.2em;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  outline: none;
+}
+input.tp-time:focus {
+  box-shadow: none;
+  border: none;
+}
 .tp-mer-chip {
   margin-left: auto;
   font-size: 13px;
@@ -96,6 +110,26 @@
   height: var(--col-h);
   user-select: none;
 }
+/* Fade trên/dưới bằng LỚP OVERLAY (không mask cột cuộn) — mask trên .tp-col phải tái tổng hợp
+   mỗi frame khi cuộn → giật; overlay là lớp tĩnh riêng, cột cuộn composite mượt. */
+.tp-wheels::before,
+.tp-wheels::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 34%;
+  z-index: 3;
+  pointer-events: none;
+}
+.tp-wheels::before {
+  top: 0;
+  background: linear-gradient(180deg, var(--surface), transparent);
+}
+.tp-wheels::after {
+  bottom: 0;
+  background: linear-gradient(0deg, var(--surface), transparent);
+}
 .tp-sep {
   align-self: center;
   font-size: 26px;
@@ -110,15 +144,17 @@
   flex: 1;
   height: 100%;
   overflow-y: scroll;
-  scroll-snap-type: y mandatory;
+  /* proximity (không mandatory): con lăn chuột desktop cuộn momentum mượt rồi mới hít giữa —
+     mandatory snap từng nấc gây "giật giật". Kéo tay vẫn glide-snap ở JS khi thả. */
+  scroll-snap-type: y proximity;
   overscroll-behavior: contain;
+  contain: paint;
   scrollbar-width: none;
   -ms-overflow-style: none;
   touch-action: pan-y;
   cursor: grab;
   outline: none;
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 28%, #000 72%, transparent);
-  mask-image: linear-gradient(180deg, transparent, #000 28%, #000 72%, transparent);
+  /* Fade chuyển sang overlay .tp-wheels::before/::after để cột cuộn composite mượt (bỏ mask). */
 }
 .tp-col::-webkit-scrollbar {
   display: none;

@@ -4,7 +4,7 @@ input[type='date'],
 input[type='time'],
 input[type='datetime-local'] {
   cursor: pointer;
-  min-height: 42px;
+  /* Cao bằng DatePicker/Select (padding 0.55rem ≈ 35px) để cùng hàng Ngày|Giờ không so le. */
 }
 input[type='date']::-webkit-calendar-picker-indicator,
 input[type='time']::-webkit-calendar-picker-indicator,
@@ -42,16 +42,39 @@ html[data-theme='dark']
 }
 .slot-suggest-chips {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 5px;
   flex: 1;
   min-width: 0;
 }
+/* Chip cỡ nội dung, sát TRÁI — còn 2 khung thì chỉ 2 chip nhỏ bên trái, phải để trống
+   (trước dùng flex:1 nên 2 chip phình full hàng). */
+/* 2 KHUNG chip gợi ý (sáng | chiều), nhãn AM/PM ở CUỐI mỗi khung. */
+.slot-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+.slot-mer-lbl {
+  align-self: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
+  padding: 0 2px 0 3px;
+}
 .slot-pick {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 4px;
+  flex: 0 0 auto;
+  min-width: 3rem;
+  text-align: center;
+  padding: 6px 13px;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 600;
   border: 1px solid var(--border-2);
   border-radius: var(--r);
@@ -68,6 +91,32 @@ html[data-theme='dark']
   background: var(--primary);
   border-color: var(--primary);
   color: #fff;
+}
+/* Giờ đã qua (hoặc trước giờ nhận): khóa — mờ, gạch, không bấm được. */
+.slot-pick.off,
+.slot-pick:disabled {
+  opacity: 0.4;
+  text-decoration: line-through;
+  cursor: not-allowed;
+  background: var(--surface-2);
+}
+.slot-pick.off:hover {
+  border-color: var(--border-2);
+  color: var(--ink-2);
+}
+
+/* Nút ✕ xóa buổi (recurring): vuông nhỏ 32px, canh đáy hàng — trước dùng .sh nên to/lệch. */
+.icon-x {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  line-height: 1;
+  align-self: flex-end;
+  margin-bottom: 1px;
 }
 
 /* Máy đã chọn (khóa preset khi mở từ thẻ máy). */
@@ -205,6 +254,24 @@ html[data-theme='dark']
     opacity: 0.4;
   }
 }
+/* Bảng "Máy đang mượn / chờ giao": nhiều dòng thì CUỘN RIÊNG trong bảng (không kéo dài cả
+   trang), header dính trên cùng. Thoáng hơn: viền bo + khoảng cách với khối trên. */
+.board-head {
+  margin-top: 1.75rem;
+}
+.table-wrap:has(.board-table) {
+  max-height: 26rem;
+  overflow: auto;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-lg);
+}
+.board-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+}
+
 /* Nhãn ngày trước dải chip "giờ trống" (Hôm nay / Ngày mai / thứ+ngày). */
 .slot-day {
   font-size: 0.72rem;

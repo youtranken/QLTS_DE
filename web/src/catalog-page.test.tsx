@@ -13,9 +13,9 @@ const ME = { sub: 'sa', role: 'sa', csrfToken: null } as unknown as Me;
 // Danh mục là bảng 3 cột (Loại/Hãng/Cấu hình). Chỉ nạp cột "type" để giá trị
 // không lặp giữa các cột (tránh nhập nhằng khi query theo text).
 const ITEMS = [
-  { id: '1', value: 'Laptop', active: true, usage: 5 },
-  { id: '2', value: 'Desktop', active: true, usage: 12 },
-  { id: '3', value: 'Monitor', active: false, usage: 0 },
+  { id: '1', value: 'Laptop', active: true, deviceCount: 5, softwareCount: 0 },
+  { id: '2', value: 'Desktop', active: true, deviceCount: 12, softwareCount: 0 },
+  { id: '3', value: 'Monitor', active: false, deviceCount: 0, softwareCount: 0 },
 ];
 
 function stub() {
@@ -38,11 +38,13 @@ describe('CatalogPage — bảng 3 cột', () => {
     expect(screen.getByText('Monitor')).toBeInTheDocument();
   });
 
-  it('giá trị đang ẩn có nhãn "Đã ẩn"', async () => {
+  it('giá trị đang disable: hàng gạch ngang + mờ (class is-disabled), không chữ "disable"', async () => {
     stub();
     renderWithI18n(<CatalogPage me={ME} />);
-    await screen.findByText('Monitor'); // active:false
-    expect(screen.getByText(/Đã ẩn/)).toBeInTheDocument();
+    const monitor = await screen.findByText('Monitor'); // active:false
+    expect(monitor.closest('.dmrow')).toHaveClass('is-disabled');
+    // Không còn badge chữ trên hàng (chỉ gạch ngang + mờ)
+    expect(monitor.closest('.dmrow')).not.toHaveTextContent(/đã disable/i);
   });
 
   it('menu ⋯ → Sửa mở ô nhập inline', async () => {

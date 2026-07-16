@@ -149,6 +149,17 @@ table.table tbody tr.row-highlight td:first-child {
   padding: 0;
 }
 
+/* --- Cột Action: nút "Chuyển" luôn hiện + menu "⋯" --------------------------- */
+.action-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+.transfer-btn {
+  white-space: nowrap;
+}
+
 /* --- Menu thao tác hàng "⋯" (bảng /tai-san) ------------------------------- */
 .row-actions {
   position: relative;

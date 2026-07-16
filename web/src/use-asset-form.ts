@@ -24,6 +24,7 @@ export interface InstalledSoftware {
   startDate: string | null;
   endDate: string | null;
   brand: string | null;
+  note: string | null;
 }
 
 /**

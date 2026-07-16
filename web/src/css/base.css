@@ -149,6 +149,13 @@ a.linkbtn:hover {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+  /* Dính viewport: footer (Hồ sơ/ngôn ngữ/Đăng xuất + nút thu gọn) LUÔN ở đáy màn hình,
+     không bị đẩy xuống cuối trang dài. Nav dài thì tự cuộn trong sidebar. */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  overflow-y: auto;
 }
 .brand {
   display: flex;

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from './api-client';
+import { downloadFile } from './download-file';
 import { AssetForm } from './asset-form';
 import { RowActionsMenu } from './asset-row-actions';
 import { SoftwareTransferDialog } from './software-transfer-dialog';
@@ -201,14 +202,20 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
     <>
       <div className="page-header">
         <h1>{t('software.title')}</h1>
-        <a
+        <button
+          type="button"
           className="linkbtn"
-          href={`/api/admin/assets/export-software${
-            search ? `?search=${encodeURIComponent(search)}` : ''
-          }`}
+          onClick={() =>
+            void downloadFile(
+              `/api/admin/assets/export-software${
+                search ? `?search=${encodeURIComponent(search)}` : ''
+              }`,
+              'phan-mem.xlsx',
+            )
+          }
         >
           {t('assets.exportExcel')}
-        </a>
+        </button>
         <button
           type="button"
           className="primary"

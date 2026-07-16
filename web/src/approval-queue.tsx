@@ -120,7 +120,7 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
       <div className="page-header">
         <h1>{t('approval.title')}</h1>
       </div>
-      <div className="stat-grid" style={{ marginBottom: 16 }}>
+      <div className="stat-grid stat-grid-5" style={{ marginBottom: 16 }}>
         <div className="stat-card">
           <div className={`stat-num${(items?.length ?? 0) === 0 ? ' zero' : ''}`}>
             {items?.length ?? 0}

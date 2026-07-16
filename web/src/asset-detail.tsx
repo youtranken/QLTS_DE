@@ -162,7 +162,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
     return (
       <>
         <p>{t('assets.notFound')}</p>
-        <Link to="/tai-san">{t('assets.backToList')}</Link>
+        <Link to="/assets">{t('assets.backToList')}</Link>
       </>
     );
   }
@@ -248,7 +248,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
   return (
     <>
       <p style={{ marginBottom: '0.5rem' }}>
-        <Link to="/tai-san">‹ {t('assets.backToList')}</Link>
+        <Link to="/assets">‹ {t('assets.backToList')}</Link>
       </p>
       <div className="page-header">
         <h1>{detail.code ?? detail.licenseName ?? '—'}</h1>

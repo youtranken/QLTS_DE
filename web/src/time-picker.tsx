@@ -44,7 +44,14 @@ function Wheel({ count, render, value, onChange, ariaLabel }: WheelProps) {
       cells.forEach((c, i) => {
         const off = i - center;
         const a = Math.abs(off);
-        c.style.opacity = a > 3.2 ? '0' : String(Math.max(0, 1 - a * 0.26));
+        // Ô xa (nhất là cột phút 60 ô) vốn bị mask che → chỉ ẩn, KHÔNG tính lại transform mỗi
+        // frame → giảm việc/khung, cuộn mượt hơn.
+        if (a > 4) {
+          if (c.style.opacity !== '0') c.style.opacity = '0';
+          if (c.classList.contains('on')) c.classList.remove('on');
+          return;
+        }
+        c.style.opacity = String(Math.max(0, 1 - a * 0.26));
         c.style.transform = `perspective(650px) rotateX(${off * -ANGLE}deg) scale(${Math.max(0.82, 1 - a * 0.05)})`;
         c.classList.toggle('on', i === sel);
       });
@@ -188,6 +195,26 @@ export function TimePicker({ value = DEFAULT, onDone, onCancel }: TimePickerProp
   const [pm, setPm] = useState(value.pm);
   const fieldRef = useRef<HTMLDivElement>(null);
 
+  // Nhập giờ TRỰC TIẾP (gõ "HH:MM" 12h) — đồng bộ 2 chiều với bánh xe. Khi đang gõ thì không
+  // để bánh xe ghi đè ô; blur thì chuẩn hóa lại theo h/m hiện tại.
+  const [text, setText] = useState(`${pad(h + 1)}:${pad(m)}`);
+  const editingRef = useRef(false);
+  useEffect(() => {
+    if (!editingRef.current) setText(`${pad(h + 1)}:${pad(m)}`);
+  }, [h, m]);
+  const onTextChange = (v: string) => {
+    setText(v);
+    const mt = v.match(/^(\d{1,2}):(\d{1,2})$/);
+    if (mt) {
+      const H = Number(mt[1]);
+      const M = Number(mt[2]);
+      if (H >= 1 && H <= 12 && M >= 0 && M <= 59) {
+        setH(H - 1);
+        setM(M);
+      }
+    }
+  };
+
   const now = () => {
     const d = new Date();
     setPm(d.getHours() >= 12);
@@ -214,9 +241,21 @@ export function TimePicker({ value = DEFAULT, onDone, onCancel }: TimePickerProp
 
       <div className="tp-field" ref={fieldRef}>
         <ClockIcon />
-        <span className="tp-time">
-          {pad(h + 1)} : {pad(m)}
-        </span>
+        <input
+          className="tp-time"
+          value={text}
+          inputMode="numeric"
+          maxLength={5}
+          aria-label="Giờ : phút"
+          onFocus={() => {
+            editingRef.current = true;
+          }}
+          onBlur={() => {
+            editingRef.current = false;
+            setText(`${pad(h + 1)}:${pad(m)}`);
+          }}
+          onChange={(e) => onTextChange(e.target.value)}
+        />
         <span className="tp-mer-chip">{pm ? 'PM' : 'AM'}</span>
       </div>
 

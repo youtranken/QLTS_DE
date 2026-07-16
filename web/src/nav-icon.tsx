@@ -3,20 +3,6 @@
  * Key lạ → icon chấm tròn mặc định. Chỉ trình bày.
  */
 const ICONS: Record<string, React.ReactNode> = {
-  'nav.dashboard': (
-    <>
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" />
-    </>
-  ),
-  'nav.booking': (
-    <>
-      <rect x="3" y="4" width="18" height="17" rx="2" />
-      <path d="M8 2v4M16 2v4M3 10h18" />
-    </>
-  ),
   'nav.lending': (
     <>
       <path d="M9 11l3 3L22 4" />
@@ -47,23 +33,10 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M12 12 3 7M12 12l9-5M12 12v10" />
     </>
   ),
-  'nav.inventory': (
-    <>
-      <path d="M9 2h6l1 4H8z" />
-      <rect x="4" y="6" width="16" height="16" rx="2" />
-      <path d="M9 12h6M9 16h6" />
-    </>
-  ),
   'nav.disposed': (
     <>
       <path d="M3 6h18" />
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </>
-  ),
-  'nav.reports': (
-    <>
-      <path d="M3 3v18h18" />
-      <path d="M7 15l4-4 3 3 5-6" />
     </>
   ),
   'nav.admin': (

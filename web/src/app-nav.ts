@@ -17,11 +17,10 @@ export function navGroups(role: string): NavGroup[] {
   const isAdmin = role === 'admin' || role === 'sa';
   const groups: NavGroup[] = [];
 
-  // Domain Mượn tài sản — landing theo vai (3.12): admin → dashboard, member → đặt máy.
-  // "Máy đang mượn" đã gộp vào Trang chủ (bảng board giàu hơn) → không còn mục riêng.
-  const borrow = [{ to: '/', key: isAdmin ? 'nav.dashboard' : 'nav.booking' }];
-  if (isAdmin) borrow.push({ to: '/xu-ly-muon', key: 'nav.lending' });
-  if (isAdmin) borrow.push({ to: '/lich-may', key: 'nav.calendar' });
+  // Domain Mượn tài sản — Trang chủ '/' = Lịch máy cho MỌI vai (đặt máy + bảng đang mượn
+  // đã nằm sẵn trong Lịch máy). Borrow board/dashboard cũ đã bỏ.
+  const borrow = [{ to: '/', key: 'nav.calendar' }];
+  if (isAdmin) borrow.push({ to: '/approvals', key: 'nav.lending' });
   groups.push({ label: 'nav.groupBorrow', items: borrow });
 
   // Domain Quản lý tài sản (admin/sa)
@@ -29,18 +28,16 @@ export function navGroups(role: string): NavGroup[] {
     groups.push({
       label: 'nav.groupAssets',
       items: [
-        { to: '/tai-san', key: 'nav.assets' },
-        { to: '/phan-mem', key: 'nav.software' },
-        { to: '/pool-may-muon', key: 'nav.pool' },
-        { to: '/tai-san/kiem-ke', key: 'nav.inventory' },
+        { to: '/assets', key: 'nav.assets' },
+        { to: '/software', key: 'nav.software' },
+        { to: '/pool', key: 'nav.pool' },
         {
           key: 'nav.disposed',
           children: [
-            { to: '/tai-san/thanh-ly', key: 'nav.disposedKindDevice' },
-            { to: '/phan-mem/thanh-ly', key: 'nav.disposedKindSoftware' },
+            { to: '/assets/disposed', key: 'nav.disposedKindDevice' },
+            { to: '/software/disposed', key: 'nav.disposedKindSoftware' },
           ],
         },
-        { to: '/bao-cao', key: 'nav.reports' },
       ],
     });
     // Hệ thống — Quản trị. Delegation 10.1: Admin (SSO) lo hằng ngày, có cả Audit log +
@@ -48,12 +45,12 @@ export function navGroups(role: string): NavGroup[] {
     groups.push({
       label: 'nav.groupSystem',
       items: [
-        { to: '/quan-tri', key: 'nav.admin' },
-        { to: '/quan-tri/danh-muc', key: 'nav.catalog' },
+        { to: '/admin', key: 'nav.admin' },
+        { to: '/admin/catalog', key: 'nav.catalog' },
         ...(isAdmin
           ? [
-              { to: '/quan-tri/audit', key: 'nav.audit' },
-              { to: '/quan-tri/cau-hinh', key: 'nav.config' },
+              { to: '/admin/audit', key: 'nav.audit' },
+              { to: '/admin/config', key: 'nav.config' },
             ]
           : []),
       ],

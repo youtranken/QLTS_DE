@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { downloadFile } from './download-file';
 
 /**
  * Đầu trang sổ tài sản: tiêu đề (tài sản / phần mềm / kho thanh lý / tên license), link kiểm kê
@@ -47,42 +48,52 @@ export function AssetsPageHeader({
       </h1>
       {!softwareOnly && !disposedOnly && (
         <>
-          <Link className="linkbtn" to="/tai-san/kiem-ke">
-            {t('inventory.link')}
-          </Link>
-          <Link className="linkbtn" to="/tai-san/import">
+          <Link className="linkbtn" to="/assets/import">
             {t('importx.link')}
           </Link>
-          {/* 2.10: export theo bộ lọc ĐANG áp — <a> điều hướng thật, cookie đi kèm */}
-          <a
+          {/* 2.10: export theo bộ lọc ĐANG áp — tải bằng fetch→blob (downloadFile) để ép
+              đúng tên .xlsx trên mọi trình duyệt; cookie đi kèm qua credentials. */}
+          <button
+            type="button"
             className="linkbtn"
-            href={`/api/admin/assets/export?${new URLSearchParams({
-              ...(search ? { search } : {}),
-              ...(type ? { type } : {}),
-              ...(status ? { status } : {}),
-              ...(expiring ? { expiring: 'true' } : {}),
-              ...(endFrom ? { endFrom } : {}),
-              ...(endTo ? { endTo } : {}),
-            }).toString()}`}
+            onClick={() =>
+              void downloadFile(
+                `/api/admin/assets/export?${new URLSearchParams({
+                  ...(search ? { search } : {}),
+                  ...(type ? { type } : {}),
+                  ...(status ? { status } : {}),
+                  ...(expiring ? { expiring: 'true' } : {}),
+                  ...(endFrom ? { endFrom } : {}),
+                  ...(endTo ? { endTo } : {}),
+                }).toString()}`,
+                'tai-san.xlsx',
+              )
+            }
           >
             {t('assets.exportExcel')}
-          </a>
+          </button>
         </>
       )}
       {/* sw-license-model follow-up: export PHẦN MỀM riêng (derive người đứng tên theo máy) */}
       {softwareOnly && (
-        <a
+        <button
+          type="button"
           className="linkbtn"
-          href={`/api/admin/assets/export-software?${new URLSearchParams({
-            ...(search ? { search } : {}),
-            ...(status ? { status } : {}),
-            ...(expiring ? { expiring: 'true' } : {}),
-            ...(endFrom ? { endFrom } : {}),
-            ...(endTo ? { endTo } : {}),
-          }).toString()}`}
+          onClick={() =>
+            void downloadFile(
+              `/api/admin/assets/export-software?${new URLSearchParams({
+                ...(search ? { search } : {}),
+                ...(status ? { status } : {}),
+                ...(expiring ? { expiring: 'true' } : {}),
+                ...(endFrom ? { endFrom } : {}),
+                ...(endTo ? { endTo } : {}),
+              }).toString()}`,
+              'phan-mem.xlsx',
+            )
+          }
         >
           {t('assets.exportExcel')}
-        </a>
+        </button>
       )}
       {!disposedOnly && (
         <button type="button" className="primary" onClick={onAdd}>

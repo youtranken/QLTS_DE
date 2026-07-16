@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { DatePicker } from './date-picker';
+import { TimeField } from '../time-field';
 
 /**
  * DateTimePicker: ghép DatePicker (Sunset Grove) cho phần NGÀY + ô giờ cho phần GIỜ.
@@ -38,14 +39,14 @@ export function DateTimePicker({
         clearable={clearable}
         onChange={(d) => emit(d, timePart)}
       />
-      <input
-        type="time"
-        className="dtp-time"
-        aria-label={ariaLabel ? `${ariaLabel} — ${t('datePicker.time', 'giờ')}` : undefined}
-        value={timePart}
-        disabled={!datePart}
-        onChange={(e) => emit(datePart, e.target.value)}
-      />
+      <div className="dtp-time">
+        <TimeField
+          value={timePart}
+          ariaLabel={ariaLabel ? `${ariaLabel} — ${t('datePicker.time', 'giờ')}` : undefined}
+          disabled={!datePart}
+          onChange={(tm) => emit(datePart, tm)}
+        />
+      </div>
     </div>
   );
 }

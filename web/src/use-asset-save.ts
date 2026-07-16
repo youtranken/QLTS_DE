@@ -74,8 +74,8 @@ export function useAssetSave(ctx: {
       licenseName: form.isSoftware ? form.licenseName || null : null,
     };
     if (form.id) {
-      // 11.2 (B3): "Lưu thông tin máy" KHÔNG đổi người đứng tên — assignedUserSub gửi kèm
-      // là giá trị HIỆN TẠI (giữ nguyên, tránh BE update ghi null). Đổi owner qua AssetOwnerPanel.
+      // Người đứng tên sửa NGAY trong Thông tin chung → assignedUserSub trong payload là giá
+      // trị MỚI; BE PUT máy tự đổi assigned_user_sub + ghi allocation_history (assets.service §297).
       payload.version = form.version;
     }
     // TẠO phần mềm: mỗi "bản" (seat) = 1 bản ghi riêng, kỳ hạn + ghi chú RIÊNG, chưa gắn máy

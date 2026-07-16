@@ -160,10 +160,10 @@ export function SoftwareTransferDialog({
                   onClick={() => void run(a.id)}
                 >
                   <span className="mono">{a.code}</span>
+                  {/* Dòng phụ NHẤT QUÁN: luôn hiện loại máy, kèm người giữ nếu máy có chủ. */}
                   <small>
-                    {a.assignedUserName ?? (
-                      <span className="muted">{a.type ?? '—'}</span>
-                    )}
+                    {a.type ?? '—'}
+                    {a.assignedUserName ? ` · ${a.assignedUserName}` : ''}
                   </small>
                 </button>
               ))

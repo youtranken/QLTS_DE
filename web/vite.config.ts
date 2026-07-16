@@ -6,6 +6,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
+    // Đổi thư mục asset build 'assets'→'static' để KHÔNG đụng route SPA '/assets'
+    // (nếu để 'assets', nginx serve thẳng dist/assets/ → full-load /assets bị 403).
+    assetsDir: 'static',
     rollupOptions: {
       output: {
         // Tách vendor thành chunk cache dài hạn — đổi code app không bắt tải lại thư viện.
@@ -28,7 +31,7 @@ export default defineConfig({
     // Dev ngoài Docker: giữ same-origin /api như nginx làm ở production
     // (bắt buộc cho cookie httpOnly SameSite=Strict — story 1.2)
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': { target: 'https://localhost', changeOrigin: true, secure: false },
     },
   },
   test: {

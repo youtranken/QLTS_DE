@@ -145,7 +145,9 @@ export function RecurringBuilder({
               background: stuck === i ? 'var(--danger-soft)' : 'transparent',
             }}
           >
-            <label className="field">
+            {/* flex:1 + minWidth:0 để 2 ô Nhận/Trả chia đều, KHÔNG tràn che nhau (DateTimePicker
+                rộng: ngày + giờ 8.5rem) khi hàng chật. */}
+            <label className="field" style={{ flex: 1, minWidth: 0 }}>
               {t('recur.from')} {i + 1}
               <DateTimePicker
                 value={s.from}
@@ -153,7 +155,7 @@ export function RecurringBuilder({
                 onChange={(v) => setRow(i, { from: v })}
               />
             </label>
-            <label className="field">
+            <label className="field" style={{ flex: 1, minWidth: 0 }}>
               {t('recur.to')}
               <DateTimePicker
                 value={s.to}
@@ -164,7 +166,8 @@ export function RecurringBuilder({
             {sessions.length > 1 && (
               <button
                 type="button"
-                className="ghost sm"
+                className="ghost sm icon-x"
+                aria-label={t('recur.removeSession', 'Xóa buổi')}
                 onClick={() => removeRow(i)}
               >
                 ✕

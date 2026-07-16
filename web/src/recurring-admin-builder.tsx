@@ -84,8 +84,18 @@ export function RecurringAdminBuilder({
     <div className="form-section">
       <div className="form-section-title">{t('bookingSheet.recurringSessions')}</div>
       {sessions.map((s, i) => (
-        <div key={i} className="form-grid" style={{ marginBottom: '0.5rem' }}>
-          <label className="field">
+        <div
+          key={i}
+          style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'flex-end',
+            marginBottom: '0.5rem',
+          }}
+        >
+          {/* flex:1 + minWidth:0 để Nhận/Trả chia đều, KHÔNG bị nút ✕ chiếm trọn 1 cột lưới
+              làm co ngày (trước dùng form-grid auto-fill → ngày bị cắt). */}
+          <label className="field" style={{ flex: 1, minWidth: 0 }}>
             <span>{t('booking.from')}</span>
             <DateTimePicker
               value={s.from}
@@ -93,7 +103,7 @@ export function RecurringAdminBuilder({
               onChange={(v) => setRow(i, { from: v })}
             />
           </label>
-          <label className="field">
+          <label className="field" style={{ flex: 1, minWidth: 0 }}>
             <span>{t('booking.to')}</span>
             <DateTimePicker
               value={s.to}
@@ -104,7 +114,8 @@ export function RecurringAdminBuilder({
           {sessions.length > 1 && (
             <button
               type="button"
-              className="sm"
+              className="sm icon-x"
+              aria-label={t('recur.removeSession', 'Xóa buổi')}
               onClick={() =>
                 setSessions((rows) => rows.filter((_, j) => j !== i))
               }

@@ -1,0 +1,100 @@
+/* Ô chọn giờ (TimeField): trigger giống input, popover chứa bánh xe TimePicker. */
+.tf {
+  position: relative;
+  width: 100%;
+}
+.tf-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Khớp chiều cao input/DatePicker (padding 0.55rem ≈ 35px) để cùng hàng Ngày|Giờ không so le. */
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--r);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.tf-trigger:hover {
+  border-color: var(--ink-3);
+}
+.tf-trigger:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+.tf-trigger:disabled {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  cursor: default;
+}
+.tf-val {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.tf-val.ph {
+  color: var(--ink-3);
+}
+.tf-clock {
+  width: 16px;
+  height: 16px;
+  color: var(--ink-3);
+  flex: none;
+}
+/* Popover bánh xe: toạ độ (position:fixed) đặt inline theo JS để thoát overflow của sheet-body. */
+.tf-pop {
+  animation: modalIn 0.13s var(--ease) both;
+}
+/* Bản GỌN của TimePicker khi nhúng trong ô booking (mặc định card demo hơi to). GIỮ item-h=42
+   vì Wheel JS dùng ITEM_H=42 cố định — chỉ bớt padding/font + số item hiển thị (col-h). */
+.tf-pop .tp {
+  max-width: 256px;
+  padding: 12px;
+  gap: 11px;
+  border-radius: var(--r);
+}
+.tf-pop .tp-title {
+  font-size: 12px;
+}
+.tf-pop .tp-field {
+  padding: 8px 11px;
+  border-width: 1px;
+}
+.tf-pop .tp-field svg {
+  width: 17px;
+  height: 17px;
+}
+.tf-pop .tp-time {
+  font-size: 22px;
+}
+.tf-pop .tp-mer-chip {
+  font-size: 12px;
+  padding: 3px 9px;
+}
+.tf-pop .tp-seg button {
+  padding: 7px;
+  font-size: 12.5px;
+}
+.tf-pop .tp-wheels {
+  --col-h: 126px; /* 3 dòng thay 4 — item-h vẫn 42 nên snap không lệch */
+}
+.tf-pop .tp-cell {
+  font-size: 20px;
+}
+.tf-pop .tp-sep {
+  font-size: 22px;
+}
+.tf-pop .tp-mer button {
+  padding: 7px 11px;
+  font-size: 12.5px;
+}
+.tf-pop .tp-actions button {
+  padding: 9px;
+  font-size: 13px;
+  border-radius: 9px;
+}

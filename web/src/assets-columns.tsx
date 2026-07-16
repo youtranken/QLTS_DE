@@ -28,6 +28,7 @@ export function useAssetColumns(opts: {
   onPurge: (row: AssetRow) => void;
   onDispose: (row: AssetRow) => void;
   setTransferSw: (a: AssetRow) => void;
+  setTransferOwner: (a: AssetRow) => void;
   lifecycleActionsFor: (a: AssetRow) => RowAction[];
 }): ColumnDef<AssetRow, unknown>[] {
   const { t } = useTranslation();
@@ -40,6 +41,7 @@ export function useAssetColumns(opts: {
     onPurge,
     onDispose,
     setTransferSw,
+    setTransferOwner,
     lifecycleActionsFor,
   } = opts;
 
@@ -62,9 +64,11 @@ export function useAssetColumns(opts: {
       enableSorting: false,
       cell: ({ row }) => {
         const a = row.original;
+        const isDisposedRow = disposedOnly || a.status === 'disposed';
+        const isSoftwareRow = a.type === 'software';
         // Dòng đã thanh lý (kể cả khi lọc status=disposed ở sổ tài sản): hồ sơ đã chốt →
         // chỉ "Tái sử dụng", KHÔNG Sửa/Xóa (BE chặn, tránh action ra lỗi khó hiểu).
-        const actions: RowAction[] = (disposedOnly || a.status === 'disposed')
+        const actions: RowAction[] = isDisposedRow
           ? [
               { label: t('assets.reuse', 'Tái sử dụng'), onClick: () => void copyFrom(a.id) },
               {
@@ -75,14 +79,9 @@ export function useAssetColumns(opts: {
             ]
           : [
               { label: t('assets.edit'), onClick: () => void openEdit(a.id) },
+              // "Gán/chuyển máy" (phần mềm) tách ra nút riêng ở cột Action; kebab giữ Copy.
               ...(softwareOnly
-                ? [
-                    {
-                      label: t('software.assignMachine'),
-                      onClick: () => setTransferSw(a),
-                    },
-                    { label: t('software.copy'), onClick: () => void copyFrom(a.id) },
-                  ]
+                ? [{ label: t('software.copy'), onClick: () => void copyFrom(a.id) }]
                 : []),
               // Khóa sửa chữa / Mở khóa / Pool (chỉ máy; software → []).
               ...lifecycleActionsFor(a),
@@ -99,7 +98,24 @@ export function useAssetColumns(opts: {
                     onClick: () => void handleDelete(a),
                   },
             ];
-        return <RowActionsMenu actions={actions} />;
+        return (
+          // Hàng là button điều hướng chi tiết → chặn click ở ô thao tác nổi lên (mở nhầm detail).
+          <div className="action-cell" onClick={(e) => e.stopPropagation()}>
+            {/* Nút "Chuyển" luôn hiện: máy → chuyển người giữ; phần mềm → chuyển sang máy khác. */}
+            {!isDisposedRow && (
+              <button
+                type="button"
+                className="sm transfer-btn"
+                onClick={() =>
+                  isSoftwareRow ? setTransferSw(a) : setTransferOwner(a)
+                }
+              >
+                ⇄ {t('assets.transferAction')}
+              </button>
+            )}
+            <RowActionsMenu actions={actions} />
+          </div>
+        );
       },
     };
     if (softwareOnly) {
@@ -251,7 +267,7 @@ export function useAssetColumns(opts: {
         id: 'startDate',
         header: t('assets.col.startDate'),
         enableSorting: false,
-        cell: ({ row }) => row.original.startDate ?? '—',
+        cell: ({ row }) => formatDmy(row.original.startDate),
       },
     ];
     // Kho thanh lý (hồ sơ đã chốt): thêm End Date để tra mốc hết hạn tại thời điểm thanh lý.
@@ -260,7 +276,7 @@ export function useAssetColumns(opts: {
         id: 'endDate',
         header: t('assets.col.endDate'),
         enableSorting: false,
-        cell: ({ row }) => row.original.endDate ?? '—',
+        cell: ({ row }) => formatDmy(row.original.endDate),
       });
     }
     deviceCols.push({
@@ -282,6 +298,7 @@ export function useAssetColumns(opts: {
     onPurge,
     onDispose,
     setTransferSw,
+    setTransferOwner,
     lifecycleActionsFor,
   ]);
 }

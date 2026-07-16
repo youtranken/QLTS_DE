@@ -3,12 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { AssetTypeIcon } from './asset-type-icon';
 import type { PoolItem } from './pool-page';
 
-/** Chữ cái đầu tên (avatar người mượn) — lấy đầu + cuối, hoa. */
-function initials(name: string): string {
-  const p = name.trim().split(/\s+/);
-  return (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
-}
-
 /**
  * Bảng pool (theo pool.html): No / Code / User(người đang mượn) / Asset Type / Software / Gỡ.
  * Cột Software: 0 → "—"; 1 → tên trực tiếp; ≥2 → chip "N phần mềm ›" bung hàng liệt kê.
@@ -61,12 +55,7 @@ export function PoolTable({
                 </td>
                 <td>
                   {it.currentBorrowerName ? (
-                    <span className="pool-user">
-                      <span className="pool-av">
-                        {initials(it.currentBorrowerName)}
-                      </span>
-                      {it.currentBorrowerName}
-                    </span>
+                    it.currentBorrowerName
                   ) : (
                     <span className="muted">—</span>
                   )}

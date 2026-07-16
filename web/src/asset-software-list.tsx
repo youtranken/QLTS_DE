@@ -30,9 +30,9 @@ export function AssetSoftwareTable({ items }: { items: InstalledSoftware[] }) {
   const openSoftware = (s: InstalledSoftware) =>
     s.licenseName
       ? navigate(
-          `/phan-mem/license/${encodeURIComponent(s.licenseName)}?seat=${s.id}`,
+          `/software/license/${encodeURIComponent(s.licenseName)}?seat=${s.id}`,
         )
-      : navigate(`/tai-san/${s.id}`);
+      : navigate(`/assets/${s.id}`);
   // Card kiểu /phan-mem (.seat-list): License / Loại / Start / End / Trạng thái. Click → license.
   return (
     <>

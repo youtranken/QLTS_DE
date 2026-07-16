@@ -1,14 +1,13 @@
 import { Suspense, lazy } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Route, Routes } from 'react-router-dom';
-import { BorrowBoardPage } from './borrow-board';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { NotFound } from './load-state';
 import { ChunkErrorBoundary } from './chunk-error-boundary';
 import { DirectorySyncPanel, RolesPanel } from './panels';
 import type { Me } from './panels';
 
 // Code-splitting theo route (perf): mỗi trang thành 1 chunk tải khi điều hướng tới, giảm
-// bundle khởi động. Landing (BorrowBoard) + panel nhỏ giữ eager để trang đầu không chớp fallback.
+// bundle khởi động. Landing '/' = Lịch máy (CalendarOverviewPage) cũng lazy như các trang khác.
 const AssetsPage = lazy(() =>
   import('./assets').then((m) => ({ default: m.AssetsPage })),
 );
@@ -22,9 +21,6 @@ const SoftwareGroupsPage = lazy(() =>
 );
 const SoftwareLicensePage = lazy(() =>
   import('./assets').then((m) => ({ default: m.SoftwareLicensePage })),
-);
-const MachineCalendarPage = lazy(() =>
-  import('./machine-calendar').then((m) => ({ default: m.MachineCalendarPage })),
 );
 const ProfilePage = lazy(() =>
   import('./profile').then((m) => ({ default: m.ProfilePage })),
@@ -47,9 +43,6 @@ const OffboardingQueuePage = lazy(() =>
     default: m.OffboardingQueuePage,
   })),
 );
-const ReportsPage = lazy(() =>
-  import('./reports').then((m) => ({ default: m.ReportsPage })),
-);
 const AuditLogPage = lazy(() =>
   import('./audit-log').then((m) => ({ default: m.AuditLogPage })),
 );
@@ -64,9 +57,6 @@ const PoolPage = lazy(() =>
 );
 const ImportPage = lazy(() =>
   import('./import-page').then((m) => ({ default: m.ImportPage })),
-);
-const InventoryPage = lazy(() =>
-  import('./inventory').then((m) => ({ default: m.InventoryPage })),
 );
 
 /** Fallback khi chunk trang lazy đang tải — skeleton nhẹ để không chớp trắng. */
@@ -110,6 +100,36 @@ function AdminPage({ me }: { me: Me }) {
   );
 }
 
+// Path tiếng Việt cũ → tiếng Anh mới (specific trước prefix). Giữ bookmark/link cũ không vỡ.
+const LEGACY_ROUTES: Array<[string, string]> = [
+  ['/tai-san/thanh-ly', '/assets/disposed'],
+  ['/tai-san/import', '/assets/import'],
+  ['/tai-san', '/assets'],
+  ['/phan-mem/thanh-ly', '/software/disposed'],
+  ['/phan-mem/license', '/software/license'],
+  ['/phan-mem', '/software'],
+  ['/quan-tri/danh-muc', '/admin/catalog'],
+  ['/quan-tri/cau-hinh', '/admin/config'],
+  ['/quan-tri/audit', '/admin/audit'],
+  ['/quan-tri', '/admin'],
+  ['/xu-ly-muon', '/approvals'],
+  ['/pool-may-muon', '/pool'],
+  ['/ho-so', '/profile'],
+  ['/thong-bao-loi', '/notifications'],
+  ['/canh-bao-nghi-viec', '/offboarding'],
+];
+
+/** Bắt path tiếng Việt cũ → redirect sang path tiếng Anh mới (giữ phần đuôi + query); còn lại 404. */
+function LegacyRedirect() {
+  const { pathname, search } = useLocation();
+  for (const [from, to] of LEGACY_ROUTES) {
+    if (pathname === from || pathname.startsWith(`${from}/`)) {
+      return <Navigate to={pathname.replace(from, to) + search} replace />;
+    }
+  }
+  return <NotFound />;
+}
+
 /** Bảng định tuyến toàn app — bọc ChunkErrorBoundary + Suspense cho lazy chunk. */
 export function AppRoutes({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -140,53 +160,47 @@ export function AppRoutes({ me }: { me: Me }) {
     >
       <Suspense fallback={<PageFallback />}>
         <Routes>
-          {/* Landing 7.5: borrow board cho MỌI vai (thay dashboard/đặt-máy cũ ở '/'). */}
-          <Route path="/" element={<BorrowBoardPage me={me} />} />
-          <Route path="/lich-may/:id" element={<MachineCalendarPage />} />
-          <Route path="/lich-may" element={<CalendarOverviewPage me={me} />} />
-          <Route path="/ho-so" element={<ProfilePage me={me} />} />
-          <Route path="/xu-ly-muon" element={admin(<ApprovalQueuePage me={me} />)} />
-          <Route path="/tai-san" element={admin(<AssetsPage me={me} />)} />
-          <Route path="/phan-mem" element={admin(<SoftwareGroupsPage me={me} />)} />
+          {/* Landing: Lịch máy cho MỌI vai (member/admin/sa). Path tiếng Anh cho gọn/chuyên
+              nghiệp; path tiếng Việt cũ tự redirect qua LegacyRedirect ('*'). */}
+          <Route path="/" element={<CalendarOverviewPage me={me} />} />
+          <Route path="/profile" element={<ProfilePage me={me} />} />
+          <Route path="/approvals" element={admin(<ApprovalQueuePage me={me} />)} />
+          <Route path="/assets" element={admin(<AssetsPage me={me} />)} />
+          <Route path="/software" element={admin(<SoftwareGroupsPage me={me} />)} />
           <Route
-            path="/phan-mem/license/:name"
+            path="/software/license/:name"
             element={admin(<SoftwareLicensePage me={me} />)}
           />
           <Route
-            path="/phan-mem/thanh-ly"
+            path="/software/disposed"
             element={admin(<AssetsPage me={me} disposedOnly softwareOnly />)}
           />
-          <Route path="/tai-san/import" element={admin(<ImportPage me={me} />)} />
+          <Route path="/assets/import" element={admin(<ImportPage me={me} />)} />
           <Route
-            path="/tai-san/kiem-ke"
-            element={admin(<InventoryPage me={me} />)}
-          />
-          <Route
-            path="/tai-san/thanh-ly"
+            path="/assets/disposed"
             element={admin(<AssetsPage me={me} disposedOnly />)}
           />
-          <Route path="/tai-san/:id" element={admin(<AssetDetailPage me={me} />)} />
-          <Route path="/bao-cao" element={admin(<ReportsPage />)} />
-          <Route path="/quan-tri" element={admin(<AdminPage me={me} />)} />
-          <Route path="/pool-may-muon" element={admin(<PoolPage me={me} />)} />
+          <Route path="/assets/:id" element={admin(<AssetDetailPage me={me} />)} />
+          <Route path="/admin" element={admin(<AdminPage me={me} />)} />
+          <Route path="/pool" element={admin(<PoolPage me={me} />)} />
           <Route
-            path="/quan-tri/danh-muc"
+            path="/admin/catalog"
             element={admin(<CatalogPage me={me} />)}
           />
-          <Route path="/quan-tri/audit" element={admin(<AuditLogPage />)} />
+          <Route path="/admin/audit" element={admin(<AuditLogPage />)} />
           <Route
-            path="/quan-tri/cau-hinh"
+            path="/admin/config"
             element={admin(<ConfigPage me={me} />)}
           />
           <Route
-            path="/thong-bao-loi"
+            path="/notifications"
             element={admin(<NotificationsFailedPage me={me} />)}
           />
           <Route
-            path="/canh-bao-nghi-viec"
+            path="/offboarding"
             element={admin(<OffboardingQueuePage />)}
           />
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<LegacyRedirect />} />
         </Routes>
       </Suspense>
     </ChunkErrorBoundary>

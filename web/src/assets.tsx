@@ -7,6 +7,7 @@ import { AssetForm } from './asset-form';
 import { apiFetch } from './api-client';
 import { AssetSoftwareExpand } from './asset-software-list';
 import { SoftwareTransferDialog } from './software-transfer-dialog';
+import { OwnerTransferDialog } from './owner-transfer-dialog';
 import { useAssetLifecycle } from './asset-lifecycle-actions';
 import { DataTable } from './ui/data-table';
 import { EMPTY_FORM, detailToForm } from './asset-types';
@@ -52,6 +53,8 @@ export function AssetsPage({
   const [form, setForm] = useState<FormState | null>(null);
   // Gắn/chuyển 1 bản (seat) phần mềm sang máy — mở dialog từ kebab (trang chi tiết license).
   const [transferSw, setTransferSw] = useState<AssetRow | null>(null);
+  // Chuyển máy sang người khác (đổi người đứng tên) — mở dialog từ nút "Chuyển" ở cột Action.
+  const [transferOwner, setTransferOwner] = useState<AssetRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Tìm/lọc server-side (2.2): searchInput gõ tự do → search sau debounce 300ms
   const [searchInput, setSearchInput] = useState('');
@@ -302,6 +305,7 @@ export function AssetsPage({
         label: row.installedOnCode ?? row.licenseName ?? undefined,
       }),
     setTransferSw,
+    setTransferOwner,
     lifecycleActionsFor: lifecycle.actionsFor,
   });
 
@@ -320,7 +324,7 @@ export function AssetsPage({
     <>
       {licenseName && (
         <p style={{ marginBottom: '0.5rem' }}>
-          <Link to="/phan-mem">‹ {t('software.backToGroups')}</Link>
+          <Link to="/software">‹ {t('software.backToGroups')}</Link>
         </p>
       )}
       <AssetsPageHeader
@@ -446,7 +450,7 @@ export function AssetsPage({
             void openView(a.id);
             return;
           }
-          navigate(`/tai-san/${a.id}`);
+          navigate(`/assets/${a.id}`);
         }}
         // ▸ chỉ hiện khi máy CÓ phần mềm đã gắn; bung ra là bảng phần mềm của máy đó.
         canExpand={(a) => !!a.installedSoftware}
@@ -558,6 +562,20 @@ export function AssetsPage({
           currentHostCode={transferSw.installedOnCode}
           onDone={(changed) => {
             setTransferSw(null);
+            if (changed) {
+              void queryClient.invalidateQueries({ queryKey: ['assets'] });
+            }
+          }}
+        />
+      )}
+
+      {/* Chuyển máy sang người khác (đổi người đứng tên) — phần mềm trên máy tự theo. */}
+      {transferOwner && (
+        <OwnerTransferDialog
+          me={me}
+          asset={transferOwner}
+          onDone={(changed) => {
+            setTransferOwner(null);
             if (changed) {
               void queryClient.invalidateQueries({ queryKey: ['assets'] });
             }

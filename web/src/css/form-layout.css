@@ -118,13 +118,8 @@
 .form-grid.asset-grid .span-2 {
   grid-column: span 2;
 }
-/* Ô dữ liệu NGẮN (ngày/giá/serial/số/trạng thái): giới hạn bề rộng input để không bị kéo
-   giãn trọn 1/3 hàng (~320px) nhưng vẫn đủ rộng, không quá nhỏ. Input canh trái trong cell. */
-.field.narrow input,
-.field.narrow .dp,
-.field.narrow .fsel {
-  max-width: 14rem;
-}
+/* Ô ngắn (ngày/giá/serial/trạng thái) LẤP ĐẦY ô lưới như mọi input khác → mỗi hàng 3 ô
+   rộng bằng nhau, hết cảnh ô đầy / ô lửng xen kẽ (feedback "lổm chổm"). */
 @media (max-width: 860px) {
   .form-grid.asset-grid {
     grid-template-columns: 1fr 1fr;
@@ -139,10 +134,21 @@
   color: var(--danger);
   font-weight: 600;
 }
-/* Ẩn mũi tên native của input[list] (Configuration/Place) — trông vuông/lạc kiểu; gợi ý vẫn
-   hiện khi gõ, và Configuration đã có nút ＋. */
+/* Ẩn HẲN mũi tên native của input[list] (Configuration/Place) — trông vuông/lạc kiểu; gợi ý
+   vẫn hiện khi gõ, và Configuration đã có nút ＋. display:none để lại vệt/ô click ở vài bản
+   Chromium → dùng appearance:none + thu về 0 để xoá sạch mũi tên lẫn khoảng chừa của nó. */
+input[list] {
+  appearance: none;
+  -webkit-appearance: none;
+}
 input[list]::-webkit-calendar-picker-indicator {
-  display: none;
+  display: none !important;
+  opacity: 0;
+  width: 0;
+  margin: 0;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 /* --- Select tùy biến (thay <select> native — popup bo góc, mũi tên › thống nhất) --------- */
@@ -249,11 +255,11 @@ input[list]::-webkit-calendar-picker-indicator {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.4rem 0.4rem 0.4rem 0.7rem;
+  /* Padding dọc 0.55rem khớp <input>/<Select>/DatePicker → mọi ô trong hàng cao bằng nhau. */
+  padding: 0.55rem 0.4rem 0.55rem 0.7rem;
   border: 1px solid var(--border-2);
   border-radius: var(--r);
   background: var(--surface);
-  min-height: 2.4rem;
 }
 .picked-input .pi-val {
   flex: 1;
@@ -285,6 +291,11 @@ input[list]::-webkit-calendar-picker-indicator {
 .combo {
   position: relative;
 }
+/* Ô nhập combobox lấp đầy khung (User rỗng, tìm phần mềm…) → cao/rộng bằng các input khác,
+   không co rúm về ~20 ký tự mặc định. */
+.combo input {
+  width: 100%;
+}
 .combo-menu {
   position: absolute;
   z-index: 30;
@@ -305,10 +316,10 @@ input[list]::-webkit-calendar-picker-indicator {
 .combo-option {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.28rem;
   width: 100%;
   text-align: left;
-  padding: 0.5rem 0.6rem;
+  padding: 0.55rem 0.65rem;
   border: none;
   background: none;
   border-radius: var(--r-sm);
@@ -355,6 +366,23 @@ input[list]::-webkit-calendar-picker-indicator {
 }
 .sw-opt-badge.used {
   background: var(--surface-2);
+  color: var(--ink-3);
+}
+/* Meta phần mềm (type · Bắt đầu→Hết hạn · Ghi chú · Mã máy): tách bằng gap + dấu chấm ngăn
+   để không dính chùm, đọc rõ từng thông tin. */
+.sw-opt-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.55rem;
+}
+.sw-opt-meta > span {
+  display: inline-flex;
+  align-items: center;
+}
+.sw-opt-meta > span:not(:first-child)::before {
+  content: '·';
+  margin-right: 0.55rem;
   color: var(--ink-3);
 }
 
@@ -461,6 +489,11 @@ input[list]::-webkit-calendar-picker-indicator {
   flex: 1;
   min-height: 0;
   background: var(--canvas);
+}
+/* Form Thêm/Sửa tài sản & phần mềm (sheet-wide): form ngắn (Thêm phần mềm) đỡ cụt — cho thân
+   cao tối thiểu, vẫn cuộn khi form dài; kẹp theo viewport để không tràn màn nhỏ. */
+.sheet-wide .sheet-body {
+  min-height: min(440px, 62vh);
 }
 .sheet-footer {
   border-top: 1px solid var(--border-2);

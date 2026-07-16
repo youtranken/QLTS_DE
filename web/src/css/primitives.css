@@ -184,6 +184,14 @@
 .dmrow.is-empty .dm-g {
   color: var(--ink-3);
 }
+/* Giá trị đã Disable: gạch ngang + mờ (thay nhãn chữ "disable"). */
+.dmrow.is-disabled {
+  opacity: 0.5;
+}
+.dmrow.is-disabled .dm-g {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
 .dm-add {
   display: flex;
   gap: 6px;

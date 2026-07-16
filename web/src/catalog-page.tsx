@@ -9,7 +9,8 @@ interface CatalogItem {
   id: string;
   value: string;
   active: boolean;
-  usage: number;
+  deviceCount: number;
+  softwareCount: number;
 }
 
 type ByKind<T> = Record<Kind, T>;
@@ -28,7 +29,7 @@ const emptyStrings = (): ByKind<string> => ({
 
 /**
  * Quản trị → Danh mục (8.2): quản lý giá trị Loại/Hãng/Cấu hình cho form Thêm tài sản.
- * 3 cột song song — mỗi kind một cột — thêm/sửa/gộp/ẩn tại chỗ (menu "⋯").
+ * Mỗi kind một tab — thêm/sửa/disable tại chỗ (menu "⋯"); đếm tách máy · phần mềm.
  */
 export function CatalogPage({ me }: { me: Me }) {
   const { t } = useTranslation();
@@ -36,9 +37,6 @@ export function CatalogPage({ me }: { me: Me }) {
   const [newValues, setNewValues] = useState<ByKind<string>>(emptyStrings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [merge, setMerge] = useState<{ kind: Kind; item: CatalogItem } | null>(
-    null,
-  );
   const [editing, setEditing] = useState<{
     kind: Kind;
     id: string;
@@ -152,8 +150,17 @@ export function CatalogPage({ me }: { me: Me }) {
     [headers, loadKind],
   );
 
-  const countLabel = (n: number) =>
-    n > 0 ? t('catalog.count', { n, defaultValue: '{{n}} máy' }) : '0';
+  // Đếm tách: thiết bị (type≠software) và phần mềm (type=software) dùng cùng giá trị danh mục.
+  const countLabel = (it: CatalogItem) => {
+    const parts: string[] = [];
+    if (it.deviceCount > 0)
+      parts.push(t('catalog.countDevice', { n: it.deviceCount, defaultValue: '{{n}} máy' }));
+    if (it.softwareCount > 0)
+      parts.push(
+        t('catalog.countSoftware', { n: it.softwareCount, defaultValue: '{{n}} phần mềm' }),
+      );
+    return parts.length ? parts.join(' · ') : '0';
+  };
 
   return (
     <section>
@@ -210,7 +217,7 @@ export function CatalogPage({ me }: { me: Me }) {
               const isMenu = menu?.kind === k && menu.id === it.id;
               return (
                 <div
-                  className={`dmrow${it.usage === 0 ? ' is-empty' : ''}`}
+                  className={`dmrow${it.deviceCount === 0 && it.softwareCount === 0 ? ' is-empty' : ''}${!it.active ? ' is-disabled' : ''}`}
                   key={it.id}
                 >
                   {isEditing ? (
@@ -232,12 +239,7 @@ export function CatalogPage({ me }: { me: Me }) {
                       }}
                     />
                   ) : (
-                    <span className="dm-g">
-                      {it.value}
-                      {!it.active && (
-                        <span className="muted"> · {t('catalog.hidden')}</span>
-                      )}
-                    </span>
+                    <span className="dm-g">{it.value}</span>
                   )}
 
                   {isEditing ? (
@@ -261,7 +263,7 @@ export function CatalogPage({ me }: { me: Me }) {
                     </div>
                   ) : (
                     <>
-                      <span className="dm-ct">{countLabel(it.usage)}</span>
+                      <span className="dm-ct">{countLabel(it)}</span>
                       <div style={{ position: 'relative' }}>
                         <button
                           type="button"
@@ -319,18 +321,6 @@ export function CatalogPage({ me }: { me: Me }) {
                                 type="button"
                                 className="sm ghost"
                                 style={{ justifyContent: 'flex-start' }}
-                                disabled={busy || items[k].length < 2}
-                                onClick={() => {
-                                  setMenu(null);
-                                  setMerge({ kind: k, item: it });
-                                }}
-                              >
-                                {t('catalog.merge')}
-                              </button>
-                              <button
-                                type="button"
-                                className="sm ghost"
-                                style={{ justifyContent: 'flex-start' }}
                                 disabled={busy}
                                 onClick={() => {
                                   setMenu(null);
@@ -338,8 +328,8 @@ export function CatalogPage({ me }: { me: Me }) {
                                 }}
                               >
                                 {it.active
-                                  ? t('catalog.hide')
-                                  : t('catalog.show')}
+                                  ? t('catalog.disable', { defaultValue: 'Disable' })
+                                  : t('catalog.enable', { defaultValue: 'Enable' })}
                               </button>
                             </div>
                           </>
@@ -379,135 +369,6 @@ export function CatalogPage({ me }: { me: Me }) {
           </div>
         ))}
       </div>
-
-      {merge && (
-        <MergeDialog
-          from={merge.item}
-          candidates={items[merge.kind].filter((x) => x.id !== merge.item.id)}
-          headers={headers}
-          onClose={() => setMerge(null)}
-          onDone={() => {
-            const k = merge.kind;
-            setMerge(null);
-            void loadKind(k);
-          }}
-        />
-      )}
     </section>
-  );
-}
-
-/** Popup gộp: chọn giá trị đích → xem trước số tài sản đổi → xác nhận. */
-function MergeDialog({
-  from,
-  candidates,
-  headers,
-  onClose,
-  onDone,
-}: {
-  from: CatalogItem;
-  candidates: CatalogItem[];
-  headers: Record<string, string>;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const { t } = useTranslation();
-  const [toId, setToId] = useState('');
-  const [preview, setPreview] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!toId) {
-      setPreview(null);
-      return;
-    }
-    const c = new AbortController();
-    fetch(`/api/admin/catalog/merge-preview?from=${from.id}&to=${toId}`, {
-      signal: c.signal,
-    })
-      .then((r) => (r.ok ? (r.json() as Promise<{ assetCount: number }>) : null))
-      .then((d) => setPreview(d ? d.assetCount : null))
-      .catch(() => undefined);
-    return () => c.abort();
-  }, [toId, from.id]);
-
-  const confirm = useCallback(async () => {
-    if (!toId) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/admin/catalog/merge', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ from: from.id, to: toId }),
-      });
-      if (res.ok || res.status === 201) onDone();
-      else setError(t('catalog.mergeFailed'));
-    } catch {
-      setError(t('catalog.mergeFailed'));
-    } finally {
-      setBusy(false);
-    }
-  }, [toId, from.id, headers, onDone, t]);
-
-  const toValue = candidates.find((c) => c.id === toId)?.value ?? '';
-
-  return (
-    <div
-      className="modal-backdrop"
-      onClick={onClose}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
-      }}
-    >
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ marginBottom: '0.75rem' }}>{t('catalog.mergeTitle')}</h2>
-        <p style={{ marginBottom: '0.75rem' }}>
-          {t('catalog.mergeFrom')}: <strong>{from.value}</strong>
-        </p>
-        <label className="field" style={{ marginBottom: '0.75rem' }}>
-          <span>{t('catalog.mergeTo')}</span>
-          <select value={toId} onChange={(e) => setToId(e.target.value)}>
-            <option value="">—</option>
-            {candidates.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.value}
-              </option>
-            ))}
-          </select>
-        </label>
-        {toId && preview !== null && (
-          <p className="alert warn">
-            {t('catalog.mergeWarn', {
-              n: preview,
-              from: from.value,
-              to: toValue,
-            })}
-          </p>
-        )}
-        {error && <p className="alert error">{error}</p>}
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-            justifyContent: 'flex-end',
-            marginTop: '1rem',
-          }}
-        >
-          <button type="button" onClick={onClose}>
-            {t('catalog.cancel')}
-          </button>
-          <button
-            type="button"
-            className="danger"
-            disabled={busy || !toId}
-            onClick={() => void confirm()}
-          >
-            {t('catalog.mergeConfirm')}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

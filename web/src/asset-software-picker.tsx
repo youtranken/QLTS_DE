@@ -12,6 +12,7 @@ export interface InstalledSoftwareRow {
   startDate?: string | null;
   endDate: string | null;
   brand?: string | null;
+  note?: string | null;
 }
 
 /**
@@ -55,6 +56,7 @@ export function AssetSoftwarePicker({
         startDate: s.startDate ?? null,
         endDate: s.endDate ?? null,
         brand: s.brand ?? null,
+        note: s.note ?? null,
       }))
     : installedSoftware;
 
@@ -63,9 +65,12 @@ export function AssetSoftwarePicker({
     else void moveSoftware(id, null);
   };
 
-  // Ẩn khỏi gợi ý những phần mềm đã có trong danh sách (create); edit gắn thẳng vào máy.
+  // Khi TẠO máy chỉ gợi ý ghế license TRỐNG (chưa gắn máy nào) và chưa nằm trong danh sách
+  // đang chọn — ghế đang dùng ở máy khác không gắn kèm lúc tạo. Edit gắn thẳng (cho chuyển ghế).
   const options = isCreate
-    ? swOptions.filter((o) => !pendingSw.some((p) => p.id === o.id))
+    ? swOptions.filter(
+        (o) => !o.installedOnCode && !pendingSw.some((p) => p.id === o.id),
+      )
     : swOptions;
 
   return (
@@ -85,7 +90,7 @@ export function AssetSoftwarePicker({
                 <th>{t('assets.licenseType')}</th>
                 <th>{t('assets.startDate')}</th>
                 <th>{t('assets.endDate')}</th>
-                <th>{t('assets.brand')}</th>
+                <th>{t('assets.note')}</th>
                 <th />
               </tr>
             </thead>
@@ -108,7 +113,7 @@ export function AssetSoftwarePicker({
                       ? t('assets.licensePerpetual')
                       : (s.endDate ?? '—')}
                   </td>
-                  <td>{s.brand ?? '—'}</td>
+                  <td>{s.note ?? '—'}</td>
                   <td className="table-actions">
                     <button
                       type="button"
@@ -157,9 +162,12 @@ export function AssetSoftwarePicker({
                     : t('software.seatFree', 'Trống')}
                 </span>
               </span>
-              <small>
-                {[typeLbl, range, a.note || null].filter(Boolean).join(' · ')}
-                {a.installedOnCode ? ` · ${a.installedOnCode}` : ''}
+              <small className="sw-opt-meta">
+                {[typeLbl, range, a.note || null, a.installedOnCode || null]
+                  .filter(Boolean)
+                  .map((part, i) => (
+                    <span key={i}>{part}</span>
+                  ))}
               </small>
             </>
           );

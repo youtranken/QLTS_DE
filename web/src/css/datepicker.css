@@ -22,7 +22,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.7rem;
+  /* Khớp chiều cao với <input>/<Select> (base 0.55rem) để cùng hàng không so le. */
+  padding: 0.55rem 0.7rem;
   border: 1px solid var(--border-2);
   background: var(--surface);
   color: var(--ink);
@@ -30,6 +31,14 @@
   font: inherit;
   cursor: pointer;
   text-align: left;
+}
+.dp-trigger:disabled {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  cursor: default;
+}
+.dp-trigger:disabled:hover {
+  border-color: var(--border-2);
 }
 .dp-trigger:hover {
   border-color: var(--ink-3);
@@ -108,7 +117,9 @@
   border-radius: 50%;
   cursor: pointer;
   color: #fff;
-  background: rgba(255, 255, 255, 0.16);
+  /* Nền TỐI mờ (không phải trắng): mũi tên trắng nổi rõ ở CẢ đầu cam sáng lẫn đầu xanh của
+     gradient header — trước dùng nền trắng mờ nên ‹ phía cam bị "trắng trên sáng" khó thấy. */
+  background: rgba(0, 0, 0, 0.24);
   display: grid;
   place-items: center;
   line-height: 1;
@@ -117,8 +128,13 @@
 /* :not(:disabled) để THẮNG base `button:hover{background:surface-2}` — nếu không nút mũi tên
    bị nền sáng trên header gradient = "hover trắng" xấu. */
 .dp-nav:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.32);
+  background: rgba(0, 0, 0, 0.4);
   transform: scale(1.08);
+}
+/* Nút prev khi ở tháng min (không lùi được): mờ hẳn để không trông như nút thường màu trắng. */
+.dp-nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 .dp-nav svg {
   display: block;

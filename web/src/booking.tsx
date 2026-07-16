@@ -250,7 +250,7 @@ export function BookingPage({ me }: { me: Me }) {
                       <button
                         type="button"
                         className="sm"
-                        onClick={() => navigate(`/lich-may/${m.id}`)}
+                        onClick={() => navigate(`/calendar/${m.id}`)}
                       >
                         {t('booking.viewCalendar')}
                       </button>

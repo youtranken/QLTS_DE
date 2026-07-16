@@ -256,7 +256,7 @@ export function AssetGeneralFields({
         </label>
       )}
       {!hideDatesNote && (
-      <label className="field span-2">
+      <label className="field">
         <span>{t('assets.note')}</span>
         <input
           maxLength={2000}

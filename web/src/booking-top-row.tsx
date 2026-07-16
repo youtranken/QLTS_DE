@@ -39,24 +39,25 @@ export function BookingTopRow({
   setEditMachine,
 }: BookingTopRowProps) {
   const { t } = useTranslation();
-  // Chọn máy: combobox gõ-để-tìm (pool có thể dài). Chỉ lọc khi có từ khóa → menu không
-  // bung sẵn cả danh sách (giống combobox thêm máy ở pool). Lọc theo mã/loại/cấu hình.
+  // Chọn máy: combobox kiêm DROPDOWN — chưa gõ thì bung sẵn cả pool để chọn nhanh; gõ thì
+  // lọc theo mã/loại/cấu hình. Giới hạn 50 dòng để menu không quá dài.
   const [machineQuery, setMachineQuery] = useState('');
-  const machineOptions = machineQuery.trim()
-    ? poolList.filter((m) =>
-        `${m.code} ${m.type} ${m.configuration ?? ''}`
-          .toLowerCase()
-          .includes(machineQuery.trim().toLowerCase()),
-      )
-    : [];
+  const q = machineQuery.trim().toLowerCase();
+  const machineOptions = (
+    q
+      ? poolList.filter((m) =>
+          `${m.code} ${m.type} ${m.configuration ?? ''}`.toLowerCase().includes(q),
+        )
+      : poolList
+  ).slice(0, 50);
   return (
     <div className="sheet-toprow">
       {isAdmin && (
         <div className="topcell">
           <span className="topcell-label">{t('bookingSheet.borrower')}</span>
           {borrower ? (
-            <span className="chip">
-              {borrower.fullName ?? borrower.sub}
+            <div className="picked-input">
+              <span className="pi-val">{borrower.fullName ?? borrower.sub}</span>
               <button
                 type="button"
                 aria-label={t('bookingSheet.close')}
@@ -64,7 +65,7 @@ export function BookingTopRow({
               >
                 ✕
               </button>
-            </span>
+            </div>
           ) : (
             <Combobox
               placeholder={t('bookingSheet.borrowerSearch')}

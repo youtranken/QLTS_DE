@@ -4,8 +4,6 @@ import { BrowserRouter, useLocation } from 'react-router-dom';
 import { CommandPalette } from './command-palette';
 import type { Me } from './panels';
 import { LoginScreen } from './login-screen';
-import { ThemeSwitch } from './switches';
-import { TopbarMenu } from './topbar-menu';
 import { navGroups } from './app-nav';
 import { SidebarNav } from './app-sidebar-nav';
 import { AppRoutes } from './app-routes';
@@ -143,19 +141,31 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const { pathname } = useLocation();
   const narrow = useIsNarrow();
   const [menuOpen, setMenuOpen] = useState(false);
-  // Thu gọn sidebar thành rail (chỉ desktop); mobile thì nút 3-gạch mở/đóng drawer.
+  // Thu gọn sidebar thành rail (chỉ desktop); mobile thì nút nổi mở/đóng drawer.
   const [collapsed, setCollapsed] = useState(false);
-  // 7.5: member KHÔNG sidebar (board full màn + nút Đặt máy ở topbar). Chỉ admin/sa có sidebar.
-  const isAdmin = me.role === 'admin' || me.role === 'sa';
-  const showSidebar = isAdmin && (!narrow || menuOpen);
+  // Bỏ header: MỌI vai (member/admin/sa) đều có sidebar; hồ sơ/ngôn ngữ/đăng xuất nằm ở đáy sidebar.
+  const showSidebar = !narrow || menuOpen;
   const toggleNav = () =>
     narrow ? setMenuOpen((v) => !v) : setCollapsed((v) => !v);
 
   return (
     <div className={`app-shell${collapsed && !narrow ? ' collapsed' : ''}`}>
-      {narrow && menuOpen && isAdmin && (
+      {narrow && menuOpen && (
         // Backdrop: bấm ngoài menu để đóng (nút hamburger bị nav che khi mở)
         <div className="drawer-backdrop" onClick={() => setMenuOpen(false)} />
+      )}
+      {narrow && !menuOpen && (
+        // Không còn header: nút nổi mở drawer trên mobile (desktop luôn hiện sidebar).
+        <button
+          type="button"
+          className="nav-fab"
+          aria-label={t('app.toggleNav', 'Mở menu')}
+          onClick={() => setMenuOpen(true)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
       )}
       {showSidebar && (
         <nav className={narrow ? 'sidebar is-drawer' : 'sidebar'}>
@@ -163,28 +173,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             me={me}
             role={me.role}
             pathname={pathname}
+            collapsed={collapsed && !narrow}
+            onToggleCollapse={toggleNav}
             onNavigate={() => setMenuOpen(false)}
+            onLogout={onLogout}
           />
         </nav>
       )}
       <div className="content">
-        <header className="topbar">
-          {isAdmin && (
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label={t('app.toggleNav', 'Thu gọn menu')}
-              onClick={toggleNav}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <path d="M4 7h16M4 12h16M4 17h16" />
-              </svg>
-            </button>
-          )}
-          <span className="spacer" />
-          <ThemeSwitch />
-          <TopbarMenu me={me} onLogout={onLogout} />
-        </header>
         {/* Mọi trang dùng bề ngang rộng (gần full) cho đồng nhất — đỡ trống 2 bên. */}
         <main className="page page-wide">
           <AppRoutes me={me} />

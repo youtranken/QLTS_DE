@@ -1,5 +1,4 @@
 import { Combobox } from './combobox';
-import { AssetOwnerPanel } from './asset-owner-panel';
 import { AssetSoftwarePicker } from './asset-software-picker';
 import { AssetGeneralFields } from './asset-general-fields';
 import { SoftwareSeatsFields } from './software-seats-fields';
@@ -187,20 +186,11 @@ export function AssetForm({
                 addingConfig={addingConfig}
                 hideDatesNote={softwareCreate}
                 userField={
-                  // Người đứng tên (User) HIỆN TRONG Thông tin chung ở cả Thêm lẫn Sửa cho đồng nhất.
-                  // Thêm: chọn inline. Sửa: chỉ HIỂN THỊ người giữ hiện tại (đổi ở panel bên dưới).
+                  // Người đứng tên (User) sửa NGAY trong Thông tin chung ở cả Thêm lẫn Sửa.
+                  // Đổi/xóa người giữ đi qua "Lưu" — BE PUT máy tự ghi allocation_history khi
+                  // assigned_user_sub đổi (assets.service §297), không cần panel Owner riêng.
                   !form.isSoftware ? (
-                    form.id ? (
-                      <div className="picked-input">
-                        <span
-                          className={`pi-val${form.assignedUserSub ? '' : ' muted'}`}
-                        >
-                          {form.assignedUserSub
-                            ? form.assignedUserName || form.assignedUserSub
-                            : t('assets.assigneeEmpty')}
-                        </span>
-                      </div>
-                    ) : form.assignedUserSub ? (
+                    form.assignedUserSub ? (
                       // Đã chọn → hiện TÊN ngay trong ô (như input đã điền) + ✕ để đổi.
                       <div className="picked-input">
                         <span className="pi-val">
@@ -272,25 +262,8 @@ export function AssetForm({
               />
             )}
 
-            {/* 11.2 (B3): Sửa máy — đổi người đứng tên là thao tác RIÊNG (PUT :id/assignee),
-                không đi qua nút "Lưu thông tin máy". */}
-            {form.id && !form.isSoftware && (
-              <AssetOwnerPanel
-                me={me}
-                assetId={form.id}
-                version={form.version}
-                ownerSub={form.assignedUserSub}
-                ownerName={form.assignedUserName}
-                onSaved={(v, sub, name) =>
-                  setForm((f) => ({
-                    ...f,
-                    version: v,
-                    assignedUserSub: sub ?? '',
-                    assignedUserName: name ?? '',
-                  }))
-                }
-              />
-            )}
+            {/* Người đứng tên đổi NGAY trong Thông tin chung (không còn panel Owner riêng);
+                lưu qua nút "Lưu", BE tự ghi allocation_history khi assigned_user_sub đổi. */}
 
             {/* Vòng đời (Khóa sửa chữa / Pool) đã chuyển sang kebab của /tai-san (UAT).
                 Form chỉ còn dispose qua dropdown Trạng thái. */}

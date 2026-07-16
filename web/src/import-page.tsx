@@ -142,7 +142,7 @@ export function ImportPage({ me }: { me: Me }) {
   return (
     <>
       <p style={{ marginBottom: '0.5rem' }}>
-        <Link to="/tai-san">‹ {t('assets.backToList')}</Link>
+        <Link to="/assets">‹ {t('assets.backToList')}</Link>
       </p>
       <div className="page-header">
         <h1>{t('importx.title')}</h1>
