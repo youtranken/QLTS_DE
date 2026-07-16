@@ -73,6 +73,8 @@ export function AssetInstalledOn({
           </button>
         )}
       </div>
+      {/* Bó hẹp bằng ô input thường (form rộng nhiều cột) — không kéo dài hết bề ngang sheet. */}
+      <div style={{ maxWidth: 360 }}>
       <Combobox
         placeholder={
           form.id ? t('assets.transferToSearch') : t('assets.installedOnSearch')
@@ -103,6 +105,7 @@ export function AssetInstalledOn({
           setHostOptions([]);
         }}
       />
+      </div>
     </div>
   );
 }

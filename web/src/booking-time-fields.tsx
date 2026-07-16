@@ -1,12 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { DatePicker } from './ui/date-picker';
-import {
-  PICKUP_SLOTS,
-  WORK_END,
-  WORK_START,
-  nowTimeLocal,
-  todayLocal,
-} from './booking-types';
+import { TimeField } from './time-field';
+import { PICKUP_SLOTS, nowTimeLocal, todayLocal } from './booking-types';
 
 /**
  * Khối chọn THỜI GIAN của popup Đặt máy (Thường/Nâng cao): 4 ô Ngày/Giờ nhận-trả,
@@ -32,6 +27,12 @@ export interface BookingTimeFieldsProps {
   assetId: string;
   from: string;
   to: string;
+  /** Thường (≤2 ngày): giới hạn ngày trả tối đa = nhận + 2 (chuỗi YYYY-MM-DD). Nâng cao: undefined. */
+  returnMax?: string;
+  /** Thường: mốc trả tối đa = nhận + 48h (epoch ms) → khóa chip giờ trả vượt ngưỡng. */
+  returnCapMs?: number;
+  /** Ngày làm việc config (ISO 1=T2..7=CN) — khóa ngày ngoài set trên lịch (audit H3). */
+  bookableDays?: number[];
 }
 
 export function BookingTimeFields({
@@ -53,6 +54,9 @@ export function BookingTimeFields({
   assetId,
   from,
   to,
+  returnMax,
+  returnCapMs,
+  bookableDays,
 }: BookingTimeFieldsProps) {
   const { t } = useTranslation();
   return (
@@ -71,46 +75,39 @@ export function BookingTimeFields({
             min={todayLocal()}
             value={fromDate}
             clearable={false}
+            bookableDays={bookableDays}
             ariaLabel={t('bookingSheet.pickupDate')}
             onChange={setFromDate}
           />
         </label>
         <label className="field">
           <span>{t('bookingSheet.pickupTime')}</span>
-          <input
-            type="time"
-            min={
-              fromDate === todayLocal()
-                ? nowTimeLocal() > WORK_START
-                  ? nowTimeLocal()
-                  : WORK_START
-                : WORK_START
-            }
-            max={WORK_END}
+          <TimeField
             value={fromTime}
+            ariaLabel={t('bookingSheet.pickupTime')}
             onFocus={() => setSlotTarget('from')}
-            onChange={(e) => setFromTime(e.target.value)}
+            onChange={setFromTime}
           />
         </label>
         <label className="field">
           <span>{t('bookingSheet.returnDate')}</span>
           <DatePicker
             min={fromDate || todayLocal()}
+            max={returnMax}
             value={toDate}
             clearable={false}
+            bookableDays={bookableDays}
             ariaLabel={t('bookingSheet.returnDate')}
             onChange={setToDate}
           />
         </label>
         <label className="field">
           <span>{t('bookingSheet.returnTime')}</span>
-          <input
-            type="time"
-            min={toDate === fromDate && fromTime ? fromTime : WORK_START}
-            max={WORK_END}
+          <TimeField
             value={toTime}
+            ariaLabel={t('bookingSheet.returnTime')}
             onFocus={() => setSlotTarget('to')}
-            onChange={(e) => setToTime(e.target.value)}
+            onChange={setToTime}
           />
         </label>
       </div>
@@ -123,23 +120,33 @@ export function BookingTimeFields({
         </span>
         <div className="slot-suggest-chips">
           {(() => {
-            // Hôm nay: chỉ gợi ý giờ SAU giờ hiện tại (13:30 → ẩn 08–13, còn 14,15).
-            // Giờ trả cùng ngày nhận: phải sau giờ nhận đã chọn.
+            // Hiện ĐỦ khung giờ nhưng KHÓA (disabled) giờ đã qua thay vì ẩn:
+            // - hôm nay: giờ < giờ hiện tại → khóa;
+            // - giờ trả cùng ngày nhận: ≤ giờ nhận đã chọn → khóa.
+            // Nhãn hiển thị 12h + gom nhóm AM/PM (khớp TimePicker); state vẫn giữ 'HH:MM' 24h.
             const activeDate = slotTarget === 'from' ? fromDate : toDate;
             const isToday = activeDate === todayLocal();
             const nowT = nowTimeLocal();
-            const chips = PICKUP_SLOTS.filter((s) => {
-              if (isToday && s < nowT) return false;
-              if (
-                slotTarget === 'to' &&
-                toDate === fromDate &&
-                fromTime &&
-                s <= fromTime
-              )
-                return false;
-              return true;
+            const chips = PICKUP_SLOTS.map((s) => {
+              const H = Number(s.slice(0, 2));
+              return {
+                s,
+                pm: H >= 12,
+                label: `${((H + 11) % 12) + 1}:${s.slice(3)}`,
+                locked:
+                  (isToday && s < nowT) ||
+                  (slotTarget === 'to' &&
+                    toDate === fromDate &&
+                    !!fromTime &&
+                    s <= fromTime) ||
+                  // Thường: khóa giờ trả làm tổng vượt 48h so với giờ nhận.
+                  (slotTarget === 'to' &&
+                    returnCapMs != null &&
+                    !!toDate &&
+                    new Date(`${toDate}T${s}`).getTime() > returnCapMs),
+              };
             });
-            if (chips.length === 0) {
+            if (chips.every((c) => c.locked)) {
               return (
                 <span className="muted" style={{ fontSize: '0.82rem' }}>
                   {t('bookingSheet.noSlotToday', 'Hết giờ gợi ý — chọn ngày khác.')}
@@ -147,18 +154,34 @@ export function BookingTimeFields({
               );
             }
             const cur = slotTarget === 'from' ? fromTime : toTime;
-            return chips.map((s) => (
+            const chipBtn = (c: (typeof chips)[number]) => (
               <button
-                key={s}
+                key={c.s}
                 type="button"
-                className={`slot-pick${cur === s ? ' on' : ''}`}
+                disabled={c.locked}
+                className={`slot-pick${cur === c.s ? ' on' : ''}${c.locked ? ' off' : ''}`}
                 onClick={() =>
-                  slotTarget === 'from' ? setFromTime(s) : setToTime(s)
+                  slotTarget === 'from' ? setFromTime(c.s) : setToTime(c.s)
                 }
               >
-                {s}
+                {c.label}
               </button>
-            ));
+            );
+            const am = chips.filter((c) => !c.pm);
+            const pm = chips.filter((c) => c.pm);
+            const group = (list: typeof chips, lbl: string) =>
+              list.length > 0 ? (
+                <div className="slot-group">
+                  {list.map(chipBtn)}
+                  <span className="slot-mer-lbl">{lbl}</span>
+                </div>
+              ) : null;
+            return (
+              <>
+                {group(am, 'AM')}
+                {group(pm, 'PM')}
+              </>
+            );
           })()}
         </div>
       </div>

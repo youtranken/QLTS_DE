@@ -52,27 +52,101 @@
   transform: rotate(90deg);
 }
 
-/* Footer sidebar: avatar + tên + vai. */
+/* Footer sidebar (thay header): khối user (nút thu gọn + tên) + Hồ sơ/ngôn ngữ/theme/Đăng xuất. */
 .sb-foot {
   margin-top: auto;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   padding: 10px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
 }
-.sb-av {
-  width: 32px;
-  height: 32px;
+.sb-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-collapse {
+  width: 34px;
+  height: 34px;
   flex: none;
-  border-radius: 50%;
+  /* padding:0 đè padding mặc định của button (0.48rem 0.9rem) — nếu không, padding ngang
+     lấn ô 34px (border-box) làm icon 3 gạch lệch tâm. */
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sidebar-ink);
   display: grid;
   place-items: center;
-  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+/* Đè `button:hover{background:surface-2}` (specificity cao hơn) — nếu không nút 3 gạch hover
+   ra nền sáng (trắng). */
+.sb-foot .sb-collapse:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--sidebar-ink-2);
+}
+.sb-collapse svg {
+  width: 18px;
+  height: 18px;
+}
+.sb-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sb-act-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sb-act-row .sb-act {
+  flex: 1;
+}
+.sb-act {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--sidebar-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 550;
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+}
+/* Đè rule chung `button:hover{background:surface-2}` + `button.danger:hover` (specificity cao
+   hơn) — nếu không, hover ra nền sáng/đỏ-đậm làm chữ (Hồ sơ/Ngôn ngữ/Đăng xuất) mất/khó đọc. */
+.sb-foot .sb-act:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--sidebar-ink-2);
+  text-decoration: none;
+}
+/* Nút Đăng xuất: nền trong suốt (đè `button.danger{background:red}` — nếu không, nút hiện
+   thanh đỏ đặc ở đáy sidebar), chỉ chữ đỏ; hover mới hiện nền đỏ nhạt. */
+.sb-foot .sb-act.danger {
+  background: transparent;
+  color: var(--danger);
+}
+.sb-foot .sb-act.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  color: var(--danger);
+}
+.sb-badge {
+  font-size: 0.68rem;
   font-weight: 800;
-  font-size: 0.72rem;
-  background: var(--grad);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--sidebar-ink-2);
 }
 .sb-who {
   display: flex;
@@ -101,13 +175,51 @@
 .app-shell.collapsed .nav-children {
   display: none;
 }
+/* Rail: nav-item/nav-parent/brand là flex-ROW → center icon theo trục ngang (justify-content).
+   sb-foot là flex-COLUMN → center theo align-items. Trộn lẫn làm icon lệch trái khỏi highlight. */
 .app-shell.collapsed .nav-item,
 .app-shell.collapsed .nav-parent,
-.app-shell.collapsed .brand,
-.app-shell.collapsed .sb-foot {
+.app-shell.collapsed .brand {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
+}
+.app-shell.collapsed .sb-foot {
+  align-items: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+/* Rail: footer chỉ còn nút thu gọn (tên + hành động ẩn theo .lbl). */
+.app-shell.collapsed .sb-user {
+  justify-content: center;
+}
+
+/* Không còn header: nút nổi mở drawer trên mobile (desktop luôn hiện sidebar). */
+.nav-fab {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 8;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+}
+.nav-fab svg {
+  width: 22px;
+  height: 22px;
+}
+@media (max-width: 900px) {
+  /* Chừa chỗ cho nút nổi ở góc trên-trái khi không có header. */
+  .page {
+    padding-top: 3.75rem;
+  }
 }
 .app-shell.collapsed .nav-item:hover {
   transform: none;

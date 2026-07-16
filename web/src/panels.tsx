@@ -9,6 +9,9 @@ export interface Me {
   devMode?: boolean;
   csrfToken: string | null;
   permissions?: { canLongTerm: boolean; canRecurring: boolean };
+  // Giờ làm + ngưỡng auto-duyệt từ config SA chỉnh (audit H2/H3) — form Đặt máy đọc thay hardcode.
+  workingHours?: { days: number[]; start: string; end: string };
+  autoApproveMaxHours?: number;
 }
 
 interface SyncResult {

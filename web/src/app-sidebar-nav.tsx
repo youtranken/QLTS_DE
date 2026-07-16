@@ -1,42 +1,50 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 import { navGroups, type NavItem } from './app-nav';
 import { NavIcon } from './nav-icon';
+import { ThemeSwitch } from './switches';
 import { useNavCounts } from './use-nav-counts';
 import type { Me } from './panels';
+
+// Lazy: giữ Hồ sơ (profile) ở chunk riêng — sidebar luôn tải nên không nhồi profile vào chunk chính.
+const ProfileDialog = lazy(() =>
+  import('./profile-dialog').then((m) => ({ default: m.ProfileDialog })),
+);
 
 /** Mọi đích điều hướng (kể cả mục con của dropdown) — để tính "prefix dài nhất thắng". */
 function allTargets(items: NavItem[]): string[] {
   return items.flatMap((i) => (i.children ? i.children.map((c) => c.to) : i.to ? [i.to] : []));
 }
 
-/** Chữ cái đầu cho avatar footer (tối đa 2 ký tự). */
-function initials(name: string): string {
-  const p = name.trim().split(/\s+/).filter(Boolean);
-  if (p.length === 0) return '?';
-  return (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
-}
-
 /**
- * Sidebar theo vai (app-shell): icon + nhãn + badge số (Tài sản/Phần mềm/Duyệt), mục cha dạng
- * dropdown gấp gọn, footer avatar + tên + vai. Tách khỏi App.tsx (§6). Rail (icon-only) do
- * `.app-shell.collapsed` ở CSS lo — component chỉ bọc nhãn trong .lbl để ẩn khi thu gọn.
+ * Sidebar cho MỌI vai (app-shell): icon + nhãn + badge số (Tài sản/Phần mềm/Duyệt), mục cha
+ * dạng dropdown gấp gọn. Footer = khối user (nút thu gọn + tên) + Hồ sơ/VI-EN/theme/Đăng xuất
+ * (thay header cũ, KHÔNG avatar). Rail (icon-only) do `.app-shell.collapsed` ở CSS lo.
  */
 export function SidebarNav({
   me,
   role,
   pathname,
+  collapsed,
+  onToggleCollapse,
   onNavigate,
+  onLogout,
 }: {
   me: Me;
   role: string;
   pathname: string;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onNavigate: () => void;
+  onLogout: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isVi = i18n.language.startsWith('vi');
   const groups = useMemo(() => navGroups(role), [role]);
   const isAdmin = role === 'admin' || role === 'sa';
+  // Hồ sơ mở dạng popup (không rời trang đang xem) — feedback UI.
+  const [profileOpen, setProfileOpen] = useState(false);
   const counts = useNavCounts(isAdmin);
 
   const activeTo = useMemo(() => {
@@ -104,12 +112,55 @@ export function SidebarNav({
         </div>
       ))}
       <div className="sb-foot">
-        <span className="sb-av">{initials(me.fullName ?? me.sub)}</span>
-        <span className="sb-who lbl">
-          <b>{me.fullName ?? me.sub}</b>
-          <span>{isAdmin ? t('nav.roleAdmin', 'Quản trị viên') : t('nav.roleMember', 'Thành viên')}</span>
-        </span>
+        <div className="sb-user">
+          <button
+            type="button"
+            className="sb-collapse"
+            aria-label={t('app.toggleNav', 'Thu gọn menu')}
+            title={collapsed ? t('app.expandNav', 'Mở rộng') : t('app.toggleNav', 'Thu gọn menu')}
+            onClick={onToggleCollapse}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </button>
+          <span className="sb-who lbl">
+            <b>{me.fullName ?? me.sub}</b>
+            <span>{isAdmin ? t('nav.roleAdmin', 'Quản trị viên') : t('nav.roleMember', 'Thành viên')}</span>
+          </span>
+        </div>
+        <div className="sb-actions lbl">
+          <button
+            type="button"
+            className="sb-act"
+            onClick={() => {
+              setProfileOpen(true);
+              onNavigate();
+            }}
+          >
+            {t('profile.myProfile', 'Hồ sơ')}
+          </button>
+          <div className="sb-act-row">
+            <button
+              type="button"
+              className="sb-act"
+              onClick={() => void i18n.changeLanguage(isVi ? 'en' : 'vi')}
+            >
+              {t('app.language', 'Ngôn ngữ')}
+              <span className="sb-badge">{isVi ? 'EN' : 'VI'}</span>
+            </button>
+            <ThemeSwitch />
+          </div>
+          <button type="button" className="sb-act danger" onClick={onLogout}>
+            {t('app.logout')}
+          </button>
+        </div>
       </div>
+      {profileOpen && (
+        <Suspense fallback={null}>
+          <ProfileDialog me={me} onClose={() => setProfileOpen(false)} />
+        </Suspense>
+      )}
     </>
   );
 }

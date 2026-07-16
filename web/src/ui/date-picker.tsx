@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -22,6 +23,10 @@ export function DatePicker({
   clearable = true,
   min,
   max,
+  disabled = false,
+  blockWeekend = false,
+  blockSunday = false,
+  bookableDays,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -32,12 +37,24 @@ export function DatePicker({
   /** Chặn chọn ngày < min / > max (chuỗi 'YYYY-MM-DD') — như thuộc tính min/max của input date. */
   min?: string;
   max?: string;
+  /** Khóa ô (không mở lịch, làm mờ) — vd ngày trả tự động = nhận + 2 ở chế độ Thường. */
+  disabled?: boolean;
+  /** Chặn chọn Thứ 7 & Chủ nhật (vd ngày trả không được rơi vào cuối tuần). */
+  blockWeekend?: boolean;
+  /** Chỉ chặn Chủ nhật (Thứ 7 vẫn là ngày làm — T2–T7). */
+  blockSunday?: boolean;
+  /** Ngày làm việc cấu hình (ISO 1=T2..7=CN) — nếu có, chặn mọi ngày KHÔNG thuộc set này
+   *  (thay blockSunday/blockWeekend, để form Đặt máy theo config SA chỉnh — audit H3). */
+  bookableDays?: number[];
 }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'day' | 'month' | 'year'>('day');
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // Popover portal ra body: tránh ancestor có transform (modal animate) làm position:fixed
+  // neo sai (lịch văng khỏi modal). popRef để click-outside không đóng khi bấm trong lịch.
+  const popRef = useRef<HTMLDivElement>(null);
   // Popover dùng position:fixed neo theo nút → KHÔNG bị overflow của sheet/table cắt (lịch to
   // trong popup Thêm phần mềm trước đây bị che). Tự lật LÊN khi dưới thiếu chỗ.
   const [popStyle, setPopStyle] = useState<CSSProperties>();
@@ -72,9 +89,10 @@ export function DatePicker({
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target) || popRef.current?.contains(target))
+        return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -101,8 +119,14 @@ export function DatePicker({
   const outOfRange = useCallback(
     (d: Date) =>
       (minD !== null && d < stripTime(minD)) ||
-      (maxD !== null && d > stripTime(maxD)),
-    [minD, maxD],
+      (maxD !== null && d > stripTime(maxD)) ||
+      // ISO 1=T2..7=CN (JS getDay 0=CN → 7). bookableDays có → ưu tiên (config SA chỉnh).
+      (bookableDays
+        ? !bookableDays.includes(d.getDay() === 0 ? 7 : d.getDay())
+        : // 0 = Chủ nhật, 6 = Thứ 7
+          (blockWeekend && (d.getDay() === 0 || d.getDay() === 6)) ||
+          (blockSunday && d.getDay() === 0)),
+    [minD, maxD, blockWeekend, blockSunday, bookableDays],
   );
 
   const pick = useCallback(
@@ -150,6 +174,7 @@ export function DatePicker({
         aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
+        disabled={disabled}
         onClick={() => setOpen((v) => !v)}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -183,8 +208,9 @@ export function DatePicker({
         </svg>
       </button>
 
-      {open && (
-        <div className="dp-pop" role="dialog" style={popStyle}>
+      {open &&
+        createPortal(
+          <div className="dp-pop" role="dialog" style={popStyle} ref={popRef}>
           <div className="dp-head">
             <button type="button" className="dp-nav" onClick={() => step(-1)} aria-label={t('datePicker.prev')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -281,8 +307,9 @@ export function DatePicker({
               </div>
             )}
           </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

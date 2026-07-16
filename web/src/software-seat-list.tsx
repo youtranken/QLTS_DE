@@ -62,6 +62,12 @@ export function SoftwareSeatList({
     s.installedOnCode
       ? [
           { label: t('assets.edit'), onClick: () => onEdit(s) },
+          // Chuyển thẳng seat này sang máy khác từ hàng expand (không cần mở form Sửa) — dùng
+          // lại SoftwareTransferDialog (đã lọc máy hiện tại + hỗ trợ gỡ).
+          {
+            label: t('software.transferMachine', 'Chuyển máy'),
+            onClick: () => onAssign(s),
+          },
           { label: t('software.detach', 'Gỡ'), onClick: () => onDetach(s) },
           {
             label: t('assets.disposeAction', 'Thanh lý'),

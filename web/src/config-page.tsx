@@ -15,6 +15,7 @@ interface ConfigShape {
   extension_max_grants: number;
   license_warning_days: number;
   approval_reminder_working_hours: number;
+  auto_approve_max_hours: number;
   working_hours: WorkingHours;
 }
 
@@ -25,6 +26,7 @@ const NUM_KEYS: Array<keyof ConfigShape> = [
   'extension_max_grants',
   'license_warning_days',
   'approval_reminder_working_hours',
+  'auto_approve_max_hours',
 ];
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
 

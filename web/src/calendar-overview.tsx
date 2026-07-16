@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LoadError } from './load-state';
+import { DatePicker } from './ui/date-picker';
 import { BookingSheet } from './booking-sheet';
+import { ExtensionDialog } from './extension-dialog';
+import { ExtensionApproveDialog } from './extension-approve-dialog';
 import type { Me } from './panels';
 
 interface BusyBlock {
@@ -38,6 +41,20 @@ interface BoardRow {
   state: string;
   isOverdue: boolean;
   isMine: boolean;
+  // Gia hạn (Epic 4): version (member optimistic lock), kind (ẩn ở định kỳ), đếm lần, cờ treo.
+  version: number;
+  kind: string;
+  extensionCount: number;
+  hasPendingExtension: boolean;
+}
+
+/** Yêu cầu gia hạn treo (member đã xin) — để admin duyệt thẳng trên board. */
+interface PendingExt {
+  extensionId: string;
+  extVersion: number;
+  oldDue: string | null;
+  newDue: string | null;
+  usedCount: number;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -66,6 +83,15 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [preset, setPreset] = useState<FreeMachine | undefined>(undefined);
   const [boardMine, setBoardMine] = useState(false);
+  const isAdmin = me.role === 'admin' || me.role === 'sa';
+  // Gia hạn: hàng đang mở dialog + đường (member xin duyệt / admin áp thẳng).
+  const [extRow, setExtRow] = useState<{ row: BoardRow; mode: 'member' | 'admin' } | null>(null);
+  // Duyệt gia hạn treo NGAY trên board (admin): map ticketId → yêu cầu member đã xin.
+  const [pendingExt, setPendingExt] = useState<Map<string, PendingExt>>(new Map());
+  const [approveRow, setApproveRow] = useState<{
+    assetCode: string | null;
+    pending: PendingExt;
+  } | null>(null);
 
   const loadCalendar = useCallback(async () => {
     setError(false);
@@ -97,7 +123,37 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
     } catch {
       /* rail/board phụ trợ — lỗi không chặn lịch */
     }
-  }, []);
+    // Admin: nạp yêu cầu gia hạn treo để đổi nút Gia hạn→Duyệt trên đúng row (chi tiết ngày xin).
+    if (!isAdmin) return;
+    try {
+      const eRes = await fetch('/api/admin/tickets/extensions');
+      if (!eRes.ok) return;
+      const list = (await eRes.json()) as Array<{
+        extensionId: string;
+        version: number;
+        ticketId: string;
+        oldDue: string | null;
+        newDue: string | null;
+        usedCount: number;
+      }>;
+      setPendingExt(
+        new Map(
+          list.map((e) => [
+            e.ticketId,
+            {
+              extensionId: e.extensionId,
+              extVersion: e.version,
+              oldDue: e.oldDue,
+              newDue: e.newDue,
+              usedCount: e.usedCount,
+            },
+          ]),
+        ),
+      );
+    } catch {
+      /* phụ trợ */
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     void loadCalendar();
@@ -124,13 +180,14 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
     [i18n.language],
   );
 
+  // Lịch máy tổng hiển thị 14 ngày (2 tuần) — nhãn thứ lặp theo tuần (i % 7).
   const days = useMemo(() => {
     if (!data) return [];
     const base = new Date(data.weekStart).getTime();
     const wd = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-    return Array.from({ length: 7 }, (_, i) => {
+    return Array.from({ length: 14 }, (_, i) => {
       const d = new Date(base + i * DAY_MS);
-      return { w: wd[i], d: d.getDate(), weekend: i >= 5 };
+      return { w: wd[i % 7], d: d.getDate(), weekend: i % 7 >= 5 };
     });
   }, [data]);
 
@@ -142,13 +199,6 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
       d.toLocaleDateString(i18n.language, { day: '2-digit', month: '2-digit' });
     return `${fmt(s)} – ${fmt(e)}/${e.getFullYear()}`;
   }, [data, i18n.language]);
-
-  const shiftWeek = (deltaDays: number) => {
-    if (!data) return;
-    setWeekStart(
-      new Date(new Date(data.weekStart).getTime() + deltaDays * DAY_MS).toISOString(),
-    );
-  };
 
   const machines = useMemo(() => {
     if (!data) return [];
@@ -179,9 +229,10 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
           if (to <= from) return null;
           const startDay = Math.floor((from - wkStart) / DAY_MS);
           const endDay = Math.ceil((to - wkStart) / DAY_MS);
+          const clampedStart = Math.max(0, Math.min(13, startDay));
           return {
-            startDay: Math.max(0, Math.min(6, startDay)),
-            span: Math.max(1, Math.min(7 - startDay, endDay - startDay)),
+            startDay: clampedStart,
+            span: Math.max(1, Math.min(14 - clampedStart, endDay - clampedStart)),
             type,
             key: `${m.id}-${idx}`,
           };
@@ -202,6 +253,18 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
   if (error) return <LoadError onRetry={loadCalendar} />;
   if (!data) return null;
 
+  // Điều hướng theo THÁNG + chọn NGÀY trong tháng (giữ lưới tuần): chọn ngày → nhảy tới tuần
+  // chứa ngày đó; ‹ › đổi tháng để xem xa hơn. Ngày giới hạn trong tháng đang xem.
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const toYmd = (d: Date) =>
+    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  // MỘT ô "Chọn ngày" duy nhất: chọn ngày bất kỳ → nhảy tới tuần chứa ngày đó; đổi tháng
+  // ngay trong lịch của DatePicker (không cần nav tháng riêng). 12h để không lệch múi giờ.
+  const pickDay = (ymd: string) => {
+    if (ymd) setWeekStart(new Date(`${ymd}T12:00:00`).toISOString());
+  };
+  const dayValue = toYmd(new Date(data.weekStart));
+
   return (
     <div className="mcal-page">
       <div className="page-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -214,15 +277,17 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
       <p className="muted mcal-sub">{t('calendar.overviewSub')}</p>
 
       <div className="mcal-toolbar">
-        <div className="mcal-weeknav">
-          <button type="button" onClick={() => shiftWeek(-7)} aria-label={t('calendar.prevWeek')}>
-            ‹
-          </button>
-          <span className="wlabel">{weekLabel}</span>
-          <button type="button" onClick={() => shiftWeek(7)} aria-label={t('calendar.nextWeek')}>
-            ›
-          </button>
-        </div>
+        <label className="mcal-daypick">
+          <span className="muted">{t('calendar.pickDay', 'Chọn ngày')}</span>
+          <DatePicker
+            value={dayValue}
+            clearable={false}
+            ariaLabel={t('calendar.pickDay', 'Chọn ngày')}
+            onChange={pickDay}
+          />
+        </label>
+        {/* Tuần đang hiển thị (dd/mm–dd/mm) chứa ngày đã chọn. */}
+        <span className="muted mcal-weekrange">{weekLabel}</span>
         <button type="button" className="ghost sm" onClick={() => setWeekStart(null)}>
           {t('calendar.today')}
         </button>
@@ -465,6 +530,7 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
                   <th>{t('board.colFromDate', 'Ngày nhận')}</th>
                   <th>{t('board.colToDate', 'Ngày trả')}</th>
                   <th>{t('board.colStatus')}</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -476,6 +542,12 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
                       : r.state === 'awaiting_pickup'
                         ? 'warn'
                         : 'muted';
+                  // Gia hạn: chỉ ticket đang mượn, không phải buổi định kỳ. Admin gia hạn thẳng
+                  // MỌI hàng (kể cả quá hạn); member chỉ hàng của mình & chưa quá hạn (BE cũng chặn).
+                  const canExtend =
+                    r.state === 'in_use' &&
+                    r.kind !== 'recurring' &&
+                    (isAdmin || (r.isMine && !r.isOverdue));
                   return (
                     <tr key={r.ticketId}>
                       <td>
@@ -492,6 +564,55 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
                         <span className={`badge ${cls}`}>
                           {t(`board.state.${r.state}`, r.state)}
                         </span>
+                        {r.hasPendingExtension && (
+                          <span className="badge warn" style={{ marginLeft: 6 }}>
+                            {t('extension.pendingChip')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="table-actions">
+                        {/* Admin + có yêu cầu gia hạn treo → nút DUYỆT (mở popup xem ngày member
+                            đã xin, duyệt/từ chối). Ngược lại giữ nút Gia hạn/adminExtend. */}
+                        {isAdmin &&
+                        r.hasPendingExtension &&
+                        pendingExt.get(r.ticketId) ? (
+                          <button
+                            type="button"
+                            className="sm primary"
+                            onClick={() =>
+                              setApproveRow({
+                                assetCode: r.assetCode,
+                                pending: pendingExt.get(r.ticketId)!,
+                              })
+                            }
+                          >
+                            {t('extapprove.approve')}
+                          </button>
+                        ) : (
+                          canExtend && (
+                            <button
+                              type="button"
+                              className="sm"
+                              // Member: đã có yc treo thì chờ duyệt (không xin chồng). Admin áp thẳng được.
+                              disabled={!isAdmin && r.hasPendingExtension}
+                              title={
+                                !isAdmin && r.hasPendingExtension
+                                  ? t('extension.pendingHint')
+                                  : undefined
+                              }
+                              onClick={() =>
+                                setExtRow({
+                                  row: r,
+                                  mode: isAdmin ? 'admin' : 'member',
+                                })
+                              }
+                            >
+                              {isAdmin
+                                ? t('extension.actionAdmin')
+                                : t('extension.action')}
+                            </button>
+                          )
+                        )}
                       </td>
                     </tr>
                   );
@@ -509,6 +630,42 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
           onClose={() => setSheetOpen(false)}
           onBooked={() => {
             setSheetOpen(false);
+            void loadCalendar();
+            void loadSide();
+          }}
+        />
+      )}
+
+      {extRow && (
+        <ExtensionDialog
+          me={me}
+          ticketId={extRow.row.ticketId}
+          assetCode={extRow.row.assetCode}
+          due={extRow.row.due}
+          version={extRow.row.version}
+          extensionCount={extRow.row.extensionCount}
+          mode={extRow.mode}
+          onClose={() => setExtRow(null)}
+          onDone={() => {
+            setExtRow(null);
+            void loadCalendar();
+            void loadSide();
+          }}
+        />
+      )}
+
+      {approveRow && (
+        <ExtensionApproveDialog
+          me={me}
+          assetCode={approveRow.assetCode}
+          extensionId={approveRow.pending.extensionId}
+          extVersion={approveRow.pending.extVersion}
+          oldDue={approveRow.pending.oldDue}
+          newDue={approveRow.pending.newDue}
+          usedCount={approveRow.pending.usedCount}
+          onClose={() => setApproveRow(null)}
+          onDone={() => {
+            setApproveRow(null);
             void loadCalendar();
             void loadSide();
           }}

@@ -302,6 +302,11 @@ table.table td.right {
 .assign-pick {
   display: block;
 }
+/* Chuẩn chiều cao popup Chuyển (đổi người đứng tên / gán phần mềm vào máy): thân cao tối
+   thiểu để không cụt như trước (feedback: popup Chuyển quá thấp). Vẫn cuộn khi dài. */
+.assign-sheet .sheet-body {
+  min-height: min(300px, 46vh);
+}
 .assign-search {
   width: 100%;
 }

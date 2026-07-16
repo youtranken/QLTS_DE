@@ -6,16 +6,14 @@ import { BookingTimeFields } from './booking-time-fields';
 import { BookingTopRow } from './booking-top-row';
 import type { Me } from './panels';
 import {
-  MAX_DURATION_AUTO_MS,
-  isSunday,
+  DEFAULT_WORK_HOURS,
+  isBlockedDay,
+  addDays,
   nextBookableDate,
   type FreeMachine,
   type Mode,
   type UserOption,
 } from './booking-types';
-
-// borrow-board import PICKUP_SLOTS từ đây — re-export để không phải sửa import bên đó.
-export { PICKUP_SLOTS } from './booking-types';
 
 /**
  * Popup Đặt máy (7.5) — loại mượn gate theo quyền (Thường/Nâng cao/Định kỳ); admin tạo hộ.
@@ -41,6 +39,9 @@ export function BookingSheet({
   const isAdmin = me.role === 'admin' || me.role === 'sa';
   const canLong = isAdmin || (me.permissions?.canLongTerm ?? false);
   const canRecur = isAdmin || (me.permissions?.canRecurring ?? false);
+  // Giờ làm + ngưỡng auto-duyệt từ config SA chỉnh (audit H2/H3); fallback nếu /me chưa nạp.
+  const wh = me.workingHours ?? DEFAULT_WORK_HOURS;
+  const autoMs = (me.autoApproveMaxHours ?? 48) * 3_600_000;
 
   const [mode, setMode] = useState<Mode>('normal');
   const [note, setNote] = useState('');
@@ -53,9 +54,9 @@ export function BookingSheet({
   const [userQuery, setUserQuery] = useState('');
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   // Thường/Nâng cao — tách Ngày + Giờ cho Nhận/Trả (4 ô), gộp lại thành datetime khi dùng.
-  const [fromDate, setFromDate] = useState(nextBookableDate);
+  const [fromDate, setFromDate] = useState(() => nextBookableDate(wh));
   const [fromTime, setFromTime] = useState('');
-  const [toDate, setToDate] = useState(nextBookableDate);
+  const [toDate, setToDate] = useState(() => nextBookableDate(wh));
   const [toTime, setToTime] = useState('');
   const from = fromDate && fromTime ? `${fromDate}T${fromTime}` : '';
   const to = toDate && toTime ? `${toDate}T${toTime}` : '';
@@ -72,11 +73,22 @@ export function BookingSheet({
 
   const durationMs =
     from && to ? new Date(to).getTime() - new Date(from).getTime() : 0;
-  const isLong = durationMs > MAX_DURATION_AUTO_MS;
+  const isLong = durationMs > autoMs;
   // Giờ trả PHẢI sau giờ nhận (chặn nhận 10:00 → trả 08:00 cùng ngày, duration ≤ 0).
   const invalidRange = !!from && !!to && durationMs <= 0;
-  // 9.8: CN khóa (cả ngày nhận lẫn ngày trả). Ngoài khung giờ để BE + min/max input chặn.
-  const weekendBlocked = isSunday(fromDate) || isSunday(toDate);
+  // Khóa ngày KHÔNG thuộc ngày làm việc config (mặc định chỉ CN). Ngoài khung giờ để BE +
+  // min/max input chặn. Theo config SA chỉnh (audit H3) thay vì hardcode Chủ nhật.
+  const weekendBlocked =
+    isBlockedDay(fromDate, wh.days) || isBlockedDay(toDate, wh.days);
+
+  // Thường (≤2 ngày): ngày trả DO USER CHỌN nhưng chỉ trong 1–2 ngày gần nhất sau ngày nhận
+  // (cửa sổ [nhận .. nhận+2], tự-duyệt/dài tính theo thời lượng thực). KHÔNG mặc định +2 nữa;
+  // chỉ kẹp về ngày nhận khi ngày trả rơi ngoài cửa sổ (đổi ngày nhận). Nâng cao/Định kỳ tự do.
+  useEffect(() => {
+    if (mode !== 'normal' || !fromDate) return;
+    const hi = addDays(fromDate, 2);
+    if (!toDate || toDate < fromDate || toDate > hi) setToDate(fromDate);
+  }, [mode, fromDate, toDate]);
 
   // Danh sách máy pool cho dropdown "Đổi máy" (chọn máy khác trong pool).
   useEffect(() => {
@@ -366,6 +378,13 @@ export function BookingSheet({
               assetId={assetId}
               from={from}
               to={to}
+              bookableDays={wh.days}
+              returnMax={mode === 'normal' && fromDate ? addDays(fromDate, 2) : undefined}
+              returnCapMs={
+                mode === 'normal' && from
+                  ? new Date(from).getTime() + autoMs
+                  : undefined
+              }
             />
           )}
         </div>
