@@ -74,14 +74,13 @@ services:
     build: ./web
     restart: unless-stopped
     mem_limit: ${WEB_MEM_LIMIT:-64m}
-    # Cổng vào duy nhất — HTTPS qlts.pmh.com.vn (80 chỉ redirect → 443).
-    ports:
-      - '80:80'
-      - '443:443'
-    volumes:
-      # Cert wildcard *.pmh.com.vn (private.key + fullchain.pem) — mount read-only,
-      # KHÔNG bake vào image (private key không nằm trong layer).
-      - ../pmh.com.vn:/etc/nginx/ssl:ro
+    # Model B: KHÔNG publish cổng, KHÔNG giữ cert — EDGE (deploy/edge) lo TLS + 80/443.
+    # web chạy HTTP thuần; EDGE proxy tới qlts-web:80 qua mạng "edge".
+    networks:
+      default: {}
+      edge:
+        aliases:
+          - qlts-web
     depends_on:
       api:
         condition: service_healthy
@@ -130,6 +129,12 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+networks:
+  # Mạng chung cổng-vào (tạo ngoài: `docker network create edge`). Chỉ `web` join.
+  edge:
+    external: true
+  default: {}
 
 volumes:
   pgdata:
