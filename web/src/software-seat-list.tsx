@@ -62,12 +62,6 @@ export function SoftwareSeatList({
     s.installedOnCode
       ? [
           { label: t('assets.edit'), onClick: () => onEdit(s) },
-          // Chuyển thẳng seat này sang máy khác từ hàng expand (không cần mở form Sửa) — dùng
-          // lại SoftwareTransferDialog (đã lọc máy hiện tại + hỗ trợ gỡ).
-          {
-            label: t('software.transferMachine', 'Chuyển máy'),
-            onClick: () => onAssign(s),
-          },
           { label: t('software.detach', 'Gỡ'), onClick: () => onDetach(s) },
           {
             label: t('assets.disposeAction', 'Thanh lý'),
@@ -153,6 +147,17 @@ export function SoftwareSeatList({
                   )}
                 </div>
                 <div className="seat-menu" onClick={(e) => e.stopPropagation()}>
+                  {/* Đã gắn máy → nút "Chuyển" hiện thẳng kế ⋯ (thay vì nằm trong menu) — chuyển
+                      seat sang máy khác nhanh, dùng lại SoftwareTransferDialog qua onAssign. */}
+                  {!free && (
+                    <button
+                      type="button"
+                      className="sm transfer-btn"
+                      onClick={() => onAssign(s)}
+                    >
+                      ⇄ {t('assets.transferAction')}
+                    </button>
+                  )}
                   <RowActionsMenu actions={actionsFor(s)} />
                 </div>
               </div>

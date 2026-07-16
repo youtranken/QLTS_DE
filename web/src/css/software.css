@@ -182,7 +182,7 @@ table.table td.right {
 /* Bề rộng CỐ ĐỊNH cho Cost/Start/End (không dùng auto): header & rows là 2 grid riêng,
    auto co theo nội dung ("—") nên lệch cột. Fixed px → thẳng hàng dù ô rỗng. */
 .seat-list {
-  --seat-cols: minmax(110px, 1.1fr) minmax(90px, 1fr) 112px 108px 108px minmax(0, 1.2fr) 40px;
+  --seat-cols: minmax(110px, 1.1fr) minmax(90px, 1fr) 112px 108px 108px minmax(0, 1.2fr) 140px;
 }
 /* Hàng bung /tai-san (phần mềm đang cài trên máy): License/Loại/Start/End/Trạng thái (5 cột).
    Dùng fr cho MỌI cột để slack chia đều (khỏi gap lớn sau tên khi bảng rộng). */
@@ -259,6 +259,9 @@ table.table td.right {
 }
 .seat-menu {
   justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 /* Ghế trống: nền trắng như các bản khác, chỉ chữ "Ghế trống" ở cột Code phân biệt. */
 .sw-detail-head-free {
@@ -305,7 +308,7 @@ table.table td.right {
 /* Chuẩn chiều cao popup Chuyển (đổi người đứng tên / gán phần mềm vào máy): thân cao tối
    thiểu để không cụt như trước (feedback: popup Chuyển quá thấp). Vẫn cuộn khi dài. */
 .assign-sheet .sheet-body {
-  min-height: min(300px, 46vh);
+  min-height: min(380px, 54vh);
 }
 .assign-search {
   width: 100%;
