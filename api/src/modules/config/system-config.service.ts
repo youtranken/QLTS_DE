@@ -103,6 +103,11 @@ export class SystemConfigService {
     return this.getInt('approval_reminder_working_hours');
   }
 
+  /** Ngưỡng tự-duyệt (giờ): booking ≤ N vào thẳng awaiting_pickup, > N cần Admin duyệt (audit H2). */
+  getAutoApproveMaxHours(): Promise<number> {
+    return this.getInt('auto_approve_max_hours');
+  }
+
   /**
    * Baseline consumer mail (5.1, AC2) — ghi MỘT LẦN durable dùng `ON CONFLICT DO NOTHING`
    * (nhiều worker cùng boot không đè nhau). Lưu epoch millis để new Date() không mơ hồ định dạng.

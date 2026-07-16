@@ -152,7 +152,15 @@ export class WebhookController {
     signature: string | undefined,
   ): boolean {
     const secret = process.env.PMH_WEBHOOK_SECRET;
-    if (!secret || !signature) {
+    if (!secret) {
+      // Lỗi CẤU HÌNH, không phải client sai: mọi webhook bị reject → offboarding không chạy.
+      // Log ERROR để đội vận hành thấy (audit M11), thay vì im lặng nuốt (prod đã chặn ở boot).
+      this.logger.error(
+        'PMH_WEBHOOK_SECRET chưa cấu hình — TỪ CHỐI mọi webhook (offboarding sẽ không kích hoạt).',
+      );
+      return false;
+    }
+    if (!signature) {
       return false;
     }
     const expected = createHmac('sha256', secret).update(rawBody).digest('hex');

@@ -356,6 +356,104 @@ export class ExtensionService {
     }
   }
 
+  /**
+   * Admin gia hạn THẲNG (đường B) — đặt hạn trả mới ngay, KHÔNG qua bước request/duyệt.
+   * Không giới hạn số lần/số ngày (admin quyết định); cho phép cả ticket ĐÃ QUÁ HẠN (gia hạn cứu).
+   * Vẫn chặn: không đang mượn, buổi định kỳ, hạn mới ≤ hạn hiện tại, va khung máy (SLOT_TAKEN).
+   * Hủy mọi yêu cầu gia hạn đang treo của ticket (bị thay thế bởi quyết định admin).
+   */
+  async adminExtend(
+    ticketId: string,
+    newDueIso: string,
+    actorSub: string,
+  ): Promise<{ id: string; state: string }> {
+    try {
+      return await this.db.transaction(async (tx) => {
+        const rows = await tx.execute<{ state: string; kind: string }>(
+          sql`SELECT state, kind FROM ticket WHERE id = ${ticketId} FOR UPDATE`,
+        );
+        if (rows.rows.length === 0) {
+          throw new NotFoundException({
+            code: 'TICKET_NOT_FOUND',
+            message: 'Không tìm thấy ticket.',
+          });
+        }
+        const t = rows.rows[0];
+        if (t.state !== 'in_use') {
+          throw new ConflictException({
+            code: 'INVALID_STATE',
+            message: 'Chỉ gia hạn được ticket đang mượn.',
+          });
+        }
+        if (t.kind === 'recurring') {
+          throw new ConflictException({
+            code: 'INVALID_STATE',
+            message: 'Chuỗi định kỳ không gia hạn từng buổi.',
+          });
+        }
+        const orig = await tx.execute<{
+          id: string;
+          from_ts: string;
+          old_due: string;
+          db_now: string;
+        }>(sql`
+          SELECT id, lower(period) AS from_ts, upper(period) AS old_due, now()::text AS db_now
+          FROM booking
+          WHERE ticket_id = ${ticketId} AND state = 'delivered'
+          FOR UPDATE LIMIT 1
+        `);
+        if (orig.rows.length === 0) {
+          throw new ConflictException({
+            code: 'INVALID_STATE',
+            message: 'Ticket không còn booking đang mượn.',
+          });
+        }
+        const newDueMs = new Date(newDueIso).getTime();
+        if (newDueMs <= new Date(orig.rows[0].old_due).getTime()) {
+          throw new BadRequestException({
+            code: 'INVALID_RANGE',
+            message: 'Hạn mới phải sau hạn trả hiện tại.',
+          });
+        }
+        // Với ticket ĐÃ QUÁ HẠN (old_due < now), chặn đặt hạn mới vẫn ở quá khứ (old_due<newDue<now):
+        // sẽ set is_overdue=false rồi markOverdue bật lại trong ≤60s → nhấp nháy trạng thái (audit M6).
+        if (newDueMs <= new Date(orig.rows[0].db_now).getTime()) {
+          throw new BadRequestException({
+            code: 'INVALID_RANGE',
+            message: 'Hạn mới phải ở tương lai (sau thời điểm hiện tại).',
+          });
+        }
+        // Hủy yêu cầu gia hạn treo (nếu có) TRƯỚC khi nới period gốc (tránh đụng EXCLUDE).
+        await tx.execute(sql`
+          UPDATE booking SET state = 'cancelled', result = 'expired',
+            version = version + 1, updated_at = now()
+          WHERE ticket_id = ${ticketId} AND kind = 'extension' AND state = 'held'
+        `);
+        await tx.execute(sql`
+          UPDATE booking
+          SET period = tstzrange(${orig.rows[0].from_ts}, ${newDueIso}, '[)'),
+            version = version + 1, updated_at = now()
+          WHERE id = ${orig.rows[0].id}
+        `);
+        await tx.execute(sql`
+          UPDATE ticket SET extension_count = extension_count + 1, is_overdue = false,
+            version = version + 1, updated_at = now()
+          WHERE id = ${ticketId}
+        `);
+        await this.audit.appendWithin(tx, {
+          actor: actorSub,
+          action: 'tickets.extension_admin',
+          objectType: 'ticket',
+          objectId: ticketId,
+          detail: { newDue: newDueIso },
+        });
+        return { id: ticketId, state: 'in_use' };
+      });
+    } catch (error) {
+      throw mapBookingPgError(error);
+    }
+  }
+
   /** Sweep (4.3): extension held hạn cũ trôi qua → cancelled+result='expired'. Idempotent. */
   async expireStaleExtensions(): Promise<number> {
     const candidates = await this.db.execute<{

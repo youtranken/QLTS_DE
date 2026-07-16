@@ -28,6 +28,21 @@ async function bootstrap(): Promise<void> {
       'Thiếu DATABASE_URL — không khởi động (tránh pg fallback localhost mù mờ).',
     );
   }
+  // Cảnh báo biến "hỏng âm thầm" ở production (audit M10/M11). KHÔNG hard-fail boot: thiếu
+  // các biến này chỉ VÔ HIỆU một tính năng (mail link / webhook offboarding), không nên chặn
+  // cả app phục vụ. Visibility runtime đã có: webhook.controller log ERROR mỗi lần reject.
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.APP_BASE_URL) {
+      console.error(
+        '[BOOT][WARN] Thiếu APP_BASE_URL ở production — redirect OIDC + link trong mail Admin sẽ trỏ localhost.',
+      );
+    }
+    if (!process.env.PMH_WEBHOOK_SECRET) {
+      console.error(
+        '[BOOT][WARN] Thiếu PMH_WEBHOOK_SECRET ở production — webhook offboarding (user.locked/deleted) sẽ bị TỪ CHỐI cho tới khi cấu hình secret.',
+      );
+    }
+  }
   const port = requiredPort();
 
   // Migration chạy tự động, có thứ tự, trước khi nhận request (AC 4)

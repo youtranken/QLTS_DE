@@ -20,7 +20,6 @@ import { ExtensionService } from './extension.service';
 import {
   ACTIVE_TICKET_STATES,
   BOOKING_SESSION_LABELS_VI,
-  MAX_DURATION_AUTO_MS,
   OCCUPYING_STATES,
   TICKET_STATE_LABELS_VI,
 } from './ticket-states';
@@ -343,7 +342,10 @@ export class TicketsService {
   ): Promise<SubmitBookingResult> {
     const windowDays = await this.config.getBookingWindowDays();
     const { from, to } = parseBookingWindow(input.from, input.to, windowDays);
-    const isLongTerm = to.getTime() - from.getTime() > MAX_DURATION_AUTO_MS;
+    // Ngưỡng auto-duyệt lấy từ config (audit H2) để SA chỉnh; hằng số cũ chỉ còn là mặc định seed.
+    const autoApproveMs =
+      (await this.config.getAutoApproveMaxHours()) * 3_600_000;
+    const isLongTerm = to.getTime() - from.getTime() > autoApproveMs;
     const quota = await this.config.getActiveTicketQuota();
 
     const ticketState = isLongTerm ? 'pending_approval' : 'awaiting_pickup';
@@ -1010,6 +1012,10 @@ export class TicketsService {
       isMine: boolean;
       note: string | null;
       recurringCount: number | null;
+      version: number;
+      kind: string;
+      extensionCount: number;
+      hasPendingExtension: boolean;
     }>
   > {
     const rows = await this.db.execute<{
@@ -1024,6 +1030,10 @@ export class TicketsService {
       is_mine: boolean;
       note: string | null;
       recurring_count: number | null;
+      version: number;
+      kind: string;
+      extension_count: number;
+      has_pending_extension: boolean;
     }>(sql`
       SELECT t.id AS ticket_id, a.code AS asset_code, a.type,
         u.full_name AS borrower_name,
@@ -1036,7 +1046,13 @@ export class TicketsService {
         CASE WHEN t.kind = 'recurring'
           THEN (SELECT count(*)::int FROM booking bb
                 WHERE bb.ticket_id = t.id AND bb.kind = 'recurring')
-          END AS recurring_count
+          END AS recurring_count,
+        -- Gia hạn (Epic 4): version cho optimistic lock member, kind để ẩn ở buổi định kỳ,
+        -- đếm lần đã dùng + cờ đang có yêu cầu treo (ẩn nút xin ở member).
+        t.version, t.kind, t.extension_count,
+        EXISTS (SELECT 1 FROM booking be
+          WHERE be.ticket_id = t.id AND be.kind = 'extension' AND be.state = 'held')
+          AS has_pending_extension
       FROM ticket t
       JOIN booking b ON b.ticket_id = t.id
       LEFT JOIN assets a ON a.id = b.asset_id
@@ -1059,6 +1075,10 @@ export class TicketsService {
       isMine: r.is_mine,
       note: r.note,
       recurringCount: r.recurring_count,
+      version: r.version,
+      kind: r.kind,
+      extensionCount: r.extension_count,
+      hasPendingExtension: r.has_pending_extension,
     }));
   }
 
@@ -1071,9 +1091,10 @@ export class TicketsService {
     const rows = await tx.execute<{
       state: string;
       version: number;
+      kind: string;
       pickup_passed: boolean | null;
     }>(sql`
-      SELECT t.state, t.version,
+      SELECT t.state, t.version, t.kind,
         (SELECT min(lower(b.period)) < now() FROM booking b
            WHERE b.ticket_id = t.id AND b.state = 'held') AS pickup_passed
       FROM ticket t WHERE t.id = ${ticketId} FOR UPDATE
@@ -1098,6 +1119,14 @@ export class TicketsService {
       throw new ConflictException({
         code: 'INVALID_STATE',
         message: 'Request không còn ở trạng thái chờ duyệt.',
+      });
+    }
+    // Chuỗi định kỳ phải qua approveChain/rejectChain (deriveParentState — AD-4). Chặn duyệt
+    // thẳng để không bỏ qua derive + ghi audit sai nhãn (đối xứng lockParent, audit 2026-07-16 H4).
+    if (t.kind !== 'normal') {
+      throw new ConflictException({
+        code: 'INVALID_STATE',
+        message: 'Request định kỳ phải được duyệt qua luồng chuỗi.',
       });
     }
     return { pickupPassed: t.pickup_passed };

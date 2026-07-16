@@ -52,9 +52,8 @@ export const ACTIVE_TICKET_STATES = [
   'in_use',
 ] as const satisfies readonly TicketState[];
 
-/** Ngưỡng tự-duyệt (FR-8): khung ≤48h liên tục vào thẳng awaiting_pickup;
- * >48h cần quyền dài hạn + qua hàng đợi duyệt Admin (3.4). */
-export const MAX_DURATION_AUTO_MS = 48 * 60 * 60 * 1000;
+// Ngưỡng tự-duyệt (FR-8) giờ lấy từ config `auto_approve_max_hours` (mặc định seed 48h,
+// audit H2) — SystemConfigService.getAutoApproveMaxHours(). Không còn hằng số cứng ở BE.
 
 /** Nhãn tiếng Việt theo bảng AD-16 — FE dùng làm nguồn cho i18n, không hard-code chuỗi trạng thái. */
 export const TICKET_STATE_LABELS_VI: Record<TicketState, string> = {

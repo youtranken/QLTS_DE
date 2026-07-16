@@ -18,6 +18,7 @@ const EDITABLE_KEYS = [
   'license_warning_days',
   'working_hours',
   'approval_reminder_working_hours',
+  'auto_approve_max_hours',
 ] as const;
 
 export interface ConfigPatch {
@@ -27,6 +28,7 @@ export interface ConfigPatch {
   extension_max_grants?: number;
   license_warning_days?: number;
   approval_reminder_working_hours?: number;
+  auto_approve_max_hours?: number;
   working_hours?: WorkingHours;
 }
 
@@ -41,7 +43,7 @@ export class ConfigAdminService {
     private readonly config: SystemConfigService,
   ) {}
 
-  /** 7 tham số hiện hành cho màn SA (AC1) — chỉ EDITABLE, không marker runtime. */
+  /** 8 tham số hiện hành cho màn SA (AC1) — chỉ EDITABLE, không marker runtime. */
   async listEditable(): Promise<Record<string, unknown>> {
     const rows = await this.db
       .select({ key: configTable.key, value: configTable.value })

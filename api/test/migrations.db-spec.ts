@@ -81,6 +81,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0036_assets_lock_eta.sql',
       '0037_drop_department.sql',
       '0038_assets_purged_at.sql',
+      '0039_config_working_hours_auto_approve.sql',
     ]);
   });
 
@@ -98,27 +99,30 @@ describe('Migrations + seed config (Postgres thật)', () => {
     expect(res.rows[0].n).toBe(0);
   });
 
-  it('bảng config seed đủ 8 tham số FR-44 đúng giá trị mặc định', async () => {
+  it('bảng config seed đủ 9 tham số FR-44 đúng giá trị mặc định', async () => {
     const res = await pool.query('SELECT key, value FROM config ORDER BY key');
     const byKey = Object.fromEntries(
       res.rows.map((r: { key: string; value: unknown }) => [r.key, r.value]),
     );
-    expect(res.rowCount).toBe(8);
+    expect(res.rowCount).toBe(9);
     expect(byKey).toEqual({
       booking_window_days: 30,
       active_ticket_quota: 2,
       extension_days_per_grant: 2,
       extension_max_grants: 3,
       license_warning_days: 30,
+      // 0039 (audit H3): giờ làm 07:00–18:00, T2–T7 (days 1..6)
       working_hours: {
         tz: 'Asia/Ho_Chi_Minh',
-        days: [1, 2, 3, 4, 5],
-        start: '08:00',
-        end: '17:00',
+        days: [1, 2, 3, 4, 5, 6],
+        start: '07:00',
+        end: '18:00',
       },
       approval_reminder_working_hours: 4,
       // 5.5: lịch sync danh bạ định kỳ (0026)
       directory_sync_interval_minutes: 60,
+      // 0039 (audit H2): ngưỡng auto-duyệt (giờ) — SA chỉnh được
+      auto_approve_max_hours: 48,
     });
   });
 
@@ -128,7 +132,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
     });
     expect(appliedAgain).toEqual([]);
     const res = await pool.query('SELECT count(*)::int AS n FROM config');
-    expect(res.rows[0].n).toBe(8);
+    expect(res.rows[0].n).toBe(9);
   });
 
   it('migration đã apply bị sửa nội dung (checksum lệch) → fail to, không im lặng', async () => {

@@ -1077,6 +1077,69 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     expect(still.rows[0].installed_on_asset_id).toBeNull();
   });
 
+  it('thanh lý gỡ người đứng tên + chặn purge khi đang mượn (audit H1/M1)', async () => {
+    // máy pool có người đứng tên
+    const may = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'M-INUSE', type: 'laptop', assignedUserSub: 'sub-u1' })
+      .expect(201);
+    const id = may.body.id as string;
+    await pool.query(`UPDATE assets SET is_pool=true WHERE id=$1`, [id]);
+    // đang mượn dở: ticket in_use + booking delivered (dispose GIỮ delivered — FR-4a)
+    const t = await pool.query<{ id: string }>(
+      `INSERT INTO ticket (kind, state, borrower_sub, created_by_sub)
+       VALUES ('normal','in_use','sub-u1','sub-u1') RETURNING id`,
+    );
+    await pool.query(
+      `INSERT INTO booking (ticket_id, asset_id, kind, state, period)
+       VALUES ($1,$2,'normal','delivered', tstzrange(now()-interval '1 hour', now()+interval '48 hours','[)'))`,
+      [t.rows[0].id, id],
+    );
+
+    // thanh lý → gỡ người đứng tên (H1) + ghi allocation_history from→null
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${id}/dispose`)
+      .set(asAdmin())
+      .send({ version: 1 })
+      .expect(200);
+    const disp = await pool.query(
+      `SELECT assigned_user_sub, status FROM assets WHERE id=$1`,
+      [id],
+    );
+    expect(disp.rows[0].assigned_user_sub).toBeNull();
+    expect(disp.rows[0].status).toBe('disposed');
+    const alloc = await pool.query(
+      `SELECT 1 FROM allocation_history WHERE asset_id=$1 AND from_user_sub='sub-u1' AND to_user_sub IS NULL`,
+      [id],
+    );
+    expect(alloc.rowCount).toBe(1);
+
+    // M1: máy đang mượn (booking delivered) → purge bị chặn 409 ASSET_IN_USE
+    const blocked = await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${id}/purge`)
+      .set(asAdmin())
+      .send({ version: 2 })
+      .expect(409);
+    expect(blocked.body.code).toBe('ASSET_IN_USE');
+
+    // thu hồi (booking không còn delivered) → purge được
+    await pool.query(
+      `UPDATE booking SET state='returned' WHERE asset_id=$1`,
+      [id],
+    );
+    await request(app.getHttpServer())
+      .delete(`/api/admin/assets/${id}/purge`)
+      .set(asAdmin())
+      .send({ version: 2 })
+      .expect(200);
+    const purged = await pool.query(
+      `SELECT purged_at FROM assets WHERE id=$1`,
+      [id],
+    );
+    expect(purged.rows[0].purged_at).not.toBeNull();
+  });
+
   it('GET :id/notes (2.7): lịch sử note desc + TÊN người ghi (lý do khóa + ETA từ 2.6)', async () => {
     // actor 'admin-t' phải có trong users để chứng minh join actorName (review 2.7)
     await pool.query(
@@ -1143,13 +1206,14 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
         .map((v) =>
           typeof v === 'string' || typeof v === 'number' ? String(v) : '',
         );
-      codes.push(values[0]);
-      if (values[0] === "'=2+5") evilRow = values;
+      // Cột theo bảng FE: TYPE(0) · CODE(1) · … · NOTE(11) · POOL(12).
+      codes.push(values[1]);
+      if (values[1] === "'=2+5") evilRow = values;
     });
     // đúng các dòng theo bộ lọc type=monitor: PAGE-01..05 + máy mới
     expect(codes).toHaveLength(6);
     expect(codes).not.toContain('3-AA-CT-0042'); // laptop — ngoài bộ lọc
-    // escape NFR-10: cả code lẫn note. 7.6 bỏ cột PLACE + MODEL → NOTE dời index 13→11
+    // escape NFR-10: cả code lẫn note (NOTE ở index 11)
     expect(evilRow).not.toBeNull();
     expect(evilRow![11]).toBe(`'=HYPERLINK("x")`);
     // audit FR-43: ai, bộ lọc gì, bao nhiêu dòng
@@ -1332,10 +1396,11 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     const swWb = new ExcelJS.Workbook();
     await swWb.xlsx.load(swRes.body);
     const swRows = rowsOf(swWb.getWorksheet('Phan mem'));
+    // Format mới: cột A=TÊN PHẦN MỀM, B=MÁY, C=NGƯỜI GIỮ (gộp nhóm theo license).
     const corel = swRows.find((r) => r[1] === 'CorelDraw');
     expect(corel).toBeDefined();
-    expect(corel![2]).toBe('EXP-MAY'); // MACHINE
-    expect(corel![3]).toBe('Trần Thị Bình'); // USER (derive)
+    expect(corel![2]).toBe('EXP-MAY'); // MÁY
+    expect(corel![3]).toBe('Trần Thị Bình'); // NGƯỜI GIỮ (derive)
 
     // Export TÀI SẢN: có EXP-MAY (máy), KHÔNG có dòng CorelDraw (phần mềm bị loại)
     const asRes = await request(app.getHttpServer())
@@ -1346,8 +1411,9 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     const asWb = new ExcelJS.Workbook();
     await asWb.xlsx.load(asRes.body);
     const asRows = rowsOf(asWb.getWorksheet('Tai san'));
-    expect(asRows.some((r) => r[1] === 'EXP-MAY')).toBe(true);
-    expect(asRows.some((r) => r[2] === 'software')).toBe(false);
+    // Cột đổi thứ tự: TYPE ở A(r[1]), CODE ở B(r[2]).
+    expect(asRows.some((r) => r[2] === 'EXP-MAY')).toBe(true);
+    expect(asRows.some((r) => r[1] === 'software')).toBe(false);
 
     // Search phần mềm theo TÊN NGƯỜI GIỮ MÁY → tìm được CorelDraw
     const list = await request(app.getHttpServer())

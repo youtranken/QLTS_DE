@@ -23,6 +23,14 @@ const DISABLED = sql`('locked', 'deleted')`;
 const ACTIVE_TICKET = sql`('pending_approval', 'awaiting_pickup', 'in_use')`;
 
 /**
+ * Tài sản user THỰC giữ (alias `a`): loại máy đã thanh lý/xóa vĩnh viễn — đồng bộ
+ * me.service ("Máy của tôi"). Không lọc → offboarding báo phantom vĩnh viễn cho NV nghỉ
+ * việc từng giữ máy nay đã disposed/purged (audit 2026-07-16 H1).
+ */
+const heldAssetWhere = (subExpr: ReturnType<typeof sql>) =>
+  sql`a.assigned_user_sub = ${subExpr} AND a.status <> 'disposed' AND a.purged_at IS NULL`;
+
+/**
  * Cảnh báo nghỉ việc + cascade offboarding (5.5, AD-1/AD-9). Tickets sở hữu state nên cascade
  * ở đây (không phá ranh giới module). Cảnh báo DERIVE từ `users.status` — active lại thì tự tắt;
  * marker `offboard_alerted_at` chỉ chống MAIL đúp (webhook ‖ polling cùng scan).
@@ -51,7 +59,7 @@ export class OffboardingService {
         AND (
           EXISTS (SELECT 1 FROM ticket t
                   WHERE t.borrower_sub = u.sub AND t.state IN ${ACTIVE_TICKET})
-          OR EXISTS (SELECT 1 FROM assets a WHERE a.assigned_user_sub = u.sub)
+          OR EXISTS (SELECT 1 FROM assets a WHERE ${heldAssetWhere(sql`u.sub`)})
         )
     `);
 
@@ -72,7 +80,7 @@ export class OffboardingService {
         const rec = await tx.execute<{ r: boolean }>(sql`
           SELECT (
             EXISTS (SELECT 1 FROM ticket t WHERE t.borrower_sub = ${sub} AND t.state = 'in_use')
-            OR EXISTS (SELECT 1 FROM assets a WHERE a.assigned_user_sub = ${sub})
+            OR EXISTS (SELECT 1 FROM assets a WHERE ${heldAssetWhere(sql`${sub}`)})
           ) AS r
         `);
         if (!rec.rows[0].r) return false;
@@ -137,12 +145,12 @@ export class OffboardingService {
       SELECT u.sub, u.full_name, u.status,
         (SELECT count(*)::int FROM ticket t
          WHERE t.borrower_sub = u.sub AND t.state = 'in_use') AS ticket_count,
-        (SELECT count(*)::int FROM assets a WHERE a.assigned_user_sub = u.sub) AS asset_count
+        (SELECT count(*)::int FROM assets a WHERE ${heldAssetWhere(sql`u.sub`)}) AS asset_count
       FROM users u
       WHERE u.status IN ${DISABLED}
         AND (
           EXISTS (SELECT 1 FROM ticket t WHERE t.borrower_sub = u.sub AND t.state = 'in_use')
-          OR EXISTS (SELECT 1 FROM assets a WHERE a.assigned_user_sub = u.sub)
+          OR EXISTS (SELECT 1 FROM assets a WHERE ${heldAssetWhere(sql`u.sub`)})
         )
       ORDER BY u.full_name NULLS LAST
     `);

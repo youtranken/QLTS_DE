@@ -206,6 +206,30 @@ describe('Admin duyệt/từ chối request >48h (story 3.4)', () => {
     expect((res.body as { code: string }).code).toBe('INVALID_STATE');
   });
 
+  it('duyệt/từ chối ticket ĐỊNH KỲ qua luồng thẳng → 409 INVALID_STATE (audit H4)', async () => {
+    // Chuỗi định kỳ phải qua approveChain/rejectChain (deriveParentState AD-4),
+    // KHÔNG được duyệt thẳng qua approveRequest/rejectRequest.
+    const t = await pool.query<{ id: string; version: number }>(
+      `INSERT INTO ticket (kind, state, borrower_sub, created_by_sub)
+       VALUES ('recurring','pending_approval','mem-long','mem-long') RETURNING id, version`,
+    );
+    const { id, version } = t.rows[0];
+    const approve = await request(app.getHttpServer())
+      .post(`/api/admin/tickets/${id}/approve`)
+      .set(asAdmin)
+      .send({ version })
+      .expect(409);
+    expect((approve.body as { code: string }).code).toBe('INVALID_STATE');
+    const reject = await request(app.getHttpServer())
+      .post(`/api/admin/tickets/${id}/reject`)
+      .set(asAdmin)
+      .send({ version, reason: 'x' })
+      .expect(409);
+    expect((reject.body as { code: string }).code).toBe('INVALID_STATE');
+    // dọn
+    await pool.query(`UPDATE ticket SET state='cancelled' WHERE id=$1`, [id]);
+  });
+
   it('giờ nhận đã quá khứ → duyệt bị từ chối 409 PICKUP_PASSED (AC 5)', async () => {
     const t = await mkHeld(iso(-2 * H), iso(60 * H));
     const res = await request(app.getHttpServer())

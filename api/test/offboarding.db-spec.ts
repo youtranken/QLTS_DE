@@ -201,6 +201,33 @@ describe('Offboarding scan + cascade (story 5.5)', () => {
     expect(await offboarding.runOffboardingScan()).toBe(1);
   });
 
+  it('máy đã thanh lý/purge KHÔNG tính là đang giữ → hết phantom offboarding (audit H1)', async () => {
+    await insertUser('u5', 'deleted');
+    // chỉ đứng tên máy đã disposed → không còn gì để thu hồi
+    const disposed = await insertAsset('OFB-DISP', 'u5');
+    await pool.query(
+      `UPDATE assets SET status='disposed', is_pool=false WHERE id=$1`,
+      [disposed],
+    );
+    expect(await offboarding.runOffboardingScan()).toBe(0);
+    expect((await offboarding.listOffboardingQueue()).total).toBe(0);
+
+    // thêm máy purged cũng không tính
+    const purged = await insertAsset('OFB-PURG', 'u5');
+    await pool.query(
+      `UPDATE assets SET status='disposed', is_pool=false, purged_at=now() WHERE id=$1`,
+      [purged],
+    );
+    expect(await offboarding.runOffboardingScan()).toBe(0);
+
+    // còn 1 máy đang dùng → cảnh báo trở lại (chốt: filter đúng, không chặn nhầm)
+    await insertAsset('OFB-LIVE', 'u5');
+    expect(await offboarding.runOffboardingScan()).toBe(1);
+    const q = await offboarding.listOffboardingQueue();
+    expect(q.total).toBe(1);
+    expect(q.alerts[0].assetCount).toBe(1); // chỉ đếm máy đang dùng, bỏ disposed+purged
+  });
+
   it('user active dù có ticket → KHÔNG cảnh báo', async () => {
     await insertUser('u3', 'active');
     const t = await insertTicket('in_use', 'u3');

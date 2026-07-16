@@ -78,6 +78,13 @@ class ConfigUpdateDto {
   @Max(24)
   approval_reminder_working_hours?: number;
 
+  // audit H2: ngưỡng auto-duyệt (giờ). 1..720h (~30 ngày) — SA chỉnh chính sách.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(720)
+  auto_approve_max_hours?: number;
+
   @IsOptional()
   @ValidateNested()
   @Type(() => WorkingHoursDto)

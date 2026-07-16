@@ -16,6 +16,7 @@ import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Response } from 'express';
 import { AuditWriterService } from '../audit/audit-writer.service';
+import { SystemConfigService } from '../config/system-config.service';
 import { AuthorizedGroupsService } from '../users/authorized-groups.service';
 import { UsersService } from '../users/users.service';
 import { intersectsCI } from './group-access';
@@ -92,6 +93,7 @@ export class AuthController {
     private readonly audit: AuditWriterService,
     private readonly localSa: LocalSaService,
     private readonly authorizedGroups: AuthorizedGroupsService,
+    private readonly config: SystemConfigService,
   ) {}
 
   /**
@@ -323,6 +325,8 @@ export class AuthController {
     devMode: boolean;
     csrfToken: string | null;
     permissions: { canLongTerm: boolean; canRecurring: boolean };
+    workingHours: { days: number[]; start: string; end: string };
+    autoApproveMaxHours: number;
   }> {
     return this.buildMe(req);
   }
@@ -346,6 +350,10 @@ export class AuthController {
       user.role === 'member'
         ? await this.users.getPermissions(user.sub)
         : { canLongTerm: false, canRecurring: false };
+    // Giờ làm + ngưỡng auto-duyệt để FORM ĐẶT MÁY (member) theo config SA chỉnh, không hardcode
+    // (audit H2/H3). Cache 30s trong SystemConfigService nên rẻ; mọi vai đều cần cho popup mượn.
+    const wh = await this.config.getWorkingHours();
+    const autoApproveMaxHours = await this.config.getAutoApproveMaxHours();
     return {
       sub: user.sub,
       fullName: user.fullName,
@@ -354,6 +362,8 @@ export class AuthController {
       devMode: user.devMode,
       csrfToken,
       permissions,
+      workingHours: { days: wh.days, start: wh.start, end: wh.end },
+      autoApproveMaxHours,
     };
   }
 

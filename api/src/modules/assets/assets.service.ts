@@ -89,6 +89,7 @@ interface LifecycleRow {
   status: string;
   isPool: boolean;
   version: number;
+  assignedUserSub: string | null;
 }
 
 type LifecycleTx = Pick<Database, 'update' | 'insert' | 'execute' | 'select'>;
@@ -439,6 +440,19 @@ export class AssetsService {
           message: 'Chỉ xóa vĩnh viễn máy đã Thanh lý.',
         });
       }
+      // Máy đang mượn dở (booking 'delivered' không bị hủy khi thanh lý — giữ cho
+      // Admin thu hồi tay) → chặn purge để ticket in_use không trỏ máy đã biến mất
+      // khỏi quản lý tài sản (audit 2026-07-16 M1).
+      const inUse = await tx.execute<{ one: number }>(
+        sql`SELECT 1 AS one FROM booking WHERE asset_id = ${id} AND state = 'delivered' LIMIT 1`,
+      );
+      if (inUse.rows.length > 0) {
+        throw new ConflictException({
+          code: 'ASSET_IN_USE',
+          message:
+            'Máy đang được mượn (chưa trả) — thu hồi trước khi xóa vĩnh viễn.',
+        });
+      }
       await tx.execute(
         sql`UPDATE assets SET purged_at = now(), version = version + 1, updated_at = now() WHERE id = ${id}`,
       );
@@ -780,6 +794,7 @@ export class AssetsService {
         status: assetsTable.status,
         isPool: assetsTable.isPool,
         version: assetsTable.version,
+        assignedUserSub: assetsTable.assignedUserSub,
       })
       .from(assetsTable)
       .where(eq(assetsTable.id, id))
@@ -875,6 +890,11 @@ export class AssetsService {
       guard: (row: LifecycleRow) =>
         row.status === 'disposed' ? ('INVALID_STATE' as const) : null,
       apply: async (tx: LifecycleTx, row: LifecycleRow) => {
+        // Thanh lý máy → gỡ người đứng tên: máy đã bỏ không còn ai "đang giữ".
+        // Nếu KHÔNG gỡ, offboarding-scan (đếm theo assigned_user_sub) sẽ báo phantom
+        // vĩnh viễn cho nhân viên nghỉ việc từng giữ máy này (audit 2026-07-16 H1).
+        const clearHolder =
+          row.type !== 'software' && row.assignedUserSub != null;
         await tx
           .update(assetsTable)
           .set({
@@ -883,9 +903,21 @@ export class AssetsService {
             lockEta: null, // thanh lý → xóa ETA khóa còn sót (dữ liệu sạch)
             version: row.version + 1,
             updatedAt: new Date(),
-            ...(row.type === 'software' ? { installedOnAssetId: null } : {}),
+            ...(row.type === 'software'
+              ? { installedOnAssetId: null }
+              : { assignedUserSub: null }),
           })
           .where(eq(assetsTable.id, id));
+        // Giữ allocation_history đầy đủ (AD-10 append-only): ghi vết trả về from→null.
+        if (clearHolder) {
+          await tx.insert(allocationHistoryTable).values({
+            assetId: id,
+            fromUserSub: row.assignedUserSub,
+            toUserSub: null,
+            note: null,
+            actor: actorSub,
+          });
+        }
         let detached: string[] = [];
         if (row.type !== 'software') {
           detached = await this.detachAllFrom(tx, id, actorSub);
@@ -897,7 +929,11 @@ export class AssetsService {
           eta: null,
           actor: actorSub,
         });
-        return { detached, pool_cleared: row.isPool };
+        return {
+          detached,
+          pool_cleared: row.isPool,
+          holder_cleared: clearHolder ? row.assignedUserSub : null,
+        };
       },
     };
   }

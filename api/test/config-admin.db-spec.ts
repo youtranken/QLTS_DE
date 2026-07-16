@@ -51,12 +51,13 @@ describe('Config admin (story 6.3)', () => {
     delete process.env.AUTH_DEV_MODE;
   });
 
-  it('AC1 — SA GET trả đúng 7 tham số FR-44, KHÔNG marker runtime', async () => {
+  it('AC1 — SA GET trả đúng 8 tham số FR-44, KHÔNG marker runtime', async () => {
     // 5.5 seed 'directory_sync_interval_minutes' — marker KHÔNG được lộ ra màn config
     const res = await getCfg().expect(200);
     expect(Object.keys(res.body).sort()).toEqual([
       'active_ticket_quota',
       'approval_reminder_working_hours',
+      'auto_approve_max_hours',
       'booking_window_days',
       'extension_days_per_grant',
       'extension_max_grants',
