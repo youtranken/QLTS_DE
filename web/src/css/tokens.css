@@ -21,11 +21,11 @@
   --primary-ink: #0a8a5f;
   --primary-soft: #e5f6ee;
 
-  /* Điểm nhấn: cam hổ phách + gradient cam→lục (nút chính, logo, avatar) */
+  /* Điểm nhấn: cam hổ phách + gradient lục→cam (nút chính, logo, avatar) */
   --warm: #f59e0b;
   --warm-ink: #ea580c;
   --warm-soft: #fef2df;
-  --grad: linear-gradient(135deg, #f59e0b, #0e9f6e);
+  --grad: linear-gradient(135deg, #0e9f6e, #f59e0b);
 
   /* Sidebar grove (xanh rừng đậm) */
   --sidebar-bg: #16231b;
@@ -85,7 +85,7 @@ html[data-theme='dark'] {
   --warm: #fbbf24;
   --warm-ink: #f59e0b;
   --warm-soft: #3a2c14;
-  --grad: linear-gradient(135deg, #fbbf24, #34d399);
+  --grad: linear-gradient(135deg, #34d399, #fbbf24);
   --ok: #43c294;
   --ok-soft: #13312a;
   --warn: #e0a35a;
