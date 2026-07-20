@@ -34,6 +34,7 @@ export function Combobox<T>({
   const [active, setActive] = useState(0);
   const [closed, setClosed] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const popRef = useRef<HTMLUListElement>(null);
   const [popStyle, setPopStyle] = useState<CSSProperties>();
 
@@ -94,9 +95,20 @@ export function Combobox<T>({
     setClosed(true);
   };
 
+  // Mũi tên bung/đóng như dropdown: đóng → mở lại (nếu có gợi ý) và focus để gõ lọc.
+  const toggle = () => {
+    if (open) {
+      setClosed(true);
+    } else {
+      setClosed(false);
+      inputRef.current?.focus();
+    }
+  };
+
   return (
-    <div className="combo" ref={rootRef}>
+    <div className={`combo${open ? ' open' : ''}`} ref={rootRef}>
       <input
+        ref={inputRef}
         placeholder={placeholder}
         value={query}
         disabled={disabled}
@@ -126,6 +138,25 @@ export function Combobox<T>({
           }
         }}
       />
+      {/* Mũi tên chevron THỐNG NHẤT với Select/DatePicker — bấm để bung/đóng danh sách. */}
+      <button
+        type="button"
+        className="combo-caret"
+        tabIndex={-1}
+        aria-hidden="true"
+        disabled={disabled}
+        onClick={toggle}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
       {open &&
         createPortal(
           <ul className="combo-menu" ref={popRef} role="listbox" style={popStyle}>
