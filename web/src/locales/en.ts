@@ -312,6 +312,9 @@ export default {
     errStale: 'The ticket was just updated — reloaded.',
     errInvalidState: 'The ticket is no longer in a suitable state — reloaded.',
   },
+  select: {
+    noOptions: '— No options —',
+  },
   forceCancel: {
     button: 'Cancel',
     confirm: 'Confirm cancel',

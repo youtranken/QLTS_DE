@@ -418,6 +418,9 @@ export default {
       cancelled: 'Đã hủy',
     },
   },
+  select: {
+    noOptions: '— Không có lựa chọn —',
+  },
   forceCancel: {
     button: 'Hủy',
     confirm: 'Xác nhận hủy',

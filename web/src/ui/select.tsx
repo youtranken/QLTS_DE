@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 
 export interface SelectOption {
   value: string;
@@ -38,6 +39,7 @@ export function Select({
   className?: string;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -149,6 +151,12 @@ export function Select({
       {open &&
         createPortal(
           <ul className="fsel-menu" role="listbox" style={popStyle} ref={popRef}>
+            {/* Không có lựa chọn nào → báo rõ thay vì ô nổi trống trơ (review D3). */}
+            {options.length === 0 && (
+              <li className="fsel-none" aria-disabled="true">
+                {t('select.noOptions', '— Không có lựa chọn —')}
+              </li>
+            )}
             {options.map((o, i) => (
               <li key={o.value}>
                 <button

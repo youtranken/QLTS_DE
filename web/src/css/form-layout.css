@@ -243,6 +243,13 @@ input[list]::-webkit-calendar-picker-indicator {
   font: inherit;
   color: var(--ink);
 }
+/* Dòng báo "không có lựa chọn" khi options rỗng (review D3) — không bấm được. */
+.fsel-none {
+  padding: 0.5rem 0.6rem;
+  color: var(--ink-3);
+  font-size: 0.88rem;
+  cursor: default;
+}
 .fsel-option:hover,
 .fsel-option.active {
   background: var(--primary-soft);
