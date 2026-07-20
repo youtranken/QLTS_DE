@@ -595,6 +595,7 @@ export default {
     pending: 'Chờ duyệt',
     machineCol: 'Máy',
     empty: 'Chưa có máy nào trong pool cho mượn.',
+    overviewEmpty: 'Chưa có máy nào trong pool cho mượn.',
     freeWeek: 'Trống cả tuần',
     railTitle: 'Máy trống — đặt nhanh',
     railEmpty: 'Hiện không có máy nào rảnh.',

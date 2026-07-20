@@ -309,10 +309,14 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
           <tbody>
             {pageGroups.length === 0 ? (
               <tr>
-                <td colSpan={7} className="empty">
-                  {search || endFrom || endTo
-                    ? t('assets.noMatch')
-                    : t('software.empty')}
+                <td colSpan={7}>
+                  {/* .empty là display:flex → phải bọc trong div, KHÔNG đặt thẳng lên td
+                      (td+flex vỡ layout, lệch trái). Khớp mẫu DataTable. */}
+                  <div className="empty">
+                    {search || endFrom || endTo
+                      ? t('assets.noMatch')
+                      : t('software.empty')}
+                  </div>
                 </td>
               </tr>
             ) : (

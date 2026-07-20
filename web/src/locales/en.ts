@@ -596,6 +596,7 @@ export default {
     pending: 'Pending',
     machineCol: 'Machine',
     empty: 'No machines in the borrow pool yet.',
+    overviewEmpty: 'No machines in the borrow pool yet.',
     freeWeek: 'Free all week',
     railTitle: 'Free machines — quick book',
     railEmpty: 'No machines are free right now.',

@@ -470,9 +470,7 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
         <aside className="mcal-rail">
           <h2>{t('calendar.railTitle')}</h2>
           {free.length === 0 ? (
-            <p className="muted" style={{ fontSize: '0.85rem' }}>
-              {t('calendar.railEmpty')}
-            </p>
+            <div className="empty">{t('calendar.railEmpty')}</div>
           ) : (
             <div className="mcal-freelist">
               {free.map((m) => (
