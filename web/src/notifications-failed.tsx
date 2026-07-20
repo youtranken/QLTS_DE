@@ -72,7 +72,7 @@ export function NotificationsFailedPage({ me }: { me: Me }) {
       ) : items === null ? (
         <p className="muted">…</p>
       ) : items.length === 0 ? (
-        <p className="muted">{t('notifyFailed.empty')}</p>
+        <div className="empty">{t('notifyFailed.empty')}</div>
       ) : (
         <div className="table-wrap">
         <table className="table">

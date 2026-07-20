@@ -259,7 +259,7 @@ export function PoolPage({ me }: { me: Me }) {
       </div>
 
       {items.length === 0 ? (
-        <p className="muted">{t('pool.empty')}</p>
+        <div className="empty">{t('pool.empty')}</div>
       ) : (
         <>
           {/* Lọc bảng: tìm + Loại + Trạng thái + chip đang bật. */}
