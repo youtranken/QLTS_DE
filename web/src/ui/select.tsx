@@ -1,10 +1,12 @@
 import {
   type CSSProperties,
   type ReactNode,
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface SelectOption {
   value: string;
@@ -13,8 +15,10 @@ export interface SelectOption {
 
 /**
  * Select tùy biến (thay <select> native có popup vuông góc xấu). Menu bo góc + shadow theo
- * hệ Sunset Grove, mũi tên › thống nhất. Popover position:fixed neo theo nút → KHÔNG bị
- * overflow của sheet/table cắt; tự lật lên khi dưới thiếu chỗ. Keyboard: ↑/↓/Enter/Esc.
+ * hệ Sunset Grove, mũi tên chevron THỐNG NHẤT với DatePicker. Menu PORTAL ra body +
+ * position:fixed neo theo nút → KHÔNG bị overflow của sheet/table cắt VÀ không bị ancestor
+ * có transform (modal animate) làm fixed neo sai (menu "văng khỏi" trigger). Tự lật lên khi
+ * dưới thiếu chỗ. Keyboard: ↑/↓/Enter/Esc.
  */
 export function Select({
   value,
@@ -38,18 +42,20 @@ export function Select({
   const [active, setActive] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // Menu portal ra body → popRef để click-outside KHÔNG đóng khi bấm trong menu.
+  const popRef = useRef<HTMLUListElement>(null);
   const [popStyle, setPopStyle] = useState<CSSProperties>();
 
   const selected = options.find((o) => o.value === value);
   const label = selected ? selected.label : (placeholder ?? '—');
 
-  useEffect(() => {
-    if (!open) return;
+  const reposition = useCallback(() => {
     const r = triggerRef.current?.getBoundingClientRect();
     if (!r) return;
     const POP_MAX = 288;
     const below = window.innerHeight - r.bottom;
-    const flipUp = below < Math.min(POP_MAX, options.length * 40 + 12) && r.top > below;
+    const flipUp =
+      below < Math.min(POP_MAX, options.length * 40 + 12) && r.top > below;
     setPopStyle({
       position: 'fixed',
       left: r.left,
@@ -59,16 +65,30 @@ export function Select({
         ? { bottom: window.innerHeight - r.top + 4 }
         : { top: r.bottom + 4 }),
     });
+  }, [options.length]);
+
+  // Neo lại khi mở + khi cuộn/resize (capture=true bắt cả cuộn trong .sheet-body).
+  useEffect(() => {
+    if (!open) return;
+    reposition();
     const idx = options.findIndex((o) => o.value === value);
     setActive(idx < 0 ? 0 : idx);
-  }, [open, options, value]);
+    const onMove = () => reposition();
+    window.addEventListener('scroll', onMove, true);
+    window.addEventListener('resize', onMove);
+    return () => {
+      window.removeEventListener('scroll', onMove, true);
+      window.removeEventListener('resize', onMove);
+    };
+  }, [open, reposition, options, value]);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target) || popRef.current?.contains(target))
+        return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
@@ -114,28 +134,38 @@ export function Select({
         }}
       >
         <span className={selected ? 'fsel-val' : 'fsel-val ph'}>{label}</span>
-        <span className="fsel-caret" aria-hidden="true">
-          ›
-        </span>
+        <svg
+          className="fsel-caret"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
       </button>
-      {open && (
-        <ul className="fsel-menu" role="listbox" style={popStyle}>
-          {options.map((o, i) => (
-            <li key={o.value}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={o.value === value}
-                className={`fsel-option${i === active ? ' active' : ''}${o.value === value ? ' sel' : ''}`}
-                onMouseEnter={() => setActive(i)}
-                onClick={() => choose(o.value)}
-              >
-                {o.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {open &&
+        createPortal(
+          <ul className="fsel-menu" role="listbox" style={popStyle} ref={popRef}>
+            {options.map((o, i) => (
+              <li key={o.value}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={o.value === value}
+                  className={`fsel-option${i === active ? ' active' : ''}${o.value === value ? ' sel' : ''}`}
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => choose(o.value)}
+                >
+                  {o.label}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }

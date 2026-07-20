@@ -201,19 +201,21 @@ input[list]::-webkit-calendar-picker-indicator {
 .fsel-val.ph {
   color: var(--ink-3);
 }
+/* Chevron SVG THỐNG NHẤT với DatePicker (.dp-trigger .chev): chỉ xuống khi đóng, lật
+   180° khi mở. Trước đây là ký tự › xoay — không khớp mũi tên lịch. */
 .fsel-caret {
   position: absolute;
   right: 0.6rem;
   top: 50%;
-  transform: translateY(-50%) rotate(90deg);
-  font-size: 1.05rem;
-  line-height: 1;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
   color: var(--ink-3);
   pointer-events: none;
   transition: transform 0.18s var(--ease), color 0.18s var(--ease);
 }
 .fsel-trigger[aria-expanded='true'] .fsel-caret {
-  transform: translateY(-50%) rotate(-90deg);
+  transform: translateY(-50%) rotate(180deg);
   color: var(--primary);
 }
 .fsel-menu {
