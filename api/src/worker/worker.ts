@@ -1,3 +1,4 @@
+import '../net-ipv4-first'; // PHẢI đầu tiên: ép DNS ipv4first trước mọi kết nối (PMH ID allow-list IPv4)
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { Queue, Worker } from 'bullmq';
