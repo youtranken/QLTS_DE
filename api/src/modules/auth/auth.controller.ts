@@ -120,7 +120,8 @@ export class AuthController {
         throw new HttpException(
           {
             code: 'SA_LOGIN_LOCKED',
-            message: 'Quá nhiều lần sai — tạm khoá đăng nhập SA. Thử lại sau ít phút.',
+            message:
+              'Quá nhiều lần sai — tạm khoá đăng nhập SA. Thử lại sau ít phút.',
           },
           HttpStatus.TOO_MANY_REQUESTS,
         );

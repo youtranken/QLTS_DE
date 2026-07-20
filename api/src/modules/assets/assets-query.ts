@@ -49,11 +49,11 @@ export function buildAssetListConditions(
       : undefined,
     query.type ? eq(assetsTable.type, query.type) : undefined,
     // Chi tiết nhóm license: chỉ các bản (seat) đúng tên license này.
-    query.licenseName ? eq(assetsTable.licenseName, query.licenseName) : undefined,
-    // Sổ tài sản chỉ máy: loại phần mềm (danh sách phần mềm tách riêng ở /phan-mem).
-    query.excludeSoftware
-      ? sql`${assetsTable.type} <> 'software'`
+    query.licenseName
+      ? eq(assetsTable.licenseName, query.licenseName)
       : undefined,
+    // Sổ tài sản chỉ máy: loại phần mềm (danh sách phần mềm tách riêng ở /phan-mem).
+    query.excludeSoftware ? sql`${assetsTable.type} <> 'software'` : undefined,
     // Theo dõi hạn: lọc end_date theo khoảng ngày tự chọn (mỗi vế độc lập).
     query.endFrom
       ? sql`${assetsTable.endDate} >= ${query.endFrom}::date`

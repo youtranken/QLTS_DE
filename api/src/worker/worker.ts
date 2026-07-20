@@ -87,9 +87,7 @@ async function bootstrap(): Promise<void> {
     if (id)
       void outbox
         .markFailed(id, reason)
-        .catch((e) =>
-          logger.error(`markFailed lỗi: ${(e as Error).message}`),
-        );
+        .catch((e) => logger.error(`markFailed lỗi: ${(e as Error).message}`));
   });
 
   // SWEEP worker — chạy mọi handler đã đăng ký (registry rỗng ở 3.5a).

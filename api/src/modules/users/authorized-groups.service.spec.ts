@@ -2,11 +2,12 @@ import { AuthorizedGroupsService } from './authorized-groups.service';
 
 function make(opts: { stored?: string[]; fetch?: string[] } = {}) {
   const stored = { value: opts.stored ?? ([] as string[]) };
-  const fetchGroups = jest
-    .fn()
-    .mockResolvedValue(
-      (opts.fetch ?? ['Developers']).map((name, i) => ({ id: String(i), name })),
-    );
+  const fetchGroups = jest.fn().mockResolvedValue(
+    (opts.fetch ?? ['Developers']).map((name, i) => ({
+      id: String(i),
+      name,
+    })),
+  );
   const directory = { fetchUsers: jest.fn(), fetchGroups };
   const config = {
     getAuthorizedGroups: jest.fn(() => Promise.resolve(stored.value)),
@@ -15,7 +16,7 @@ function make(opts: { stored?: string[]; fetch?: string[] } = {}) {
       return Promise.resolve();
     }),
   };
-  const svc = new AuthorizedGroupsService(directory as never, config as never);
+  const svc = new AuthorizedGroupsService(directory, config as never);
   return { svc, directory, config, stored, fetchGroups };
 }
 

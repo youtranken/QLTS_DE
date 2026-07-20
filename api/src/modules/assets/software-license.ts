@@ -40,7 +40,10 @@ export function validateSoftwareInput(input: AssetInput): void {
       );
     }
     if (input.licenseType === 'perpetual' && input.endDate) {
-      bad('LICENSE_PERPETUAL_NO_END', 'License vĩnh viễn không có ngày hết hạn.');
+      bad(
+        'LICENSE_PERPETUAL_NO_END',
+        'License vĩnh viễn không có ngày hết hạn.',
+      );
     }
   } else {
     // Máy (không phải phần mềm) BẮT BUỘC có mã (code đã nullable ở DB — chốt tại đây).

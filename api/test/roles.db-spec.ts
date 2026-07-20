@@ -19,7 +19,10 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5 + delegation 10
   let pool: Pool;
 
   const asSa = () => ({ 'x-dev-user-sub': 'sa-test', 'x-dev-role': 'sa' });
-  const asAdmin = () => ({ 'x-dev-user-sub': 'admin-t', 'x-dev-role': 'admin' });
+  const asAdmin = () => ({
+    'x-dev-user-sub': 'admin-t',
+    'x-dev-role': 'admin',
+  });
 
   /** Tạo session OIDC giả trực tiếp DB — kiểm "hiệu lực ngay không cần login lại". */
   async function fakeSession(sub: string): Promise<string> {
@@ -255,6 +258,8 @@ describe('Ba vai & bổ nhiệm Admin trên DB thật (story 1.5 + delegation 10
         ['sub-locked', 'sub-del'].includes(u.sub),
       ),
     ).toBe(false);
-    await pool.query("DELETE FROM users WHERE sub IN ('sub-locked', 'sub-del')");
+    await pool.query(
+      "DELETE FROM users WHERE sub IN ('sub-locked', 'sub-del')",
+    );
   });
 });

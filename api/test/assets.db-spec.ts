@@ -233,7 +233,9 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .get('/api/admin/assets?page=1&pageSize=100&sort=code&dir=desc')
       .set(asAdmin())
       .expect(200);
-    const codesDesc = (desc.body.items as { code: string }[]).map((a) => a.code);
+    const codesDesc = (desc.body.items as { code: string }[]).map(
+      (a) => a.code,
+    );
     // desc là đảo ngược asc (cùng collation PG cả 2 chiều) → chứng minh dir đổi hướng thật
     expect(codesDesc).toEqual([...codesAsc].reverse());
     expect(codesAsc.length).toBeGreaterThan(1);
@@ -894,9 +896,10 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .set(asAdmin())
       .send({ reason: 'sửa', eta: '2999-01-01', version: a.version })
       .expect(200);
-    await pool.query("UPDATE assets SET lock_eta = '2020-01-01' WHERE id = $1", [
-      a.id,
-    ]);
+    await pool.query(
+      "UPDATE assets SET lock_eta = '2020-01-01' WHERE id = $1",
+      [a.id],
+    );
     await request(app.getHttpServer())
       .post(`/api/admin/assets/${b.id}/lock`)
       .set(asAdmin())
@@ -1124,10 +1127,9 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     expect(blocked.body.code).toBe('ASSET_IN_USE');
 
     // thu hồi (booking không còn delivered) → purge được
-    await pool.query(
-      `UPDATE booking SET state='returned' WHERE asset_id=$1`,
-      [id],
-    );
+    await pool.query(`UPDATE booking SET state='returned' WHERE asset_id=$1`, [
+      id,
+    ]);
     await request(app.getHttpServer())
       .delete(`/api/admin/assets/${id}/purge`)
       .set(asAdmin())
@@ -1195,7 +1197,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     // @types/node Buffer là generic (Buffer<ArrayBufferLike>) — exceljs khai Buffer non-generic
-    await wb.xlsx.load(res.body as unknown as Parameters<typeof wb.xlsx.load>[0]);
+    await wb.xlsx.load(res.body);
     const sheet = wb.worksheets[0];
     const codes: string[] = [];
     let evilRow: string[] | null = null;
@@ -1443,7 +1445,7 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
 
   // ── Story 11.1: Xóa cứng tài sản "sạch" (prefix DEL-, fixture riêng) ──
   const idOf = async (code: string) =>
-    (await pool.query("SELECT id, version FROM assets WHERE code = $1", [code]))
+    (await pool.query('SELECT id, version FROM assets WHERE code = $1', [code]))
       .rows[0] as { id: string; version: number };
 
   const makeAsset = async (code: string, type = 'laptop') => {
@@ -1565,7 +1567,10 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .get(`/api/admin/assets/${a.id}/allocations`)
       .set(asAdmin())
       .expect(200);
-    expect(alloc1.body[0]).toMatchObject({ fromUserSub: null, toUserSub: 'sub-u1' });
+    expect(alloc1.body[0]).toMatchObject({
+      fromUserSub: null,
+      toUserSub: 'sub-u1',
+    });
     // thu hồi (assignedUserSub trống → null)
     await request(app.getHttpServer())
       .put(`/api/admin/assets/${a.id}/assignee`)
@@ -1577,14 +1582,21 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
       .set(asAdmin())
       .expect(200);
     expect(alloc2.body.length).toBe(2);
-    expect(alloc2.body[0]).toMatchObject({ fromUserSub: 'sub-u1', toUserSub: null });
+    expect(alloc2.body[0]).toMatchObject({
+      fromUserSub: 'sub-u1',
+      toUserSub: null,
+    });
   });
 
   it('11.2: phần mềm → 400 OWNER_NOT_APPLICABLE; version lệch → 409 STALE', async () => {
     await request(app.getHttpServer())
       .post('/api/admin/assets')
       .set(asAdmin())
-      .send({ type: 'software', licenseName: 'ASG-SW', licenseType: 'perpetual' })
+      .send({
+        type: 'software',
+        licenseName: 'ASG-SW',
+        licenseType: 'perpetual',
+      })
       .expect(201);
     const sw = (
       await pool.query(

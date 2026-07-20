@@ -52,7 +52,11 @@ export class LocalSaService {
    *  - 'bad'     → sai (401), tăng bộ đếm (lần thứ 5 chuyển sang 'locked')
    * Luôn chạy scrypt (kể cả sai username) để không lộ enumeration qua timing.
    */
-  attemptLogin(username: string, password: string, ip: string): 'ok' | 'bad' | 'locked' {
+  attemptLogin(
+    username: string,
+    password: string,
+    ip: string,
+  ): 'ok' | 'bad' | 'locked' {
     const now = Date.now();
     this.prune(now);
     const prev = this.attempts.get(ip);
@@ -68,7 +72,11 @@ export class LocalSaService {
     // Bộ đếm mới nếu chưa có, hoặc lock trước đó đã hết hạn (lockUntil <= now)
     const fails = (prev && prev.lockUntil === 0 ? prev.fails : 0) + 1;
     if (fails >= MAX_FAILS) {
-      this.attempts.set(ip, { fails: 0, lockUntil: now + LOCK_MS, touchedAt: now });
+      this.attempts.set(ip, {
+        fails: 0,
+        lockUntil: now + LOCK_MS,
+        touchedAt: now,
+      });
       return 'locked';
     }
     this.attempts.set(ip, { fails, lockUntil: 0, touchedAt: now });

@@ -241,5 +241,4 @@ export class CatalogService {
       detail: { active },
     });
   }
-
 }

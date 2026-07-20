@@ -351,13 +351,18 @@ export class AssetsService {
         if (current[0].isPool) {
           throw new ConflictException({
             code: 'ASSET_IN_POOL',
-            message: 'Máy đang ở pool cho mượn — gỡ khỏi pool trước, hoặc dùng Thanh lý.',
+            message:
+              'Máy đang ở pool cho mượn — gỡ khỏi pool trước, hoặc dùng Thanh lý.',
           });
         }
         // "Sạch" = chưa phát sinh gì. Thứ tự: booking → software cài → lịch sử.
         const exists = async (query: ReturnType<typeof sql>) =>
           (await tx.execute<{ one: number }>(query)).rows.length > 0;
-        if (await exists(sql`SELECT 1 FROM booking WHERE asset_id = ${id} LIMIT 1`)) {
+        if (
+          await exists(
+            sql`SELECT 1 FROM booking WHERE asset_id = ${id} LIMIT 1`,
+          )
+        ) {
           throw new ConflictException({
             code: 'ASSET_HAS_BOOKING',
             message: 'Máy đã có lịch mượn — không xóa được, hãy dùng Thanh lý.',
@@ -660,7 +665,6 @@ export class AssetsService {
       pageSize: query.pageSize,
     };
   }
-
 
   /**
    * Gỡ MỌI license khỏi máy (2.5, FR-50) — 2.6 gọi TRONG tx thanh lý
@@ -1192,7 +1196,6 @@ export class AssetsService {
     }
     return rows[0];
   }
-
 }
 
 /** So khớp old_<field> (kiểu pg raw: bigint=string, date=Date) với input mới. */

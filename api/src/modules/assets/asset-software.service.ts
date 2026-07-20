@@ -56,7 +56,9 @@ export class AssetSoftwareService {
    */
   async listLicenseGroups(search?: string) {
     const before = await this.expiringCutoff();
-    const pattern = search ? `%${search.replace(/[%_\\]/g, (c) => `\\${c}`)}%` : null;
+    const pattern = search
+      ? `%${search.replace(/[%_\\]/g, (c) => `\\${c}`)}%`
+      : null;
     const rows = await this.db.execute<{
       licenseName: string;
       licenseType: string | null;

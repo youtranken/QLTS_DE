@@ -487,7 +487,7 @@ describe('Luồng đăng nhập PMH ID (story 1.2)', () => {
       const cookies =
         (cb.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
       return {
-        location: cb.headers.location as string,
+        location: cb.headers.location,
         hasSid: cookies.some((c: string) => c.startsWith('qlts_sid=')),
       };
     }

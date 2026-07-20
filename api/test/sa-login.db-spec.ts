@@ -7,7 +7,9 @@ import { hashPassword } from '../src/modules/auth/local-sa.service';
 import { createTestApp } from './test-app.helper';
 
 if (!process.env.DATABASE_URL) {
-  throw new Error('[sa-login.db-spec] DATABASE_URL chưa đặt — cần Postgres thật.');
+  throw new Error(
+    '[sa-login.db-spec] DATABASE_URL chưa đặt — cần Postgres thật.',
+  );
 }
 const dbName = new URL(process.env.DATABASE_URL).pathname.replace(/^\//, '');
 if (!/test/i.test(dbName)) {
@@ -122,9 +124,10 @@ describe('SA local break-glass login (story 10.1)', () => {
     // lần thứ 5 kích hoạt khoá
     await login({ username: SA_USER, password: 'bad' }, ip).expect(429);
     // đang khoá: kể cả mật khẩu ĐÚNG cũng 429
-    const res = await login({ username: SA_USER, password: SA_PASS }, ip).expect(
-      429,
-    );
+    const res = await login(
+      { username: SA_USER, password: SA_PASS },
+      ip,
+    ).expect(429);
     expect(res.body.code).toBe('SA_LOGIN_LOCKED');
   });
 
