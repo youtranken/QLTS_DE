@@ -108,6 +108,11 @@ export class SystemConfigService {
     return this.getInt('auto_approve_max_hours');
   }
 
+  /** Trần thời lượng MỘT lượt mượn (audit H-2, 0041) — chặn booking giam máy vĩnh viễn. */
+  getMaxBookingDurationHours(): Promise<number> {
+    return this.getInt('max_booking_duration_hours');
+  }
+
   /**
    * Baseline consumer mail (5.1, AC2) — ghi MỘT LẦN durable dùng `ON CONFLICT DO NOTHING`
    * (nhiều worker cùng boot không đè nhau). Lưu epoch millis để new Date() không mơ hồ định dạng.

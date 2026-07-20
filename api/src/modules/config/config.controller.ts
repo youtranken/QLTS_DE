@@ -85,6 +85,14 @@ class ConfigUpdateDto {
   @Max(720)
   auto_approve_max_hours?: number;
 
+  // audit H-2: trần thời lượng MỘT lượt mượn (giờ). 1..8760h (~1 năm) là biên kỹ thuật;
+  // giá trị nghiệp vụ chốt là 720h (30 ngày), seed ở 0041.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(8760)
+  max_booking_duration_hours?: number;
+
   @IsOptional()
   @ValidateNested()
   @Type(() => WorkingHoursDto)

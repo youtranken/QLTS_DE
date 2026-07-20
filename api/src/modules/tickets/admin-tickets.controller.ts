@@ -59,6 +59,14 @@ class AdminExtendDto {
   newDue!: string;
 }
 
+/** Hủy cưỡng chế (audit H-2): BẮT BUỘC lý do — đây là quyền đè lên request người khác. */
+class ForceCancelDto {
+  @trim
+  @IsString()
+  @Length(1, 500)
+  reason!: string;
+}
+
 class DeliverDto extends ApproveDto {
   /** Note tình trạng lúc giao — TÙY CHỌN (FR-14). */
   @IsOptional()
@@ -260,6 +268,21 @@ export class AdminTicketsController {
     @Req() req: AuthedRequest,
   ) {
     return this.extension.adminExtend(id, body.newDue, requireSub(req));
+  }
+
+  /**
+   * Hủy CƯỠNG CHẾ ticket của người khác (audit H-2) — lối thoát khi máy bị giam bởi
+   * booking đã duyệt: member hết quyền hủy sau giờ nhận, sweep không đụng 'pending'.
+   * Không cần version: admin quyết trên hiện trạng, không phải đồng thuận lạc quan.
+   */
+  @Post(':id/force-cancel')
+  @HttpCode(200)
+  forceCancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ForceCancelDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.tickets.adminForceCancel(id, requireSub(req), body.reason);
   }
 
   /** Hàng đợi giao/nhận từng buổi của chuỗi định kỳ (4.5a). */

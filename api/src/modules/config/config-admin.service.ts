@@ -19,6 +19,7 @@ const EDITABLE_KEYS = [
   'working_hours',
   'approval_reminder_working_hours',
   'auto_approve_max_hours',
+  'max_booking_duration_hours',
 ] as const;
 
 export interface ConfigPatch {
@@ -29,6 +30,7 @@ export interface ConfigPatch {
   license_warning_days?: number;
   approval_reminder_working_hours?: number;
   auto_approve_max_hours?: number;
+  max_booking_duration_hours?: number;
   working_hours?: WorkingHours;
 }
 

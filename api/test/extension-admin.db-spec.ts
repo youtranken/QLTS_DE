@@ -97,7 +97,9 @@ describe('Admin gia hạn thẳng (đường B)', () => {
       `SELECT upper(period) AS to_ts FROM booking WHERE id=$1`,
       [s.deliveredId],
     );
-    expect(new Date(d.rows[0].to_ts).getTime()).toBe(new Date(newDue).getTime());
+    expect(new Date(d.rows[0].to_ts).getTime()).toBe(
+      new Date(newDue).getTime(),
+    );
     const tk = await pool.query<{ n: number }>(
       `SELECT extension_count AS n FROM ticket WHERE id=$1`,
       [s.ticketId],
@@ -164,7 +166,9 @@ describe('Admin gia hạn thẳng (đường B)', () => {
       `SELECT upper(period) AS to_ts FROM booking WHERE id=$1`,
       [s.deliveredId],
     );
-    expect(new Date(d.rows[0].to_ts).getTime()).toBe(new Date(newDue).getTime());
+    expect(new Date(d.rows[0].to_ts).getTime()).toBe(
+      new Date(newDue).getTime(),
+    );
   });
 
   it('member gọi → 403 (chỉ admin/sa)', async () => {

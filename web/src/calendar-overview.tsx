@@ -5,6 +5,7 @@ import { DatePicker } from './ui/date-picker';
 import { BookingSheet } from './booking-sheet';
 import { ExtensionDialog } from './extension-dialog';
 import { ExtensionApproveDialog } from './extension-approve-dialog';
+import { ForceCancelButton } from './force-cancel-button';
 import type { Me } from './panels';
 
 interface BusyBlock {
@@ -612,6 +613,21 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
                                 : t('extension.action')}
                             </button>
                           )
+                        )}
+                        {/* Hủy cưỡng chế (audit H-2) — CHỈ admin, và chỉ cho lượt
+                            thường: chuỗi định kỳ BE trả IS_RECURRING nên không hiện. */}
+                        {isAdmin && r.kind !== 'recurring' && (
+                          <>
+                            {' '}
+                            <ForceCancelButton
+                              ticketId={r.ticketId}
+                              me={me}
+                              onDone={() => {
+                                void loadCalendar();
+                                void loadSide();
+                              }}
+                            />
+                          </>
                         )}
                       </td>
                     </tr>

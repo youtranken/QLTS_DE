@@ -3,6 +3,7 @@ import { SystemConfigModule } from '../config/config.module';
 import { ApprovalMailRegistrar } from './approval-mail.registrar';
 import { OverdueMailRegistrar } from './overdue-mail.registrar';
 import { CascadeCancelMailRegistrar } from './cascade-cancel-mail.registrar';
+import { ForceCancelMailRegistrar } from './force-cancel-mail.registrar';
 import { OffboardMailRegistrar } from './offboard-mail.registrar';
 import { LicenseDigestMailRegistrar } from './license-digest-mail.registrar';
 import { MailTransportService } from './mail-transport.service';
@@ -24,6 +25,7 @@ import { NotificationsController } from './notifications.controller';
     ApprovalMailRegistrar,
     OverdueMailRegistrar,
     CascadeCancelMailRegistrar,
+    ForceCancelMailRegistrar,
     OffboardMailRegistrar,
     LicenseDigestMailRegistrar,
   ],

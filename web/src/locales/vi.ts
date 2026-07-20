@@ -418,6 +418,13 @@ export default {
       cancelled: 'Đã hủy',
     },
   },
+  forceCancel: {
+    button: 'Hủy',
+    confirm: 'Xác nhận hủy',
+    abort: 'Thôi',
+    reasonPlaceholder: 'Lý do hủy (gửi cho người mượn)',
+    failed: 'Không hủy được — thử lại.',
+  },
   extension: {
     action: 'Xin gia hạn',
     actionAdmin: 'Gia hạn',

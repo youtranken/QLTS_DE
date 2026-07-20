@@ -312,6 +312,13 @@ export default {
     errStale: 'The ticket was just updated — reloaded.',
     errInvalidState: 'The ticket is no longer in a suitable state — reloaded.',
   },
+  forceCancel: {
+    button: 'Cancel',
+    confirm: 'Confirm cancel',
+    abort: 'Dismiss',
+    reasonPlaceholder: 'Reason (sent to the borrower)',
+    failed: 'Could not cancel — try again.',
+  },
   extension: {
     action: 'Request extension',
     actionAdmin: 'Extend',

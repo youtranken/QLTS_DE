@@ -76,7 +76,14 @@ export class BookingService {
     typeFilter?: string | null,
   ): Promise<AvailableMachine[]> {
     const windowDays = await this.config.getBookingWindowDays();
-    parseBookingWindow(fromIso, toIso, windowDays);
+    const maxDurationHours = await this.config.getMaxBookingDurationHours();
+    parseBookingWindow(
+      fromIso,
+      toIso,
+      windowDays,
+      Date.now(),
+      maxDurationHours,
+    );
 
     // OCCUPYING_STATES từ nguồn chung (AD-2) — dựng list literal cho SQL, không hard-code lại
     const occupying = sql.join(
@@ -148,7 +155,12 @@ export class BookingService {
    * Read-model công khai nội bộ (AD-5) — không lộ người mượn.
    */
   async poolFreeNow(): Promise<
-    Array<{ id: string; code: string; type: string; configuration: string | null }>
+    Array<{
+      id: string;
+      code: string;
+      type: string;
+      configuration: string | null;
+    }>
   > {
     const occupying = sql.join(
       OCCUPYING_STATES.map((s) => sql`${s}`),
@@ -343,7 +355,10 @@ export class BookingService {
     `);
     if (rows.rows.length === 0) {
       // Không có máy pool: vẫn trả mốc tuần để FE hiện lịch rỗng đúng tuần.
-      const b = await this.db.execute<{ week_start: string; week_end: string }>(sql`
+      const b = await this.db.execute<{
+        week_start: string;
+        week_end: string;
+      }>(sql`
         WITH wk AS (
           SELECT date_trunc('week', (${anchor} AT TIME ZONE 'Asia/Ho_Chi_Minh')) AS ws_local
         )

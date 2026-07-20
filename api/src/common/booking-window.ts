@@ -6,17 +6,40 @@ export interface ParsedWindow {
 }
 
 /**
+ * Trần thời lượng một lượt mượn (audit H-2). Tách riêng vì còn dùng cho nhánh
+ * "giao ngay" và cho adminExtend — hai đường KHÔNG đi qua parseBookingWindow.
+ * `maxHours` undefined = không áp trần (giữ tương thích với caller chưa truyền).
+ */
+export function assertBookingDuration(
+  from: Date,
+  to: Date,
+  maxHours?: number,
+): void {
+  if (maxHours === undefined) return;
+  const hours = (to.getTime() - from.getTime()) / 3_600_000;
+  if (hours > maxHours) {
+    throw new BadRequestException({
+      code: 'BOOKING_TOO_LONG',
+      message: `Một lượt mượn tối đa ${maxHours} giờ (~${Math.round(maxHours / 24)} ngày).`,
+    });
+  }
+}
+
+/**
  * Validate khung giờ mượn (FR-9/44) dùng chung Booking (availability) + Tickets (submit):
- *  - parse được, to > from, from ≥ hiện tại, from trong booking window (windowDays).
- * Window CHỈ áp `from` (party phiên 7 — giờ trả lòi ra ngoài window vẫn hợp lệ).
+ *  - parse được, to > from, from ≥ hiện tại, from trong booking window (windowDays),
+ *    và thời lượng (to-from) ≤ maxDurationHours.
+ * Window CHỈ áp `from` (party phiên 7 — giờ trả lòi ra ngoài window vẫn hợp lệ);
+ * trần thời lượng (audit H-2) mới là thứ chặn `to` chạy vô hạn.
  * So instant UTC (Date) — offset đã ép ở DTO nên timezone-independent.
- * Ném 400 phân biệt code: INVALID_RANGE / PAST_PICKUP / BOOKING_WINDOW.
+ * Ném 400 phân biệt code: INVALID_RANGE / PAST_PICKUP / BOOKING_WINDOW / BOOKING_TOO_LONG.
  */
 export function parseBookingWindow(
   fromIso: string,
   toIso: string,
   windowDays: number,
   now: number = Date.now(),
+  maxDurationHours?: number,
 ): ParsedWindow {
   const from = new Date(fromIso);
   const to = new Date(toIso);
@@ -44,5 +67,6 @@ export function parseBookingWindow(
       message: `Chỉ được đặt trong vòng ${windowDays} ngày tới.`,
     });
   }
+  assertBookingDuration(from, to, maxDurationHours);
   return { from, to };
 }

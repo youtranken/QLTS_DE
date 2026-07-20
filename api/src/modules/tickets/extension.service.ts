@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { mapBookingPgError } from '../../common/booking-errors';
+import { assertBookingDuration } from '../../common/booking-window';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
@@ -358,8 +359,9 @@ export class ExtensionService {
 
   /**
    * Admin gia hạn THẲNG (đường B) — đặt hạn trả mới ngay, KHÔNG qua bước request/duyệt.
-   * Không giới hạn số lần/số ngày (admin quyết định); cho phép cả ticket ĐÃ QUÁ HẠN (gia hạn cứu).
-   * Vẫn chặn: không đang mượn, buổi định kỳ, hạn mới ≤ hạn hiện tại, va khung máy (SLOT_TAKEN).
+   * Không giới hạn SỐ LẦN (admin quyết định); cho phép cả ticket ĐÃ QUÁ HẠN (gia hạn cứu).
+   * Vẫn chặn: không đang mượn, buổi định kỳ, hạn mới ≤ hạn hiện tại, hạn mới ở quá khứ,
+   * tổng thời lượng vượt trần (audit H-2), va khung máy (SLOT_TAKEN).
    * Hủy mọi yêu cầu gia hạn đang treo của ticket (bị thay thế bởi quyết định admin).
    */
   async adminExtend(
@@ -367,6 +369,7 @@ export class ExtensionService {
     newDueIso: string,
     actorSub: string,
   ): Promise<{ id: string; state: string }> {
+    const maxDurationHours = await this.config.getMaxBookingDurationHours();
     try {
       return await this.db.transaction(async (tx) => {
         const rows = await tx.execute<{ state: string; kind: string }>(
@@ -423,6 +426,13 @@ export class ExtensionService {
             message: 'Hạn mới phải ở tương lai (sau thời điểm hiện tại).',
           });
         }
+        // Trần thời lượng (audit H-2): adminExtend ghi thẳng cột period, KHÔNG đi qua
+        // parseBookingWindow — nếu bỏ sót đây thì vá ở submit chỉ chặn cửa trước.
+        assertBookingDuration(
+          new Date(orig.rows[0].from_ts),
+          new Date(newDueIso),
+          maxDurationHours,
+        );
         // Hủy yêu cầu gia hạn treo (nếu có) TRƯỚC khi nới period gốc (tránh đụng EXCLUDE).
         await tx.execute(sql`
           UPDATE booking SET state = 'cancelled', result = 'expired',

@@ -8,7 +8,10 @@ import {
 } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { mapBookingPgError } from '../../common/booking-errors';
-import { parseBookingWindow } from '../../common/booking-window';
+import {
+  assertBookingDuration,
+  parseBookingWindow,
+} from '../../common/booking-window';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
@@ -341,7 +344,14 @@ export class TicketsService {
     borrowerSub: string,
   ): Promise<SubmitBookingResult> {
     const windowDays = await this.config.getBookingWindowDays();
-    const { from, to } = parseBookingWindow(input.from, input.to, windowDays);
+    const maxDurationHours = await this.config.getMaxBookingDurationHours();
+    const { from, to } = parseBookingWindow(
+      input.from,
+      input.to,
+      windowDays,
+      Date.now(),
+      maxDurationHours,
+    );
     // Ngưỡng auto-duyệt lấy từ config (audit H2) để SA chỉnh; hằng số cũ chỉ còn là mặc định seed.
     const autoApproveMs =
       (await this.config.getAutoApproveMaxHours()) * 3_600_000;
@@ -489,10 +499,17 @@ export class TicketsService {
         message: 'Giờ không hợp lệ.',
       });
     }
+    const maxDurationHours = await this.config.getMaxBookingDurationHours();
     if (input.mode === 'schedule') {
       // đặt lịch tương lai: from≥now + trong window
       const windowDays = await this.config.getBookingWindowDays();
-      parseBookingWindow(input.from, input.to, windowDays);
+      parseBookingWindow(
+        input.from,
+        input.to,
+        windowDays,
+        Date.now(),
+        maxDurationHours,
+      );
     } else {
       // giao ngay = giao TẠI CHỖ: from ≤ now (không đặt lịch tương lai — dùng schedule),
       // to > now (máy đang giao thì hạn trả phải ở tương lai). Chống backdate/future-in_use
@@ -517,6 +534,8 @@ export class TicketsService {
           message: 'Giao ngay: hạn trả phải ở tương lai.',
         });
       }
+      // Nhánh này KHÔNG đi qua parseBookingWindow → phải tự áp trần (audit H-2).
+      assertBookingDuration(from, to, maxDurationHours);
     }
 
     const ticketState = input.mode === 'now' ? 'in_use' : 'awaiting_pickup';
@@ -825,6 +844,75 @@ export class TicketsService {
         objectType: 'ticket',
         objectId: ticketId,
         detail: { by: 'member', fromState: t.state },
+      });
+      return { id: ticketId, state: 'cancelled' };
+    });
+  }
+
+  /**
+   * Admin hủy CƯỠNG CHẾ ticket của người khác (audit H-2) — lối thoát vận hành.
+   * Trước bản vá này KHÔNG có đường nào gỡ một ticket đã duyệt nhưng kẹt: member không
+   * hủy được sau giờ nhận, autoCloseNoShow chỉ chạy khi hết period, sweep bỏ qua
+   * 'pending' → máy giam tới khi can thiệp SQL tay.
+   *
+   * Khác `cancelMyTicket`: KHÔNG kiểm chủ sở hữu, KHÔNG kiểm pickup_passed, KHÔNG cần
+   * version (admin quyết trên hiện trạng). Vẫn chặn trạng thái đã kết thúc và chuỗi
+   * định kỳ (kind='recurring' có đường hủy riêng đi qua deriveParentState — AD-4).
+   */
+  async adminForceCancel(
+    ticketId: string,
+    actorSub: string,
+    reason: string,
+  ): Promise<{ id: string; state: string }> {
+    return this.db.transaction(async (tx) => {
+      const rows = await tx.execute<{ state: string; kind: string }>(
+        sql`SELECT state, kind FROM ticket WHERE id = ${ticketId} FOR UPDATE`,
+      );
+      if (rows.rows.length === 0) {
+        throw new NotFoundException({
+          code: 'TICKET_NOT_FOUND',
+          message: 'Không tìm thấy request này.',
+        });
+      }
+      const t = rows.rows[0];
+      if (t.kind !== 'normal') {
+        throw new ConflictException({
+          code: 'IS_RECURRING',
+          message:
+            'Chuỗi định kỳ phải hủy qua chức năng chuỗi (giữ bất biến trạng thái cha).',
+        });
+      }
+      if (!(ACTIVE_TICKET_STATES as readonly string[]).includes(t.state)) {
+        throw new ConflictException({
+          code: 'CANNOT_CANCEL',
+          message: 'Request đã kết thúc — không còn gì để hủy.',
+        });
+      }
+
+      await tx.execute(sql`
+        UPDATE ticket SET state = 'cancelled', version = version + 1, updated_at = now()
+        WHERE id = ${ticketId}
+      `);
+      await tx.execute(sql`
+        UPDATE booking SET state = 'cancelled', version = version + 1, updated_at = now()
+        WHERE ticket_id = ${ticketId}
+          AND state IN (${sql.join(
+            OCCUPYING_STATES.map((s) => sql`${s}`),
+            sql`, `,
+          )})
+      `);
+      await this.audit.appendWithin(tx, {
+        actor: actorSub,
+        action: 'tickets.force_cancel',
+        objectType: 'ticket',
+        objectId: ticketId,
+        detail: { by: 'admin', fromState: t.state, reason },
+      });
+      // Người bị hủy PHẢI được báo kèm lý do — hủy im lặng thì họ vẫn chờ máy.
+      // Cùng tx với thay đổi trạng thái (AD-11 outbox transactional).
+      await this.outbox.enqueueWithin(tx, 'ticket_force_cancelled', {
+        ticketId,
+        reason,
       });
       return { id: ticketId, state: 'cancelled' };
     });

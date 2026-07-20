@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ForceCancelButton } from './force-cancel-button';
 import type { Me } from './panels';
 
 interface QueueRow {
@@ -246,18 +247,26 @@ export function HandoverQueues({
                         </button>
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        className="primary sm"
-                        disabled={busyId !== null}
-                        onClick={() => {
-                          setActingId(row.id);
-                          setNote('');
-                          setPhoto(null);
-                        }}
-                      >
-                        {t(actionKey)}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="primary sm"
+                          disabled={busyId !== null}
+                          onClick={() => {
+                            setActingId(row.id);
+                            setNote('');
+                            setPhoto(null);
+                          }}
+                        >
+                          {t(actionKey)}
+                        </button>{' '}
+                        <ForceCancelButton
+                          ticketId={row.id}
+                          me={me}
+                          disabled={busyId !== null}
+                          onDone={() => void load()}
+                        />
+                      </>
                     )}
                   </td>
                 </tr>

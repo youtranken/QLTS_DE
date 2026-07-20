@@ -51,7 +51,7 @@ describe('Config admin (story 6.3)', () => {
     delete process.env.AUTH_DEV_MODE;
   });
 
-  it('AC1 — SA GET trả đúng 8 tham số FR-44, KHÔNG marker runtime', async () => {
+  it('AC1 — SA GET trả đúng 9 tham số FR-44, KHÔNG marker runtime', async () => {
     // 5.5 seed 'directory_sync_interval_minutes' — marker KHÔNG được lộ ra màn config
     const res = await getCfg().expect(200);
     expect(Object.keys(res.body).sort()).toEqual([
@@ -62,6 +62,8 @@ describe('Config admin (story 6.3)', () => {
       'extension_days_per_grant',
       'extension_max_grants',
       'license_warning_days',
+      // 0041 (audit H-2): trần thời lượng 1 lượt mượn
+      'max_booking_duration_hours',
       'working_hours',
     ]);
     expect(res.body).not.toHaveProperty('directory_sync_interval_minutes');
