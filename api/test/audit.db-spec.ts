@@ -89,6 +89,19 @@ describe('Nền audit append-only (story 1.4)', () => {
     );
   });
 
+  // Migration 0040 (audit 2026-07-19): allocation_history + asset_note cũng phải chặn
+  // TRUNCATE như audit_log — trước 0040 chỉ có trigger FOR EACH ROW (không kích hoạt
+  // khi TRUNCATE). Không có test này, refactor forbid_*_mutation() có thể tháo bảo vệ
+  // mà suite vẫn xanh (review L2).
+  it('trigger DB chặn TRUNCATE trên allocation_history + asset_note (0040)', async () => {
+    await expect(pool.query('TRUNCATE allocation_history')).rejects.toThrow(
+      /append-only/,
+    );
+    await expect(pool.query('TRUNCATE asset_note')).rejects.toThrow(
+      /append-only/,
+    );
+  });
+
   it('@Audited: handler thành công → 1 dòng audit đúng action/objectId, actor system khi không đăng nhập (AC 3)', async () => {
     // interceptor AWAIT ghi xong mới trả response — không cần sleep
     await request(app.getHttpServer())

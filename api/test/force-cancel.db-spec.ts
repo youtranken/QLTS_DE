@@ -197,6 +197,29 @@ describe('Admin hủy cưỡng chế + trần thời lượng (audit H-2)', () =
     expect(res.body.code).toBe('CANNOT_CANCEL');
   });
 
+  it('ticket đang mượn (in_use, đã giao) → ALREADY_DELIVERED, KHÔNG hủy (review M1)', async () => {
+    // Máy đã giao thật: hủy sẽ nhả booking → double-allocation. Phải đi đường Trả.
+    const m = await newMachine('FC-INUSE');
+    const t = await pool.query<{ id: string }>(
+      `INSERT INTO ticket (state, kind, borrower_sub, created_by_sub)
+       VALUES ('in_use','normal','mem-x','mem-x') RETURNING id`,
+    );
+    const id = t.rows[0].id;
+    await pool.query(
+      `INSERT INTO booking (ticket_id, asset_id, kind, state, period)
+       VALUES ($1,$2,'normal','delivered', tstzrange($3,$4,'[)'))`,
+      [id, m, iso(-1 * D), iso(5 * D)],
+    );
+    const res = await forceCancel(id).expect(409);
+    expect(res.body.code).toBe('ALREADY_DELIVERED');
+    // ticket vẫn in_use, booking vẫn delivered (không bị đụng)
+    const chk = await pool.query<{ state: string }>(
+      `SELECT state FROM ticket WHERE id=$1`,
+      [id],
+    );
+    expect(chk.rows[0].state).toBe('in_use');
+  });
+
   it('ticket không tồn tại → 404', async () => {
     await forceCancel('00000000-0000-0000-0000-000000000000').expect(404);
   });

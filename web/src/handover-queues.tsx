@@ -260,12 +260,16 @@ export function HandoverQueues({
                         >
                           {t(actionKey)}
                         </button>{' '}
-                        <ForceCancelButton
-                          ticketId={row.id}
-                          me={me}
-                          disabled={busyId !== null}
-                          onDone={() => void load()}
-                        />
+                        {/* Hủy cưỡng chế CHỈ ở hàng chờ giao (awaiting_pickup, kind=deliver) —
+                            máy đang mượn (in_use, kind=return) phải đi đường Trả (review M1). */}
+                        {kind === 'deliver' && (
+                          <ForceCancelButton
+                            ticketId={row.id}
+                            me={me}
+                            disabled={busyId !== null}
+                            onDone={() => void load()}
+                          />
+                        )}
                       </>
                     )}
                   </td>

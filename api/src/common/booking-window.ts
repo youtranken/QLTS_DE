@@ -15,7 +15,9 @@ export function assertBookingDuration(
   to: Date,
   maxHours?: number,
 ): void {
-  if (maxHours === undefined) return;
+  // maxHours ≤ 0 (vd ai đó set 0 thẳng DB, lách @Min(1) của DTO) = KHÔNG áp trần —
+  // tránh khóa toàn bộ mượn (review L1). undefined = caller chưa truyền.
+  if (maxHours === undefined || maxHours <= 0) return;
   const hours = (to.getTime() - from.getTime()) / 3_600_000;
   if (hours > maxHours) {
     throw new BadRequestException({

@@ -4,6 +4,10 @@
 
 services:
   api:
+    # image ĐẶT TÊN TƯỜNG MINH để worker (image: qlts-api:latest) dùng CHUNG bất kể
+    # tên project/thư mục — nếu để compose tự đặt <project>-api thì worker chỉ khớp khi
+    # project name đúng 'qlts' (review M2).
+    image: qlts-api:latest
     build: ./api
     restart: unless-stopped
     mem_limit: ${API_MEM_LIMIT:-384m}

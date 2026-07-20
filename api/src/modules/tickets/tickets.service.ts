@@ -858,6 +858,10 @@ export class TicketsService {
    * Khác `cancelMyTicket`: KHÔNG kiểm chủ sở hữu, KHÔNG kiểm pickup_passed, KHÔNG cần
    * version (admin quyết trên hiện trạng). Vẫn chặn trạng thái đã kết thúc và chuỗi
    * định kỳ (kind='recurring' có đường hủy riêng đi qua deriveParentState — AD-4).
+   *
+   * CHỈ cho pending_approval + awaiting_pickup (review M1): ticket 'in_use' là máy ĐÃ GIAO
+   * thật, hủy sẽ nhả booking → poolFreeNow thấy máy free trong khi nó còn ở tay người mượn
+   * (double-allocation, không vết thu hồi). Máy in_use phải đi đường Trả (returnTicket).
    */
   async adminForceCancel(
     ticketId: string,
@@ -882,7 +886,13 @@ export class TicketsService {
             'Chuỗi định kỳ phải hủy qua chức năng chuỗi (giữ bất biến trạng thái cha).',
         });
       }
-      if (!(ACTIVE_TICKET_STATES as readonly string[]).includes(t.state)) {
+      if (t.state === 'in_use') {
+        throw new ConflictException({
+          code: 'ALREADY_DELIVERED',
+          message: 'Máy đã giao — dùng chức năng Trả để thu hồi, không hủy cưỡng chế.',
+        });
+      }
+      if (t.state !== 'pending_approval' && t.state !== 'awaiting_pickup') {
         throw new ConflictException({
           code: 'CANNOT_CANCEL',
           message: 'Request đã kết thúc — không còn gì để hủy.',

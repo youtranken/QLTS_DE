@@ -76,7 +76,9 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
   const [weekStart, setWeekStart] = useState<string | null>(null);
   const [data, setData] = useState<PoolCalendar | null>(null);
-  const [free, setFree] = useState<FreeMachine[]>([]);
+  // null = CHƯA tải xong (khác [] = đã tải, không có máy rảnh) — tránh nhấp nháy
+  // "không có máy rảnh" lúc đang tải (review L3).
+  const [free, setFree] = useState<FreeMachine[] | null>(null);
   const [board, setBoard] = useState<BoardRow[]>([]);
   const [error, setError] = useState(false);
   const [machineFilter, setMachineFilter] = useState('');
@@ -469,7 +471,7 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
         {/* Rail máy trống — đặt nhanh (bên phải) */}
         <aside className="mcal-rail">
           <h2>{t('calendar.railTitle')}</h2>
-          {free.length === 0 ? (
+          {free === null ? null : free.length === 0 ? (
             <div className="empty">{t('calendar.railEmpty')}</div>
           ) : (
             <div className="mcal-freelist">
@@ -614,19 +616,23 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
                         )}
                         {/* Hủy cưỡng chế (audit H-2) — CHỈ admin, và chỉ cho lượt
                             thường: chuỗi định kỳ BE trả IS_RECURRING nên không hiện. */}
-                        {isAdmin && r.kind !== 'recurring' && (
-                          <>
-                            {' '}
-                            <ForceCancelButton
-                              ticketId={r.ticketId}
-                              me={me}
-                              onDone={() => {
-                                void loadCalendar();
-                                void loadSide();
-                              }}
-                            />
-                          </>
-                        )}
+                        {/* Ẩn cho in_use: máy đã giao phải đi đường Trả, BE chặn force-cancel
+                            in_use (ALREADY_DELIVERED) — review M1. */}
+                        {isAdmin &&
+                          r.kind !== 'recurring' &&
+                          r.state !== 'in_use' && (
+                            <>
+                              {' '}
+                              <ForceCancelButton
+                                ticketId={r.ticketId}
+                                me={me}
+                                onDone={() => {
+                                  void loadCalendar();
+                                  void loadSide();
+                                }}
+                              />
+                            </>
+                          )}
                       </td>
                     </tr>
                   );
