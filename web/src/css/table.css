@@ -194,6 +194,15 @@ table.table tbody tr.row-highlight td:first-child {
   justify-content: flex-start;
   text-align: left;
 }
+/* Item nguy hiểm (Thanh lý/Hủy): .ghost định nghĩa SAU .danger nên đè chữ về xám —
+   ép lại CHỮ ĐỎ + hover nền đỏ nhạt (khớp mẫu tb-dropdown) để báo hiệu phá hủy. */
+.row-actions-menu button.danger {
+  color: var(--danger);
+}
+.row-actions-menu button.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
 .mono {
   font-family: var(--mono);
   font-size: 0.85em;
