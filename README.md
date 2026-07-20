@@ -8,15 +8,25 @@ Yêu cầu: Docker (Desktop) có Compose v2.
 
 ```bash
 cp .env.example .env   # đổi các giá trị CHANGE_ME
+
+# DEV (máy lập trình viên) — tự nạp docker-compose.override.yml
 docker compose up --build
+
+# PROD — BẮT BUỘC chỉ định file, KHÔNG nạp override
+docker compose -f docker-compose.yml up -d --build
 ```
+
+> `docker compose up` không kèm `-f` sẽ **tự động nạp `docker-compose.override.yml`**, file này
+> publish Postgres/Redis ra host (chỉ bind 127.0.0.1) và ghi đè DNS `id.pmh.com.vn`. Trên prod
+> phải dùng dạng `-f docker-compose.yml`.
 
 - Web: https://qlts.pmh.com.vn (nginx phục vụ TLS bằng cert `*.pmh.com.vn`; port 80 redirect → 443)
 - API health: https://qlts.pmh.com.vn/api/health
 - Cert (`fullchain.pem` + `private.key`) mount từ `../pmh.com.vn` vào `/etc/nginx/ssl` (không bake vào image)
 - `qlts.pmh.com.vn` phải phân giải về host chạy Docker (DNS thật hoặc thêm hosts nếu test cục bộ)
 - Migration trong `api/src/migrations/` tự chạy khi `api` khởi động (raw SQL, có thứ tự).
-- `postgres`/`redis` **không** publish cổng ra host; mọi truy cập đi qua nginx (`web`).
+- `postgres`/`redis` **không** publish cổng ra host khi chạy bằng `-f docker-compose.yml` (prod).
+  Ở dev, override publish 5491/63799 nhưng **chỉ bind `127.0.0.1`** — không lộ ra LAN.
 - RAM: tổng ngân sách 2GB, `mem_limit` từng service chỉnh trong `.env`.
 
 ## Cấu trúc
@@ -44,17 +54,17 @@ npm run lint
 Test DB dùng CHUNG một Postgres với dev (không container test riêng): db-spec chạy trên
 database `qlts_test` NẰM TRONG `qlts-postgres-1`. Mỗi suite `DROP TABLE ... CASCADE` rồi migrate
 lại — chốt chặn `if (!/test/i.test(dbName)) throw` bảo đảm KHÔNG bao giờ đụng database `qlts`.
-`docker-compose.override.yml` (dev-only) expose port 54329→postgres, 63799→redis ra host.
+`docker-compose.override.yml` (dev-only) expose port 5491→postgres, 63799→redis ra `127.0.0.1`.
 
 ```bash
 # 1 lần: tạo database test trong container postgres đang chạy
 docker exec qlts-postgres-1 psql -U qlts -d qlts -c "CREATE DATABASE qlts_test OWNER qlts;"
-# chạy (bash)
-DATABASE_URL=postgresql://qlts:qlts_dev_pg_2026@localhost:54329/qlts_test \
-REDIS_TEST_URL=redis://:qlts_dev_redis_2026@localhost:63799 npm run test:db
+# chạy (bash) — lấy mật khẩu từ .env, KHÔNG hardcode trong tài liệu
+DATABASE_URL=postgresql://qlts:$POSTGRES_PASSWORD@localhost:5491/qlts_test \
+REDIS_TEST_URL=redis://:$REDIS_PASSWORD@localhost:63799 npm run test:db
 ```
 
-(PowerShell: `$env:DATABASE_URL='postgresql://qlts:qlts_dev_pg_2026@localhost:54329/qlts_test'; $env:REDIS_TEST_URL='redis://:qlts_dev_redis_2026@localhost:63799'; npm run test:db`)
+(PowerShell: `$env:DATABASE_URL="postgresql://qlts:$($env:POSTGRES_PASSWORD)@localhost:5491/qlts_test"; $env:REDIS_TEST_URL="redis://:$($env:REDIS_PASSWORD)@localhost:63799"; npm run test:db`)
 
 ## AUTH_DEV_MODE (seam test — AC 9 story 1.1)
 

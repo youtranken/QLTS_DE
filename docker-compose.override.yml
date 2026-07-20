@@ -19,8 +19,9 @@ services:
   postgres:
     # Host port 5491 (đổi từ 54329) — dễ nhớ, tránh nhầm với DB project khác trên máy.
     # db-spec (jest trên host) set DATABASE_URL=...@localhost:5491/qlts_test.
+    # Bind 127.0.0.1: cú pháp ngắn '5491:5432' bind 0.0.0.0 → phơi DB ra LAN, đi vòng firewall host.
     ports:
-      - '5491:5432'
+      - '127.0.0.1:5491:5432'
   redis:
     ports:
-      - '63799:6379'
+      - '127.0.0.1:63799:6379'

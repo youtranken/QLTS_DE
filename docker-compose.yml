@@ -19,7 +19,8 @@ services:
       PMH_CLIENT_ID: ${PMH_CLIENT_ID:-}
       PMH_CLIENT_SECRET: ${PMH_CLIENT_SECRET:-}
       PMH_WEBHOOK_SECRET: ${PMH_WEBHOOK_SECRET:-}
-      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
+      # :? thay vì :- — thiếu biến thì fail ngay lúc boot, KHÔNG lặng lẽ dựng link localhost
+      APP_BASE_URL: ${APP_BASE_URL:?APP_BASE_URL bắt buộc trong .env}
       # SA cục bộ (break-glass, story 10.1) — thiếu là api từ chối khởi động.
       # Hash sinh bằng `npm run sa:hash`; SA CHỈ đến từ env (không có trong DB).
       LOCAL_SA_USERNAME: ${LOCAL_SA_USERNAME:?LOCAL_SA_USERNAME bắt buộc trong .env}
@@ -43,6 +44,9 @@ services:
   # Worker nền (story 3.5a, AD-9) — process THỨ HAI cùng image api, gọi service in-process.
   # Relay outbox → BullMQ + sweep định kỳ. KHÔNG chạy migration (api chủ migrate).
   worker:
+    # Dùng CHUNG image với api (cùng ./api) — nếu để compose tự đặt tên image riêng,
+    # `docker compose build api` sẽ KHÔNG build worker → worker chạy image cũ (bug 2026-07-20).
+    image: qlts-api:latest
     build: ./api
     restart: unless-stopped
     mem_limit: ${WORKER_MEM_LIMIT:-256m}
@@ -56,6 +60,9 @@ services:
       PMH_ISSUER_URL: ${PMH_ISSUER_URL:-}
       PMH_CLIENT_ID: ${PMH_CLIENT_ID:-}
       PMH_CLIENT_SECRET: ${PMH_CLIENT_SECRET:-}
+      # Worker LÀ process gửi mail → mọi link trong mail dựng từ đây. Thiếu = link trỏ
+      # localhost mà mail vẫn báo gửi thành công (hỏng im lặng) → bắt buộc, fail-closed.
+      APP_BASE_URL: ${APP_BASE_URL:?APP_BASE_URL bắt buộc trong .env}
       # SMTP gửi mail nền (story 5.1) — credential chỉ từ env (NFR-12)
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
