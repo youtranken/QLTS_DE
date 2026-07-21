@@ -354,9 +354,9 @@ table.table td.right {
 }
 /* Phân trang + chọn page-size */
 .sw-pager {
-  margin-top: 0.75rem;
+  margin-top: var(--space-3);
   display: flex;
-  gap: 0.75rem;
+  gap: var(--space-3);
   align-items: center;
 }
 .filter-bar .page-size {

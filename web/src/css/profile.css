@@ -4,7 +4,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
-  padding: 1.25rem 1.4rem;
+  padding: var(--space-5) 1.4rem;
   margin-bottom: 1.1rem;
 }
 .profile-head .ph-name-row {
@@ -19,7 +19,7 @@
   letter-spacing: -0.02em;
 }
 .profile-head .chip {
-  padding: 0.28rem 0.75rem;
+  padding: 0.28rem var(--space-3);
 }
 .profile-head .ph-email {
   color: var(--ink-2);
@@ -39,7 +39,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
-  padding: 1rem 1.1rem;
+  padding: var(--space-4) 1.1rem;
 }
 .profile-stat-card .sc-label {
   color: var(--ink-3);
@@ -65,7 +65,7 @@
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  padding: 0.75rem 0.9rem;
+  padding: var(--space-3) 0.9rem;
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--surface);
@@ -94,7 +94,7 @@
 .timeline::before {
   content: '';
   position: absolute;
-  left: 0.5rem;
+  left: var(--space-2);
   top: 0.35rem;
   bottom: 0.35rem;
   width: 2px;
@@ -102,7 +102,7 @@
 }
 .timeline .tl-item {
   position: relative;
-  padding-bottom: 1.25rem;
+  padding-bottom: var(--space-5);
 }
 .timeline .tl-item:last-child {
   padding-bottom: 0;
@@ -150,14 +150,14 @@
 }
 .info-grid .info-item {
   background: var(--surface);
-  padding: 0.85rem 1rem;
+  padding: 0.85rem var(--space-4);
 }
 .info-grid .ii-k {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ink-3);
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--space-1);
 }
 .info-grid .ii-v {
   font-weight: 500;

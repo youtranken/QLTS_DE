@@ -1,7 +1,7 @@
 /* --- Lịch máy tổng (mục sidebar) ----------------------------------------- */
 .mcal-sub {
   margin-top: -0.4rem;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
   max-width: 60ch;
 }
 .mcal-toolbar {
@@ -18,7 +18,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r);
-  padding: 0.25rem;
+  padding: var(--space-1);
   box-shadow: var(--shadow-sm);
 }
 .mcal-weeknav button {
@@ -38,7 +38,7 @@
 }
 .mcal-weeknav .wlabel {
   font-weight: 700;
-  padding: 0 0.5rem;
+  padding: 0 var(--space-2);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -63,7 +63,7 @@
 .mcal-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 1rem;
+  gap: var(--space-4);
   align-items: start;
 }
 .mcal-main {
@@ -83,7 +83,7 @@
 .mcal-freelist {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
   /* Gọn, phần dư cuộn — cân chiều cao với lịch bên trái (mcal-scroll). */
   max-height: 378px;
   overflow-y: auto;
@@ -170,7 +170,7 @@
   color: var(--ink-3);
   display: flex;
   align-items: center;
-  padding: 0 1rem;
+  padding: 0 var(--space-4);
 }
 .mcal-dhead {
   border-bottom: 1px solid var(--border);
@@ -206,7 +206,7 @@
   flex-direction: column;
   justify-content: center;
   gap: 2px;
-  padding: 0 1rem;
+  padding: 0 var(--space-4);
   min-width: 0;
 }
 .mcal-mcell .mn {
@@ -256,7 +256,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 1.1rem;
-  margin-top: 1rem;
+  margin-top: var(--space-4);
   font-size: 0.82rem;
   color: var(--ink-2);
   font-weight: 600;
@@ -264,7 +264,7 @@
 .mcal-legend .lg {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 .mcal-legend .sw {
   width: 26px;

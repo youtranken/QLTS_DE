@@ -3,7 +3,7 @@
   padding: 0.6rem 0.85rem;
   border-radius: var(--r);
   font-size: 0.88rem;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
   border: 1px solid transparent;
   animation: rowIn 0.2s var(--ease) both;
 }
@@ -40,7 +40,7 @@
   display: grid;
   place-items: center;
   z-index: var(--z-modal-backdrop);
-  padding: 1rem;
+  padding: var(--space-4);
   animation: rowIn 0.15s var(--ease) both;
 }
 .modal {
@@ -49,7 +49,7 @@
   box-shadow: var(--shadow-lg);
   max-width: 560px;
   width: 100%;
-  padding: 1.5rem;
+  padding: var(--space-6);
   animation: modalIn 0.2s var(--ease) both;
 }
 
@@ -61,7 +61,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 1rem;
+  padding: var(--space-4);
   z-index: var(--z-modal);
 }
 

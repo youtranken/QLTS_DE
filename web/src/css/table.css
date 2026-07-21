@@ -18,7 +18,7 @@ table.table thead th {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-3);
-  padding: 0.75rem 1rem;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
   white-space: nowrap;
@@ -45,8 +45,8 @@ table.table thead th .sort-arrow {
 .table-search {
   width: 100%;
   max-width: 340px;
-  margin-bottom: 0.75rem;
-  padding: 0.5rem 0.7rem;
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) 0.7rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
@@ -54,7 +54,7 @@ table.table thead th .sort-arrow {
   font-size: 0.9rem;
 }
 table.table tbody td {
-  padding: 0.8rem 1rem;
+  padding: 0.8rem var(--space-4);
   border-bottom: 1px solid var(--border);
   color: var(--ink);
   vertical-align: middle;
@@ -112,9 +112,9 @@ table.table tbody tr.row-highlight td:first-child {
 .bulk-toolbar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--space-3);
   padding: 0.6rem 0.9rem;
   background: var(--primary-soft);
   border: 1px solid var(--border);
@@ -166,7 +166,7 @@ table.table tbody tr.row-highlight td:first-child {
   text-align: right;
 }
 .row-actions .kebab {
-  padding: 0.15rem 0.5rem;
+  padding: 0.15rem var(--space-2);
   font-size: 1.1rem;
   line-height: 1;
 }
@@ -223,7 +223,7 @@ table.table tbody tr.row-highlight td:first-child {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.15rem 0.5rem;
+  padding: 0.15rem var(--space-2);
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -262,8 +262,8 @@ table.table tbody tr.row-highlight td:first-child {
 button.link.session-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  margin-right: 0.5rem;
+  gap: var(--space-1);
+  margin-right: var(--space-2);
   padding: 0;
   border: none;
   background: none;
@@ -277,7 +277,7 @@ button.link.session-toggle {
 }
 .session-list {
   margin: 0;
-  padding: 0.4rem 1rem;
+  padding: 0.4rem var(--space-4);
   list-style: none;
   display: flex;
   flex-direction: column;
