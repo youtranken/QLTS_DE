@@ -4,6 +4,7 @@ import { AssetGeneralFields } from './asset-general-fields';
 import { SoftwareSeatsFields } from './software-seats-fields';
 import { AssetInstalledOn } from './asset-installed-on';
 import { AssetCascadeDialog } from './asset-cascade-dialog';
+import { Dialog, DialogTitle, DialogClose } from './ui/dialog';
 import { useConfirm } from './ui/confirm-provider';
 import type { Me } from './me';
 import type { FormState } from './asset-types';
@@ -76,22 +77,15 @@ export function AssetForm({
   const askConfirm = useConfirm();
 
   return (
-    <div
-      className="modal-backdrop"
-      onClick={close}
-      onKeyDown={(e) => {
-        // Esc đóng modal — trừ khi popup cascade đang mở (nó tự xử lý)
-        if (e.key === 'Escape' && !cascade) close();
-      }}
+    <Dialog
+      open
+      // cascade (Radix nested) là lớp trên; chặn đóng form khi nó mở hoặc đang busy.
+      onOpenChange={(o) => !o && !busy && !cascade && close()}
+      dismissible={!busy && !cascade}
+      className="sheet sheet-wide"
     >
-      <div
-        className="sheet sheet-wide"
-        role="dialog"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sheet-header">
-          <span className="sheet-title">
+      <div className="sheet-header">
+        <DialogTitle className="sheet-title">
             {form.id ? (
               <>
                 {readOnly ? t('assets.viewTitle', 'Xem') : t('assets.edit')} ·{' '}
@@ -108,17 +102,18 @@ export function AssetForm({
             ) : (
               t('assets.addAsset')
             )}
-          </span>
+          </DialogTitle>
           <span className="spacer" />
-          <button
-            type="button"
-            className="sheet-close"
-            aria-label={t('assets.cancel')}
-            disabled={busy}
-            onClick={close}
-          >
-            ✕
-          </button>
+          <DialogClose asChild>
+            <button
+              type="button"
+              className="sheet-close"
+              aria-label={t('assets.cancel')}
+              disabled={busy}
+            >
+              ✕
+            </button>
+          </DialogClose>
         </div>
 
         <form
@@ -343,9 +338,8 @@ export function AssetForm({
             )}
           </div>
         </form>
-      </div>
 
-      {/* 3.13: popup xác nhận cascade — danh sách bị ảnh hưởng + cờ báo mail. Nằm TRÊN sheet. */}
+      {/* 3.13: popup xác nhận cascade (Radix nested) — nằm TRÊN sheet, tự stack lớp Esc/outside. */}
       {cascade && (
         <AssetCascadeDialog
           cascade={cascade}
@@ -356,6 +350,6 @@ export function AssetForm({
           doLifecycle={doLifecycle}
         />
       )}
-    </div>
+    </Dialog>
   );
 }

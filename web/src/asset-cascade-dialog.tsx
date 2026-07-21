@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDateTime } from './asset-types';
+import { Dialog, DialogTitle } from './ui/dialog';
 import type { LifecycleRun, PendingCascade } from './asset-types';
 
 /**
@@ -24,15 +25,13 @@ export function AssetCascadeDialog({
 }) {
   const { t } = useTranslation();
   return (
-    <div
-      className="modal-backdrop stacked"
-      onClick={(e) => {
-        e.stopPropagation();
-        setCascade(null);
-      }}
+    <Dialog
+      open
+      onOpenChange={(o) => !o && !busy && setCascade(null)}
+      dismissible={!busy}
+      className="modal"
     >
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ marginBottom: '0.75rem' }}>{t('cascade.title')}</h2>
+      <DialogTitle style={{ marginBottom: '0.75rem' }}>{t('cascade.title')}</DialogTitle>
 
         {cascade.data.futureCancellations.length > 0 && (
           <div style={{ marginBottom: '1rem' }}>
@@ -140,7 +139,6 @@ export function AssetCascadeDialog({
             {t('cascade.confirm')}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

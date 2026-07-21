@@ -4,6 +4,7 @@ import { RecurringBuilder } from './recurring-builder';
 import { RecurringAdminBuilder } from './recurring-admin-builder';
 import { BookingTimeFields } from './booking-time-fields';
 import { BookingTopRow } from './booking-top-row';
+import { Dialog, DialogTitle, DialogClose } from './ui/dialog';
 import type { Me } from './me';
 import {
   DEFAULT_WORK_HOURS,
@@ -260,34 +261,27 @@ export function BookingSheet({
   }, [canLong, canRecur]);
 
   return (
-    <div
-      className="modal-backdrop"
-      onClick={onClose}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
-      }}
+    <Dialog
+      open
+      onOpenChange={(o) => !o && !busy && onClose()}
+      dismissible={!busy}
     >
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sheet-header">
-          <span className="sheet-title">{t('bookingSheet.title')}</span>
-          <span className="spacer" />
+      <div className="sheet-header">
+        <DialogTitle className="sheet-title">{t('bookingSheet.title')}</DialogTitle>
+        <span className="spacer" />
+        <DialogClose asChild>
           <button
             type="button"
             className="sheet-close"
             aria-label={t('bookingSheet.close')}
             disabled={busy}
-            onClick={onClose}
           >
             ✕
           </button>
-        </div>
+        </DialogClose>
+      </div>
 
-        <div className="sheet-body">
+      <div className="sheet-body">
           {/* Loại mượn — gate theo quyền */}
           <div className="segmented" style={{ marginBottom: '1rem' }}>
             {modes.map((m) => (
@@ -413,7 +407,6 @@ export function BookingSheet({
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }
