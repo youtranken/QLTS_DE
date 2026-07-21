@@ -447,6 +447,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
                           actions={[
                             {
                               label: t('software.detail', 'Xem chi tiết'),
+                              icon: 'view',
                               onClick: () => void toggle(g.licenseName),
                             },
                           ]}

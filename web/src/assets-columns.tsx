@@ -70,18 +70,33 @@ export function useAssetColumns(opts: {
         // chỉ "Tái sử dụng", KHÔNG Sửa/Xóa (BE chặn, tránh action ra lỗi khó hiểu).
         const actions: RowAction[] = isDisposedRow
           ? [
-              { label: t('assets.reuse', 'Tái sử dụng'), onClick: () => void copyFrom(a.id) },
+              {
+                label: t('assets.reuse', 'Tái sử dụng'),
+                icon: 'reuse' as const,
+                onClick: () => void copyFrom(a.id),
+              },
               {
                 label: t('assets.purge', 'Xóa vĩnh viễn'),
+                icon: 'delete' as const,
                 danger: true,
                 onClick: () => onPurge(a),
               },
             ]
           : [
-              { label: t('assets.edit'), onClick: () => void openEdit(a.id) },
+              {
+                label: t('assets.edit'),
+                icon: 'edit' as const,
+                onClick: () => void openEdit(a.id),
+              },
               // "Gán/chuyển máy" (phần mềm) tách ra nút riêng ở cột Action; kebab giữ Copy.
               ...(softwareOnly
-                ? [{ label: t('software.copy'), onClick: () => void copyFrom(a.id) }]
+                ? [
+                    {
+                      label: t('software.copy'),
+                      icon: 'copy' as const,
+                      onClick: () => void copyFrom(a.id),
+                    },
+                  ]
                 : []),
               // Khóa sửa chữa / Mở khóa / Pool (chỉ máy; software → []).
               ...lifecycleActionsFor(a),
@@ -89,11 +104,13 @@ export function useAssetColumns(opts: {
               softwareOnly
                 ? {
                     label: t('assets.disposeAction', 'Thanh lý'),
+                    icon: 'dispose' as const,
                     danger: true,
                     onClick: () => onDispose(a),
                   }
                 : {
                     label: t('assets.delete'),
+                    icon: 'delete' as const,
                     danger: true,
                     onClick: () => void handleDelete(a),
                   },

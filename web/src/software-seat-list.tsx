@@ -61,19 +61,29 @@ export function SoftwareSeatList({
   const actionsFor = (s: AssetRow) =>
     s.installedOnCode
       ? [
-          { label: t('assets.edit'), onClick: () => onEdit(s) },
-          { label: t('software.detach', 'Gỡ'), onClick: () => onDetach(s) },
+          { label: t('assets.edit'), icon: 'edit' as const, onClick: () => onEdit(s) },
+          {
+            label: t('software.detach', 'Gỡ'),
+            icon: 'detach' as const,
+            onClick: () => onDetach(s),
+          },
           {
             label: t('assets.disposeAction', 'Thanh lý'),
+            icon: 'dispose' as const,
             danger: true,
             onClick: () => onDispose(s),
           },
         ]
       : [
-          { label: t('software.assignMachine'), onClick: () => onAssign(s) },
-          { label: t('assets.edit'), onClick: () => onEdit(s) },
+          {
+            label: t('software.assignMachine'),
+            icon: 'link' as const,
+            onClick: () => onAssign(s),
+          },
+          { label: t('assets.edit'), icon: 'edit' as const, onClick: () => onEdit(s) },
           {
             label: t('assets.disposeAction', 'Thanh lý'),
+            icon: 'dispose' as const,
             danger: true,
             onClick: () => onDispose(s),
           },

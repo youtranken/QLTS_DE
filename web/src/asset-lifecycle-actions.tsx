@@ -163,6 +163,7 @@ export function useAssetLifecycle({
       if (row.status === 'locked_repair') {
         items.push({
           label: t('assets.unlockAction'),
+          icon: 'unlock',
           onClick: () =>
             void withVersion(row, (v) => run(row.id, v, 'unlock', 'POST', {})),
         });
@@ -172,10 +173,12 @@ export function useAssetLifecycle({
         if (row.isPool) {
           items.push({
             label: t('assets.lockAction'),
+            icon: 'lock',
             onClick: () => void openLock(row),
           });
           items.push({
             label: t('assets.poolOff'),
+            icon: 'poolOff',
             onClick: () =>
               void withVersion(row, (v) =>
                 previewThenRun(row.id, v, 'pool', 'PUT', { isPool: false }),
@@ -184,6 +187,7 @@ export function useAssetLifecycle({
         } else {
           items.push({
             label: t('assets.poolOn'),
+            icon: 'poolOn',
             onClick: () =>
               void withVersion(row, (v) =>
                 run(row.id, v, 'pool', 'PUT', { isPool: true }),

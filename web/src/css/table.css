@@ -189,8 +189,21 @@ table.table tbody tr.row-highlight td:first-child {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
 }
 .row-actions-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
   justify-content: flex-start;
   text-align: left;
+}
+/* Icon dẫn đầu: mờ (ink-3) cho action thường; item danger thì icon đỏ theo chữ. */
+.row-actions-menu .ra-ic {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--ink-3);
+}
+.row-actions-menu button.danger .ra-ic {
+  color: var(--danger);
 }
 /* Item nguy hiểm (Thanh lý/Hủy): .ghost định nghĩa SAU .danger nên đè chữ về xám —
    ép lại CHỮ ĐỎ + hover nền đỏ nhạt (khớp mẫu tb-dropdown) để báo hiệu phá hủy. */
