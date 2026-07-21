@@ -98,6 +98,8 @@
   overflow: hidden;
   box-shadow: var(--shadow-lg);
   z-index: var(--z-popover);
+  /* Radix modal set body{pointer-events:none}; popover portal ra body thừa hưởng -> phải bật lại. */
+  pointer-events: auto;
 }
 .dp-head {
   display: flex;
