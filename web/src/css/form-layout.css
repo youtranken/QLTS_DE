@@ -219,16 +219,17 @@ input[list]::-webkit-calendar-picker-indicator {
   color: var(--primary);
 }
 .fsel-menu {
+  /* Vị trí + max-height do Floating UI set inline; đây giữ z-index + hình. */
+  z-index: var(--z-popover);
   list-style: none;
   margin: 0;
   padding: 0.3rem;
-  max-height: 280px;
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border-2);
   border-radius: var(--r);
   box-shadow: var(--shadow-pop);
-  animation: modalIn 0.13s var(--ease) both;
+  animation: rowIn 0.13s var(--ease) both;
 }
 .fsel-option {
   display: flex;
@@ -336,12 +337,8 @@ input[list]::-webkit-calendar-picker-indicator {
   color: var(--primary);
 }
 .combo-menu {
-  position: absolute;
-  z-index: var(--z-dropdown);
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  max-height: 260px;
+  /* Vị trí do Floating UI (useAnchoredMenu) set inline; đây chỉ giữ z-index + hình. */
+  z-index: var(--z-popover);
   overflow-y: auto;
   padding: 0.3rem;
   list-style: none;
@@ -350,7 +347,8 @@ input[list]::-webkit-calendar-picker-indicator {
   border: 1px solid var(--border-2);
   border-radius: var(--r);
   box-shadow: var(--shadow-pop);
-  animation: modalIn 0.13s var(--ease) both;
+  /* Fade-only (KHÔNG transform) để không đụng transform định vị của Floating UI. */
+  animation: rowIn 0.13s var(--ease) both;
 }
 .combo-option {
   display: flex;

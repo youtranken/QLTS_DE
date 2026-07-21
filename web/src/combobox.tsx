@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useAnchoredMenu } from './ui/use-anchored-menu';
 
 interface ComboboxProps<T> {
   placeholder: string;
@@ -33,10 +34,7 @@ export function Combobox<T>({
 }: ComboboxProps<T>) {
   const [active, setActive] = useState(0);
   const [closed, setClosed] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const popRef = useRef<HTMLUListElement>(null);
-  const [popStyle, setPopStyle] = useState<CSSProperties>();
 
   // options đổi (query mới) → về đầu danh sách và mở lại menu
   useEffect(() => {
@@ -45,50 +43,26 @@ export function Combobox<T>({
   }, [options]);
 
   const open = options.length > 0 && !closed;
-
-  const reposition = useCallback(() => {
-    const r = rootRef.current?.getBoundingClientRect();
-    if (!r) return;
-    const POP_MAX = 260;
-    const below = window.innerHeight - r.bottom;
-    // Lật lên khi dưới thiếu chỗ mà trên rộng hơn.
-    const flipUp = below < Math.min(POP_MAX, 200) && r.top > below;
-    setPopStyle({
-      position: 'fixed',
-      left: r.left,
-      width: r.width,
-      right: 'auto',
-      zIndex: 1000,
-      ...(flipUp
-        ? { bottom: window.innerHeight - r.top + 4, maxHeight: Math.min(POP_MAX, r.top - 8) }
-        : { top: r.bottom + 4, maxHeight: Math.min(POP_MAX, below - 8) }),
-    });
-  }, []);
-
-  // Neo lại khi mở / đổi gợi ý / cuộn / resize (capture=true để bắt cả cuộn trong .sheet-body).
-  useLayoutEffect(() => {
-    if (!open) return;
-    reposition();
-    const onMove = () => reposition();
-    window.addEventListener('scroll', onMove, true);
-    window.addEventListener('resize', onMove);
-    return () => {
-      window.removeEventListener('scroll', onMove, true);
-      window.removeEventListener('resize', onMove);
-    };
-  }, [open, reposition]);
+  const { refs, floatingStyles } = useAnchoredMenu(open, {
+    matchWidth: true,
+    maxHeight: 260,
+  });
 
   // Bấm ngoài đóng menu (menu ở portal, không nằm trong .combo).
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (rootRef.current?.contains(target) || popRef.current?.contains(target)) return;
+      if (
+        refs.domReference.current?.contains(target) ||
+        refs.floating.current?.contains(target)
+      )
+        return;
       setClosed(true);
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
+  }, [open, refs.domReference, refs.floating]);
 
   const choose = (option: T) => {
     onSelect(option);
@@ -106,7 +80,7 @@ export function Combobox<T>({
   };
 
   return (
-    <div className={`combo${open ? ' open' : ''}`} ref={rootRef}>
+    <div className={`combo${open ? ' open' : ''}`} ref={refs.setReference}>
       <input
         ref={inputRef}
         placeholder={placeholder}
@@ -159,7 +133,12 @@ export function Combobox<T>({
       </button>
       {open &&
         createPortal(
-          <ul className="combo-menu" ref={popRef} role="listbox" style={popStyle}>
+          <ul
+            className="combo-menu"
+            ref={refs.setFloating}
+            role="listbox"
+            style={floatingStyles}
+          >
             {options.map((option, i) => (
               <li key={getKey(option)}>
                 <button

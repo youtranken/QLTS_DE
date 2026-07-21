@@ -1,13 +1,7 @@
-import {
-  type CSSProperties,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { useAnchoredMenu } from './use-anchored-menu';
 
 export interface SelectOption {
   value: string;
@@ -42,59 +36,37 @@ export function Select({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  // Menu portal ra body → popRef để click-outside KHÔNG đóng khi bấm trong menu.
-  const popRef = useRef<HTMLUListElement>(null);
-  const [popStyle, setPopStyle] = useState<CSSProperties>();
 
   const selected = options.find((o) => o.value === value);
   const label = selected ? selected.label : (placeholder ?? '—');
 
-  const reposition = useCallback(() => {
-    const r = triggerRef.current?.getBoundingClientRect();
-    if (!r) return;
-    const POP_MAX = 288;
-    const below = window.innerHeight - r.bottom;
-    const flipUp =
-      below < Math.min(POP_MAX, options.length * 40 + 12) && r.top > below;
-    setPopStyle({
-      position: 'fixed',
-      left: r.left,
-      width: r.width,
-      zIndex: 1000,
-      ...(flipUp
-        ? { bottom: window.innerHeight - r.top + 4 }
-        : { top: r.bottom + 4 }),
-    });
-  }, [options.length]);
+  const { refs, floatingStyles } = useAnchoredMenu(open, {
+    matchWidth: true,
+    maxHeight: 288,
+  });
 
-  // Neo lại khi mở + khi cuộn/resize (capture=true bắt cả cuộn trong .sheet-body).
+  // Mở → active = option đang chọn.
   useEffect(() => {
     if (!open) return;
-    reposition();
     const idx = options.findIndex((o) => o.value === value);
     setActive(idx < 0 ? 0 : idx);
-    const onMove = () => reposition();
-    window.addEventListener('scroll', onMove, true);
-    window.addEventListener('resize', onMove);
-    return () => {
-      window.removeEventListener('scroll', onMove, true);
-      window.removeEventListener('resize', onMove);
-    };
-  }, [open, reposition, options, value]);
+  }, [open, options, value]);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (rootRef.current?.contains(target) || popRef.current?.contains(target))
+      if (
+        refs.domReference.current?.contains(target) ||
+        refs.floating.current?.contains(target)
+      )
         return;
       setOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
+  }, [open, refs.domReference, refs.floating]);
 
   const choose = (v: string) => {
     onChange(v);
@@ -103,7 +75,10 @@ export function Select({
   };
 
   return (
-    <div className={`fsel${className ? ` ${className}` : ''}`} ref={rootRef}>
+    <div
+      className={`fsel${className ? ` ${className}` : ''}`}
+      ref={refs.setReference}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -150,7 +125,12 @@ export function Select({
       </button>
       {open &&
         createPortal(
-          <ul className="fsel-menu" role="listbox" style={popStyle} ref={popRef}>
+          <ul
+            className="fsel-menu"
+            role="listbox"
+            style={floatingStyles}
+            ref={refs.setFloating}
+          >
             {/* Không có lựa chọn nào → báo rõ thay vì ô nổi trống trơ (review D3). */}
             {options.length === 0 && (
               <li className="fsel-none" aria-disabled="true">

@@ -46,9 +46,11 @@
   color: var(--ink-3);
   flex: none;
 }
-/* Popover bánh xe: toạ độ (position:fixed) đặt inline theo JS để thoát overflow của sheet-body. */
+/* Popover bánh xe: vị trí do Floating UI (useAnchoredMenu) set inline. Fade-only (KHÔNG
+   transform) để không đụng transform định vị. z-index nổi trên modal (chọn giờ trong form). */
 .tf-pop {
-  animation: modalIn 0.13s var(--ease) both;
+  z-index: var(--z-popover);
+  animation: rowIn 0.13s var(--ease) both;
 }
 /* Bản GỌN của TimePicker khi nhúng trong ô booking (mặc định card demo hơi to). GIỮ item-h=42
    vì Wheel JS dùng ITEM_H=42 cố định — chỉ bớt padding/font + số item hiển thị (col-h). */

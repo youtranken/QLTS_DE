@@ -1,13 +1,7 @@
-import {
-  type CSSProperties,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { useAnchoredMenu } from './use-anchored-menu';
 
 /**
  * DatePicker (port từ mockup date-picker.html, adapt token Sunset Grove).
@@ -50,28 +44,10 @@ export function DatePicker({
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'day' | 'month' | 'year'>('day');
-  const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  // Popover portal ra body: tránh ancestor có transform (modal animate) làm position:fixed
-  // neo sai (lịch văng khỏi modal). popRef để click-outside không đóng khi bấm trong lịch.
-  const popRef = useRef<HTMLDivElement>(null);
-  // Popover dùng position:fixed neo theo nút → KHÔNG bị overflow của sheet/table cắt (lịch to
-  // trong popup Thêm phần mềm trước đây bị che). Tự lật LÊN khi dưới thiếu chỗ.
-  const [popStyle, setPopStyle] = useState<CSSProperties>();
-  useEffect(() => {
-    if (!open) return;
-    const r = triggerRef.current?.getBoundingClientRect();
-    if (!r) return;
-    const POP_W = 268;
-    const POP_H = 336;
-    const below = window.innerHeight - r.bottom;
-    const top =
-      below < POP_H && r.top > POP_H ? r.top - POP_H - 4 : r.bottom + 4;
-    let left = r.left;
-    if (left + POP_W > window.innerWidth - 8)
-      left = Math.max(8, window.innerWidth - POP_W - 8);
-    setPopStyle({ position: 'fixed', top, left, zIndex: 1000 });
-  }, [open]);
+  // Popover portal ra body (thoát overflow sheet/table + ancestor transform); Floating UI lo
+  // flip/shift/collision + autoUpdate. z-index/hình từ CSS .dp-pop.
+  const { refs, floatingStyles } = useAnchoredMenu(open, { maxHeight: 360 });
 
   // Ngày đang chọn (parse value) + tháng đang xem.
   const selected = useMemo(() => parseISO(value), [value]);
@@ -90,7 +66,10 @@ export function DatePicker({
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (rootRef.current?.contains(target) || popRef.current?.contains(target))
+      if (
+        refs.domReference.current?.contains(target) ||
+        refs.floating.current?.contains(target)
+      )
         return;
       setOpen(false);
     };
@@ -103,7 +82,7 @@ export function DatePicker({
       document.removeEventListener('mousedown', onDoc);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, refs.domReference, refs.floating]);
 
   const label = useMemo(() => {
     if (!selected) return placeholder ?? t('datePicker.choose');
@@ -165,7 +144,7 @@ export function DatePicker({
   }, [i18n.language]);
 
   return (
-    <div className={`dp${open ? ' open' : ''}`} ref={rootRef}>
+    <div className={`dp${open ? ' open' : ''}`} ref={refs.setReference}>
       <button
         ref={triggerRef}
         type="button"
@@ -210,7 +189,12 @@ export function DatePicker({
 
       {open &&
         createPortal(
-          <div className="dp-pop" role="dialog" style={popStyle} ref={popRef}>
+          <div
+            className="dp-pop"
+            role="dialog"
+            style={floatingStyles}
+            ref={refs.setFloating}
+          >
           <div className="dp-head">
             <button type="button" className="dp-nav" onClick={() => step(-1)} aria-label={t('datePicker.prev')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

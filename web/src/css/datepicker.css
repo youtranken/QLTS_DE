@@ -90,9 +90,7 @@
   color: var(--ink);
 }
 .dp-pop {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+  /* Vị trí do Floating UI (useAnchoredMenu) set inline; đây giữ z-index + hình. */
   min-width: 260px;
   background: var(--surface);
   border: 1px solid var(--border);

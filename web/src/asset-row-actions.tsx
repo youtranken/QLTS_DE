@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAnchoredMenu } from './ui/use-anchored-menu';
 
 export interface RowAction {
   label: string;
@@ -8,61 +9,44 @@ export interface RowAction {
 }
 
 /**
- * Menu "⋯" gom thao tác hàng (Sửa/Xóa/Thanh lý…). Menu dùng position:fixed neo theo nút
- * (getBoundingClientRect) để KHÔNG bị .table-wrap (overflow) cắt — trước đây absolute nên
- * "tràn xuống"/bị che. Tự lật LÊN khi dưới thiếu chỗ. Đóng khi bấm overlay.
+ * Menu "⋯" gom thao tác hàng (Sửa/Xóa/Thanh lý…). Floating UI (useAnchoredMenu) neo theo
+ * nút + flip/shift → KHÔNG bị .table-wrap (overflow) cắt; autoUpdate cho menu bám nút khi cuộn.
+ * Đóng khi bấm overlay.
  */
 export function RowActionsMenu({ actions }: { actions: RowAction[] }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-
-  // Toạ độ fixed chốt lúc mở; cuộn/resize làm nó trôi khỏi nút → đóng menu thay vì lơ lửng.
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    return () => {
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [open]);
+  const { refs, floatingStyles } = useAnchoredMenu(open, {
+    placement: 'bottom-end',
+    maxHeight: 400,
+  });
 
   if (actions.length === 0) return null;
 
-  const openMenu = () => {
-    const r = btnRef.current?.getBoundingClientRect();
-    if (r) {
-      const menuH = actions.length * 36 + 12; // ước lượng để quyết định lật lên/xuống
-      const below = window.innerHeight - r.bottom;
-      const top = below < menuH && r.top > menuH ? r.top - menuH - 4 : r.bottom + 4;
-      setPos({ top, right: window.innerWidth - r.right });
-    }
-    setOpen(true);
-  };
-
   return (
-    <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="row-actions"
+      ref={refs.setReference}
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
-        ref={btnRef}
         type="button"
         className="sm kebab"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={t('assets.rowActions', 'Thao tác')}
-        onClick={() => (open ? setOpen(false) : openMenu())}
+        onClick={() => setOpen((o) => !o)}
       >
         ⋯
       </button>
-      {open && pos && (
+      {open && (
         <>
           <div className="row-actions-overlay" onClick={() => setOpen(false)} />
           <div
             className="row-actions-menu fixed"
             role="menu"
-            style={{ position: 'fixed', top: pos.top, right: pos.right }}
+            ref={refs.setFloating}
+            style={floatingStyles}
           >
             {actions.map((a) => (
               <button

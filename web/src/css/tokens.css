@@ -53,13 +53,15 @@
      palette/lightbox/toast phải NỔI TRÊN modal. Lớp cục bộ trong component
      (sticky thead, bánh xe time-picker, drawer mobile) giữ z-index riêng. */
   --z-sticky: 10;
-  --z-dropdown: 30;
-  --z-popover: 40;
   --z-modal-backdrop: 50;
   --z-modal: 60;
-  --z-lightbox: 70;
-  --z-palette: 75;
-  --z-toast: 80;
+  /* Menu neo (dropdown/combobox/date/time/row-actions) portal ra body → phải NỔI TRÊN
+     modal để dùng được trong dialog (trước dùng hack zIndex:1000). */
+  --z-dropdown: 70;
+  --z-popover: 70;
+  --z-lightbox: 80;
+  --z-palette: 85;
+  --z-toast: 90;
 
   --r-sm: 8px;
   --r: 10px;

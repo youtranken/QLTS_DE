@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TimePicker, type TimeValue } from './time-picker';
+import { useAnchoredMenu } from './ui/use-anchored-menu';
 import './time-field.css';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -39,24 +40,12 @@ export function TimeField({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [popStyle, setPopStyle] = useState<CSSProperties>();
-
-  // Neo popover theo nút (fixed) + tự lật LÊN khi dưới thiếu chỗ; canh phải để không tràn mép.
-  useEffect(() => {
-    if (!open) return;
-    const r = triggerRef.current?.getBoundingClientRect();
-    if (!r) return;
-    const POP_W = 256;
-    const POP_H = 360;
-    const below = window.innerHeight - r.bottom;
-    const top = below < POP_H && r.top > POP_H ? r.top - POP_H - 4 : r.bottom + 4;
-    let left = r.right - POP_W;
-    left = Math.max(8, Math.min(left, window.innerWidth - POP_W - 8));
-    setPopStyle({ position: 'fixed', top, left, zIndex: 1000 });
-  }, [open]);
+  // Popover portal ra body (thoát overflow sheet); Floating UI lo flip/shift + autoUpdate.
+  // Canh phải (bottom-end) như bản cũ. z-index/hình từ CSS .tf-pop.
+  const { refs, floatingStyles } = useAnchoredMenu(open, {
+    placement: 'bottom-end',
+    maxHeight: 400,
+  });
 
   // Đóng khi bấm ra ngoài — popover ở PORTAL (body) nên phải loại trừ cả nút LẪN popover.
   useEffect(() => {
@@ -64,20 +53,19 @@ export function TimeField({
     const onDoc = (e: MouseEvent) => {
       const tgt = e.target as Node;
       if (
-        !rootRef.current?.contains(tgt) &&
-        !popRef.current?.contains(tgt)
+        !refs.domReference.current?.contains(tgt) &&
+        !refs.floating.current?.contains(tgt)
       ) {
         setOpen(false);
       }
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
+  }, [open, refs.domReference, refs.floating]);
 
   return (
-    <div className="tf" ref={rootRef}>
+    <div className="tf" ref={refs.setReference}>
       <button
-        ref={triggerRef}
         type="button"
         className="tf-trigger"
         aria-label={ariaLabel}
@@ -104,7 +92,12 @@ export function TimeField({
       </button>
       {open &&
         createPortal(
-          <div className="tf-pop" role="dialog" style={popStyle} ref={popRef}>
+          <div
+            className="tf-pop"
+            role="dialog"
+            style={floatingStyles}
+            ref={refs.setFloating}
+          >
             <TimePicker
               value={parse(value)}
               onDone={(v) => {
