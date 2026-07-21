@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Dialog, DialogTitle, DialogDescription } from './ui/dialog';
 import type { Me } from './me';
 
 /**
@@ -83,33 +84,37 @@ export function ExtensionApproveDialog({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ marginBottom: '0.75rem' }}>
-          {t('extapprove.title')} <span className="mono">{assetCode}</span>
-        </h2>
-        <p className="muted" style={{ marginBottom: '0.35rem' }}>
-          {t('extension.usedCount', { n: usedCount })}
-        </p>
-        {/* Ngày/giờ member đã xin gia hạn: hạn cũ → hạn mới (yêu cầu hiển thị khi bấm Duyệt). */}
-        <p style={{ marginBottom: '1rem', fontWeight: 600 }}>
-          {fmt(oldDue)} <span className="muted">→</span> {fmt(newDue)}
-        </p>
-        {error && <p className="alert error">{error}</p>}
+    <Dialog
+      open
+      onOpenChange={(o) => !o && !busy && onClose()}
+      dismissible={!busy}
+      className="modal"
+    >
+      <DialogTitle style={{ marginBottom: '0.75rem' }}>
+        {t('extapprove.title')} <span className="mono">{assetCode}</span>
+      </DialogTitle>
+      <DialogDescription className="muted" style={{ marginBottom: '0.35rem' }}>
+        {t('extension.usedCount', { n: usedCount })}
+      </DialogDescription>
+      {/* Ngày/giờ member đã xin gia hạn: hạn cũ → hạn mới (yêu cầu hiển thị khi bấm Duyệt). */}
+      <p style={{ marginBottom: '1rem', fontWeight: 600 }}>
+        {fmt(oldDue)} <span className="muted">→</span> {fmt(newDue)}
+      </p>
+      {error && <p className="alert error">{error}</p>}
+      {rejecting ? (
+        <label className="field" style={{ marginBottom: '1rem' }}>
+          <span>{t('extapprove.reasonPlaceholder')}</span>
+          <input
+            value={reason}
+            autoFocus
+            disabled={busy}
+            placeholder={t('extapprove.reasonPlaceholder')}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </label>
+      ) : null}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         {rejecting ? (
-          <label className="field" style={{ marginBottom: '1rem' }}>
-            <span>{t('extapprove.reasonPlaceholder')}</span>
-            <input
-              value={reason}
-              autoFocus
-              disabled={busy}
-              placeholder={t('extapprove.reasonPlaceholder')}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </label>
-        ) : null}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          {rejecting ? (
             <>
               <button type="button" disabled={busy} onClick={() => setRejecting(false)}>
                 {t('extapprove.cancel')}
@@ -147,7 +152,6 @@ export function ExtensionApproveDialog({
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

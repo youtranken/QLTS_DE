@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DateTimePicker } from './ui/date-time-picker';
+import { Dialog, DialogTitle, DialogDescription } from './ui/dialog';
 import type { Me } from './me';
 
 /**
@@ -90,45 +91,48 @@ export function ExtensionDialog({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ marginBottom: '0.75rem' }}>
-          {mode === 'admin' ? t('extension.titleAdmin') : t('extension.title')}{' '}
-          <span className="mono">{assetCode}</span>
-        </h2>
-        <p className="muted" style={{ marginBottom: '0.75rem' }}>
-          {t('extension.currentDue')}: <strong>{fmt(due)}</strong>
-          {' · '}
-          {t('extension.usedCount', { n: extensionCount })}
-        </p>
-        {error && <p className="alert error">{error}</p>}
-        <label className="field" style={{ marginBottom: '1.25rem' }}>
-          {t('extension.newDue')}
-          <DateTimePicker
-            value={newDue}
-            min={due ?? undefined}
-            ariaLabel={t('extension.newDue')}
-            onChange={setNewDue}
-          />
-        </label>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose}>
-            {t('extension.cancel')}
-          </button>
-          <button
-            type="button"
-            className="primary"
-            disabled={busy || !newDue}
-            onClick={() => void submit()}
-          >
-            {busy
-              ? t('extension.submitting')
-              : mode === 'admin'
-                ? t('extension.submitAdmin')
-                : t('extension.submit')}
-          </button>
-        </div>
+    <Dialog
+      open
+      onOpenChange={(o) => !o && !busy && onClose()}
+      dismissible={!busy}
+      className="modal"
+    >
+      <DialogTitle style={{ marginBottom: '0.75rem' }}>
+        {mode === 'admin' ? t('extension.titleAdmin') : t('extension.title')}{' '}
+        <span className="mono">{assetCode}</span>
+      </DialogTitle>
+      <DialogDescription className="muted" style={{ marginBottom: '0.75rem' }}>
+        {t('extension.currentDue')}: <strong>{fmt(due)}</strong>
+        {' · '}
+        {t('extension.usedCount', { n: extensionCount })}
+      </DialogDescription>
+      {error && <p className="alert error">{error}</p>}
+      <label className="field" style={{ marginBottom: '1.25rem' }}>
+        {t('extension.newDue')}
+        <DateTimePicker
+          value={newDue}
+          min={due ?? undefined}
+          ariaLabel={t('extension.newDue')}
+          onChange={setNewDue}
+        />
+      </label>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button type="button" onClick={onClose}>
+          {t('extension.cancel')}
+        </button>
+        <button
+          type="button"
+          className="primary"
+          disabled={busy || !newDue}
+          onClick={() => void submit()}
+        >
+          {busy
+            ? t('extension.submitting')
+            : mode === 'admin'
+              ? t('extension.submitAdmin')
+              : t('extension.submit')}
+        </button>
       </div>
-    </div>
+    </Dialog>
   );
 }

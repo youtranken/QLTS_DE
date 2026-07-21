@@ -18,7 +18,7 @@ export function Dialog({
   open,
   onOpenChange,
   dismissible = true,
-  wide = false,
+  className = 'sheet',
   maxWidth,
   children,
 }: {
@@ -26,7 +26,8 @@ export function Dialog({
   onOpenChange: (open: boolean) => void;
   // false = chặn đóng bằng Esc/click-ngoài (vd đang busy) — nút đóng tự disable.
   dismissible?: boolean;
-  wide?: boolean;
+  // Class hộp nội dung: 'sheet' (header/body/footer) hoặc 'modal' (hộp gọn), + biến thể.
+  className?: string;
   maxWidth?: number;
   children: ReactNode;
 }) {
@@ -37,7 +38,7 @@ export function Dialog({
         <RD.Overlay className="modal-backdrop" />
         <div className="dialog-viewport">
           <RD.Content
-            className={wide ? 'sheet sheet-wide' : 'sheet'}
+            className={className}
             style={maxWidth ? { maxWidth } : undefined}
             onEscapeKeyDown={block}
             onPointerDownOutside={block}

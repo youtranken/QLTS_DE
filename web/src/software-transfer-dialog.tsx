@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Dialog, DialogTitle, DialogClose } from './ui/dialog';
 import type { AssetDetail, AssetRow } from './asset-types';
 import type { Me } from './me';
 
@@ -102,27 +103,28 @@ export function SoftwareTransferDialog({
   };
 
   return (
-    <div className="modal-backdrop" onClick={() => onDone(false)}>
-      <div
-        className="sheet assign-sheet"
-        role="dialog"
-        aria-modal="true"
-        style={{ maxWidth: 540 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sheet-header">
-          <span className="sheet-title">{t('software.assignTitle')}</span>
-          <span className="spacer" />
+    <Dialog
+      open
+      onOpenChange={(o) => !o && !busy && onDone(false)}
+      dismissible={!busy}
+      className="sheet assign-sheet"
+      maxWidth={540}
+    >
+      <div className="sheet-header">
+        <DialogTitle className="sheet-title">{t('software.assignTitle')}</DialogTitle>
+        <span className="spacer" />
+        <DialogClose asChild>
           <button
             type="button"
             className="sheet-close"
             aria-label={t('assets.cancel')}
-            onClick={() => onDone(false)}
+            disabled={busy}
           >
             ✕
           </button>
-        </div>
-        <div className="sheet-body">
+        </DialogClose>
+      </div>
+      <div className="sheet-body">
           {error && <p className="alert error">{error}</p>}
 
           <div className="assign-current">
@@ -186,7 +188,6 @@ export function SoftwareTransferDialog({
             {t('assets.cancel')}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
