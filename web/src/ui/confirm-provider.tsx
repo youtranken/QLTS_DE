@@ -27,6 +27,9 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const resolver = useRef<((v: boolean) => void) | null>(null);
 
   const askConfirm = useCallback<ConfirmFn>((o) => {
+    // Nếu còn hộp cũ chưa trả lời (gọi confirm chồng nhau) → settle(false) trước,
+    // nếu không resolver cũ bị ghi đè và Promise cũ treo vĩnh viễn (caller kẹt await).
+    resolver.current?.(false);
     setOpts(o);
     return new Promise<boolean>((resolve) => {
       resolver.current = resolve;

@@ -117,7 +117,7 @@ export function ExtensionDialog({
         />
       </label>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button type="button" onClick={onClose}>
+        <button type="button" disabled={busy} onClick={onClose}>
           {t('extension.cancel')}
         </button>
         <button
