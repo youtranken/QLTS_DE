@@ -118,7 +118,7 @@
   color: var(--sidebar-ink);
   font: inherit;
   font-size: 0.85rem;
-  font-weight: 550;
+  font-weight: var(--fw-semibold);
   text-decoration: none;
   text-align: left;
   cursor: pointer;
@@ -223,111 +223,4 @@
 }
 .app-shell.collapsed .nav-item:hover {
   transform: none;
-}
-
-/* --- Topbar mới ---------------------------------------------------------------------- */
-.icon-btn {
-  width: 38px;
-  height: 38px;
-  flex: none;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: var(--surface-2);
-  color: var(--ink-2);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: background 0.15s var(--ease), color 0.15s var(--ease);
-}
-.icon-btn:hover {
-  background: var(--primary-soft);
-  color: var(--primary-ink);
-}
-.icon-btn svg {
-  width: 20px;
-  height: 20px;
-}
-/* Nút 3-gạch gần mép sidebar nhưng chừa khoảng thở nhỏ (không dính sát vào sidebar). */
-.topbar {
-  padding-left: 1rem;
-}
-.tb-menu {
-  position: relative;
-  flex: none;
-}
-.tb-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  color: #fff;
-  font-weight: 800;
-  font-size: 0.8rem;
-  background: var(--grad);
-  display: grid;
-  place-items: center;
-}
-.tb-dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  z-index: var(--z-popover);
-  min-width: 220px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  box-shadow: var(--shadow-lg);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.tb-dd-head {
-  padding: 8px 10px 8px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 4px;
-}
-.tb-dd-head b {
-  display: block;
-  font-size: 0.9rem;
-}
-.tb-dd-head span {
-  color: var(--ink-3);
-  font-size: 0.76rem;
-}
-.tb-dd-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 9px 10px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  text-decoration: none;
-}
-.tb-dd-item:hover {
-  background: var(--surface-2);
-}
-/* Đè global .danger (nền đỏ) — item menu chỉ CHỮ đỏ, nền trong suốt (đỏ-trên-đỏ = mất chữ). */
-.tb-dropdown .tb-dd-item.danger {
-  background: transparent;
-  color: var(--danger);
-}
-.tb-dropdown .tb-dd-item.danger:hover {
-  background: var(--danger-soft);
-}
-.tb-dd-badge {
-  margin-left: auto;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--ink-3);
-  background: var(--surface-2);
-  border-radius: 6px;
-  padding: 1px 7px;
 }

@@ -1,45 +1,4 @@
 /* ===== Redesign primitives (dùng chung cho catalog Mượn máy, Pool, Danh mục…) ===== */
-/* Catalog thẻ máy — trang Mượn máy + Pool */
-.mcatalog {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 0.85rem;
-}
-.mcard {
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  padding: 0.9rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  transition: box-shadow 0.12s, transform 0.08s;
-}
-.mcard:hover {
-  box-shadow: var(--shadow);
-  transform: translateY(-2px);
-}
-.mcard .mc-ico {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  background: var(--primary-soft);
-  display: grid;
-  place-items: center;
-  font-size: 1.15rem;
-}
-.mcard .mc-code {
-  font-family: var(--mono);
-  font-weight: 700;
-}
-.mcard .mc-spec {
-  color: var(--ink-2);
-  font-size: 0.83rem;
-}
-.mcard .mc-foot {
-  margin-top: auto;
-}
 .avail {
   display: inline-flex;
   align-items: center;
@@ -71,27 +30,6 @@
   flex-wrap: wrap;
   align-items: center;
   margin-bottom: 0.75rem;
-}
-
-/* Upload dropzone styled — thay <input type=file> mặc định (Kiểm kê) */
-.dropzone {
-  border: 2px dashed var(--border-2);
-  border-radius: var(--r);
-  padding: 20px;
-  text-align: center;
-  color: var(--ink-3);
-  background: var(--surface-2);
-  cursor: pointer;
-  transition: border-color 0.12s, background 0.12s;
-}
-.dropzone:hover {
-  border-color: var(--primary);
-}
-.dropzone b {
-  color: var(--primary-ink);
-}
-.dropzone input[type='file'] {
-  display: none;
 }
 
 /* Danh mục — bảng 3 cột song song */
@@ -250,35 +188,6 @@
 }
 .pipe .pbar.done {
   background: var(--ok);
-}
-
-/* Multi-select chip picker — "Phần mềm cài sẵn" / gắn máy */
-.swpick {
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 8px;
-  min-height: 44px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  background: var(--surface);
-}
-.swchip {
-  background: var(--primary-soft);
-  color: var(--primary-ink);
-  border-radius: 999px;
-  padding: 3px 8px 3px 10px;
-  font-size: 0.8rem;
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-}
-.swchip button {
-  all: unset;
-  cursor: pointer;
-  color: var(--primary-ink);
-  font-weight: 700;
 }
 
 /* Hàng mở rộng in-context (DataTable renderExpanded) — trang Tài sản */

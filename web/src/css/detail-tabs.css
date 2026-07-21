@@ -146,7 +146,7 @@ input.search {
 }
 .stat-num {
   font-size: 1.5rem;
-  font-weight: 680;
+  font-weight: var(--fw-bold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--ink);

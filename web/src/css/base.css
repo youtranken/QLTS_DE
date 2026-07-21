@@ -48,7 +48,7 @@ label {
 /* --- Buttons -------------------------------------------------------------- */
 button {
   font: inherit;
-  font-weight: 550;
+  font-weight: var(--fw-semibold);
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--border-2);
@@ -120,7 +120,7 @@ button.sm {
 a.linkbtn {
   display: inline-flex;
   align-items: center;
-  font-weight: 550;
+  font-weight: var(--fw-semibold);
   font-size: 0.9rem;
   color: var(--ink);
   background: var(--surface);
@@ -193,7 +193,7 @@ a.linkbtn:hover {
   padding: 0.5rem 0.65rem;
   border-radius: var(--r-sm);
   color: var(--sidebar-ink);
-  font-weight: 550;
+  font-weight: var(--fw-semibold);
   font-size: 0.9rem;
   text-decoration: none;
   transition: background 0.15s var(--ease), color 0.15s var(--ease),
@@ -217,7 +217,7 @@ a.linkbtn:hover {
   border: none;
   cursor: pointer;
   font: inherit;
-  font-weight: 550;
+  font-weight: var(--fw-semibold);
   font-size: 0.9rem;
 }
 /* Đè `button:hover{background:surface-2}` (specificity cao hơn .nav-item:hover) — nếu không,
