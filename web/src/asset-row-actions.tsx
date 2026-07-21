@@ -138,10 +138,15 @@ export function RowActionsMenu({ actions }: { actions: RowAction[] }) {
   // chui dưới thead sticky. capture=true để bắt cả cuộn container.
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
+    // Loại trừ cuộn TRONG chính menu (menu dài, maxHeight 400) → chỉ đóng khi cuộn
+    // trang/bảng làm nút trôi.
+    const close = (e: Event) => {
+      if (refs.floating.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
     window.addEventListener('scroll', close, true);
     return () => window.removeEventListener('scroll', close, true);
-  }, [open]);
+  }, [open, refs.floating]);
 
   if (actions.length === 0) return null;
 

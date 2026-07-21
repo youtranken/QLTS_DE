@@ -56,7 +56,9 @@
   max-width: 560px;
   width: 100%;
   padding: var(--space-10);
-  animation: modalIn 0.2s var(--ease) both;
+  /* Fade-only (như .sheet): tránh transform tạo containing-block cho popover fixed
+     portal vào Content (DateTimePicker trong extension-dialog). */
+  animation: rowIn 0.2s var(--ease) both;
 }
 
 /* Lớp canh giữa cho Radix Dialog (ui/dialog.tsx): Overlay .modal-backdrop lo nền

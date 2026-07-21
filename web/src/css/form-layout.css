@@ -476,7 +476,10 @@ input[list]::-webkit-calendar-picker-indicator {
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  animation: modalIn 0.2s var(--ease) both;
+  /* Fade-only (KHÔNG transform): popover (DatePicker/TimeField…) portal VÀO Content;
+     transform trên .sheet (kể cả identity từ fill-mode) tạo containing-block +
+     overflow:hidden → CẮT popover. Bỏ transform để popover fixed thoát ra viewport. */
+  animation: rowIn 0.2s var(--ease) both;
 }
 /* Form Thêm/Sửa tài sản & phần mềm rộng hơn → nhiều cột input mỗi hàng, thoáng hơn. */
 .sheet.sheet-wide {
