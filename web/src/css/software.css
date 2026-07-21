@@ -57,7 +57,7 @@
 }
 .sw-caret {
   color: var(--ink-3);
-  font-size: 1.5rem;
+  font-size: var(--fs-2xl);
   line-height: 1;
   padding: 2px 4px;
   transition: transform 0.2s var(--ease), color 0.2s var(--ease);
@@ -86,7 +86,7 @@
   font-weight: 600;
 }
 .sw-sub {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--ink-3);
   margin-top: 1px;
 }
@@ -106,7 +106,7 @@
   line-height: 1.2;
 }
 .seat-due small {
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
 }
 .sw-holders {
   color: var(--ink-2);
@@ -132,7 +132,7 @@ table.table td.right {
   padding: 14px 18px 16px;
 }
 .sw-detail-head {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -160,7 +160,7 @@ table.table td.right {
   display: block;
   color: var(--ink-3);
   font-weight: 500;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   margin-top: 1px;
 }
 .inst-who {
@@ -168,7 +168,7 @@ table.table td.right {
 }
 .inst-day {
   color: var(--ink-3);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -195,7 +195,7 @@ table.table td.right {
   grid-template-columns: var(--seat-cols);
   gap: 14px;
   padding: 0 14px 6px;
-  font-size: 0.68rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -217,7 +217,7 @@ table.table td.right {
 }
 .seat-cost,
 .seat-date {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -245,13 +245,13 @@ table.table td.right {
 }
 .seat-term {
   color: var(--ink-3);
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .seat-note {
   color: var(--ink-3);
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -289,7 +289,7 @@ table.table td.right {
   margin-bottom: 14px;
 }
 .assign-current-label {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;

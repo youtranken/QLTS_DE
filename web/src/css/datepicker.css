@@ -83,7 +83,7 @@
   height: 1.3rem;
   border-radius: 50%;
   color: var(--ink-3);
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
 }
 .dp-clear:hover {
   background: var(--surface-2);
@@ -163,7 +163,7 @@
 }
 .dp-week span {
   text-align: center;
-  font-size: 0.68rem;
+  font-size: var(--fs-2xs);
   font-weight: 800;
   color: var(--ink-3);
   padding: var(--space-1) 0;
@@ -193,7 +193,7 @@
 }
 .dp-grid.days .dp-cell {
   aspect-ratio: 1;
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 .dp-grid.months .dp-cell,

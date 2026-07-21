@@ -80,11 +80,13 @@
   --space-8: 1.1rem;
   --space-9: 1.25rem;
   --space-10: 1.5rem;
-  --fs-xs: 0.72rem;
-  --fs-sm: 0.85rem;
-  --fs-md: 0.95rem;
-  --fs-lg: 1.05rem;
+  --fs-2xs: 0.72rem;
+  --fs-xs: 0.8rem;
+  --fs-sm: 0.88rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.1rem;
   --fs-xl: 1.3rem;
+  --fs-2xl: 1.5rem;
   --fw-medium: 500;
   --fw-semibold: 600;
   --fw-bold: 700;
@@ -156,17 +158,17 @@ body {
 }
 
 h1 {
-  font-size: 1.3rem;
+  font-size: var(--fs-xl);
   font-weight: var(--fw-bold);
   letter-spacing: -0.01em;
 }
 h2 {
-  font-size: 1.05rem;
+  font-size: var(--fs-lg);
   font-weight: var(--fw-semibold);
   letter-spacing: -0.005em;
 }
 h3 {
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
   font-weight: var(--fw-semibold);
 }
 

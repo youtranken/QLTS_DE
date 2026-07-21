@@ -40,7 +40,7 @@ select {
   background-position: right 0.62rem center;
 }
 label {
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   color: var(--ink-2);
   font-weight: 500;
 }
@@ -115,13 +115,13 @@ button.ghost:hover:not(:disabled) {
 }
 button.sm {
   padding: 0.28rem var(--space-4);
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
 }
 a.linkbtn {
   display: inline-flex;
   align-items: center;
   font-weight: var(--fw-semibold);
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--border-2);
@@ -162,7 +162,7 @@ a.linkbtn:hover {
   align-items: center;
   gap: var(--space-3);
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: var(--fs-lg);
   letter-spacing: -0.01em;
   color: var(--sidebar-ink-2);
   padding: 0.1rem var(--space-4) var(--space-7);
@@ -175,11 +175,11 @@ a.linkbtn:hover {
   color: #fff;
   display: grid;
   place-items: center;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
 }
 .nav-label {
-  font-size: 0.68rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -194,7 +194,7 @@ a.linkbtn:hover {
   border-radius: var(--r-sm);
   color: var(--sidebar-ink);
   font-weight: var(--fw-semibold);
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
   text-decoration: none;
   transition: background 0.15s var(--ease), color 0.15s var(--ease),
     transform 0.12s var(--ease);
@@ -218,7 +218,7 @@ a.linkbtn:hover {
   cursor: pointer;
   font: inherit;
   font-weight: var(--fw-semibold);
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
 }
 /* Đè `button:hover{background:surface-2}` (specificity cao hơn .nav-item:hover) — nếu không,
    nút dropdown bị nền sáng + chữ sáng của sidebar = "trắng không thấy gì". */
@@ -228,7 +228,7 @@ a.linkbtn:hover {
 }
 .nav-parent .nav-caret {
   margin-left: auto;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   opacity: 0.7;
 }
 .nav-children {
@@ -240,7 +240,7 @@ a.linkbtn:hover {
   border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
 .nav-children .nav-item {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: 500;
 }
 /* Drawer mobile (≤900px): sidebar cố định trượt vào, có backdrop mờ ấm. */
@@ -293,7 +293,7 @@ a.linkbtn:hover {
 }
 .topbar .hello {
   color: var(--ink-2);
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
 }
 .topbar .hello strong {
   color: var(--ink);

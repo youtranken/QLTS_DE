@@ -35,7 +35,7 @@ html[data-theme='dark']
   flex-wrap: wrap;
 }
 .slot-suggest-label {
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--ink-2);
   white-space: nowrap;
@@ -62,7 +62,7 @@ html[data-theme='dark']
 }
 .slot-mer-lbl {
   align-self: center;
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   font-weight: 800;
   letter-spacing: 0.03em;
   color: var(--ink-3);
@@ -74,7 +74,7 @@ html[data-theme='dark']
   text-align: center;
   padding: 6px 13px;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   border: 1px solid var(--border-2);
   border-radius: var(--r);
@@ -113,7 +113,7 @@ html[data-theme='dark']
   padding: 0;
   display: grid;
   place-items: center;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   line-height: 1;
   align-self: flex-end;
   margin-bottom: 1px;
@@ -136,7 +136,7 @@ html[data-theme='dark']
   background: var(--primary-soft);
   display: grid;
   place-items: center;
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
   flex: none;
 }
 .picked-machine .pm-info {
@@ -149,7 +149,7 @@ html[data-theme='dark']
   font-weight: 700;
 }
 .picked-machine .pm-spec {
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
 }
 
 /* Catalog compact (nhiều máy): thẻ nhỏ, 1 hàng nút, tiêu đề gọn. */
@@ -170,13 +170,13 @@ html[data-theme='dark']
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
   flex: none;
 }
 .mcard-sm .mc-code {
   font-family: var(--mono);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
 }
 .mcard-sm .mc-head .avail {
   margin-left: auto;
@@ -205,7 +205,7 @@ html[data-theme='dark']
   gap: var(--space-2);
 }
 .topcell-label {
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -219,10 +219,10 @@ html[data-theme='dark']
 .picked-machine.compact .pm-ico {
   width: 30px;
   height: 30px;
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
 }
 .picked-machine.compact .pm-code {
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
 }
 .machine-select {
   width: 100%;
@@ -274,7 +274,7 @@ html[data-theme='dark']
 
 /* Nhãn ngày trước dải chip "giờ trống" (Hôm nay / Ngày mai / thứ+ngày). */
 .slot-day {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   color: var(--ink-2);
   align-self: center;

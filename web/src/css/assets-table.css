@@ -4,10 +4,10 @@
 }
 /* Chữ bảng /tai-san to hơn một chút cho dễ đọc. */
 .assets-table {
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
 }
 .assets-table thead th {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
 }
 
 /* --- /tai-san "làm đẹp" (scope .assets-table) — tách khỏi table.css (§6) ----- */
@@ -49,7 +49,7 @@
   color: var(--ink);
 }
 .cell-sub {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--ink-3);
 }
 
@@ -80,7 +80,7 @@ button.cell-type-btn:hover:not(:disabled) {
   text-align: center;
 }
 .cell-type-main > span {
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   color: var(--ink-2);
 }
 /* Caret › đầu ô Loại: TO, xoay 90° + đổi màu primary khi mở (giống .sw-caret). */
@@ -89,7 +89,7 @@ button.cell-type-btn:hover:not(:disabled) {
   width: 1.1rem;
   text-align: center;
   color: var(--ink-3);
-  font-size: 1.5rem;
+  font-size: var(--fs-2xl);
   line-height: 1;
   transition: transform 0.2s var(--ease), color 0.2s var(--ease);
 }

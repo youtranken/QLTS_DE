@@ -29,7 +29,7 @@
   color: var(--ink-2);
   border-radius: var(--r-sm);
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
   line-height: 1;
 }
 .mcal-weeknav button:hover {
@@ -49,14 +49,14 @@
   gap: var(--space-2);
 }
 .mcal-daypick .muted {
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 .mcal-daypick .dp {
   width: 12.5rem;
 }
 .mcal-weekrange {
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 /* Bố cục: lịch (chính) + rail máy trống (phải); ≤980px xếp dọc */
@@ -77,7 +77,7 @@
   padding: var(--space-6);
 }
 .mcal-rail h2 {
-  font-size: 0.95rem;
+  font-size: var(--fs-md);
   margin: 0 0 var(--space-4);
 }
 .mcal-freelist {
@@ -108,7 +108,7 @@
   font-variant-numeric: tabular-nums;
 }
 .mcal-freecard .fc-spec {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
@@ -125,7 +125,7 @@
   margin-bottom: var(--space-4);
 }
 .mcal-active-head h2 {
-  font-size: 1.05rem;
+  font-size: var(--fs-lg);
   margin: 0;
 }
 @media (max-width: 980px) {
@@ -163,7 +163,7 @@
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
   border-right: 1px solid var(--border);
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -187,13 +187,13 @@
   background: var(--warm-soft);
 }
 .mcal-dhead .dw {
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
   color: var(--ink-3);
 }
 .mcal-dhead .dn {
-  font-size: 1rem;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -214,7 +214,7 @@
   font-variant-numeric: tabular-nums;
 }
 .mcal-mcell .mm {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
@@ -236,7 +236,7 @@
   position: relative;
   border-radius: 8px;
   padding: var(--space-2) var(--space-4);
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -257,7 +257,7 @@
   flex-wrap: wrap;
   gap: var(--space-8);
   margin-top: var(--space-7);
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   color: var(--ink-2);
   font-weight: 600;
 }
@@ -301,7 +301,7 @@
   font-variant-numeric: tabular-nums;
 }
 .mcal-mhead .mm {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--ink-3);
 }
 .mcal-mbody {
@@ -331,14 +331,14 @@
 }
 .mcal-slot .rng {
   flex: 1;
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 .mcal-free {
   padding: var(--space-6) 0;
   color: var(--ink-3);
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
 }
 .desktop-only {
   display: block;

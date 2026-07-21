@@ -2,7 +2,7 @@
 .alert {
   padding: var(--space-4) var(--space-6);
   border-radius: var(--r);
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   margin-bottom: var(--space-7);
   border: 1px solid transparent;
   animation: rowIn 0.2s var(--ease) both;

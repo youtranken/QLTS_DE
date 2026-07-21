@@ -3,7 +3,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   padding: 2px 9px;
   border-radius: 999px;
@@ -46,7 +46,7 @@
 }
 .dmtabs label {
   padding: var(--space-3) var(--space-8);
-  font-size: 0.92rem;
+  font-size: var(--fs-sm);
   transition: background 0.2s var(--ease), color 0.2s var(--ease),
     box-shadow 0.2s var(--ease), transform 0.12s var(--ease);
 }
@@ -81,7 +81,7 @@
   justify-content: space-between;
   align-items: center;
   /* Khớp .list-head mockup: nhãn hoa nhỏ, xám. */
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -107,7 +107,7 @@
 }
 /* Count "N máy" dạng pill (mockup .badge) */
 .dmrow .dm-ct {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--ink-2);
   background: var(--surface-2);
@@ -157,7 +157,7 @@
   border: 2px solid var(--border-2);
   display: grid;
   place-items: center;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   color: var(--ink-3);
 }
 .pipe .pnode.done .pc {
@@ -171,7 +171,7 @@
   color: #fff;
 }
 .pipe .pnode .plb {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--ink-3);
   white-space: nowrap;
 }
@@ -199,7 +199,7 @@
   all: unset;
   cursor: pointer;
   color: var(--ink-3);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   padding: 2px 4px;
   border-radius: 4px;
 }
@@ -235,19 +235,19 @@ table.table tbody tr.exp:hover td {
 }
 .exp .panel h5 {
   margin: 0 0 6px;
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ink-3);
 }
 .exp .panel .row {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--ink-2);
   margin: 2px 0;
 }
 .exp .panel .muted-empty {
   color: var(--ink-3);
-  font-size: 0.83rem;
+  font-size: var(--fs-xs);
 }
 
 /* Part 2: chip giờ trống hôm nay trên card máy (catalog Mượn máy) */
@@ -257,7 +257,7 @@ table.table tbody tr.exp:hover td {
   gap: 5px;
 }
 .slotchip {
-  font-size: 0.76rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 999px;

@@ -18,7 +18,7 @@
 }
 .nav-badge {
   flex: none;
-  font-size: 0.66rem;
+  font-size: var(--fs-2xs);
   font-weight: 800;
   min-width: 20px;
   height: 18px;
@@ -43,7 +43,7 @@
 }
 /* Mũi tên dropdown DÙNG CHUNG 1 kiểu: chevron › xoay 90° khi mở (như caret expand bảng). */
 .nav-caret {
-  font-size: 1.05rem;
+  font-size: var(--fs-lg);
   line-height: 1;
   opacity: 0.75;
   transition: transform 0.18s var(--ease);
@@ -117,7 +117,7 @@
   background: transparent;
   color: var(--sidebar-ink);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
   text-decoration: none;
   text-align: left;
@@ -141,7 +141,7 @@
   color: var(--danger);
 }
 .sb-badge {
-  font-size: 0.68rem;
+  font-size: var(--fs-2xs);
   font-weight: 800;
   padding: 1px 6px;
   border-radius: 999px;
@@ -155,14 +155,14 @@
 }
 .sb-who b {
   color: var(--sidebar-ink-2);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .sb-who span {
   color: var(--sidebar-label);
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
 }
 
 /* Rail thu gọn (desktop): ẩn nhãn/badge/label, canh giữa icon. */

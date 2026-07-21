@@ -7,7 +7,7 @@
   margin: -0.35rem 0 var(--space-6);
 }
 .active-filters .af-label {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;

@@ -13,7 +13,7 @@
   min-width: 0;
 }
 .data-item dt {
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -145,7 +145,7 @@ input.search {
   background: var(--danger);
 }
 .stat-num {
-  font-size: 1.5rem;
+  font-size: var(--fs-2xl);
   font-weight: var(--fw-bold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -159,7 +159,7 @@ input.search {
 }
 .stat-label {
   margin-top: var(--space-1);
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;

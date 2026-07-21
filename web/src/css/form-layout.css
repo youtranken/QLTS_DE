@@ -13,7 +13,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-6);
   border-radius: calc(var(--r) - 3px);
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
   color: var(--ink-2);
   cursor: pointer;
@@ -53,7 +53,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -248,7 +248,7 @@ input[list]::-webkit-calendar-picker-indicator {
 .fsel-none {
   padding: var(--space-3) var(--space-4);
   color: var(--ink-3);
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   cursor: default;
 }
 .fsel-option:hover,
@@ -370,7 +370,7 @@ input[list]::-webkit-calendar-picker-indicator {
 }
 .combo-option small {
   color: var(--ink-3);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   font-weight: 400;
 }
 .combo-option:hover small,
@@ -381,7 +381,7 @@ input[list]::-webkit-calendar-picker-indicator {
 .combo-empty {
   padding: var(--space-4);
   color: var(--ink-3);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   text-align: center;
 }
 /* Gợi ý gắn phần mềm: tên license + badge Trống/Đang dùng để biết ghế nào gắn được ngay. */
@@ -391,7 +391,7 @@ input[list]::-webkit-calendar-picker-indicator {
   gap: var(--space-3);
 }
 .sw-opt-badge {
-  font-size: 0.66rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   padding: 1px 7px;
   border-radius: 999px;
@@ -440,7 +440,7 @@ input[list]::-webkit-calendar-picker-indicator {
   background: var(--primary-soft);
   color: var(--primary-ink);
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
 }
 .chip button {
@@ -453,7 +453,7 @@ input[list]::-webkit-calendar-picker-indicator {
   border-radius: 50%;
   background: color-mix(in srgb, var(--primary) 16%, transparent);
   color: var(--primary-ink);
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   line-height: 1;
 }
 .chip button:hover:not(:disabled) {
@@ -492,7 +492,7 @@ input[list]::-webkit-calendar-picker-indicator {
   border-bottom: 1px solid var(--border-2);
 }
 .sheet-title {
-  font-size: 1.05rem;
+  font-size: var(--fs-lg);
   font-weight: var(--fw-bold);
   letter-spacing: -0.01em;
 }
@@ -514,7 +514,7 @@ input[list]::-webkit-calendar-picker-indicator {
   background: transparent;
   color: var(--ink-3);
   border-radius: var(--r-sm);
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
 }
 .sheet-close:hover:not(:disabled) {
   background: var(--muted-soft);

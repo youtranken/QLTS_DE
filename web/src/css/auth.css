@@ -21,22 +21,22 @@
 .auth-hero .brand-mark {
   width: 44px;
   height: 44px;
-  font-size: 1rem;
+  font-size: var(--fs-md);
   background: rgba(255, 255, 255, 0.18);
 }
 .auth-name {
-  font-size: 1.6rem;
+  font-size: var(--fs-2xl);
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
 .auth-sub {
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   opacity: 0.85;
 }
 .auth-slogan {
-  font-size: 1.35rem;
+  font-size: var(--fs-xl);
   font-weight: 700;
   line-height: 1.35;
   max-width: 22ch;
@@ -81,7 +81,7 @@
     gap: var(--space-7);
   }
   .auth-slogan {
-    font-size: 1.15rem;
+    font-size: var(--fs-lg);
   }
 }
 .error-state {
@@ -119,7 +119,7 @@
   padding: 2.25rem var(--space-7);
   text-align: center;
   color: var(--ink-3);
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
   background: var(--surface-2);
   border: 1px dashed var(--border-2);
   border-radius: var(--r-lg);
@@ -134,7 +134,7 @@
 }
 /* Empty-state có thêm gợi ý phụ + nút hành động (dùng với component EmptyState) */
 .empty .empty-hint {
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   color: var(--ink-3);
   max-width: 32ch;
 }
