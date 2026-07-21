@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { PoolPage } from './pool-page';
-import type { Me } from './panels';
+import type { Me } from './me';
 import {
   jsonResponse,
   renderWithI18n,

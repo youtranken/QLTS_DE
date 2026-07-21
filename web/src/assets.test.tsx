@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { AssetsPage } from './assets';
-import type { Me } from './panels';
+import type { Me } from './me';
 import {
   jsonResponse,
   renderWithI18n,

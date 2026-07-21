@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { QueryClient } from '@tanstack/react-query';
 import { detailToForm } from './asset-types';
 import type { AssetDetail, AssetRow, FormState } from './asset-types';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 /**
  * Các thao tác hàng của sổ tài sản (mở sửa / copy / xóa cứng / xóa vĩnh viễn). Tách khỏi

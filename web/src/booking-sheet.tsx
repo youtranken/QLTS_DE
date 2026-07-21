@@ -4,7 +4,7 @@ import { RecurringBuilder } from './recurring-builder';
 import { RecurringAdminBuilder } from './recurring-admin-builder';
 import { BookingTimeFields } from './booking-time-fields';
 import { BookingTopRow } from './booking-top-row';
-import type { Me } from './panels';
+import type { Me } from './me';
 import {
   DEFAULT_WORK_HOURS,
   isBlockedDay,

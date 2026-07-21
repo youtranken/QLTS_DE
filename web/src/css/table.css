@@ -132,7 +132,7 @@ table.table tbody tr.row-highlight td:first-child {
   top: 16px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 60;
+  z-index: var(--z-toast);
   display: flex;
   align-items: center;
   gap: 10px;

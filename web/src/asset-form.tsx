@@ -4,7 +4,7 @@ import { AssetGeneralFields } from './asset-general-fields';
 import { SoftwareSeatsFields } from './software-seats-fields';
 import { AssetInstalledOn } from './asset-installed-on';
 import { AssetCascadeDialog } from './asset-cascade-dialog';
-import type { Me } from './panels';
+import type { Me } from './me';
 import type { FormState } from './asset-types';
 import { useAssetForm } from './use-asset-form';
 

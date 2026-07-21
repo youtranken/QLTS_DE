@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 interface PreviewRow {
   rowNumber: number;

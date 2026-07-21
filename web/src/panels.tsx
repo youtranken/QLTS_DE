@@ -1,19 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-export interface Me {
-  sub: string;
-  fullName?: string;
-  email?: string;
-  role: string;
-  devMode?: boolean;
-  csrfToken: string | null;
-  permissions?: { canLongTerm: boolean; canRecurring: boolean };
-  // Giờ làm + ngưỡng auto-duyệt từ config SA chỉnh (audit H2/H3) — form Đặt máy đọc thay hardcode.
-  workingHours?: { days: number[]; start: string; end: string };
-  autoApproveMaxHours?: number;
-}
-
 interface SyncResult {
   total: number;
   created: number;

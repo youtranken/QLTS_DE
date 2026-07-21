@@ -5,7 +5,7 @@ import { navGroups, type NavItem } from './app-nav';
 import { NavIcon } from './nav-icon';
 import { ThemeSwitch } from './switches';
 import { useNavCounts } from './use-nav-counts';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 // Lazy: giữ Hồ sơ (profile) ở chunk riêng — sidebar luôn tải nên không nhồi profile vào chunk chính.
 const ProfileDialog = lazy(() =>

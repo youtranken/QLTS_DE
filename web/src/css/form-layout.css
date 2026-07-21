@@ -337,7 +337,7 @@ input[list]::-webkit-calendar-picker-indicator {
 }
 .combo-menu {
   position: absolute;
-  z-index: 30;
+  z-index: var(--z-dropdown);
   top: calc(100% + 4px);
   left: 0;
   right: 0;
@@ -541,6 +541,6 @@ input[list]::-webkit-calendar-picker-indicator {
 
 /* Popup cascade nằm TRÊN sheet (mở từ trong form) */
 .modal-backdrop.stacked {
-  z-index: 60;
+  z-index: var(--z-modal);
 }
 

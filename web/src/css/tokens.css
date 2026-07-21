@@ -47,6 +47,20 @@
   --muted-soft: #efeee7;
 
   --ring: 0 0 0 3px rgba(14, 159, 110, 0.22);
+
+  /* Thang z-index (thấp→cao). Trước đây 5 lớp cùng z:60 tranh nhau, thứ tự
+     hiển thị do DOM quyết định. Popup nổi (dropdown/popover) < modal là chủ ý:
+     palette/lightbox/toast phải NỔI TRÊN modal. Lớp cục bộ trong component
+     (sticky thead, bánh xe time-picker, drawer mobile) giữ z-index riêng. */
+  --z-sticky: 10;
+  --z-dropdown: 30;
+  --z-popover: 40;
+  --z-modal-backdrop: 50;
+  --z-modal: 60;
+  --z-lightbox: 70;
+  --z-palette: 75;
+  --z-toast: 80;
+
   --r-sm: 8px;
   --r: 10px;
   --r-lg: 14px;

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
 import type { AssetDetail, AssetRow, UserOption } from './asset-types';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 /**
  * Chuyển máy sang người khác = đổi người đứng tên (assignOwner, PUT :id/assignee).

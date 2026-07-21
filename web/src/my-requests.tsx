@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { MemberRecurringSessions } from './member-recurring-sessions';
 import { DateTimePicker } from './ui/date-time-picker';
 import { ConfirmDialog } from './confirm-dialog';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 interface MyTicket {
   id: string;

@@ -13,7 +13,7 @@
   justify-content: center;
   align-items: flex-start;
   padding: 12vh 20px 20px;
-  z-index: 60;
+  z-index: var(--z-palette);
   background: rgba(20, 26, 20, 0.42);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);

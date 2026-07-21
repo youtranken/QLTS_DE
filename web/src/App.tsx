@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, useLocation } from 'react-router-dom';
 import { CommandPalette } from './command-palette';
-import type { Me } from './panels';
+import type { Me } from './me';
 import { LoginScreen } from './login-screen';
 import { navGroups } from './app-nav';
 import { SidebarNav } from './app-sidebar-nav';

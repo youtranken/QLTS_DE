@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ProfilePage } from './profile';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 /**
  * Hồ sơ dạng POPUP (thay vì chuyển trang) — mở từ nút "Hồ sơ" ở sidebar. Bọc ProfilePage trong

@@ -26,31 +26,33 @@
   font-size: 0.9rem;
   margin-top: 0.35rem;
 }
-.stat-grid {
+/* Tên riêng .profile-stat-* để KHÔNG đụng .stat-card/.stat-grid của
+   detail-tabs.css (KPI dashboard, cùng tên nhưng khác thiết kế). */
+.profile-stat-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.9rem;
   margin-bottom: 1.2rem;
 }
-.stat-card {
+.profile-stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
   padding: 1rem 1.1rem;
 }
-.stat-card .sc-label {
+.profile-stat-card .sc-label {
   color: var(--ink-3);
   font-size: 0.78rem;
 }
-.stat-card .sc-num {
+.profile-stat-card .sc-num {
   font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   margin-top: 0.4rem;
   font-variant-numeric: tabular-nums;
 }
-.stat-card .sc-num.sc-date {
+.profile-stat-card .sc-num.sc-date {
   font-size: 1.05rem;
 }
 /* Danh sách phần mềm được cấp */

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 /**
  * Nút "Hủy" (đỏ) — Admin hủy CƯỠNG CHẾ lượt mượn của người khác (audit H-2).

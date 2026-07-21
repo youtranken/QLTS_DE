@@ -100,8 +100,7 @@ input.search {
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 0.6rem;
 }
-/* Xử lý mượn: 5 KPI trên 1 hàng cho gọn (co lại 1 cột khi màn hẹp).
-   Specificity 2 lớp để thắng `.stat-grid{repeat(3)}` ở profile.css (load sau). */
+/* Xử lý mượn: 5 KPI trên 1 hàng cho gọn (co lại 1 cột khi màn hẹp). */
 .stat-grid.stat-grid-5 {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }

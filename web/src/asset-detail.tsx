@@ -6,7 +6,7 @@ import { AssetSoftwareTable } from './asset-software-list';
 import type { InstalledSoftware } from './asset-software-list';
 import { detailToForm, STATUS_BADGE } from './asset-types';
 import type { AllocationRow, AssetDetail, NoteRow } from './asset-types';
-import type { Me } from './panels';
+import type { Me } from './me';
 import { PhotoLightbox } from './photo-lightbox';
 import type { LightboxImage } from './photo-lightbox';
 

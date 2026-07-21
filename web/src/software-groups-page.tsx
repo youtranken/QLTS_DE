@@ -19,7 +19,7 @@ import {
   EXPIRY_SOON_DAYS,
 } from './asset-types';
 import type { AssetDetail, AssetRow, FormState } from './asset-types';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 /** 1 dòng = 1 tên license (nhiều bản/seat gộp lại) — đếm bản/đã gắn/còn dư/sắp hết hạn. */
 interface LicenseGroup {

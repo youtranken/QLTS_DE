@@ -6,7 +6,7 @@ import { BookingSheet } from './booking-sheet';
 import { ExtensionDialog } from './extension-dialog';
 import { ExtensionApproveDialog } from './extension-approve-dialog';
 import { ForceCancelButton } from './force-cancel-button';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 interface BusyBlock {
   from: string;

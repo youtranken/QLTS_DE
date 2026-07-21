@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 interface Session {
   id: string;

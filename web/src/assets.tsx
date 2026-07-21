@@ -12,7 +12,7 @@ import { useAssetLifecycle } from './asset-lifecycle-actions';
 import { DataTable } from './ui/data-table';
 import { EMPTY_FORM, detailToForm } from './asset-types';
 import type { AssetDetail, AssetRow, FormState } from './asset-types';
-import type { Me } from './panels';
+import type { Me } from './me';
 import { useAssetPageActions } from './use-asset-page-actions';
 import { useAssetColumns } from './assets-columns';
 import { AssetsFilterBar } from './assets-filter-bar';

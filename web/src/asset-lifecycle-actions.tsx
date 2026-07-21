@@ -8,7 +8,7 @@ import type {
   PendingCascade,
 } from './asset-types';
 import type { RowAction } from './asset-row-actions';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 type Method = 'POST' | 'PUT';
 

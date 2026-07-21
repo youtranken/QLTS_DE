@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
 import { PoolTable } from './pool-table';
-import type { Me } from './panels';
+import type { PoolItem } from './pool-types';
+import type { Me } from './me';
 
 interface AssetOption {
   id: string;
@@ -10,21 +11,6 @@ interface AssetOption {
   type: string;
   status: string;
   isPool: boolean;
-}
-
-export interface PoolItem {
-  id: string;
-  code: string;
-  type: string;
-  configuration: string | null;
-  brand: string | null;
-  status: string;
-  version: number;
-  assignedUserName: string | null;
-  // B1 (UAT 2026-07-12): phần mềm đang cài trên máy (comma-joined).
-  installedSoftware: string | null;
-  // Người đang mượn (booking delivered / ticket in_use). null = máy sẵn sàng.
-  currentBorrowerName: string | null;
 }
 
 /**

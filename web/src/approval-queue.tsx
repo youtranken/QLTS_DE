@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Me } from './panels';
+import type { Me } from './me';
 import { RecurringSessionQueue } from './recurring-session-queue';
 import { ExtensionQueue } from './extension-queue';
 import { HandoverQueues } from './handover-queues';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AssetTypeIcon } from './asset-type-icon';
-import type { PoolItem } from './pool-page';
+import type { PoolItem } from './pool-types';
 
 /**
  * Bảng pool (theo pool.html): No / Code / User(người đang mượn) / Asset Type / Software / Gỡ.

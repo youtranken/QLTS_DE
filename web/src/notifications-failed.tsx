@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fetchJson } from './fetch-json';
 import { LoadError } from './load-state';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 interface FailedItem {
   id: string;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AssetDetail, AssetRow } from './asset-types';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 /**
  * Gán 1 bản (seat) phần mềm vào máy — hoặc gỡ về "chưa gắn". Dùng lại PUT :id/transfer (2.5).

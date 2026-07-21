@@ -4,7 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from './ui/data-table';
 import { LoadError } from './load-state';
 import { STATUS_BADGE } from './asset-types';
-import type { Me } from './panels';
+import type { Me } from './me';
 
 interface Device {
   id: string;
@@ -144,16 +144,16 @@ export function ProfilePage({ me }: { me: Me }) {
         </div>
       </header>
 
-      <div className="stat-grid">
-        <div className="stat-card">
+      <div className="profile-stat-grid">
+        <div className="profile-stat-card">
           <div className="sc-label">{t('profile.statDevices')}</div>
           <div className="sc-num">{data.devices.length}</div>
         </div>
-        <div className="stat-card">
+        <div className="profile-stat-card">
           <div className="sc-label">{t('profile.statSoftware')}</div>
           <div className="sc-num">{data.software.length}</div>
         </div>
-        <div className="stat-card">
+        <div className="profile-stat-card">
           <div className="sc-label">{t('profile.statLastActivity')}</div>
           <div className="sc-num sc-date">{fmtDate(lastActivity)}</div>
         </div>
