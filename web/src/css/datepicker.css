@@ -179,7 +179,7 @@
 .dp-grid.months,
 .dp-grid.years {
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: var(--space-2);
 }
 .dp-cell {
   border: 1.5px solid transparent;

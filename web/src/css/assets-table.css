@@ -57,7 +57,7 @@
 .cell-type {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-2);
 }
 button.cell-type-btn {
   border: none;
@@ -76,7 +76,7 @@ button.cell-type-btn:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-2);
   text-align: center;
 }
 .cell-type-main > span {

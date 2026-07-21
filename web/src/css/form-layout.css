@@ -1,8 +1,8 @@
 /* --- Segmented control (Thiết bị / Phần mềm) ------------------------------ */
 .segmented {
   display: inline-flex;
-  padding: 3px;
-  gap: 3px;
+  padding: var(--space-1);
+  gap: var(--space-1);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--r);
@@ -393,7 +393,7 @@ input[list]::-webkit-calendar-picker-indicator {
 .sw-opt-badge {
   font-size: var(--fs-2xs);
   font-weight: 700;
-  padding: 1px 7px;
+  padding: 1px var(--space-3);
   border-radius: 999px;
   flex: none;
 }

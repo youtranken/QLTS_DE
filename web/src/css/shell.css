@@ -22,7 +22,7 @@
   font-weight: 800;
   min-width: 20px;
   height: 18px;
-  padding: 0 6px;
+  padding: 0 var(--space-2);
   border-radius: 999px;
   display: inline-grid;
   place-items: center;
@@ -57,15 +57,15 @@
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  gap: var(--space-4);
+  padding: var(--space-5);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
 }
 .sb-user {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-4);
 }
 .sb-collapse {
   width: 34px;
@@ -96,12 +96,12 @@
 .sb-actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .sb-act-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .sb-act-row .sb-act {
   flex: 1;
@@ -110,7 +110,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--r-sm);
   border: 1px solid transparent;
@@ -143,7 +143,7 @@
 .sb-badge {
   font-size: var(--fs-2xs);
   font-weight: 800;
-  padding: 1px 6px;
+  padding: 1px var(--space-2);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
   color: var(--sidebar-ink-2);

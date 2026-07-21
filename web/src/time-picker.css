@@ -7,11 +7,11 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 20px;
+  padding: var(--space-10);
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-8);
 }
 .tp-title {
   font-size: 13px;
@@ -22,8 +22,8 @@
 .tp-field {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-7);
   border: 2px solid var(--primary);
   border-radius: var(--r);
   background: var(--surface);
@@ -60,21 +60,21 @@ input.tp-time:focus {
   font-weight: 700;
   color: var(--primary-ink);
   background: var(--primary-soft);
-  padding: 5px 12px;
+  padding: var(--space-2) var(--space-6);
   border-radius: 8px;
 }
 
 .tp-seg {
   display: flex;
-  gap: 10px;
+  gap: var(--space-5);
 }
 .tp-seg button {
   flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 11px;
+  gap: var(--space-3);
+  padding: var(--space-6);
   border-radius: var(--r);
   border: 1px solid var(--border);
   background: var(--surface);
@@ -99,7 +99,7 @@ input.tp-time:focus {
 .tp-body {
   display: flex;
   align-items: stretch;
-  gap: 12px;
+  gap: var(--space-6);
 }
 .tp-wheels {
   position: relative;
@@ -135,7 +135,7 @@ input.tp-time:focus {
   font-size: 26px;
   font-weight: 700;
   color: var(--ink-3);
-  padding: 0 4px;
+  padding: 0 var(--space-1);
 }
 
 .tp-col {
@@ -204,10 +204,10 @@ input.tp-time:focus {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-4);
 }
 .tp-mer button {
-  padding: 9px 14px;
+  padding: var(--space-4) var(--space-7);
   border-radius: 10px;
   border: none;
   background: var(--muted-soft);
@@ -226,11 +226,11 @@ input.tp-time:focus {
 
 .tp-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--space-6);
 }
 .tp-actions button {
   flex: 1;
-  padding: 13px;
+  padding: var(--space-7);
   border-radius: 12px;
   font: inherit;
   font-size: 15px;

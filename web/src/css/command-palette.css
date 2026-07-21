@@ -12,7 +12,7 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 12vh 20px 20px;
+  padding: 12vh var(--space-10) var(--space-10);
   z-index: var(--z-palette);
   background: rgba(20, 26, 20, 0.42);
   backdrop-filter: blur(6px);
@@ -36,8 +36,8 @@
 .cp-search {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 18px;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-9);
   border-bottom: 1px solid var(--border);
 }
 .cp-search-ic {
@@ -75,10 +75,10 @@
 .cp-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 8px 10px;
+  padding: var(--space-4) var(--space-4) var(--space-5);
 }
 .cp-group {
-  margin-top: 8px;
+  margin-top: var(--space-4);
 }
 .cp-group:first-child {
   margin-top: 2px;
@@ -89,7 +89,7 @@
   color: var(--ink-3);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  padding: 8px 12px 6px;
+  padding: var(--space-4) var(--space-6) var(--space-2);
   margin: 0;
 }
 
@@ -97,11 +97,11 @@
 .cp-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-6);
   width: 100%;
   text-align: left;
   position: relative;
-  padding: 10px 12px;
+  padding: var(--space-5) var(--space-6);
   border: none;
   background: transparent;
   color: var(--ink);
@@ -168,8 +168,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 38px 20px;
+  gap: var(--space-4);
+  padding: 38px var(--space-10);
   text-align: center;
   color: var(--ink-3);
 }
@@ -186,9 +186,9 @@
 .cp-foot {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-8);
   flex-wrap: wrap;
-  padding: 10px 16px;
+  padding: var(--space-5) var(--space-8);
   border-top: 1px solid var(--border);
   background: var(--surface-2);
   font-size: var(--fs-xs);
@@ -197,7 +197,7 @@
 .cp-foot .fh {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 /* --- kbd trong palette --- */
@@ -206,7 +206,7 @@
   place-items: center;
   min-width: 20px;
   height: 20px;
-  padding: 0 5px;
+  padding: 0 var(--space-2);
   font: inherit;
   font-size: var(--fs-2xs);
   font-weight: 700;
@@ -221,7 +221,7 @@
 /* --- responsive --- */
 @media (max-width: 680px) {
   .cp-wrap {
-    padding: 16px 12px;
+    padding: var(--space-8) var(--space-6);
   }
   .cp {
     max-width: 100%;

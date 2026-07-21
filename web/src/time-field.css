@@ -56,15 +56,15 @@
    vì Wheel JS dùng ITEM_H=42 cố định — chỉ bớt padding/font + số item hiển thị (col-h). */
 .tf-pop .tp {
   max-width: 256px;
-  padding: 12px;
-  gap: 11px;
+  padding: var(--space-6);
+  gap: var(--space-6);
   border-radius: var(--r);
 }
 .tf-pop .tp-title {
   font-size: 12px;
 }
 .tf-pop .tp-field {
-  padding: 8px 11px;
+  padding: var(--space-4) var(--space-6);
   border-width: 1px;
 }
 .tf-pop .tp-field svg {
@@ -76,10 +76,10 @@
 }
 .tf-pop .tp-mer-chip {
   font-size: 12px;
-  padding: 3px 9px;
+  padding: var(--space-1) var(--space-4);
 }
 .tf-pop .tp-seg button {
-  padding: 7px;
+  padding: var(--space-3);
   font-size: 12.5px;
 }
 .tf-pop .tp-wheels {
@@ -92,11 +92,11 @@
   font-size: 22px;
 }
 .tf-pop .tp-mer button {
-  padding: 7px 11px;
+  padding: var(--space-3) var(--space-6);
   font-size: 12.5px;
 }
 .tf-pop .tp-actions button {
-  padding: 9px;
+  padding: var(--space-4);
   font-size: 13px;
   border-radius: 9px;
 }

@@ -250,7 +250,7 @@ input.search {
 .page-fallback {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-8);
 }
 .skeleton {
   border-radius: var(--r);

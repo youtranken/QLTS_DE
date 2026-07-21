@@ -2,10 +2,10 @@
 .avail {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-size: var(--fs-xs);
   font-weight: 600;
-  padding: 2px 9px;
+  padding: 2px var(--space-4);
   border-radius: 999px;
   width: fit-content;
 }
@@ -41,8 +41,8 @@
 .dmtabs {
   margin-bottom: var(--space-9);
   flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px;
+  gap: var(--space-1);
+  padding: var(--space-1);
 }
 .dmtabs label {
   padding: var(--space-3) var(--space-8);
@@ -90,7 +90,7 @@
 .dmrow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-5);
   padding: var(--space-5) var(--space-8);
   border-bottom: 1px solid var(--border);
   transition: background 0.15s var(--ease);
@@ -132,7 +132,7 @@
 }
 .dm-add {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   padding: var(--space-4) var(--space-6);
   border-top: 1px solid var(--border);
 }
@@ -146,7 +146,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   flex: 0 0 auto;
 }
 .pipe .pnode .pc {
@@ -200,7 +200,7 @@
   cursor: pointer;
   color: var(--ink-3);
   font-size: var(--fs-xs);
-  padding: 2px 4px;
+  padding: 2px var(--space-1);
   border-radius: 4px;
 }
 .caret-btn:hover {
@@ -218,12 +218,12 @@ table.table tbody tr.exp:hover td {
 .exp .panel {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  padding: 14px var(--space-7);
+  gap: var(--space-8);
+  padding: var(--space-7) var(--space-7);
 }
 /* Hàng bung phần mềm của máy: bảng FULL-WIDTH (không ép 3 cột như .panel cũ). */
 .exp .exp-soft {
-  padding: 14px var(--space-7);
+  padding: var(--space-7) var(--space-7);
 }
 .exp .exp-soft .table-wrap {
   margin: 0;
@@ -234,7 +234,7 @@ table.table tbody tr.exp:hover td {
   }
 }
 .exp .panel h5 {
-  margin: 0 0 6px;
+  margin: 0 0 var(--space-2);
   font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -254,12 +254,12 @@ table.table tbody tr.exp:hover td {
 .slot-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: var(--space-2);
 }
 .slotchip {
   font-size: var(--fs-xs);
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 2px var(--space-4);
   border-radius: 999px;
   background: var(--ok-soft);
   color: var(--ok);
