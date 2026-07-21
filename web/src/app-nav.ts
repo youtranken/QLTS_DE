@@ -28,8 +28,8 @@ export function navGroups(role: string): NavGroup[] {
     groups.push({
       label: 'nav.groupAssets',
       items: [
-        { to: '/software', key: 'nav.software' },
         { to: '/assets', key: 'nav.assets' },
+        { to: '/software', key: 'nav.software' },
         { to: '/pool', key: 'nav.pool' },
         {
           key: 'nav.disposed',

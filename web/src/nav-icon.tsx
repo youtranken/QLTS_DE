@@ -17,14 +17,16 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
   'nav.assets': (
     <>
-      <path d="M21 8 12 3 3 8l9 5 9-5Z" />
-      <path d="M3 8v8l9 5 9-5V8" />
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8M12 17v4" />
     </>
   ),
   'nav.software': (
     <>
-      <rect x="2" y="3" width="20" height="14" rx="2" />
-      <path d="M8 21h8M12 17v4" />
+      {/* AppWindow — cửa sổ ứng dụng: phần mềm (license) cài/gán vào tài sản. */}
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="M2 9h20" />
+      <path d="M6.5 6.5h.01M9.5 6.5h.01" />
     </>
   ),
   'nav.pool': (
