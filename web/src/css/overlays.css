@@ -53,6 +53,18 @@
   animation: modalIn 0.2s var(--ease) both;
 }
 
+/* Lớp canh giữa cho Radix Dialog (ui/dialog.tsx): Overlay .modal-backdrop lo nền
+   mờ, lớp này canh giữa .sheet bằng grid — giữ nguyên animation modalIn của .sheet.
+   Nằm TRÊN nền mờ (z-modal > z-modal-backdrop), trong suốt nên nền mờ vẫn hiện. */
+.dialog-viewport {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: var(--z-modal);
+}
+
 /* Command palette (⌘K): style ở css/command-palette.css (nạp sau, phủ đủ). */
 
 /* --- Utilities ------------------------------------------------------------ */
