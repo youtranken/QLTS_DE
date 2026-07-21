@@ -47,9 +47,10 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
   'nav.catalog': (
     <>
-      <path d="M20 12v8H4v-8" />
-      <path d="M2 7h20v5H2z" />
-      <path d="M12 22V7M12 7 8 3M12 7l4-4" />
+      {/* Tags (nhãn phân loại) — hợp "Danh mục" (Loại/Hãng/Cấu hình) hơn hình hộp cũ. */}
+      <path d="m15 5 6.3 6.3a2.4 2.4 0 0 1 0 3.4L17 19" />
+      <path d="M9.586 5.586A2 2 0 0 0 8.172 5H3a1 1 0 0 0-1 1v5.172a2 2 0 0 0 .586 1.414L8.29 18.29a2.426 2.426 0 0 0 3.42 0l3.58-3.58a2.426 2.426 0 0 0 0-3.42z" />
+      <circle cx="6.5" cy="9.5" r="1.1" />
     </>
   ),
   'nav.audit': (
