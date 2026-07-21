@@ -23,10 +23,10 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
   'nav.software': (
     <>
-      {/* AppWindow — cửa sổ ứng dụng: phần mềm (license) cài/gán vào tài sản. */}
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="M2 9h20" />
-      <path d="M6.5 6.5h.01M9.5 6.5h.01" />
+      {/* Key — chìa/khoá license: phần mềm là license gán vào một tài sản. */}
+      <path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L21 4" />
+      <path d="m21 2-9.6 9.6" />
+      <circle cx="7.5" cy="15.5" r="5.5" />
     </>
   ),
   'nav.pool': (
