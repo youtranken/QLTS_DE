@@ -29,6 +29,7 @@ export function Dialog({
   onOpenChange,
   dismissible = true,
   className = 'sheet',
+  overlayClassName = 'modal-backdrop',
   maxWidth,
   children,
 }: {
@@ -38,6 +39,9 @@ export function Dialog({
   dismissible?: boolean;
   // Class hộp nội dung: 'sheet' (header/body/footer) hoặc 'modal' (hộp gọn), + biến thể.
   className?: string;
+  // Class nền mờ. Dialog LỒNG (vd cascade trên form) dùng 'modal-backdrop bare' để
+  // không dim đôi (form đã dim trang rồi).
+  overlayClassName?: string;
   maxWidth?: number;
   children: ReactNode;
 }) {
@@ -46,7 +50,7 @@ export function Dialog({
   return (
     <RD.Root open={open} onOpenChange={onOpenChange}>
       <RD.Portal>
-        <RD.Overlay className="modal-backdrop" />
+        <RD.Overlay className={overlayClassName} />
         <div className="dialog-viewport">
           <RD.Content
             className={className}

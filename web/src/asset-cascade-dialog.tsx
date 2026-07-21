@@ -30,6 +30,8 @@ export function AssetCascadeDialog({
       onOpenChange={(o) => !o && !busy && setCascade(null)}
       dismissible={!busy}
       className="modal"
+      // Lồng trên form (form đã dim trang) → nền trong suốt, tránh dim đôi.
+      overlayClassName="modal-backdrop bare"
     >
       <DialogTitle style={{ marginBottom: '0.75rem' }}>{t('cascade.title')}</DialogTitle>
 

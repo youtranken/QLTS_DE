@@ -43,6 +43,12 @@
   padding: var(--space-7);
   animation: rowIn 0.15s var(--ease) both;
 }
+/* Nền mờ "trần" cho dialog LỒNG (cascade trên form) — trong suốt, không dim đôi. */
+.modal-backdrop.bare {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 .modal {
   background: var(--surface);
   border-radius: var(--r-lg);

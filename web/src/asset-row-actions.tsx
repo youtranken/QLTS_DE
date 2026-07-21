@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAnchoredMenu } from './ui/use-anchored-menu';
@@ -133,6 +133,15 @@ export function RowActionsMenu({ actions }: { actions: RowAction[] }) {
     placement: 'bottom-end',
     maxHeight: 400,
   });
+
+  // Cuộn (kể cả trong .table-wrap) → đóng menu, tránh menu (fixed) nổi tách khi nút
+  // chui dưới thead sticky. capture=true để bắt cả cuộn container.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, true);
+    return () => window.removeEventListener('scroll', close, true);
+  }, [open]);
 
   if (actions.length === 0) return null;
 

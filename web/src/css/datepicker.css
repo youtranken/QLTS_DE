@@ -95,7 +95,9 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  overflow: hidden;
+  /* auto (không hidden): trên màn rất thấp, size() clamp maxHeight → cuộn được thay
+     vì cắt mất hàng ngày cuối không bấm tới. */
+  overflow: auto;
   box-shadow: var(--shadow-lg);
   z-index: var(--z-popover);
   /* Radix modal set body{pointer-events:none}; popover portal ra body thừa hưởng -> phải bật lại. */
