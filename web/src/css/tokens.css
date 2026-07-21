@@ -68,14 +68,18 @@
   --r-lg: 14px;
   --radius-pill: 999px;
 
-  /* Thang cách (4px) + cỡ chữ + độ đậm — nền cho việc token hoá giá trị cứng dần.
-     Font-weight CHỈ 3 bậc chuẩn (trước có 550/620/650/680/720 lẻ, render lệch). */
+  /* Thang cách (rem, root 14px) + cỡ chữ + độ đậm. Gom ~18 giá trị lẻ trước đây về
+     10 bậc (snap ≤1.4px). Font-weight CHỈ 3 bậc chuẩn (trước có 550/620/650/680/720). */
   --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
+  --space-2: 0.4rem;
+  --space-3: 0.5rem;
+  --space-4: 0.6rem;
+  --space-5: 0.75rem;
+  --space-6: 0.85rem;
+  --space-7: 1rem;
+  --space-8: 1.1rem;
+  --space-9: 1.25rem;
+  --space-10: 1.5rem;
   --fs-xs: 0.72rem;
   --fs-sm: 0.85rem;
   --fs-md: 0.95rem;

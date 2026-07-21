@@ -10,8 +10,8 @@
 .segmented label {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.85rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-6);
   border-radius: calc(var(--r) - 3px);
   font-size: 0.88rem;
   font-weight: var(--fw-semibold);
@@ -43,22 +43,22 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface);
-  padding: 1.1rem 1.15rem var(--space-5);
+  padding: var(--space-8) var(--space-8) var(--space-9);
 }
 .form-section + .form-section {
-  margin-top: var(--space-4);
+  margin-top: var(--space-7);
 }
 .form-section > legend,
 .form-section-title {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
-  margin-bottom: 0.9rem;
+  margin-bottom: var(--space-6);
 }
 .form-section-title::before {
   content: '';
@@ -69,8 +69,8 @@
 }
 /* Khối con trong một form-section (vd Người đứng tên trong Thông tin chung) — ngăn cách nhẹ. */
 .form-subsection {
-  margin-top: 1.1rem;
-  padding-top: var(--space-4);
+  margin-top: var(--space-8);
+  padding-top: var(--space-7);
   border-top: 1px dashed var(--border-2);
 }
 
@@ -78,13 +78,13 @@
 .free-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 .free-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 0.8rem;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
   border: 1px solid var(--border-2);
   border-radius: var(--r-lg);
   background: var(--surface);
@@ -104,7 +104,7 @@
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 0.85rem var(--space-4);
+  gap: var(--space-6) var(--space-7);
 }
 .form-grid .span-2 {
   grid-column: 1 / -1;
@@ -168,7 +168,7 @@ input[list]::-webkit-calendar-picker-indicator {
   display: inline-flex;
   align-items: center;
   width: 100%;
-  padding: 0.55rem 2rem 0.55rem 0.7rem;
+  padding: var(--space-4) 2rem var(--space-4) var(--space-5);
   border: 1px solid var(--border-2);
   border-radius: var(--r);
   background: var(--surface);
@@ -205,7 +205,7 @@ input[list]::-webkit-calendar-picker-indicator {
    180° khi mở. Trước đây là ký tự › xoay — không khớp mũi tên lịch. */
 .fsel-caret {
   position: absolute;
-  right: 0.6rem;
+  right: var(--space-4);
   top: 50%;
   transform: translateY(-50%);
   width: 1rem;
@@ -223,7 +223,7 @@ input[list]::-webkit-calendar-picker-indicator {
   z-index: var(--z-popover);
   list-style: none;
   margin: 0;
-  padding: 0.3rem;
+  padding: var(--space-1);
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border-2);
@@ -236,7 +236,7 @@ input[list]::-webkit-calendar-picker-indicator {
   align-items: center;
   width: 100%;
   text-align: left;
-  padding: var(--space-2) 0.6rem;
+  padding: var(--space-3) var(--space-4);
   border: none;
   background: none;
   border-radius: var(--r-sm);
@@ -246,7 +246,7 @@ input[list]::-webkit-calendar-picker-indicator {
 }
 /* Dòng báo "không có lựa chọn" khi options rỗng (review D3) — không bấm được. */
 .fsel-none {
-  padding: var(--space-2) 0.6rem;
+  padding: var(--space-3) var(--space-4);
   color: var(--ink-3);
   font-size: 0.88rem;
   cursor: default;
@@ -264,9 +264,9 @@ input[list]::-webkit-calendar-picker-indicator {
 .picked-input {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   /* Padding dọc 0.55rem khớp <input>/<Select>/DatePicker → mọi ô trong hàng cao bằng nhau. */
-  padding: 0.55rem 0.4rem 0.55rem 0.7rem;
+  padding: var(--space-4) var(--space-2) var(--space-4) var(--space-5);
   border: 1px solid var(--border-2);
   border-radius: var(--r);
   background: var(--surface);
@@ -310,7 +310,7 @@ input[list]::-webkit-calendar-picker-indicator {
 /* Mũi tên chevron THỐNG NHẤT với .fsel-caret / DatePicker .chev — bấm để bung/đóng. */
 .combo-caret {
   position: absolute;
-  right: var(--space-2);
+  right: var(--space-3);
   top: 50%;
   transform: translateY(-50%);
   width: 1rem;
@@ -340,7 +340,7 @@ input[list]::-webkit-calendar-picker-indicator {
   /* Vị trí do Floating UI (useAnchoredMenu) set inline; đây chỉ giữ z-index + hình. */
   z-index: var(--z-popover);
   overflow-y: auto;
-  padding: 0.3rem;
+  padding: var(--space-1);
   list-style: none;
   margin: 0;
   background: var(--surface);
@@ -356,7 +356,7 @@ input[list]::-webkit-calendar-picker-indicator {
   gap: 0.28rem;
   width: 100%;
   text-align: left;
-  padding: 0.55rem 0.65rem;
+  padding: var(--space-4) var(--space-4);
   border: none;
   background: none;
   border-radius: var(--r-sm);
@@ -379,7 +379,7 @@ input[list]::-webkit-calendar-picker-indicator {
   opacity: 0.8;
 }
 .combo-empty {
-  padding: 0.6rem;
+  padding: var(--space-4);
   color: var(--ink-3);
   font-size: 0.85rem;
   text-align: center;
@@ -388,7 +388,7 @@ input[list]::-webkit-calendar-picker-indicator {
 .sw-opt-name {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 .sw-opt-badge {
   font-size: 0.66rem;
@@ -411,7 +411,7 @@ input[list]::-webkit-calendar-picker-indicator {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.15rem 0.55rem;
+  gap: var(--space-1) var(--space-4);
 }
 .sw-opt-meta > span {
   display: inline-flex;
@@ -419,7 +419,7 @@ input[list]::-webkit-calendar-picker-indicator {
 }
 .sw-opt-meta > span:not(:first-child)::before {
   content: '·';
-  margin-right: 0.55rem;
+  margin-right: var(--space-4);
   color: var(--ink-3);
 }
 
@@ -435,8 +435,8 @@ input[list]::-webkit-calendar-picker-indicator {
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.32rem 0.4rem 0.32rem 0.7rem;
+  gap: var(--space-3);
+  padding: 0.32rem var(--space-2) 0.32rem var(--space-5);
   background: var(--primary-soft);
   color: var(--primary-ink);
   border-radius: 999px;
@@ -482,8 +482,8 @@ input[list]::-webkit-calendar-picker-indicator {
 .sheet-footer {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4) 1.35rem;
+  gap: var(--space-5);
+  padding: var(--space-7) 1.35rem;
   flex-shrink: 0;
 }
 .sheet-header {
@@ -521,7 +521,7 @@ input[list]::-webkit-calendar-picker-indicator {
   color: var(--ink);
 }
 .sheet-body {
-  padding: var(--space-5) 1.35rem;
+  padding: var(--space-9) 1.35rem;
   overflow-y: auto;
   flex: 1;
   min-height: 0;

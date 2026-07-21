@@ -1,20 +1,20 @@
 /* --- Lịch máy tổng (mục sidebar) ----------------------------------------- */
 .mcal-sub {
   margin-top: -0.4rem;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-7);
   max-width: 60ch;
 }
 .mcal-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 1.1rem;
+  gap: var(--space-5);
+  margin-bottom: var(--space-8);
 }
 .mcal-weeknav {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: var(--space-1);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r);
@@ -38,7 +38,7 @@
 }
 .mcal-weeknav .wlabel {
   font-weight: 700;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -46,7 +46,7 @@
 .mcal-daypick {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
 .mcal-daypick .muted {
   font-size: 0.8rem;
@@ -63,7 +63,7 @@
 .mcal-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
-  gap: var(--space-4);
+  gap: var(--space-7);
   align-items: start;
 }
 .mcal-main {
@@ -74,16 +74,16 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
-  padding: 0.9rem;
+  padding: var(--space-6);
 }
 .mcal-rail h2 {
   font-size: 0.95rem;
-  margin: 0 0 0.6rem;
+  margin: 0 0 var(--space-4);
 }
 .mcal-freelist {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   /* Gọn, phần dư cuộn — cân chiều cao với lịch bên trái (mcal-scroll). */
   max-height: 378px;
   overflow-y: auto;
@@ -91,8 +91,8 @@
 .mcal-freecard {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 0.6rem;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--surface);
@@ -121,8 +121,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.8rem;
-  margin-bottom: 0.6rem;
+  gap: var(--space-6);
+  margin-bottom: var(--space-4);
 }
 .mcal-active-head h2 {
   font-size: 1.05rem;
@@ -170,7 +170,7 @@
   color: var(--ink-3);
   display: flex;
   align-items: center;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-7);
 }
 .mcal-dhead {
   border-bottom: 1px solid var(--border);
@@ -181,7 +181,7 @@
   align-items: center;
   justify-content: center;
   gap: 1px;
-  padding: 0.4rem 0.2rem;
+  padding: var(--space-2) var(--space-1);
 }
 .mcal-dhead.we {
   background: var(--warm-soft);
@@ -206,7 +206,7 @@
   flex-direction: column;
   justify-content: center;
   gap: 2px;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-7);
   min-width: 0;
 }
 .mcal-mcell .mn {
@@ -235,7 +235,7 @@
   z-index: 2;
   position: relative;
   border-radius: 8px;
-  padding: 0.4rem 0.6rem;
+  padding: var(--space-2) var(--space-4);
   font-size: 0.75rem;
   font-weight: 700;
   white-space: nowrap;
@@ -255,8 +255,8 @@
 .mcal-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.1rem;
-  margin-top: var(--space-4);
+  gap: var(--space-8);
+  margin-top: var(--space-7);
   font-size: 0.82rem;
   color: var(--ink-2);
   font-weight: 600;
@@ -264,7 +264,7 @@
 .mcal-legend .lg {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 .mcal-legend .sw {
   width: 26px;
@@ -285,14 +285,14 @@
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  margin-bottom: 0.8rem;
+  margin-bottom: var(--space-6);
 }
 .mcal-mhead {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.7rem 0.9rem;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
 }
@@ -305,13 +305,13 @@
   color: var(--ink-3);
 }
 .mcal-mbody {
-  padding: 0.3rem 0.9rem 0.6rem;
+  padding: var(--space-1) var(--space-6) var(--space-4);
 }
 .mcal-slot {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.6rem 0;
+  gap: var(--space-5);
+  padding: var(--space-4) 0;
   border-bottom: 1px dashed var(--border-2);
 }
 .mcal-slot:last-child {
@@ -336,7 +336,7 @@
   font-variant-numeric: tabular-nums;
 }
 .mcal-free {
-  padding: 0.8rem 0;
+  padding: var(--space-6) 0;
   color: var(--ink-3);
   font-size: 0.82rem;
 }

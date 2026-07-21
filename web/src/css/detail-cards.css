@@ -1,16 +1,16 @@
 /* --- Chi tiết tài sản: các khu vực rõ ràng (Thông tin/Phần mềm/Lịch sử) --- */
 .detail-section {
-  margin: 0 0 1.4rem;
+  margin: 0 0 var(--space-10);
 }
 .detail-section-title {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--ink-2);
-  margin: 0 0 0.6rem;
+  margin: 0 0 var(--space-4);
 }
 .detail-section-title::before {
   content: '';
@@ -21,23 +21,23 @@
 }
 /* Bảo hành (timeline Start→End) ở CUỐI khu Thông tin tài sản — ngăn cách nhẹ. */
 .warranty-strip {
-  margin-top: 1.1rem;
-  padding-top: var(--space-4);
+  margin-top: var(--space-8);
+  padding-top: var(--space-7);
   border-top: 1px dashed var(--border-2);
 }
 .warranty-strip .mc-label {
-  margin-bottom: 0.4rem;
+  margin-bottom: var(--space-2);
 }
 
 /* --- Chi tiết tài sản: card Người giữ + Bảo hành (gọn) ------------------- */
 .detail-cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-  margin: var(--space-2) 0 var(--space-4);
+  gap: var(--space-5);
+  margin: var(--space-3) 0 var(--space-7);
 }
 .detail-cards .mini-card {
-  padding: 0.7rem 0.85rem;
+  padding: var(--space-5) var(--space-6);
 }
 .mini-card .mc-label {
   font-size: 0.68rem;
@@ -45,7 +45,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ink-3);
-  margin-bottom: 0.3rem;
+  margin-bottom: var(--space-1);
 }
 .mini-card .mc-value {
   font-size: 0.95rem;
@@ -56,7 +56,7 @@
   border-radius: 999px;
   background: var(--surface-2);
   overflow: hidden;
-  margin: 0.35rem 0 0.45rem;
+  margin: var(--space-2) 0 var(--space-3);
 }
 .warranty-fill {
   height: 100%;
@@ -76,7 +76,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-3);
   font-size: 0.82rem;
 }
 @media (max-width: 680px) {
@@ -97,7 +97,7 @@
 }
 .pw-eye {
   position: absolute;
-  right: 0.35rem;
+  right: var(--space-2);
   top: 50%;
   transform: translateY(-50%);
   width: 2rem;

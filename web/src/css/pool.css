@@ -4,15 +4,15 @@
 .pool-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: 1.1rem;
+  gap: var(--space-5);
+  margin-bottom: var(--space-8);
 }
 .pool-stat {
   flex: 1 1 150px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 0.85rem var(--space-4);
+  padding: var(--space-6) var(--space-7);
   box-shadow: var(--shadow-sm);
 }
 .pool-stat .k {

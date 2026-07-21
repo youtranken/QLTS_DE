@@ -4,14 +4,14 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
-  padding: var(--space-5) 1.4rem;
-  margin-bottom: 1.1rem;
+  padding: var(--space-9) var(--space-10);
+  margin-bottom: var(--space-8);
 }
 .profile-head .ph-name-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.7rem;
+  gap: var(--space-5);
 }
 .profile-head h1 {
   margin: 0;
@@ -19,27 +19,27 @@
   letter-spacing: -0.02em;
 }
 .profile-head .chip {
-  padding: 0.28rem var(--space-3);
+  padding: 0.28rem var(--space-5);
 }
 .profile-head .ph-email {
   color: var(--ink-2);
   font-size: 0.9rem;
-  margin-top: 0.35rem;
+  margin-top: var(--space-2);
 }
 /* Tên riêng .profile-stat-* để KHÔNG đụng .stat-card/.stat-grid của
    detail-tabs.css (KPI dashboard, cùng tên nhưng khác thiết kế). */
 .profile-stat-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.9rem;
-  margin-bottom: 1.2rem;
+  gap: var(--space-6);
+  margin-bottom: var(--space-9);
 }
 .profile-stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
-  padding: var(--space-4) 1.1rem;
+  padding: var(--space-7) var(--space-8);
 }
 .profile-stat-card .sc-label {
   color: var(--ink-3);
@@ -49,7 +49,7 @@
   font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  margin-top: 0.4rem;
+  margin-top: var(--space-2);
   font-variant-numeric: tabular-nums;
 }
 .profile-stat-card .sc-num.sc-date {
@@ -59,13 +59,13 @@
 .sw-list {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: var(--space-4);
 }
 .sw-row {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  padding: var(--space-3) 0.9rem;
+  gap: var(--space-6);
+  padding: var(--space-5) var(--space-6);
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--surface);
@@ -80,7 +80,7 @@
 .sw-row .sw-meta {
   font-size: 0.8rem;
   color: var(--ink-3);
-  margin-top: 0.15rem;
+  margin-top: var(--space-1);
 }
 .sw-row .sw-meta b {
   color: var(--ink-2);
@@ -94,15 +94,15 @@
 .timeline::before {
   content: '';
   position: absolute;
-  left: var(--space-2);
-  top: 0.35rem;
-  bottom: 0.35rem;
+  left: var(--space-3);
+  top: var(--space-2);
+  bottom: var(--space-2);
   width: 2px;
   background: var(--border);
 }
 .timeline .tl-item {
   position: relative;
-  padding-bottom: var(--space-5);
+  padding-bottom: var(--space-9);
 }
 .timeline .tl-item:last-child {
   padding-bottom: 0;
@@ -110,7 +110,7 @@
 .timeline .tl-dot {
   position: absolute;
   left: -1.75rem;
-  top: 0.15rem;
+  top: var(--space-1);
   width: 1.1rem;
   height: 1.1rem;
   border-radius: 50%;
@@ -150,7 +150,7 @@
 }
 .info-grid .info-item {
   background: var(--surface);
-  padding: 0.85rem var(--space-4);
+  padding: var(--space-6) var(--space-7);
 }
 .info-grid .ii-k {
   font-size: 0.72rem;

@@ -30,8 +30,8 @@ html[data-theme='dark']
 .slot-suggest {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: 0.7rem;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
   flex-wrap: wrap;
 }
 .slot-suggest-label {
@@ -123,8 +123,8 @@ html[data-theme='dark']
 .picked-machine {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.6rem var(--space-3);
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface-2);
@@ -155,16 +155,16 @@ html[data-theme='dark']
 /* Catalog compact (nhiều máy): thẻ nhỏ, 1 hàng nút, tiêu đề gọn. */
 .mcatalog.dense {
   grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
-  gap: 0.6rem;
+  gap: var(--space-4);
 }
 .mcard-sm {
-  padding: 0.65rem 0.7rem;
-  gap: 0.4rem;
+  padding: var(--space-4) var(--space-5);
+  gap: var(--space-2);
 }
 .mcard-sm .mc-head {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: var(--space-3);
 }
 .mcard-sm .mc-ico {
   width: 30px;
@@ -183,8 +183,8 @@ html[data-theme='dark']
 }
 .mcard-sm .mc-actions {
   display: flex;
-  gap: 0.4rem;
-  margin-top: 0.15rem;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
 }
 .mcard-sm .mc-actions button {
   flex: 1;
@@ -193,16 +193,16 @@ html[data-theme='dark']
 /* Hàng trên booking sheet: Người mượn + Máy đã chọn cùng 1 hàng, gọn. */
 .sheet-toprow {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-5);
   flex-wrap: wrap;
-  margin-bottom: 0.9rem;
+  margin-bottom: var(--space-6);
 }
 .sheet-toprow .topcell {
   flex: 1;
   min-width: 210px;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: var(--space-2);
 }
 .topcell-label {
   font-size: 0.7rem;
@@ -212,8 +212,8 @@ html[data-theme='dark']
   color: var(--ink-3);
 }
 .picked-machine.compact {
-  padding: 0.4rem 0.55rem;
-  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  gap: var(--space-3);
   background: var(--surface);
 }
 .picked-machine.compact .pm-ico {
@@ -232,8 +232,8 @@ html[data-theme='dark']
 .board-head {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
+  gap: var(--space-5);
+  margin-bottom: var(--space-3);
 }
 .due-near {
   color: var(--warn);

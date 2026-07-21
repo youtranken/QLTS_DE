@@ -111,7 +111,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 0.45rem 0.6rem;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--r-sm);
   border: 1px solid transparent;
   background: transparent;

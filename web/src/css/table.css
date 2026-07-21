@@ -18,7 +18,7 @@ table.table thead th {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-3);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-5) var(--space-7);
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
   white-space: nowrap;
@@ -28,7 +28,7 @@ table.table thead th .th-sort {
   all: unset;
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: var(--space-1);
   cursor: pointer;
   font: inherit;
   letter-spacing: inherit;
@@ -45,8 +45,8 @@ table.table thead th .sort-arrow {
 .table-search {
   width: 100%;
   max-width: 340px;
-  margin-bottom: var(--space-3);
-  padding: var(--space-2) 0.7rem;
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-5);
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
@@ -54,7 +54,7 @@ table.table thead th .sort-arrow {
   font-size: 0.9rem;
 }
 table.table tbody td {
-  padding: 0.8rem var(--space-4);
+  padding: var(--space-6) var(--space-7);
   border-bottom: 1px solid var(--border);
   color: var(--ink);
   vertical-align: middle;
@@ -112,10 +112,10 @@ table.table tbody tr.row-highlight td:first-child {
 .bulk-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-5);
   flex-wrap: wrap;
-  margin-bottom: var(--space-3);
-  padding: 0.6rem 0.9rem;
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-6);
   background: var(--primary-soft);
   border: 1px solid var(--border);
   border-radius: var(--r);
@@ -154,7 +154,7 @@ table.table tbody tr.row-highlight td:first-child {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.35rem;
+  gap: var(--space-2);
 }
 .transfer-btn {
   white-space: nowrap;
@@ -166,7 +166,7 @@ table.table tbody tr.row-highlight td:first-child {
   text-align: right;
 }
 .row-actions .kebab {
-  padding: 0.15rem var(--space-2);
+  padding: var(--space-1) var(--space-3);
   font-size: 1.1rem;
   line-height: 1;
 }
@@ -222,8 +222,8 @@ table.table tbody tr.row-highlight td:first-child {
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.15rem var(--space-2);
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -263,7 +263,7 @@ button.link.session-toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  margin-right: var(--space-2);
+  margin-right: var(--space-3);
   padding: 0;
   border: none;
   background: none;
@@ -277,16 +277,16 @@ button.link.session-toggle {
 }
 .session-list {
   margin: 0;
-  padding: 0.4rem var(--space-4);
+  padding: var(--space-2) var(--space-7);
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: var(--space-2);
 }
 .session-list li {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--space-4);
   font-size: 0.85rem;
 }
 .session-idx {
