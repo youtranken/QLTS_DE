@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useAnchoredMenu } from './ui/use-anchored-menu';
+import { useDialogPortal } from './ui/dialog';
 
 interface ComboboxProps<T> {
   placeholder: string;
@@ -35,6 +36,7 @@ export function Combobox<T>({
   const [active, setActive] = useState(0);
   const [closed, setClosed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const portal = useDialogPortal();
 
   // options đổi (query mới) → về đầu danh sách và mở lại menu
   useEffect(() => {
@@ -155,7 +157,7 @@ export function Combobox<T>({
               </li>
             ))}
           </ul>,
-          document.body,
+          portal ?? document.body,
         )}
     </div>
   );

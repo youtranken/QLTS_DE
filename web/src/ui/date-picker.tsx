@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useAnchoredMenu } from './use-anchored-menu';
+import { useDialogPortal } from './dialog';
 
 /**
  * DatePicker (port từ mockup date-picker.html, adapt token Sunset Grove).
@@ -48,6 +49,7 @@ export function DatePicker({
   // Popover portal ra body (thoát overflow sheet/table + ancestor transform); Floating UI lo
   // flip/shift/collision + autoUpdate. z-index/hình từ CSS .dp-pop.
   const { refs, floatingStyles } = useAnchoredMenu(open, { maxHeight: 360 });
+  const portal = useDialogPortal();
 
   // Ngày đang chọn (parse value) + tháng đang xem.
   const selected = useMemo(() => parseISO(value), [value]);
@@ -292,7 +294,7 @@ export function DatePicker({
             )}
           </div>
           </div>,
-          document.body,
+          portal ?? document.body,
         )}
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TimePicker, type TimeValue } from './time-picker';
 import { useAnchoredMenu } from './ui/use-anchored-menu';
+import { useDialogPortal } from './ui/dialog';
 import './time-field.css';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -46,6 +47,7 @@ export function TimeField({
     placement: 'bottom-end',
     maxHeight: 400,
   });
+  const portal = useDialogPortal();
 
   // Đóng khi bấm ra ngoài — popover ở PORTAL (body) nên phải loại trừ cả nút LẪN popover.
   useEffect(() => {
@@ -107,7 +109,7 @@ export function TimeField({
               onCancel={() => setOpen(false)}
             />
           </div>,
-          document.body,
+          portal ?? document.body,
         )}
     </div>
   );

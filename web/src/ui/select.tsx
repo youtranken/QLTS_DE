@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useAnchoredMenu } from './use-anchored-menu';
+import { useDialogPortal } from './dialog';
 
 export interface SelectOption {
   value: string;
@@ -37,6 +38,7 @@ export function Select({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const portal = useDialogPortal();
 
   const selected = options.find((o) => o.value === value);
   const label = selected ? selected.label : (placeholder ?? '—');
@@ -152,7 +154,7 @@ export function Select({
               </li>
             ))}
           </ul>,
-          document.body,
+          portal ?? document.body,
         )}
     </div>
   );

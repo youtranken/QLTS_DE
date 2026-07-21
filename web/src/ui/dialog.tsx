@@ -1,5 +1,15 @@
 import * as RD from '@radix-ui/react-dialog';
+import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
+
+/**
+ * Nơi các popover (DatePicker/TimeField/Combobox/Select) portal VÀO khi mở trong dialog.
+ * Radix Dialog dùng react-remove-scroll + body{pointer-events:none} chỉ cho phép tương tác
+ * TRONG Content; popover portal ra document.body sẽ bị chặn click LẪN cuộn (bánh xe giờ).
+ * Portal vào mount-point này (nằm trong Content) → thuộc vùng cho phép. Ngoài dialog = null → body.
+ */
+const DialogPortalContext = createContext<HTMLElement | null>(null);
+export const useDialogPortal = () => useContext(DialogPortalContext);
 
 /**
  * Khung modal dùng chung trên Radix Dialog — thay các khối .modal-backdrop/.sheet
@@ -32,6 +42,7 @@ export function Dialog({
   children: ReactNode;
 }) {
   const block = dismissible ? undefined : (e: Event) => e.preventDefault();
+  const [portalEl, setPortalEl] = useState<HTMLDivElement | null>(null);
   return (
     <RD.Root open={open} onOpenChange={onOpenChange}>
       <RD.Portal>
@@ -44,7 +55,11 @@ export function Dialog({
             onPointerDownOutside={block}
             onInteractOutside={block}
           >
-            {children}
+            <DialogPortalContext.Provider value={portalEl}>
+              {children}
+            </DialogPortalContext.Provider>
+            {/* Mount-point cho popover portal vào (trong Content → tránh RRS chặn cuộn/click). */}
+            <div ref={setPortalEl} />
           </RD.Content>
         </div>
       </RD.Portal>
