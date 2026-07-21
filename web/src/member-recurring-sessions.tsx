@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useConfirm } from './ui/confirm-provider';
 import type { Me } from './me';
 
 interface Session {
@@ -34,6 +35,7 @@ export function MemberRecurringSessions({
   onChanged: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const askConfirm = useConfirm();
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -54,7 +56,10 @@ export function MemberRecurringSessions({
 
   const cancel = useCallback(
     async (s: Session) => {
-      if (!window.confirm(t('myreq.sessConfirmCancel'))) return;
+      if (
+        !(await askConfirm({ message: t('myreq.sessConfirmCancel'), danger: true }))
+      )
+        return;
       setBusyId(s.id);
       try {
         const res = await fetch(`/api/booking/sessions/${s.id}/cancel`, {
@@ -85,7 +90,7 @@ export function MemberRecurringSessions({
         setBusyId(null);
       }
     },
-    [me.csrfToken, load, onChanged, t],
+    [me.csrfToken, load, onChanged, t, askConfirm],
   );
 
   const fmt = (iso: string | null) =>

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { QueryClient } from '@tanstack/react-query';
 import { detailToForm } from './asset-types';
 import type { AssetDetail, AssetRow, FormState } from './asset-types';
+import { useConfirm } from './ui/confirm-provider';
 import type { Me } from './me';
 
 /**
@@ -17,6 +18,7 @@ export function useAssetPageActions(ctx: {
   loadMeta: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
+  const askConfirm = useConfirm();
   const { me, setForm, setError, queryClient, loadMeta } = ctx;
 
   const openEdit = useCallback(
@@ -70,7 +72,15 @@ export function useAssetPageActions(ctx: {
     async (row: AssetRow) => {
       setError(null);
       const label = row.code ?? row.licenseName ?? '';
-      if (!window.confirm(t('assets.deleteConfirm', { code: label }))) return;
+      if (
+        !(await askConfirm({
+          title: t('assets.deleteConfirmTitle'),
+          message: t('assets.deleteConfirm', { code: label }),
+          confirmLabel: t('assets.delete'),
+          danger: true,
+        }))
+      )
+        return;
       try {
         // List không trả version → lấy version tươi từ detail (optimistic lock).
         const detailRes = await fetch(
@@ -102,7 +112,7 @@ export function useAssetPageActions(ctx: {
         setError(t('app.serverUnreachable'));
       }
     },
-    [t, me.csrfToken, queryClient, loadMeta, setError],
+    [t, askConfirm, me.csrfToken, queryClient, loadMeta, setError],
   );
 
   // Xóa VĨNH VIỄN 1 máy đã thanh lý (Kho thanh lý) — cascade lịch sử/booking; audit_log vẫn giữ.

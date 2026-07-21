@@ -1,6 +1,8 @@
 export default {
   app: {
     title: 'QLTS — Asset Management System',
+    confirmTitle: 'Confirm',
+    confirmOk: 'OK',
     checkingSession: 'Checking sign-in session…',
     systemError: 'The system is having trouble — please try again.',
     retry: 'Retry',
@@ -659,6 +661,7 @@ export default {
     pool: 'Pool',
     edit: 'Edit',
     delete: 'Delete',
+    deleteConfirmTitle: 'Delete asset?',
     deleteConfirm: 'Permanently delete asset “{{code}}”? Only possible before any booking/allocation; if already in use, dispose it instead.',
     deleteFailed: 'Could not delete asset.',
     saveOwner: 'Save assignee',

@@ -1,6 +1,8 @@
 export default {
   app: {
     title: 'QLTS — Hệ thống Quản Lý Tài Sản',
+    confirmTitle: 'Xác nhận',
+    confirmOk: 'Đồng ý',
     checkingSession: 'Đang kiểm tra phiên đăng nhập…',
     systemError: 'Hệ thống đang gặp sự cố — vui lòng thử lại.',
     retry: 'Thử lại',
@@ -658,6 +660,7 @@ export default {
     pool: 'Pool',
     edit: 'Sửa',
     delete: 'Xóa',
+    deleteConfirmTitle: 'Xóa tài sản?',
     deleteConfirm: 'Xóa hẳn tài sản “{{code}}”? Chỉ xóa được khi chưa phát sinh mượn/cấp phát; nếu đã dùng hãy Thanh lý.',
     deleteFailed: 'Không xóa được tài sản.',
     saveOwner: 'Lưu người đứng tên',

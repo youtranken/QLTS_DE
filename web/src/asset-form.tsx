@@ -4,6 +4,7 @@ import { AssetGeneralFields } from './asset-general-fields';
 import { SoftwareSeatsFields } from './software-seats-fields';
 import { AssetInstalledOn } from './asset-installed-on';
 import { AssetCascadeDialog } from './asset-cascade-dialog';
+import { useConfirm } from './ui/confirm-provider';
 import type { Me } from './me';
 import type { FormState } from './asset-types';
 import { useAssetForm } from './use-asset-form';
@@ -72,6 +73,7 @@ export function AssetForm({
     moveSoftware,
     close,
   } = useAssetForm({ me, initial, onDone });
+  const askConfirm = useConfirm();
 
   return (
     <div
@@ -233,9 +235,17 @@ export function AssetForm({
                     )
                   ) : undefined
                 }
-                onDispose={() => {
+                onDispose={async () => {
                   // Thanh lý KHÔNG đảo ngược → xác nhận trước, rồi preview cascade (AC2).
-                  if (!window.confirm(t('assets.disposeConfirm'))) return;
+                  if (
+                    !(await askConfirm({
+                      title: t('assets.disposeConfirmTitle'),
+                      message: t('assets.disposeConfirm'),
+                      confirmLabel: t('assets.disposeAction'),
+                      danger: true,
+                    }))
+                  )
+                    return;
                   void previewThenRun(
                     'dispose',
                     'POST',

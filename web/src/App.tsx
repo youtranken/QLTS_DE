@@ -7,6 +7,7 @@ import { LoginScreen } from './login-screen';
 import { navGroups } from './app-nav';
 import { SidebarNav } from './app-sidebar-nav';
 import { AppRoutes } from './app-routes';
+import { ConfirmProvider } from './ui/confirm-provider';
 
 type AuthState =
   | { kind: 'loading' }
@@ -127,7 +128,9 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Shell me={auth.me} onLogout={() => void logout()} />
+      <ConfirmProvider>
+        <Shell me={auth.me} onLogout={() => void logout()} />
+      </ConfirmProvider>
     </BrowserRouter>
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useConfirm } from './ui/confirm-provider';
 import type { Me } from './me';
 
 interface SessionRow {
@@ -17,6 +18,7 @@ interface SessionRow {
 /** 4.5a — hàng đợi giao/nhận TỪNG buổi của chuỗi định kỳ (route sessions/:id/deliver|return). */
 export function RecurringSessionQueue({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
+  const askConfirm = useConfirm();
   const [rows, setRows] = useState<SessionRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -108,7 +110,8 @@ export function RecurringSessionQueue({ me }: { me: Me }) {
 
   const cancel = useCallback(
     async (row: SessionRow) => {
-      if (!window.confirm(t('sessq.confirmCancel'))) return;
+      if (!(await askConfirm({ message: t('sessq.confirmCancel'), danger: true })))
+        return;
       setBusyId(row.id);
       setError(null);
       try {
@@ -138,7 +141,7 @@ export function RecurringSessionQueue({ me }: { me: Me }) {
         setBusyId(null);
       }
     },
-    [me.csrfToken, load, t],
+    [me.csrfToken, load, t, askConfirm],
   );
 
   const fmt = (iso: string | null) =>

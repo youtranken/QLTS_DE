@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
 import { PoolTable } from './pool-table';
+import { useConfirm } from './ui/confirm-provider';
 import type { PoolItem } from './pool-types';
 import type { Me } from './me';
 
@@ -21,6 +22,7 @@ interface AssetOption {
  */
 export function PoolPage({ me }: { me: Me }) {
   const { t } = useTranslation();
+  const askConfirm = useConfirm();
   const [items, setItems] = useState<PoolItem[]>([]);
   const [query, setQuery] = useState('');
   const [options, setOptions] = useState<AssetOption[]>([]);
@@ -116,7 +118,14 @@ export function PoolPage({ me }: { me: Me }) {
 
   const remove = useCallback(
     async (it: PoolItem) => {
-      if (!window.confirm(t('pool.removeConfirm', { code: it.code }))) return;
+      if (
+        !(await askConfirm({
+          message: t('pool.removeConfirm', { code: it.code }),
+          confirmLabel: t('pool.remove'),
+          danger: true,
+        }))
+      )
+        return;
       setBusy(true);
       setError(null);
       setOk(null);
@@ -143,7 +152,7 @@ export function PoolPage({ me }: { me: Me }) {
         setBusy(false);
       }
     },
-    [headers, load, t],
+    [headers, load, t, askConfirm],
   );
 
   const total = items.length;
