@@ -135,7 +135,7 @@ export function AssetsFilterBar({
             }}
             options={[
               { value: '', label: t('assets.filterStatus') },
-              ...['in_use', 'locked_repair', 'disposed'].map((v) => ({
+              ...['in_use', 'locked_repair'].map((v) => ({
                 value: v,
                 label: t(`assets.status.${v}`),
               })),

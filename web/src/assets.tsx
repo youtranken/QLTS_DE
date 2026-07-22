@@ -62,7 +62,8 @@ export function AssetsPage({
   const [type, setType] = useState('');
   const [status, setStatus] = useState(() => {
     const s = searchParams.get('status') ?? '';
-    return ['in_use', 'locked_repair', 'disposed'].includes(s) ? s : '';
+    // Bỏ 'disposed' — máy thanh lý ở Kho thanh lý riêng, không lọc trong sổ tài sản.
+    return ['in_use', 'locked_repair'].includes(s) ? s : '';
   });
   // 7.7: badge dashboard dẫn tới ?expiring=true — lọc "sắp hết hạn"
   const [expiring, setExpiring] = useState(
@@ -179,8 +180,8 @@ export function AssetsPage({
       // Kho thanh lý: khóa cứng status=disposed (bỏ qua dropdown trạng thái).
       if (disposedOnly) params.set('status', 'disposed');
       else if (status) params.set('status', status);
-      // /phan-mem (danh sách + chi tiết license): ẩn bản đã thanh lý (đã sang Kho thanh lý).
-      if (softwareOnly && !disposedOnly) params.set('excludeDisposed', 'true');
+      // Mọi danh sách trừ Kho thanh lý: ẩn bản/máy đã thanh lý (đã sang Kho thanh lý).
+      if (!disposedOnly) params.set('excludeDisposed', 'true');
       if (expiring) params.set('expiring', 'true');
       if (sorting.length > 0) {
         params.set('sort', sorting[0].id);
