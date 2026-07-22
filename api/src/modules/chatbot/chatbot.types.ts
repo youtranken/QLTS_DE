@@ -12,6 +12,8 @@ export interface AssetCard {
   holder: string | null;
   status: string;
   endDate: string | null;
+  /** Phần mềm đang cài trên máy (admin tra cứu) — chuỗi tên license, null nếu không. */
+  software?: string | null;
 }
 
 /** Chip gợi ý bước kế — FE bấm sẽ gửi lại action này. */

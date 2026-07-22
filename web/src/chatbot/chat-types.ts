@@ -5,6 +5,8 @@ export interface Card {
   holder: string | null;
   status: string;
   endDate: string | null;
+  /** Phần mềm cài trên máy (admin tra cứu) — chuỗi tên license. */
+  software?: string | null;
 }
 
 export interface ChatAction {
@@ -46,12 +48,19 @@ export interface HistoryResponse {
   messages: StoredMessage[];
 }
 
-/** Hành động chính — thanh cố định trên ô nhập (icon SVG gắn theo intent ở action-bar). */
-export const MENU_CHIPS: Chip[] = [
-  { label: 'Danh sách', action: { intent: 'list_types' } },
+/** Menu theo vai (thanh cố định). Member xoay quanh mượn máy; admin tra cứu tài sản. */
+const MEMBER_MENU: Chip[] = [
+  { label: 'Tìm máy trống', action: { intent: 'availability' } },
   { label: 'Máy của tôi', action: { intent: 'my_assets' } },
-  { label: 'Máy trống', action: { intent: 'availability' } },
 ];
+const ADMIN_MENU: Chip[] = [
+  { label: 'Tra cứu tài sản', action: { intent: 'list_types' } },
+  { label: 'Máy của tôi', action: { intent: 'my_assets' } },
+];
+
+export function menuFor(role: string): Chip[] {
+  return role === 'admin' || role === 'sa' ? ADMIN_MENU : MEMBER_MENU;
+}
 
 export const WELCOME_TEXT =
   'Chào bạn 👋 Mình là trợ lý QLTS. Mình giúp tra cứu tài sản, xem máy bạn đang giữ và tìm máy còn trống. Chọn nhanh bên dưới hoặc gõ câu hỏi nhé 🙂';

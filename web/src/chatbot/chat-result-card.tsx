@@ -7,15 +7,17 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   Trống: { label: 'Trống', cls: 'ok' },
 };
 
-/** Bảng kết quả nhúng trong bong bóng — mã · loại · trạng thái, người giữ/hạn phụ. */
+/** Bảng kết quả nhúng — mã · loại · trạng thái; kèm người giữ/hạn/phần mềm; nút Đặt cho máy trống. */
 export function ChatResultCard({
   cards,
   total,
   onSeeAll,
+  onBook,
 }: {
   cards: Card[];
   total?: number;
   onSeeAll?: () => void;
+  onBook?: () => void;
 }) {
   if (cards.length === 0) return null;
   const more = typeof total === 'number' && total > cards.length;
@@ -32,20 +34,26 @@ export function ChatResultCard({
         <tbody>
           {cards.map((c, i) => {
             const st = STATUS[c.status] ?? { label: c.status, cls: 'ok' };
+            const free = c.status === 'Trống';
             return (
               <tr key={c.code ?? i}>
                 <td>
                   <span className="qc-code">{c.code ?? '—'}</span>
-                  {c.holder && (
-                    <div className="qc-sub">{c.holder}</div>
-                  )}
-                  {c.endDate && (
-                    <div className="qc-sub">HĐ đến {c.endDate}</div>
+                  {c.holder && <div className="qc-sub">{c.holder}</div>}
+                  {c.endDate && <div className="qc-sub">HĐ đến {c.endDate}</div>}
+                  {c.software && (
+                    <div className="qc-sub">💿 {c.software}</div>
                   )}
                 </td>
                 <td>{c.type}</td>
                 <td>
-                  <span className={`qc-pill ${st.cls}`}>{st.label}</span>
+                  {free && onBook ? (
+                    <button type="button" className="qc-book" onClick={onBook}>
+                      Đặt
+                    </button>
+                  ) : (
+                    <span className={`qc-pill ${st.cls}`}>{st.label}</span>
+                  )}
                 </td>
               </tr>
             );

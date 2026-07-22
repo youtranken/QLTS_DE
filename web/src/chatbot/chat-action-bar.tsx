@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import { MENU_CHIPS, type Chip } from './chat-types';
+import { menuFor, type Chip } from './chat-types';
 
 const S = {
   fill: 'none',
@@ -38,11 +38,17 @@ const ICONS: Record<string, JSX.Element> = {
   ),
 };
 
-/** Thanh hành động cố định trên ô nhập — luôn hiển thị (thay cho "Về đầu"). */
-export function ChatActionBar({ onPick }: { onPick: (chip: Chip) => void }) {
+/** Thanh hành động cố định trên ô nhập — nội dung theo vai (member mượn máy / admin tra cứu). */
+export function ChatActionBar({
+  role,
+  onPick,
+}: {
+  role: string;
+  onPick: (chip: Chip) => void;
+}) {
   return (
     <div className="qc-actionbar">
-      {MENU_CHIPS.map((c) => (
+      {menuFor(role).map((c) => (
         <button
           key={c.action.intent}
           type="button"

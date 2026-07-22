@@ -44,6 +44,8 @@ export class ChatbotToolsService {
           holder: i.assignedUserName ?? null,
           status: i.status,
           endDate: i.endDate,
+          // Admin tra cứu mã cụ thể → kèm phần mềm đang cài trên máy (installedSoftware sẵn có).
+          software: i.installedSoftware ?? null,
         })),
         total: res.total,
       };

@@ -87,7 +87,13 @@ export function ChatbotPopup({ me }: { me: Me }) {
 
   const seeAll = () => {
     setOpen(false);
-    navigate('/tai-san');
+    navigate('/assets');
+  };
+
+  // Member đặt máy: mở màn Đặt máy sẵn có (trang chủ) — không đặt trong chat.
+  const bookNow = () => {
+    setOpen(false);
+    navigate('/');
   };
 
   const clearChat = () => {
@@ -154,6 +160,7 @@ export function ChatbotPopup({ me }: { me: Me }) {
         meInitials={initials(me.fullName)}
         onChip={onChip}
         onSeeAll={seeAll}
+        onBook={bookNow}
       />
 
       {step ? (
@@ -165,7 +172,7 @@ export function ChatbotPopup({ me }: { me: Me }) {
         />
       ) : (
         <>
-          <ChatActionBar onPick={onChip} />
+          <ChatActionBar role={me.role} onPick={onChip} />
           <ChatComposer
             disabled={chat.loading}
             onSend={(t) => void chat.sendMessage(t)}

@@ -49,7 +49,7 @@ const render = () =>
   );
 
 describe('ChatbotPopup', () => {
-  it('mở mascot → welcome + thanh hành động (Danh sách/Máy của tôi/Máy trống)', async () => {
+  it('member: welcome + thanh hành động (Tìm máy trống + Máy của tôi)', async () => {
     stub({ conversationId: 'c1', reply: 'ok', source: 'guided' });
     render();
     await userEvent.click(
@@ -57,14 +57,15 @@ describe('ChatbotPopup', () => {
     );
     expect(screen.getByText('Trợ lý QLTS')).toBeInTheDocument();
     expect(
-      await screen.findByRole('button', { name: /Máy của tôi/ }),
+      await screen.findByRole('button', { name: /Tìm máy trống/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Danh sách/ }),
+      screen.getByRole('button', { name: /Máy của tôi/ }),
     ).toBeInTheDocument();
+    // Member KHÔNG có "Tra cứu tài sản" (chỉ admin)
     expect(
-      screen.getByRole('button', { name: /Máy trống/ }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /Tra cứu tài sản/ }),
+    ).toBeNull();
   });
 
   it('bấm "Máy của tôi" ở thanh hành động → gọi /chatbot/message (my_assets) + render', async () => {

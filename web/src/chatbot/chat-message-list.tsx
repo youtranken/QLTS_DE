@@ -10,12 +10,14 @@ export function ChatMessageList({
   meInitials,
   onChip,
   onSeeAll,
+  onBook,
 }: {
   messages: Msg[];
   loading: boolean;
   meInitials: string;
   onChip: (chip: Chip) => void;
   onSeeAll: () => void;
+  onBook: () => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -33,7 +35,12 @@ export function ChatMessageList({
           <div className="qc-bubble">
             <div>{m.text}</div>
             {m.cards && m.cards.length > 0 && (
-              <ChatResultCard cards={m.cards} total={m.total} onSeeAll={onSeeAll} />
+              <ChatResultCard
+                cards={m.cards}
+                total={m.total}
+                onSeeAll={onSeeAll}
+                onBook={onBook}
+              />
             )}
             {m.chips && m.chips.length > 0 && (
               <div className="qc-chips">
