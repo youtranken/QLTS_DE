@@ -54,6 +54,7 @@
 
 /* Footer sidebar (thay header): khối user (nút thu gọn + tên) + Hồ sơ/ngôn ngữ/theme/Đăng xuất. */
 .sb-foot {
+  position: relative;
   margin-top: auto;
   display: flex;
   flex-direction: column;
@@ -93,10 +94,54 @@
   width: 18px;
   height: 18px;
 }
-.sb-actions {
+/* Nút tên = trigger menu tài khoản. Chiếm phần còn lại cạnh nút thu gọn. */
+.sb-userbtn {
+  flex: 1;
+  min-width: 0;
   display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.sb-foot .sb-userbtn:hover:not(:disabled),
+.sb-foot .sb-userbtn[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.08);
+}
+.sb-usercaret {
+  flex: none;
+  color: var(--sidebar-label);
+  transform: rotate(90deg);
+  transition: transform 0.15s var(--ease);
+}
+.sb-usercaret.open {
+  transform: rotate(-90deg);
+}
+
+/* Menu tài khoản: ẩn mặc định; bấm tên → bung LÊN TRÊN dạng popup. */
+.sb-actions {
+  display: none;
   flex-direction: column;
   gap: var(--space-2);
+}
+.sb-actions.open {
+  display: flex;
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: calc(100% + 6px);
+  padding: var(--space-3);
+  border-radius: 10px;
+  border: 1px solid var(--sidebar-border);
+  /* Nền sidebar (tối) — KHÔNG dùng --surface sáng, nếu không chữ .sb-act (ink sáng) mất. */
+  background: var(--sidebar-bg);
+  box-shadow: var(--shadow-lg);
+  z-index: 20;
 }
 .sb-act-row {
   display: flex;

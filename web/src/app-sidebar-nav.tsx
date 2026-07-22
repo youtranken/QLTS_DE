@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 import { navGroups, type NavItem } from './app-nav';
@@ -45,7 +45,27 @@ export function SidebarNav({
   const isAdmin = role === 'admin' || role === 'sa';
   // Hồ sơ mở dạng popup (không rời trang đang xem) — feedback UI.
   const [profileOpen, setProfileOpen] = useState(false);
+  // Menu tài khoản ẩn mặc định — bấm tên mới bung (Hồ sơ/Ngôn ngữ/Theme/Đăng xuất).
+  const [menuOpen, setMenuOpen] = useState(false);
+  const footRef = useRef<HTMLDivElement>(null);
   const counts = useNavCounts(isAdmin);
+
+  // Đóng menu tài khoản khi bấm ra ngoài hoặc nhấn Esc.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!footRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
 
   const activeTo = useMemo(() => {
     let best: string | null = null;
@@ -111,7 +131,7 @@ export function SidebarNav({
           )}
         </div>
       ))}
-      <div className="sb-foot">
+      <div className="sb-foot" ref={footRef}>
         <div className="sb-user">
           <button
             type="button"
@@ -124,16 +144,29 @@ export function SidebarNav({
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-          <span className="sb-who lbl">
-            <b>{me.fullName ?? me.sub}</b>
-            <span>{isAdmin ? t('nav.roleAdmin', 'Quản trị viên') : t('nav.roleMember', 'Thành viên')}</span>
-          </span>
+          <button
+            type="button"
+            className="sb-userbtn lbl"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            title={t('app.accountMenu', 'Tài khoản')}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <span className="sb-who">
+              <b>{me.fullName ?? me.sub}</b>
+              <span>{isAdmin ? t('nav.roleAdmin', 'Quản trị viên') : t('nav.roleMember', 'Thành viên')}</span>
+            </span>
+            <span className={`sb-usercaret${menuOpen ? ' open' : ''}`} aria-hidden="true">
+              ›
+            </span>
+          </button>
         </div>
-        <div className="sb-actions lbl">
+        <div className={`sb-actions lbl${menuOpen ? ' open' : ''}`} role="menu">
           <button
             type="button"
             className="sb-act"
             onClick={() => {
+              setMenuOpen(false);
               setProfileOpen(true);
               onNavigate();
             }}
@@ -151,7 +184,14 @@ export function SidebarNav({
             </button>
             <ThemeSwitch />
           </div>
-          <button type="button" className="sb-act danger" onClick={onLogout}>
+          <button
+            type="button"
+            className="sb-act danger"
+            onClick={() => {
+              setMenuOpen(false);
+              onLogout();
+            }}
+          >
             {t('app.logout')}
           </button>
         </div>
