@@ -14,6 +14,14 @@ import {
 } from './asset-types';
 import type { AssetRow } from './asset-types';
 
+/** Header cột kèm tooltip hover — giải thích nhãn English cho người dùng Việt. */
+const th = (label: string, tip: string) => () =>
+  (
+    <span title={tip} style={{ cursor: 'help' }}>
+      {label}
+    </span>
+  );
+
 /**
  * Bộ cột DataTable của sổ tài sản. Tab Phần mềm (softwareOnly) và Sổ tài sản dùng bộ cột
  * KHÁC nhau (sw-license-model-redesign): phần mềm định danh bằng Tên license + Máy + Kỳ hạn;
@@ -140,13 +148,13 @@ export function useAssetColumns(opts: {
         {
           id: 'license',
           accessorKey: 'licenseName',
-          header: t('assets.licenseName'),
+          header: th(t('assets.licenseName'), 'Tên phần mềm / bản quyền'),
           enableSorting: false, // định danh mới; sort theo tên license chưa whitelist BE
           cell: ({ row }) => row.original.licenseName ?? '—',
         },
         {
           id: 'host',
-          header: t('assets.hostCol'),
+          header: th(t('assets.hostCol'), 'Máy đang cài bản phần mềm này'),
           enableSorting: false,
           cell: ({ row }) =>
             row.original.installedOnCode ? (
@@ -158,7 +166,7 @@ export function useAssetColumns(opts: {
         {
           id: 'assignee', // BE sort 'assignee' đã derive holder từ máy cho phần mềm
           accessorKey: 'assignedUserName',
-          header: t('assets.assignee'),
+          header: th(t('assets.assignee'), 'Người giữ máy (tự theo chủ máy đang cài)'),
           cell: ({ row }) => {
             const r = row.original;
             const holder = r.assignedUserName ?? r.assignedUserSub;
@@ -238,7 +246,7 @@ export function useAssetColumns(opts: {
         // Asset Type ở ĐẦU + là ô mở/đóng phần mềm (caret nằm trong ô này).
         id: 'type',
         accessorKey: 'type',
-        header: t('assets.col.type'),
+        header: th(t('assets.col.type'), 'Loại tài sản: Laptop, PC, Màn hình…'),
         cell: ({ row, table }) => (
           <TypeCell
             row={row.original}
@@ -251,26 +259,26 @@ export function useAssetColumns(opts: {
       {
         id: 'code',
         accessorKey: 'code',
-        header: t('assets.col.code'),
+        header: th(t('assets.col.code'), 'Mã tài sản (MTS) — định danh duy nhất mỗi máy'),
         // Sổ tài sản có thể lẫn dòng phần mềm (không mã) → hiện Tên license thay mã.
         cell: ({ row }) => <CodeCell row={row.original} />,
       },
       {
         id: 'assignee',
         accessorKey: 'assignedUserName',
-        header: t('assets.col.user'),
+        header: th(t('assets.col.user'), 'Người đang giữ máy'),
         cell: ({ row }) =>
           row.original.assignedUserName ?? row.original.assignedUserSub ?? '—',
       },
       {
         id: 'configuration',
-        header: t('assets.col.configuration'),
+        header: th(t('assets.col.configuration'), 'Cấu hình: CPU / RAM / ổ cứng'),
         enableSorting: false,
         cell: ({ row }) => row.original.configuration ?? '—',
       },
       {
         id: 'cost',
-        header: t('assets.col.cost'),
+        header: th(t('assets.col.cost'), 'Nguyên giá tài sản (VND)'),
         enableSorting: false,
         meta: { className: 'num' },
         cell: ({ row }) =>
@@ -298,7 +306,7 @@ export function useAssetColumns(opts: {
     }
     deviceCols.push({
       id: 'place',
-      header: t('assets.col.place'),
+      header: th(t('assets.col.place'), 'Vị trí đặt máy (tầng / khu vực)'),
       enableSorting: false,
       cell: ({ row }) => row.original.floor ?? '—',
     });
