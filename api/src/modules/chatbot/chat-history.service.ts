@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
-import type { AssetCard } from './chatbot.types';
+import type { AssetCard, AssetDetail, Chip } from './chatbot.types';
 
 /**
  * Lưu lịch sử chat — MỘT luồng/người (redesign: bỏ đa-cuộc + drawer). Self-scoped theo
@@ -23,28 +23,30 @@ export class ChatHistoryService {
       );
       if (owned.rows[0]) return conversationId;
     }
-    const existing = await this.db.execute<{ id: string }>(
-      sql`SELECT id FROM chat_conversations WHERE sub = ${sub} ORDER BY updated_at DESC LIMIT 1`,
-    );
-    if (existing.rows[0]) return existing.rows[0].id;
+    // Upsert atomic: UNIQUE(sub) (0043) + ON CONFLICT → get-or-create không race
+    // (2 tab / openChat+gửi song song không còn tạo được cuộc trùng).
     const res = await this.db.execute<{ id: string }>(
-      sql`INSERT INTO chat_conversations (sub) VALUES (${sub}) RETURNING id`,
+      sql`INSERT INTO chat_conversations (sub) VALUES (${sub})
+          ON CONFLICT (sub) DO UPDATE SET updated_at = chat_conversations.updated_at
+          RETURNING id`,
     );
     return res.rows[0].id;
   }
 
-  /** Ghi 1 lượt + bump updated_at. */
+  /** Ghi 1 lượt + bump updated_at. Lưu cả detail/chips để mở lại thấy nguyên (0043). */
   async appendTurn(
     conversationId: string,
     role: 'user' | 'assistant',
     content: string,
     cards?: AssetCard[],
+    detail?: AssetDetail,
+    chips?: Chip[],
   ): Promise<void> {
-    const cardsFragment = cards
-      ? sql`${JSON.stringify(cards)}::jsonb`
-      : sql`NULL`;
+    const jsonb = (v: unknown) =>
+      v ? sql`${JSON.stringify(v)}::jsonb` : sql`NULL`;
     await this.db.execute(
-      sql`INSERT INTO chat_messages (conversation_id, role, content, cards) VALUES (${conversationId}, ${role}, ${content}, ${cardsFragment})`,
+      sql`INSERT INTO chat_messages (conversation_id, role, content, cards, detail, chips)
+          VALUES (${conversationId}, ${role}, ${content}, ${jsonb(cards)}, ${jsonb(detail)}, ${jsonb(chips)})`,
     );
     await this.db.execute(
       sql`UPDATE chat_conversations SET updated_at = now() WHERE id = ${conversationId}`,
@@ -54,15 +56,23 @@ export class ChatHistoryService {
   /** Luồng duy nhất của sub + toàn bộ message (get-or-create) — FE nạp lúc mở popup. */
   async getSingle(sub: string): Promise<{
     conversationId: string;
-    messages: { role: string; content: string; cards: AssetCard[] | null }[];
+    messages: {
+      role: string;
+      content: string;
+      cards: AssetCard[] | null;
+      detail: AssetDetail | null;
+      chips: Chip[] | null;
+    }[];
   }> {
     const conversationId = await this.ensureConversation(sub, undefined);
     const msgs = await this.db.execute<{
       role: string;
       content: string;
       cards: AssetCard[] | null;
+      detail: AssetDetail | null;
+      chips: Chip[] | null;
     }>(
-      sql`SELECT role, content, cards FROM chat_messages WHERE conversation_id = ${conversationId} ORDER BY created_at`,
+      sql`SELECT role, content, cards, detail, chips FROM chat_messages WHERE conversation_id = ${conversationId} ORDER BY created_at`,
     );
     return { conversationId, messages: msgs.rows };
   }

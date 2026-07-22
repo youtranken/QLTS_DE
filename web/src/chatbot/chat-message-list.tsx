@@ -51,6 +51,7 @@ export function ChatMessageList({
                     key={i}
                     type="button"
                     className={`qc-chip${c.action.intent === 'menu' ? ' qc-ghost' : ''}`}
+                    disabled={loading}
                     onClick={() => onChip(c)}
                   >
                     {c.label}

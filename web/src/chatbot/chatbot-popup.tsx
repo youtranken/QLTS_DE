@@ -47,6 +47,7 @@ export function ChatbotPopup({ me }: { me: Me }) {
 
   const onChip = useCallback(
     (chip: Chip) => {
+      if (chat.loading) return; // chặn bấm trùng khi đang chờ trả lời
       const { intent, params } = chip.action;
       if (intent === 'list_result') {
         setStep({ kind: 'list', params: params ?? {}, label: chip.label });
@@ -56,6 +57,7 @@ export function ChatbotPopup({ me }: { me: Me }) {
         setStep({ kind: 'avail' });
         return;
       }
+      setStep(null); // chip cũ khi đang mở bước chọn ngày → dọn bước cũ trước khi gửi
       void chat.sendAction(chip.action, chip.label);
     },
     [chat],
@@ -183,7 +185,7 @@ export function ChatbotPopup({ me }: { me: Me }) {
         />
       ) : (
         <>
-          <ChatActionBar role={me.role} onPick={onChip} />
+          <ChatActionBar role={me.role} onPick={onChip} disabled={chat.loading} />
           <ChatComposer
             disabled={chat.loading}
             onSend={(t) => void chat.sendMessage(t)}

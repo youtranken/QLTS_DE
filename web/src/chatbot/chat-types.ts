@@ -61,6 +61,8 @@ export interface StoredMessage {
   role: string;
   content: string;
   cards: Card[] | null;
+  detail: AssetDetail | null;
+  chips: Chip[] | null;
 }
 
 export interface HistoryResponse {

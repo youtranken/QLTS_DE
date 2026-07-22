@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { parseBookingWindow } from '../../common/booking-window';
 import { DRIZZLE_DB } from '../../database/database.module';
@@ -175,6 +180,9 @@ export class BookingService {
     typeFilter?: string | null,
   ): Promise<DayAvailability> {
     const wh = await this.config.getWorkingHours();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateYmd)) {
+      throw new BadRequestException('Ngày không hợp lệ (cần YYYY-MM-DD).');
+    }
     const [y, m, d] = dateYmd.split('-').map(Number);
     // ISO weekday (1=T2..7=CN) thuần lịch, không phụ thuộc TZ máy chủ.
     const isoWeekday =

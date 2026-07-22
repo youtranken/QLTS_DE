@@ -19,6 +19,8 @@ export function useChatbot(csrfToken: string | null) {
   const idRef = useRef(0);
   const nextId = useCallback(() => String(++idRef.current), []);
   const convId = useRef<string | null>(null);
+  // Đã gửi lượt nào chưa → loadHistory (chạy async lúc mở) KHÔNG ghi đè, tránh mất lượt.
+  const sentRef = useRef(false);
   const [messages, setMessages] = useState<Msg[]>(() => [welcomeMsg('0')]);
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +34,8 @@ export function useChatbot(csrfToken: string | null) {
   const loadHistory = useCallback(async () => {
     try {
       const h = await apiFetch<HistoryResponse>('/api/chatbot/history');
+      // User đã gửi trong lúc /history còn tải → giữ nguyên UI, đừng ghi đè.
+      if (sentRef.current) return;
       convId.current = h.conversationId;
       setMessages(
         h.messages.length
@@ -40,16 +44,20 @@ export function useChatbot(csrfToken: string | null) {
               role: m.role === 'user' ? 'user' : 'assistant',
               text: m.content,
               cards: m.cards ?? undefined,
+              detail: m.detail ?? undefined,
+              chips: m.chips ?? undefined,
             }))
           : [welcomeMsg(nextId())],
       );
     } catch {
+      if (sentRef.current) return;
       setMessages([welcomeMsg(nextId())]);
     }
   }, [nextId]);
 
   const send = useCallback(
     async (body: { message?: string; action?: ChatAction }) => {
+      sentRef.current = true;
       setLoading(true);
       try {
         const r = await apiFetch<ChatReply>('/api/chatbot/message', {

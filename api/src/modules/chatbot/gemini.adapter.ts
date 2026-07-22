@@ -6,7 +6,10 @@ import { Injectable, Logger } from '@nestjs/common';
 // trích ngày. Muốn mạnh hơn nữa: 'gemini-pro-latest' (quota ngày hẹp hơn, chậm hơn).
 const MODEL = 'gemini-flash-latest';
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
-const TIMEOUT_MS = 8000;
+// Tách ngân sách: chọn tool nhanh (chậm hơn → lùi keyword-search); soạn câu giữ đủ 8s
+// để KHÔNG cắt câu trả lời. Tổng xấu nhất ~14s thay vì 16s (AC5).
+const TIMEOUT_INTERPRET_MS = 6000;
+const TIMEOUT_COMPOSE_MS = 8000;
 
 export type ToolName =
   | 'search_assets'
@@ -184,6 +187,7 @@ const FUNCTION_DECLARATIONS = [
 
 interface GeminiResponse {
   candidates?: Array<{
+    finishReason?: string;
     content?: {
       parts?: Array<{
         text?: string;
@@ -218,7 +222,7 @@ export class GeminiAdapter {
     if (!key) return null;
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_INTERPRET_MS);
     try {
       const res = await fetch(ENDPOINT, {
         method: 'POST',
@@ -259,7 +263,7 @@ export class GeminiAdapter {
     const key = process.env.GEMINI_API_KEY;
     if (!key) return null;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_COMPOSE_MS);
     try {
       const res = await fetch(ENDPOINT, {
         method: 'POST',
@@ -301,7 +305,13 @@ export class GeminiAdapter {
         return null;
       }
       const data = (await res.json()) as GeminiResponse;
-      const parts = data.candidates?.[0]?.content?.parts;
+      const cand = data.candidates?.[0];
+      // Câu bị cắt/chặn (MAX_TOKENS/SAFETY/RECITATION) → bỏ, dùng template thay vì trả câu dở.
+      if (cand?.finishReason && cand.finishReason !== 'STOP') {
+        this.logger.warn(`Gemini compose finishReason=${cand.finishReason}`);
+        return null;
+      }
+      const parts = cand?.content?.parts;
       if (Array.isArray(parts)) {
         for (const p of parts) {
           if (typeof p.text === 'string' && p.text.trim()) return p.text.trim();
@@ -345,15 +355,23 @@ function extractResult(data: GeminiResponse): InterpretResult {
   const parts = data.candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) return null;
   // Ưu tiên functionCall (hỏi tài sản); nếu không có → dùng text (chào hỏi/ngoài phạm vi).
-  for (const part of parts) {
-    const fc = part.functionCall;
-    if (fc?.name && WHITELIST.has(fc.name as ToolName)) {
-      return {
-        tool: fc.name as ToolName,
-        args: fc.args ?? {},
-        thoughtSignature: part.thoughtSignature,
-      };
-    }
+  const calls = parts.filter(
+    (p) =>
+      p.functionCall?.name && WHITELIST.has(p.functionCall.name as ToolName),
+  );
+  // Nhiều lệnh gọi (câu nhiều vế) → xin hỏi từng ý, tránh bỏ IM các call còn lại.
+  if (calls.length > 1) {
+    return {
+      text: 'Bạn đang hỏi nhiều việc cùng lúc. Bạn hỏi từng ý một giúp mình trả lời chính xác hơn nhé 🙂',
+    };
+  }
+  if (calls.length === 1) {
+    const fc = calls[0].functionCall!;
+    return {
+      tool: fc.name as ToolName,
+      args: fc.args ?? {},
+      thoughtSignature: calls[0].thoughtSignature,
+    };
   }
   for (const part of parts) {
     if (typeof part.text === 'string' && part.text.trim()) {

@@ -17,6 +17,14 @@ import type {
 /** Trần dòng đổ vào một bong bóng (G4) — kèm "hiển thị N/tổng M". */
 export const RESULT_CAP = 8;
 
+/** Trần dòng payload gửi Gemini compose (soạn câu) — con số tổng vẫn gửi đủ, chỉ cắt mảng. */
+const COMPOSE_CAP = 20;
+
+/** Escape wildcard ILIKE để khớp nghĩa đen (không phải injection — đã tham số hoá). */
+function escapeLike(s: string): string {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 /**
  * Lớp tool dùng chung cho guided + Gemini. Bọc service ĐÃ CÓ; QUYỀN enforce Ở ĐÂY
  * theo `identity.role` — Gemini chỉ chọn tool + args, KHÔNG quyết quyền (chống leo thang).
@@ -36,7 +44,10 @@ export class ChatbotToolsService {
   async softwareInfo(identity: Identity, name?: string) {
     if (!(identity.role === 'admin' || identity.role === 'sa')) return null;
     const licenses = await this.software.listLicenseGroups(name?.trim());
-    return { soLicense: licenses.length, licenses };
+    return {
+      soLicense: licenses.length,
+      licenses: licenses.slice(0, COMPOSE_CAP),
+    };
   }
 
   /** #4 Lịch sử cấp phát của MỘT máy (ai từng dùng). Member chỉ xem máy mình; admin mọi máy. */
@@ -139,8 +150,8 @@ export class ChatbotToolsService {
     return {
       soChoDuyet: approvals.length,
       soChoGiaHan: extensions.length,
-      choDuyet: approvals,
-      choGiaHan: extensions,
+      choDuyet: approvals.slice(0, COMPOSE_CAP),
+      choGiaHan: extensions.slice(0, COMPOSE_CAP),
     };
   }
 
@@ -302,7 +313,7 @@ export class ChatbotToolsService {
       filter.endFrom ? sql` AND end_date >= ${filter.endFrom}` : sql``
     }${filter.endTo ? sql` AND end_date <= ${filter.endTo}` : sql``}${
       filter.search
-        ? sql` AND (code ILIKE ${`%${filter.search}%`} OR configuration ILIKE ${`%${filter.search}%`} OR brand ILIKE ${`%${filter.search}%`})`
+        ? sql` AND (code ILIKE ${`%${escapeLike(filter.search)}%`} OR configuration ILIKE ${`%${escapeLike(filter.search)}%`} OR brand ILIKE ${`%${escapeLike(filter.search)}%`})`
         : sql``
     }`;
     const rows = await this.db.execute<{

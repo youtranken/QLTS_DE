@@ -55,9 +55,11 @@ const ICONS: Record<string, JSX.Element> = {
 export function ChatActionBar({
   role,
   onPick,
+  disabled = false,
 }: {
   role: string;
   onPick: (chip: Chip) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="qc-actionbar">
@@ -66,6 +68,7 @@ export function ChatActionBar({
           key={c.action.intent}
           type="button"
           className="qc-abtn"
+          disabled={disabled}
           onClick={() => onPick(c)}
         >
           {ICONS[c.action.intent]}

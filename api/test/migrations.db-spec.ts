@@ -85,6 +85,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0040_append_only_truncate_guards.sql',
       '0041_config_max_booking_duration.sql',
       '0042_chat_history.sql',
+      '0043_chat_unique_sub_and_payload.sql',
     ]);
   });
 

@@ -54,17 +54,25 @@ export class ChatbotService {
       };
     }
 
-    const convId = await this.history.ensureConversation(
-      identity.sub,
-      body.conversationId,
-    );
-    await this.history.appendTurn(convId, 'user', userText || '(mở đầu)');
-    await this.history.appendTurn(
-      convId,
-      'assistant',
-      reply.reply,
-      reply.cards,
-    );
+    let convId = body.conversationId ?? '';
+    try {
+      convId = await this.history.ensureConversation(
+        identity.sub,
+        body.conversationId,
+      );
+      await this.history.appendTurn(convId, 'user', userText || '(mở đầu)');
+      await this.history.appendTurn(
+        convId,
+        'assistant',
+        reply.reply,
+        reply.cards,
+        reply.detail,
+        reply.chips,
+      );
+    } catch (e) {
+      // Lỗi lưu lịch sử (DB blip) KHÔNG được biến câu trả lời đã tính thành HTTP 500.
+      this.logger.warn(`Lưu lịch sử lỗi: ${(e as Error).message}`);
+    }
     return { conversationId: convId, ...reply };
   }
 
@@ -72,6 +80,13 @@ export class ChatbotService {
     identity: Identity,
     message: string,
   ): Promise<ChatReply> {
+    if (!message.trim()) {
+      return {
+        reply:
+          'Bạn gõ câu hỏi hoặc chọn nhanh ở thanh bên dưới giúp mình nhé 🙂',
+        source: 'fallback',
+      };
+    }
     if (this.gemini.isEnabled()) {
       const result = await this.gemini.interpret(message, {
         today: todayVn(),
@@ -156,7 +171,21 @@ export class ChatbotService {
       }
       case 'day_availability': {
         const date =
-          typeof call.args.date === 'string' ? call.args.date : todayVn();
+          typeof call.args.date === 'string'
+            ? call.args.date.trim()
+            : todayVn();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          return {
+            reply: `Mình chưa nhận ra ngày "${date}". Bạn cho mình ngày cụ thể (ngày/tháng/năm) nhé.`,
+            source: 'gemini',
+          };
+        }
+        if (date < todayVn()) {
+          return {
+            reply: `Ngày ${date} đã qua rồi. Mình chỉ xem được khung giờ trống từ hôm nay trở đi.`,
+            source: 'gemini',
+          };
+        }
         const type =
           typeof call.args.type === 'string' && call.args.type.trim()
             ? call.args.type.trim()

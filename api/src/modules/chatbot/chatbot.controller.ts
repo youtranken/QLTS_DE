@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -69,6 +70,13 @@ export class ChatbotController {
   @Post('message')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   message(@Body() body: ChatMessageDto, @Req() req: AuthedRequest) {
+    // Phải có message HOẶC action — body rỗng {} không tạo lượt "(mở đầu)" phí quota.
+    if (!body.message?.trim() && !body.action) {
+      throw new BadRequestException({
+        code: 'EMPTY_CHAT_INPUT',
+        message: 'Cần có câu hỏi hoặc thao tác.',
+      });
+    }
     return this.chatbot.handle(identity(req), body);
   }
 
