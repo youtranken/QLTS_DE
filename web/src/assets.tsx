@@ -17,6 +17,7 @@ import { useAssetPageActions } from './use-asset-page-actions';
 import { useAssetColumns } from './assets-columns';
 import { AssetsFilterBar } from './assets-filter-bar';
 import { AssetsPageHeader } from './assets-page-header';
+import { ImportDialog } from './import-page';
 import { ConfirmDialog } from './confirm-dialog';
 
 // Re-export để App.tsx tiếp tục import cả hai từ './assets' (route không đổi).
@@ -56,6 +57,8 @@ export function AssetsPage({
   // Chuyển máy sang người khác (đổi người đứng tên) — mở dialog từ nút "Chuyển" ở cột Action.
   const [transferOwner, setTransferOwner] = useState<AssetRow | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Import mở dạng popup (không rời trang) — VĐ3.
+  const [importOpen, setImportOpen] = useState(false);
   // Tìm/lọc server-side (2.2): searchInput gõ tự do → search sau debounce 300ms
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -345,7 +348,17 @@ export function AssetsPage({
               : EMPTY_FORM,
           )
         }
+        onImport={() => setImportOpen(true)}
       />
+      {importOpen && (
+        <ImportDialog
+          me={me}
+          onClose={() => setImportOpen(false)}
+          onCommitted={() =>
+            void queryClient.invalidateQueries({ queryKey: ['assets'] })
+          }
+        />
+      )}
       {(error || listError) && (
         <p className="alert error">{error ?? t('assets.loadFailed')}</p>
       )}

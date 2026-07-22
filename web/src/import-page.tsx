@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { Dialog, DialogClose, DialogTitle } from './ui/dialog';
 import type { Me } from './me';
 
 interface PreviewRow {
@@ -16,8 +17,11 @@ interface PreviewResult {
   rows: PreviewRow[];
 }
 
-/** Import Excel go-live (story 2.9, FR-40) — preview dry-run rồi mới import thật. */
-export function ImportPage({ me }: { me: Me }) {
+/**
+ * Lõi Import (dùng chung trang + popup) — chọn file → preview dry-run → commit → rematch.
+ * `onCommitted` gọi sau khi import thật thành công (để trang cha refetch danh sách).
+ */
+function ImportPanel({ me, onCommitted }: { me: Me; onCommitted?: () => void }) {
   const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
@@ -85,6 +89,7 @@ export function ImportPage({ me }: { me: Me }) {
         setPreview(null);
         setFile(null);
         setInputKey((k) => k + 1);
+        onCommitted?.();
       } else {
         setError(
           body.rowNumber != null
@@ -97,7 +102,7 @@ export function ImportPage({ me }: { me: Me }) {
     } finally {
       setBusy(false);
     }
-  }, [file, post, t]);
+  }, [file, post, t, onCommitted]);
 
   const runRematch = useCallback(async () => {
     setBusy(true);
@@ -141,15 +146,6 @@ export function ImportPage({ me }: { me: Me }) {
 
   return (
     <>
-      <p style={{ marginBottom: '0.5rem' }}>
-        <Link to="/assets">‹ {t('assets.backToList')}</Link>
-      </p>
-      <div className="page-header">
-        <h1>{t('importx.title')}</h1>
-      </div>
-      <p className="muted" style={{ fontSize: '0.85rem' }}>
-        {t('importx.hint')}
-      </p>
       {error && <p className="alert error">{error}</p>}
       {commitMsg && <p className="alert ok">{commitMsg}</p>}
       <div className="toolbar">
@@ -229,5 +225,60 @@ export function ImportPage({ me }: { me: Me }) {
         </>
       )}
     </>
+  );
+}
+
+/** Trang Import (route /assets/import) — giữ để không vỡ link/bookmark cũ. */
+export function ImportPage({ me }: { me: Me }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <p style={{ marginBottom: '0.5rem' }}>
+        <Link to="/assets">‹ {t('assets.backToList')}</Link>
+      </p>
+      <div className="page-header">
+        <h1>{t('importx.title')}</h1>
+      </div>
+      <ImportPanel me={me} />
+    </>
+  );
+}
+
+/** Popup Import — mở từ nút Import ở sổ tài sản (không rời trang). */
+export function ImportDialog({
+  me,
+  onClose,
+  onCommitted,
+}: {
+  me: Me;
+  onClose: () => void;
+  onCommitted?: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      className="sheet sheet-wide"
+      maxWidth={900}
+    >
+      <div className="sheet-header">
+        <DialogTitle className="sheet-title">{t('importx.title')}</DialogTitle>
+        <span className="spacer" />
+        <DialogClose asChild>
+          <button
+            type="button"
+            className="sheet-close"
+            aria-label={t('app.close', 'Đóng')}
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        </DialogClose>
+      </div>
+      <div className="sheet-body">
+        <ImportPanel me={me} onCommitted={onCommitted} />
+      </div>
+    </Dialog>
   );
 }

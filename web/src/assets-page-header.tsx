@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { downloadFile } from './download-file';
 
 /**
@@ -18,6 +17,7 @@ export interface AssetsPageHeaderProps {
   endFrom: string;
   endTo: string;
   onAdd: () => void;
+  onImport: () => void;
 }
 
 export function AssetsPageHeader({
@@ -31,6 +31,7 @@ export function AssetsPageHeader({
   endFrom,
   endTo,
   onAdd,
+  onImport,
 }: AssetsPageHeaderProps) {
   const { t } = useTranslation();
   return (
@@ -48,9 +49,9 @@ export function AssetsPageHeader({
       </h1>
       {!softwareOnly && !disposedOnly && (
         <>
-          <Link className="linkbtn" to="/assets/import">
+          <button type="button" className="linkbtn" onClick={onImport}>
             {t('importx.link')}
-          </Link>
+          </button>
           {/* 2.10: export theo bộ lọc ĐANG áp — tải bằng fetch→blob (downloadFile) để ép
               đúng tên .xlsx trên mọi trình duyệt; cookie đi kèm qua credentials. */}
           <button
