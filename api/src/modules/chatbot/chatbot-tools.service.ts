@@ -94,6 +94,11 @@ export class ChatbotToolsService {
     return this.booking.assetTypes();
   }
 
+  /** Khung GIỜ trống của máy pool trong MỘT ngày (câu "ngày X giờ nào trống"). */
+  dayAvailability(date: string, type?: string) {
+    return this.booking.dayFreeSlots(date, type ?? null);
+  }
+
   /**
    * Chi tiết MỘT máy theo mã — CHỈ dựng các khía cạnh người dùng HỎI (aspects), khối phần mềm
    * tách riêng. Member chỉ xem được máy MÌNH đứng tên (self-scoped). null nếu không thấy/không quyền.

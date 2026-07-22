@@ -9,12 +9,17 @@ const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODE
 const TIMEOUT_MS = 8000;
 
 export type ToolName =
-  'search_assets' | 'my_assets' | 'check_availability' | 'get_asset';
+  | 'search_assets'
+  | 'my_assets'
+  | 'check_availability'
+  | 'get_asset'
+  | 'day_availability';
 const WHITELIST = new Set<ToolName>([
   'search_assets',
   'my_assets',
   'check_availability',
   'get_asset',
+  'day_availability',
 ]);
 
 export interface ToolCall {
@@ -75,6 +80,19 @@ const FUNCTION_DECLARATIONS = [
         type: { type: 'string', description: 'loại máy (tùy chọn)' },
       },
       required: ['from', 'to'],
+    },
+  },
+  {
+    name: 'day_availability',
+    description:
+      'Xem KHUNG GIỜ còn trống của máy pool trong MỘT ngày cụ thể. Dùng khi hỏi "ngày X giờ nào trống / mấy giờ rảnh".',
+    parameters: {
+      type: 'object',
+      properties: {
+        date: { type: 'string', description: 'YYYY-MM-DD' },
+        type: { type: 'string', description: 'loại máy (tùy chọn)' },
+      },
+      required: ['date'],
     },
   },
   {
@@ -260,6 +278,7 @@ function systemPrompt(ctx: GeminiContext): string {
     'Bạn là trợ lý QLTS (quản lý tài sản nội bộ).',
     `Hôm nay là ${ctx.today} (múi giờ +07:00, Việt Nam). Người dùng có vai '${ctx.role}'.`,
     'Khi người dùng HỎI VỀ tài sản/máy (danh sách, chi tiết 1 máy, máy đang giữ, máy còn trống) → gọi đúng MỘT hàm phù hợp và điền tham số.',
+    'Hỏi GIỜ/khung giờ trống của một NGÀY cụ thể ("ngày 26 giờ nào trống") → day_availability(date). Còn hỏi máy trống trong 1 khoảng giờ cho sẵn → check_availability.',
     'Hỏi CHI TIẾT/thuộc tính của MỘT máy cụ thể (theo mã) → dùng get_asset, điền aspects ĐÚNG thứ được hỏi (chỉ hỏi cấu hình thì aspects=["config"]; hỏi giá thì ["price"]…), KHÔNG thêm khía cạnh không được hỏi.',
     'Khoảng ngày dùng YYYY-MM-DD; thời điểm mượn dùng ISO-8601 có offset +07:00.',
     'Nếu là CHÀO HỎI / nói chuyện phiếm / câu KHÔNG liên quan tài sản → KHÔNG gọi hàm; trả lời NGẮN GỌN, thân thiện bằng tiếng Việt và gợi ý có thể hỏi về danh sách tài sản, máy đang giữ, hoặc máy còn trống. TUYỆT ĐỐI không bịa số liệu/thông tin tài sản khi chưa gọi hàm.',

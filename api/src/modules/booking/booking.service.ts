@@ -58,6 +58,23 @@ export interface PoolCalendar {
   machines: PoolCalendarMachine[];
 }
 
+export interface FreeSlot {
+  from: string; // 'HH:MM' giờ VN
+  to: string;
+}
+export interface DayMachineSlots {
+  code: string | null;
+  type: string;
+  freeSlots: FreeSlot[];
+}
+export interface DayAvailability {
+  date: string;
+  isWorkingDay: boolean;
+  start: string; // giờ làm HH:MM
+  end: string;
+  machines: DayMachineSlots[];
+}
+
 @Injectable()
 export class BookingService {
   constructor(
@@ -147,6 +164,70 @@ export class BookingService {
       ORDER BY type
     `);
     return rows.rows.map((r) => r.type);
+  }
+
+  /**
+   * KHUNG GIỜ trống của các máy pool trong MỘT ngày (cho câu "ngày X giờ nào trống").
+   * Khe trống = giờ làm (config) − các block bận (booking chiếm chỗ). Read-model AD-5.
+   */
+  async dayFreeSlots(
+    dateYmd: string,
+    typeFilter?: string | null,
+  ): Promise<DayAvailability> {
+    const wh = await this.config.getWorkingHours();
+    const [y, m, d] = dateYmd.split('-').map(Number);
+    // ISO weekday (1=T2..7=CN) thuần lịch, không phụ thuộc TZ máy chủ.
+    const isoWeekday =
+      ((new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7) + 1;
+    if (!wh.days.includes(isoWeekday)) {
+      return {
+        date: dateYmd,
+        isWorkingDay: false,
+        start: wh.start,
+        end: wh.end,
+        machines: [],
+      };
+    }
+    const workStart = `${dateYmd}T${wh.start}:00+07:00`;
+    const workEnd = `${dateYmd}T${wh.end}:00+07:00`;
+    const occupying = sql.join(
+      OCCUPYING_STATES.map((s) => sql`${s}`),
+      sql`, `,
+    );
+    const typeCond = typeFilter ? sql`AND a.type = ${typeFilter}` : sql``;
+    const rows = await this.db.execute<{
+      code: string | null;
+      type: string;
+      busy: { from: string; to: string }[];
+    }>(sql`
+      SELECT a.code, a.type,
+        COALESCE(
+          json_agg(json_build_object('from', lower(b.period), 'to', upper(b.period))
+            ORDER BY lower(b.period)) FILTER (WHERE b.id IS NOT NULL),
+          '[]'
+        ) AS busy
+      FROM assets a
+      LEFT JOIN booking b
+        ON b.asset_id = a.id AND b.state IN (${occupying})
+        AND b.period && tstzrange(${workStart}, ${workEnd}, '[)')
+      WHERE a.is_pool = true AND a.status = 'in_use' AND a.type <> 'software'
+        ${typeCond}
+      GROUP BY a.id, a.code, a.type
+      ORDER BY a.code
+    `);
+    const wsMs = new Date(workStart).getTime();
+    const weMs = new Date(workEnd).getTime();
+    return {
+      date: dateYmd,
+      isWorkingDay: true,
+      start: wh.start,
+      end: wh.end,
+      machines: rows.rows.map((r) => ({
+        code: r.code,
+        type: r.type,
+        freeSlots: computeFreeSlots(wsMs, weMs, r.busy),
+      })),
+    };
   }
 
   /**
@@ -384,4 +465,32 @@ export class BookingService {
       })),
     };
   }
+}
+
+/** Khe trống trong [wsMs,weMs) sau khi trừ các block bận; trả 'HH:MM' giờ VN. */
+export function computeFreeSlots(
+  wsMs: number,
+  weMs: number,
+  busy: { from: string; to: string }[],
+): FreeSlot[] {
+  const blocks = busy
+    .map((b) => ({
+      from: Math.max(new Date(b.from).getTime(), wsMs),
+      to: Math.min(new Date(b.to).getTime(), weMs),
+    }))
+    .filter((b) => b.to > b.from)
+    .sort((a, b) => a.from - b.from);
+  const gaps: { from: number; to: number }[] = [];
+  let cursor = wsMs;
+  for (const b of blocks) {
+    if (b.from > cursor) gaps.push({ from: cursor, to: b.from });
+    cursor = Math.max(cursor, b.to);
+  }
+  if (cursor < weMs) gaps.push({ from: cursor, to: weMs });
+  return gaps.map((g) => ({ from: hhmm(g.from), to: hhmm(g.to) }));
+}
+
+function hhmm(ms: number): string {
+  const d = new Date(ms + 7 * 3600 * 1000); // +07:00 → đọc giờ VN qua getUTC*
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
 }

@@ -3,6 +3,7 @@ import { ChatHistoryService } from './chat-history.service';
 import { ChatbotGuidedService } from './chatbot-guided.service';
 import { ChatbotToolsService } from './chatbot-tools.service';
 import { GeminiAdapter, type ToolCall } from './gemini.adapter';
+import type { DayAvailability } from '../booking/booking.service';
 import {
   actionLabel,
   listReply,
@@ -153,6 +154,23 @@ export class ChatbotService {
         );
         return { reply, cards, total, source: 'gemini' };
       }
+      case 'day_availability': {
+        const date =
+          typeof call.args.date === 'string' ? call.args.date : todayVn();
+        const type =
+          typeof call.args.type === 'string' && call.args.type.trim()
+            ? call.args.type.trim()
+            : undefined;
+        const data = await this.tools.dayAvailability(date, type);
+        const reply = await this.compose(
+          message,
+          call,
+          data,
+          identity,
+          daySlotsTemplate(data),
+        );
+        return { reply, source: 'gemini' };
+      }
       case 'get_asset': {
         const code =
           typeof call.args.code === 'string' ? call.args.code.trim() : '';
@@ -203,4 +221,25 @@ export class ChatbotService {
     );
     return text ?? fallback;
   }
+}
+
+/** Template khung giờ trống (fallback khi compose lỗi). */
+function daySlotsTemplate(d: DayAvailability): string {
+  if (!d.isWorkingDay) {
+    return `Ngày ${d.date} không phải ngày làm việc (giờ làm ${d.start}–${d.end}).`;
+  }
+  const free = d.machines.filter((m) => m.freeSlots.length);
+  if (!free.length) {
+    return `Ngày ${d.date} không còn máy nào có khung giờ trống.`;
+  }
+  return (
+    `Khung giờ trống ngày ${d.date}: ` +
+    free
+      .map(
+        (m) =>
+          `${m.code} (${m.freeSlots.map((s) => `${s.from}–${s.to}`).join(', ')})`,
+      )
+      .join('; ') +
+    '.'
+  );
 }
