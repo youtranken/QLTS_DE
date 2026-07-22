@@ -198,10 +198,8 @@ export class ChatbotService {
       call.tool,
       call.args,
       data,
-      {
-        today: todayVn(),
-        role: identity.role,
-      },
+      { today: todayVn(), role: identity.role },
+      call.thoughtSignature,
     );
     return text ?? fallback;
   }

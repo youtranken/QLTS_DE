@@ -20,6 +20,8 @@ const WHITELIST = new Set<ToolName>([
 export interface ToolCall {
   tool: ToolName;
   args: Record<string, unknown>;
+  /** Chữ ký "suy nghĩ" Gemini 3.x cấp kèm functionCall — PHẢI echo lại ở chặng compose. */
+  thoughtSignature?: string;
 }
 
 /** Gemini trả lời hội thoại (chào hỏi/ngoài phạm vi) — KHÔNG gọi tool, không đụng dữ liệu. */
@@ -113,6 +115,7 @@ interface GeminiResponse {
     content?: {
       parts?: Array<{
         text?: string;
+        thoughtSignature?: string;
         functionCall?: { name?: string; args?: Record<string, unknown> };
       }>;
     };
@@ -179,6 +182,7 @@ export class GeminiAdapter {
     functionArgs: Record<string, unknown>,
     responseData: unknown,
     ctx: GeminiContext,
+    thoughtSignature?: string,
   ): Promise<string | null> {
     const key = process.env.GEMINI_API_KEY;
     if (!key) return null;
@@ -198,7 +202,10 @@ export class GeminiAdapter {
             {
               role: 'model',
               parts: [
-                { functionCall: { name: functionName, args: functionArgs } },
+                {
+                  functionCall: { name: functionName, args: functionArgs },
+                  ...(thoughtSignature ? { thoughtSignature } : {}),
+                },
               ],
             },
             {
@@ -264,7 +271,11 @@ function extractResult(data: GeminiResponse): InterpretResult {
   for (const part of parts) {
     const fc = part.functionCall;
     if (fc?.name && WHITELIST.has(fc.name as ToolName)) {
-      return { tool: fc.name as ToolName, args: fc.args ?? {} };
+      return {
+        tool: fc.name as ToolName,
+        args: fc.args ?? {},
+        thoughtSignature: part.thoughtSignature,
+      };
     }
   }
   for (const part of parts) {
