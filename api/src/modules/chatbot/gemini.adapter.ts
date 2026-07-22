@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-// alias "latest" → luôn trỏ bản flash-lite mới nhất; tránh lỗi 404 "no longer available
-// to new users" khi Google ngừng hỗ trợ phiên bản cũ (gemini-2.5-flash đã dính lỗi này).
-// Tác vụ chỉ chọn tool → flash-lite thừa sức, rẻ + quota ngày rộng nhất.
-const MODEL = 'gemini-flash-lite-latest';
+// alias "latest" → luôn trỏ bản Flash MỚI NHẤT (Gemini 3.x-class); tránh lỗi 404
+// "no longer available to new users" khi Google ngừng hỗ trợ phiên bản cũ (2.5-flash
+// đã dính). Flash đầy đủ (không lite) → hiểu tiếng Việt tốt hơn cho việc chọn tool +
+// trích ngày. Muốn mạnh hơn nữa: 'gemini-pro-latest' (quota ngày hẹp hơn, chậm hơn).
+const MODEL = 'gemini-flash-latest';
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const TIMEOUT_MS = 8000;
 
