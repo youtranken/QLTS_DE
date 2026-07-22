@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Mascot } from './mascot';
 import { ChatResultCard } from './chat-result-card';
+import { ChatDetailCard } from './chat-detail-card';
 import type { Chip, Msg } from './chat-types';
 
 /** Danh sách tin nhắn + typing; render card/chips của từng bong bóng assistant. */
@@ -34,6 +35,7 @@ export function ChatMessageList({
           </div>
           <div className="qc-bubble">
             <div>{m.text}</div>
+            {m.detail && <ChatDetailCard detail={m.detail} />}
             {m.cards && m.cards.length > 0 && (
               <ChatResultCard
                 cards={m.cards}

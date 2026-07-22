@@ -136,6 +136,28 @@ export class ChatbotService {
           source: 'gemini',
         };
       }
+      case 'get_asset': {
+        const code =
+          typeof call.args.code === 'string' ? call.args.code.trim() : '';
+        const aspects = Array.isArray(call.args.aspects)
+          ? call.args.aspects.filter((a): a is string => typeof a === 'string')
+          : [];
+        const detail = code
+          ? await this.tools.getAsset(identity, code, aspects)
+          : null;
+        if (!detail) {
+          const isMember = !(
+            identity.role === 'admin' || identity.role === 'sa'
+          );
+          return {
+            reply: isMember
+              ? `Không tìm thấy máy ${code || 'này'} trong danh sách bạn đang giữ.`
+              : `Không tìm thấy máy ${code || 'này'}.`,
+            source: 'gemini',
+          };
+        }
+        return { reply: `Chi tiết ${detail.code}:`, detail, source: 'gemini' };
+      }
     }
   }
 }

@@ -8,11 +8,13 @@ const MODEL = 'gemini-flash-latest';
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const TIMEOUT_MS = 8000;
 
-export type ToolName = 'search_assets' | 'my_assets' | 'check_availability';
+export type ToolName =
+  'search_assets' | 'my_assets' | 'check_availability' | 'get_asset';
 const WHITELIST = new Set<ToolName>([
   'search_assets',
   'my_assets',
   'check_availability',
+  'get_asset',
 ]);
 
 export interface ToolCall {
@@ -64,6 +66,37 @@ const FUNCTION_DECLARATIONS = [
         type: { type: 'string', description: 'loại máy (tùy chọn)' },
       },
       required: ['from', 'to'],
+    },
+  },
+  {
+    name: 'get_asset',
+    description:
+      'Xem CHI TIẾT một máy theo mã. Dùng khi người dùng hỏi thuộc tính cụ thể của 1 máy.',
+    parameters: {
+      type: 'object',
+      properties: {
+        code: { type: 'string', description: 'mã máy, vd MTS-123' },
+        aspects: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: [
+              'config',
+              'price',
+              'place',
+              'serial',
+              'warranty',
+              'brand',
+              'holder',
+              'note',
+              'software',
+            ],
+          },
+          description:
+            'CHỈ những khía cạnh người dùng HỎI: config=cấu hình, price=giá, place=vị trí, serial, warranty=bảo hành/hạn, brand=hãng, holder=người giữ, note=ghi chú, software=phần mềm',
+        },
+      },
+      required: ['code'],
     },
   },
 ];
@@ -130,6 +163,7 @@ function systemPrompt(ctx: GeminiContext): string {
     'Bạn là trợ lý QLTS (quản lý tài sản nội bộ).',
     `Hôm nay là ${ctx.today} (múi giờ +07:00, Việt Nam). Người dùng có vai '${ctx.role}'.`,
     'Hãy chọn đúng MỘT hàm phù hợp để tra cứu và điền tham số.',
+    'Hỏi CHI TIẾT/thuộc tính của MỘT máy cụ thể (theo mã) → dùng get_asset, điền aspects ĐÚNG thứ được hỏi (chỉ hỏi cấu hình thì aspects=["config"]; hỏi giá thì ["price"]…), KHÔNG thêm khía cạnh không được hỏi.',
     'Khoảng ngày dùng YYYY-MM-DD; thời điểm mượn dùng ISO-8601 có offset +07:00.',
     'Nếu câu hỏi ngoài phạm vi tra cứu tài sản/máy trống, chọn search_assets với từ khoá gần nhất.',
   ].join(' ');

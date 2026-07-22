@@ -66,6 +66,7 @@ export function useChatbot(csrfToken: string | null) {
           text: r.reply,
           cards: r.cards,
           total: r.total,
+          detail: r.detail,
           chips: r.chips,
         });
       } catch {

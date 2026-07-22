@@ -260,6 +260,73 @@
   background: var(--primary-soft);
 }
 
+/* Thẻ CHI TIẾT 1 máy — khối thiết bị + khối phần mềm tách rõ */
+.qc-detail {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--surface);
+}
+.qc-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.qc-detail-type {
+  flex: 1;
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+}
+.qc-detail-rows {
+  padding: 2px 12px;
+}
+.qc-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: var(--fs-sm);
+  border-bottom: 1px dashed var(--border);
+}
+.qc-detail-row:last-child {
+  border-bottom: 0;
+}
+.qc-dl {
+  color: var(--ink-3);
+  flex: none;
+}
+.qc-dv {
+  font-weight: var(--fw-semibold);
+  text-align: right;
+}
+.qc-sw {
+  padding: 10px 12px;
+  border-top: 3px solid var(--border-2);
+  background: var(--primary-soft);
+}
+.qc-sw-head {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  color: var(--primary-ink);
+  margin-bottom: 6px;
+}
+.qc-sw-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--fs-sm);
+}
+.qc-sw-list li {
+  margin: 2px 0;
+}
+.qc-sw-empty {
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+}
+
 .qc-pill {
   display: inline-flex;
   align-items: center;

@@ -26,10 +26,27 @@ export interface Chip {
 
 export type ChatSource = 'guided' | 'gemini' | 'fallback';
 
+export interface DetailRow {
+  label: string;
+  value: string;
+}
+
+/** Chi tiết MỘT máy — khối thiết bị (rows theo khía cạnh được hỏi) + khối phần mềm tách riêng. */
+export interface AssetDetail {
+  code: string | null;
+  type: string;
+  status: string;
+  /** Chỉ các khía cạnh người dùng HỎI (cấu hình/giá/vị trí…). */
+  rows: DetailRow[];
+  /** null = không hỏi phần mềm (ẩn khối); [] = có hỏi nhưng máy chưa cài; [tên…] = danh sách. */
+  software: string[] | null;
+}
+
 export interface ChatReply {
   reply: string;
   cards?: AssetCard[];
   total?: number;
+  detail?: AssetDetail;
   chips?: Chip[];
   source: ChatSource;
 }

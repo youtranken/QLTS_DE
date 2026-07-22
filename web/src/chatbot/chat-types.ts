@@ -21,11 +21,26 @@ export interface Chip {
   action: ChatAction;
 }
 
+export interface DetailRow {
+  label: string;
+  value: string;
+}
+
+/** Chi tiết 1 máy — khối thiết bị (rows) + khối phần mềm tách riêng. */
+export interface AssetDetail {
+  code: string | null;
+  type: string;
+  status: string;
+  rows: DetailRow[];
+  software: string[] | null;
+}
+
 export interface ChatReply {
   conversationId: string;
   reply: string;
   cards?: Card[];
   total?: number;
+  detail?: AssetDetail;
   chips?: Chip[];
   source: string;
 }
@@ -36,6 +51,7 @@ export interface Msg {
   text: string;
   cards?: Card[];
   total?: number;
+  detail?: AssetDetail;
   chips?: Chip[];
 }
 

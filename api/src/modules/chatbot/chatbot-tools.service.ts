@@ -4,7 +4,12 @@ import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AssetsService } from '../assets/assets.service';
 import { BookingService } from '../booking/booking.service';
-import type { AssetCard, AssetFilter, Identity } from './chatbot.types';
+import type {
+  AssetCard,
+  AssetDetail,
+  AssetFilter,
+  Identity,
+} from './chatbot.types';
 
 /** Trần dòng đổ vào một bong bóng (G4) — kèm "hiển thị N/tổng M". */
 export const RESULT_CAP = 8;
@@ -88,6 +93,77 @@ export class ChatbotToolsService {
   }
 
   /**
+   * Chi tiết MỘT máy theo mã — CHỈ dựng các khía cạnh người dùng HỎI (aspects), khối phần mềm
+   * tách riêng. Member chỉ xem được máy MÌNH đứng tên (self-scoped). null nếu không thấy/không quyền.
+   */
+  async getAsset(
+    identity: Identity,
+    code: string,
+    aspects: string[],
+  ): Promise<AssetDetail | null> {
+    const memberScope = !(identity.role === 'admin' || identity.role === 'sa');
+    const rows = await this.db.execute<{
+      code: string | null;
+      type: string;
+      status: string;
+      configuration: string | null;
+      cost: string | number | null;
+      floor: string | null;
+      serial: string | null;
+      brand: string | null;
+      end_date: string | null;
+      note: string | null;
+      holder: string | null;
+      software: string | null;
+    }>(sql`
+      SELECT a.code, a.type, a.status, a.configuration, a.cost, a.floor,
+        a.serial, a.brand, a.end_date, a.note, u.full_name AS holder,
+        (SELECT string_agg(sw.license_name, '||' ORDER BY sw.license_name)
+         FROM assets sw
+         WHERE sw.installed_on_asset_id = a.id
+           AND sw.type = 'software' AND sw.status <> 'disposed'
+           AND sw.license_name IS NOT NULL) AS software
+      FROM assets a
+      LEFT JOIN users u ON u.sub = a.assigned_user_sub
+      WHERE a.type <> 'software' AND a.purged_at IS NULL
+        AND upper(a.code) = upper(${code})
+        ${memberScope ? sql`AND a.assigned_user_sub = ${identity.sub}` : sql``}
+      LIMIT 1
+    `);
+    const r = rows.rows[0];
+    if (!r) return null;
+
+    const want = new Set(aspects.length ? aspects : ['config', 'software']);
+    const detailRows: { label: string; value: string }[] = [];
+    const add = (aspect: string, label: string, value: string | null) => {
+      if (want.has(aspect) && value != null && value.trim()) {
+        detailRows.push({ label, value });
+      }
+    };
+    add('config', 'Cấu hình', r.configuration);
+    add('price', 'Giá', r.cost != null ? formatVnd(r.cost) : null);
+    add('place', 'Vị trí', r.floor);
+    add('serial', 'Serial', r.serial);
+    add('brand', 'Hãng', r.brand);
+    add('warranty', 'Hạn/bảo hành đến', r.end_date);
+    add('holder', 'Người giữ', r.holder);
+    add('note', 'Ghi chú', r.note);
+
+    const software = want.has('software')
+      ? r.software
+        ? r.software.split('||')
+        : []
+      : null;
+    return {
+      code: r.code,
+      type: r.type,
+      status: r.status,
+      rows: detailRows,
+      software,
+    };
+  }
+
+  /**
    * Máy của một sub — G2: query riêng có `end_date`/`status` để member cũng lọc
    * theo ngày/trạng thái (getMyAssets không trả end_date). Self-scoped tuyệt đối.
    */
@@ -139,4 +215,15 @@ export class ChatbotToolsService {
       total: totalRes.rows[0]?.n ?? 0,
     };
   }
+}
+
+/** Giá VND phân cách nghìn bằng dấu chấm (convention dự án) — không phụ thuộc ICU. */
+function formatVnd(cost: string | number): string {
+  const n = Number(cost);
+  if (!Number.isFinite(n)) return String(cost);
+  return (
+    Math.round(n)
+      .toString()
+      .replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' đ'
+  );
 }
