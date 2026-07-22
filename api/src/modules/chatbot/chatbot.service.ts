@@ -71,11 +71,15 @@ export class ChatbotService {
     message: string,
   ): Promise<ChatReply> {
     if (this.gemini.isEnabled()) {
-      const call = await this.gemini.interpret(message, {
+      const result = await this.gemini.interpret(message, {
         today: todayVn(),
         role: identity.role,
       });
-      if (call) return this.runTool(identity, call);
+      if (result) {
+        // Gemini chọn tool (hỏi tài sản) → thực thi; ngược lại là câu chào/ngoài phạm vi.
+        if ('tool' in result) return this.runTool(identity, result);
+        return { reply: result.text, source: 'gemini' };
+      }
     }
     // Fallback (thiếu key / Gemini null): coi message như từ khoá tìm kiếm.
     const { cards, total } = await this.tools.searchAssets(identity, {

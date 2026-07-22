@@ -22,6 +22,13 @@ export interface ToolCall {
   args: Record<string, unknown>;
 }
 
+/** Gemini trả lời hội thoại (chào hỏi/ngoài phạm vi) — KHÔNG gọi tool, không đụng dữ liệu. */
+export interface TextReply {
+  text: string;
+}
+
+export type InterpretResult = ToolCall | TextReply | null;
+
 interface GeminiContext {
   today: string;
   role: string;
@@ -105,6 +112,7 @@ interface GeminiResponse {
   candidates?: Array<{
     content?: {
       parts?: Array<{
+        text?: string;
         functionCall?: { name?: string; args?: Record<string, unknown> };
       }>;
     };
@@ -127,7 +135,7 @@ export class GeminiAdapter {
   async interpret(
     message: string,
     ctx: GeminiContext,
-  ): Promise<ToolCall | null> {
+  ): Promise<InterpretResult> {
     const key = process.env.GEMINI_API_KEY;
     if (!key) return null;
 
@@ -148,7 +156,7 @@ export class GeminiAdapter {
         this.logger.warn(`Gemini HTTP ${res.status}`);
         return null;
       }
-      return extractFunctionCall((await res.json()) as GeminiResponse);
+      return extractResult((await res.json()) as GeminiResponse);
     } catch (e) {
       this.logger.warn(`Gemini lỗi/timeout: ${(e as Error).message}`);
       return null;
@@ -162,20 +170,26 @@ function systemPrompt(ctx: GeminiContext): string {
   return [
     'Bạn là trợ lý QLTS (quản lý tài sản nội bộ).',
     `Hôm nay là ${ctx.today} (múi giờ +07:00, Việt Nam). Người dùng có vai '${ctx.role}'.`,
-    'Hãy chọn đúng MỘT hàm phù hợp để tra cứu và điền tham số.',
+    'Khi người dùng HỎI VỀ tài sản/máy (danh sách, chi tiết 1 máy, máy đang giữ, máy còn trống) → gọi đúng MỘT hàm phù hợp và điền tham số.',
     'Hỏi CHI TIẾT/thuộc tính của MỘT máy cụ thể (theo mã) → dùng get_asset, điền aspects ĐÚNG thứ được hỏi (chỉ hỏi cấu hình thì aspects=["config"]; hỏi giá thì ["price"]…), KHÔNG thêm khía cạnh không được hỏi.',
     'Khoảng ngày dùng YYYY-MM-DD; thời điểm mượn dùng ISO-8601 có offset +07:00.',
-    'Nếu câu hỏi ngoài phạm vi tra cứu tài sản/máy trống, chọn search_assets với từ khoá gần nhất.',
+    'Nếu là CHÀO HỎI / nói chuyện phiếm / câu KHÔNG liên quan tài sản → KHÔNG gọi hàm; trả lời NGẮN GỌN, thân thiện bằng tiếng Việt và gợi ý có thể hỏi về danh sách tài sản, máy đang giữ, hoặc máy còn trống. TUYỆT ĐỐI không bịa số liệu/thông tin tài sản khi chưa gọi hàm.',
   ].join(' ');
 }
 
-function extractFunctionCall(data: GeminiResponse): ToolCall | null {
+function extractResult(data: GeminiResponse): InterpretResult {
   const parts = data.candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) return null;
+  // Ưu tiên functionCall (hỏi tài sản); nếu không có → dùng text (chào hỏi/ngoài phạm vi).
   for (const part of parts) {
     const fc = part.functionCall;
     if (fc?.name && WHITELIST.has(fc.name as ToolName)) {
       return { tool: fc.name as ToolName, args: fc.args ?? {} };
+    }
+  }
+  for (const part of parts) {
+    if (typeof part.text === 'string' && part.text.trim()) {
+      return { text: part.text.trim() };
     }
   }
   return null;

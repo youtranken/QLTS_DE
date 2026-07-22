@@ -73,6 +73,23 @@ describe('GeminiAdapter', () => {
     ).toBeNull();
   });
 
+  it('chào hỏi (không functionCall, chỉ text) → trả {text}, KHÔNG tra tài sản', async () => {
+    process.env.GEMINI_API_KEY = 'k';
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      okJson({
+        candidates: [
+          {
+            content: {
+              parts: [{ text: 'Chào bạn! Mình giúp tra cứu tài sản nhé.' }],
+            },
+          },
+        ],
+      }),
+    );
+    const r = await adapter.interpret('hello', { today: 't', role: 'member' });
+    expect(r).toEqual({ text: 'Chào bạn! Mình giúp tra cứu tài sản nhé.' });
+  });
+
   it('HTTP lỗi → null', async () => {
     process.env.GEMINI_API_KEY = 'k';
     jest
