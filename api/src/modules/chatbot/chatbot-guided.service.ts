@@ -74,6 +74,23 @@ export class ChatbotGuidedService {
         };
       }
 
+      case 'pending_approvals': {
+        const data = await this.tools.pendingApprovals(identity);
+        if (!data) {
+          return {
+            reply: 'Chỉ admin mới xem được hàng chờ duyệt/gia hạn.',
+            source: 'guided',
+          };
+        }
+        return {
+          reply:
+            data.soChoDuyet || data.soChoGiaHan
+              ? `Có ${data.soChoDuyet} yêu cầu chờ duyệt và ${data.soChoGiaHan} chờ gia hạn. Bạn vào mục "Xử lý mượn" để duyệt.`
+              : 'Hiện không có yêu cầu nào chờ duyệt hoặc chờ gia hạn.',
+          source: 'guided',
+        };
+      }
+
       case 'availability': {
         const { from, to, type } = toAvailabilityParams(action.params);
         const { cards, total } = await this.tools.checkAvailability(

@@ -43,6 +43,12 @@ const ICONS: Record<string, JSX.Element> = {
       <line x1="3" y1="10" x2="21" y2="10" />
     </svg>
   ),
+  pending_approvals: (
+    <svg viewBox="0 0 24 24" {...S}>
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  ),
 };
 
 /** Thanh hành động cố định trên ô nhập — nội dung theo vai (member mượn máy / admin tra cứu). */

@@ -75,7 +75,7 @@ const MEMBER_MENU: Chip[] = [
 ];
 const ADMIN_MENU: Chip[] = [
   { label: 'Tra cứu tài sản', action: { intent: 'list_types' } },
-  { label: 'Máy của tôi', action: { intent: 'my_assets' } },
+  { label: 'Chờ duyệt', action: { intent: 'pending_approvals' } },
 ];
 
 export function menuFor(role: string): Chip[] {
