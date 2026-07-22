@@ -57,6 +57,23 @@ export class ChatbotGuidedService {
         };
       }
 
+      case 'my_borrowings': {
+        const list = await this.tools.myBorrowings(identity.sub);
+        return {
+          reply: list.length
+            ? `Bạn đang có ${list.length} lượt mượn: ` +
+              list
+                .map(
+                  (b) =>
+                    `${b.may ?? '—'} (${b.trangThai}${b.quaHan ? ', QUÁ HẠN' : ''})`,
+                )
+                .join(', ') +
+              '. Xem chi tiết/hạn trả ở trang chủ.'
+            : 'Bạn hiện không mượn máy nào.',
+          source: 'guided',
+        };
+      }
+
       case 'availability': {
         const { from, to, type } = toAvailabilityParams(action.params);
         const { cards, total } = await this.tools.checkAvailability(

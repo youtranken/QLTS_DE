@@ -49,7 +49,7 @@ const render = () =>
   );
 
 describe('ChatbotPopup', () => {
-  it('member: welcome + thanh hành động (Tìm máy trống + Máy của tôi)', async () => {
+  it('member: welcome + thanh hành động (Tìm máy trống + Máy tôi đang mượn)', async () => {
     stub({ conversationId: 'c1', reply: 'ok', source: 'guided' });
     render();
     await userEvent.click(
@@ -60,7 +60,7 @@ describe('ChatbotPopup', () => {
       await screen.findByRole('button', { name: /Tìm máy trống/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Máy của tôi/ }),
+      screen.getByRole('button', { name: /Máy tôi đang mượn/ }),
     ).toBeInTheDocument();
     // Member KHÔNG có "Tra cứu tài sản" (chỉ admin)
     expect(
@@ -68,14 +68,10 @@ describe('ChatbotPopup', () => {
     ).toBeNull();
   });
 
-  it('bấm "Máy của tôi" ở thanh hành động → gọi /chatbot/message (my_assets) + render', async () => {
+  it('bấm "Máy tôi đang mượn" → gọi /chatbot/message (my_borrowings) + render', async () => {
     const calls = stub({
       conversationId: 'c1',
-      reply: 'Bạn đang giữ 2 tài sản:',
-      cards: [
-        { code: 'M-01', type: 'laptop', holder: null, status: 'in_use', endDate: null },
-      ],
-      total: 2,
+      reply: 'Bạn đang có 1 lượt mượn: POOL-12 (Đang dùng).',
       source: 'guided',
     });
     render();
@@ -83,14 +79,15 @@ describe('ChatbotPopup', () => {
       screen.getByRole('button', { name: 'Mở trợ lý QLTS' }),
     );
     await userEvent.click(
-      await screen.findByRole('button', { name: /Máy của tôi/ }),
+      await screen.findByRole('button', { name: /Máy tôi đang mượn/ }),
     );
 
-    expect(await screen.findByText('Bạn đang giữ 2 tài sản:')).toBeInTheDocument();
-    expect(screen.getByText('M-01')).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Bạn đang có 1 lượt mượn/),
+    ).toBeInTheDocument();
     const msgCall = calls.find((c) => c.url.includes('/api/chatbot/message'));
     expect(msgCall?.init?.method).toBe('POST');
-    expect(msgCall?.init?.body).toContain('my_assets');
+    expect(msgCall?.init?.body).toContain('my_borrowings');
   });
 
   it('gõ câu + Enter → gọi /chatbot/message (message)', async () => {

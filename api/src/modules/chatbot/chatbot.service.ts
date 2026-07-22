@@ -171,6 +171,47 @@ export class ChatbotService {
         );
         return { reply, source: 'gemini' };
       }
+      case 'asset_stats': {
+        const stats = await this.tools.assetStats(identity);
+        const reply = await this.compose(
+          message,
+          call,
+          stats,
+          identity,
+          `Tổng ${stats.tongSo} tài sản, giá trị ${stats.tongGiaTri}, sắp hết hạn (30 ngày): ${stats.sapHetHan30Ngay}.`,
+        );
+        return { reply, source: 'gemini' };
+      }
+      case 'my_borrowings': {
+        const list = await this.tools.myBorrowings(identity.sub);
+        const reply = await this.compose(
+          message,
+          call,
+          { borrowings: list },
+          identity,
+          list.length
+            ? `Bạn đang có ${list.length} yêu cầu/lượt mượn.`
+            : 'Bạn hiện không mượn máy nào.',
+        );
+        return { reply, source: 'gemini' };
+      }
+      case 'pending_approvals': {
+        const data = await this.tools.pendingApprovals(identity);
+        if (!data) {
+          return {
+            reply: 'Chỉ admin mới xem được hàng chờ duyệt/gia hạn.',
+            source: 'gemini',
+          };
+        }
+        const reply = await this.compose(
+          message,
+          call,
+          data,
+          identity,
+          `Có ${data.soChoDuyet} yêu cầu chờ duyệt và ${data.soChoGiaHan} chờ gia hạn. Bạn vào mục "Xử lý mượn" để duyệt.`,
+        );
+        return { reply, source: 'gemini' };
+      }
       case 'get_asset': {
         const code =
           typeof call.args.code === 'string' ? call.args.code.trim() : '';

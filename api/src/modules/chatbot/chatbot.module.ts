@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AssetsModule } from '../assets/assets.module';
 import { BookingModule } from '../booking/booking.module';
+import { TicketsModule } from '../tickets/tickets.module';
 import { ChatHistoryService } from './chat-history.service';
 import { ChatbotController } from './chatbot.controller';
 import { ChatbotGuidedService } from './chatbot-guided.service';
@@ -13,7 +14,7 @@ import { GeminiAdapter } from './gemini.adapter';
  * DRIZZLE_DB từ DatabaseModule (@Global). Không phá ranh giới module (AD-1).
  */
 @Module({
-  imports: [AssetsModule, BookingModule],
+  imports: [AssetsModule, BookingModule, TicketsModule],
   controllers: [ChatbotController],
   providers: [
     ChatbotService,

@@ -4,6 +4,8 @@ import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AssetsService } from '../assets/assets.service';
 import { BookingService } from '../booking/booking.service';
+import { TicketsService } from '../tickets/tickets.service';
+import { ExtensionService } from '../tickets/extension.service';
 import type {
   AssetCard,
   AssetDetail,
@@ -24,7 +26,78 @@ export class ChatbotToolsService {
     @Inject(DRIZZLE_DB) private readonly db: Database,
     private readonly assets: AssetsService,
     private readonly booking: BookingService,
+    private readonly tickets: TicketsService,
+    private readonly extension: ExtensionService,
   ) {}
+
+  /** #1 Thống kê: đếm/tổng/nhóm theo loại — SQL aggregate, chỉ trả CON SỐ (scale vô tư). */
+  async assetStats(identity: Identity) {
+    const member = !(identity.role === 'admin' || identity.role === 'sa');
+    const where = sql`type <> 'software' AND purged_at IS NULL${
+      member ? sql` AND assigned_user_sub = ${identity.sub}` : sql``
+    }`;
+    const agg = await this.db.execute<{
+      total: number;
+      in_use: number;
+      repair: number;
+      disposed: number;
+      total_cost: string | number;
+      expiring: number;
+    }>(sql`
+      SELECT count(*)::int AS total,
+        count(*) FILTER (WHERE status = 'in_use')::int AS in_use,
+        count(*) FILTER (WHERE status = 'locked_repair')::int AS repair,
+        count(*) FILTER (WHERE status = 'disposed')::int AS disposed,
+        COALESCE(sum(cost), 0)::bigint AS total_cost,
+        count(*) FILTER (
+          WHERE end_date IS NOT NULL
+          AND end_date <= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + 30
+        )::int AS expiring
+      FROM assets WHERE ${where}
+    `);
+    const types = await this.db.execute<{ type: string; n: number }>(
+      sql`SELECT type, count(*)::int AS n FROM assets WHERE ${where} GROUP BY type ORDER BY n DESC`,
+    );
+    const a = agg.rows[0];
+    return {
+      tongSo: a.total,
+      theoTrangThai: {
+        dangDung: a.in_use,
+        suaChua: a.repair,
+        thanhLy: a.disposed,
+      },
+      theoLoai: Object.fromEntries(types.rows.map((t) => [t.type, t.n])),
+      tongGiaTri: formatVnd(a.total_cost),
+      sapHetHan30Ngay: a.expiring,
+    };
+  }
+
+  /** #2 Trạng thái mượn của tôi: các yêu cầu/booking của member (máy, hạn, trạng thái). */
+  async myBorrowings(sub: string) {
+    const list = await this.tickets.listMyTickets(sub);
+    return list.map((t) => ({
+      may: t.assetCode,
+      trangThai: t.stateLabel,
+      tuGio: t.from,
+      denGio: t.to,
+      quaHan: t.isOverdue,
+    }));
+  }
+
+  /** Admin: hàng chờ duyệt + chờ gia hạn. null nếu không phải admin (member không xem được). */
+  async pendingApprovals(identity: Identity) {
+    if (!(identity.role === 'admin' || identity.role === 'sa')) return null;
+    const [approvals, extensions] = await Promise.all([
+      this.tickets.listPendingApproval(),
+      this.extension.listPendingExtensions(),
+    ]);
+    return {
+      soChoDuyet: approvals.length,
+      soChoGiaHan: extensions.length,
+      choDuyet: approvals,
+      choGiaHan: extensions,
+    };
+  }
 
   /** Danh sách tài sản: admin/sa = toàn sổ; member = CHỈ máy mình (self-scoped, G2). */
   async searchAssets(

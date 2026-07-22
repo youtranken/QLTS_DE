@@ -68,10 +68,10 @@ export interface HistoryResponse {
   messages: StoredMessage[];
 }
 
-/** Menu theo vai (thanh cố định). Member xoay quanh mượn máy; admin tra cứu tài sản. */
+/** Menu theo vai (thanh cố định). Member CHỈ xoay quanh MƯỢN máy; admin tra cứu/quản lý. */
 const MEMBER_MENU: Chip[] = [
   { label: 'Tìm máy trống', action: { intent: 'availability' } },
-  { label: 'Máy của tôi', action: { intent: 'my_assets' } },
+  { label: 'Máy tôi đang mượn', action: { intent: 'my_borrowings' } },
 ];
 const ADMIN_MENU: Chip[] = [
   { label: 'Tra cứu tài sản', action: { intent: 'list_types' } },

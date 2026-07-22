@@ -13,13 +13,19 @@ export type ToolName =
   | 'my_assets'
   | 'check_availability'
   | 'get_asset'
-  | 'day_availability';
+  | 'day_availability'
+  | 'asset_stats'
+  | 'my_borrowings'
+  | 'pending_approvals';
 const WHITELIST = new Set<ToolName>([
   'search_assets',
   'my_assets',
   'check_availability',
   'get_asset',
   'day_availability',
+  'asset_stats',
+  'my_borrowings',
+  'pending_approvals',
 ]);
 
 export interface ToolCall {
@@ -81,6 +87,24 @@ const FUNCTION_DECLARATIONS = [
       },
       required: ['from', 'to'],
     },
+  },
+  {
+    name: 'asset_stats',
+    description:
+      'Thống kê tổng hợp: tổng số tài sản, đếm theo loại/trạng thái, tổng giá trị, số sắp hết hạn. Dùng khi hỏi "bao nhiêu", "tổng", "mỗi loại mấy cái", "tổng giá trị".',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
+    name: 'my_borrowings',
+    description:
+      'Các máy người dùng ĐANG MƯỢN (booking/yêu cầu của họ) + hạn trả + trạng thái. Dùng khi hỏi "tôi đang mượn máy nào", "khi nào phải trả", "yêu cầu mượn tới đâu".',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
+    name: 'pending_approvals',
+    description:
+      'CHỈ ADMIN: hàng chờ duyệt mượn + chờ duyệt gia hạn. Dùng khi admin hỏi "có gì chờ duyệt", "bao nhiêu yêu cầu chờ", "chờ gia hạn".',
+    parameters: { type: 'object', properties: {} },
   },
   {
     name: 'day_availability',
@@ -279,6 +303,7 @@ function systemPrompt(ctx: GeminiContext): string {
     `Hôm nay là ${ctx.today} (múi giờ +07:00, Việt Nam). Người dùng có vai '${ctx.role}'.`,
     'Khi người dùng HỎI VỀ tài sản/máy (danh sách, chi tiết 1 máy, máy đang giữ, máy còn trống) → gọi đúng MỘT hàm phù hợp và điền tham số.',
     'Hỏi GIỜ/khung giờ trống của một NGÀY cụ thể ("ngày 26 giờ nào trống") → day_availability(date). Còn hỏi máy trống trong 1 khoảng giờ cho sẵn → check_availability.',
+    'Hỏi THỐNG KÊ (bao nhiêu/tổng/mỗi loại mấy cái/tổng giá trị) → asset_stats. Hỏi "tôi đang mượn gì/khi nào trả" → my_borrowings. Admin hỏi "có gì chờ duyệt/gia hạn" → pending_approvals.',
     'Hỏi CHI TIẾT/thuộc tính của MỘT máy cụ thể (theo mã) → dùng get_asset, điền aspects ĐÚNG thứ được hỏi (chỉ hỏi cấu hình thì aspects=["config"]; hỏi giá thì ["price"]…), KHÔNG thêm khía cạnh không được hỏi.',
     'Khoảng ngày dùng YYYY-MM-DD; thời điểm mượn dùng ISO-8601 có offset +07:00.',
     'Nếu là CHÀO HỎI / nói chuyện phiếm / câu KHÔNG liên quan tài sản → KHÔNG gọi hàm; trả lời NGẮN GỌN, thân thiện bằng tiếng Việt và gợi ý có thể hỏi về danh sách tài sản, máy đang giữ, hoặc máy còn trống. TUYỆT ĐỐI không bịa số liệu/thông tin tài sản khi chưa gọi hàm.',
