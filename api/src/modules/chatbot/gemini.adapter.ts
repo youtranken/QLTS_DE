@@ -120,9 +120,12 @@ interface GeminiResponse {
 }
 
 /**
- * Adapter Gemini free-tier: dịch câu → chọn tool + args. MỘT-CHẶNG — KHÔNG gửi kết quả
- * tool trở lại Gemini (privacy: chỉ câu hỏi ra Google, không phải dữ liệu tài sản).
- * Lỗi/timeout/thiếu key/không functionCall → null (orchestrator tự lùi về fallback).
+ * Adapter Gemini free-tier — 2 chặng (hybrid RAG):
+ *  - interpret(): câu → chọn tool + args, HOẶC câu trả lời text (chào hỏi/ngoài phạm vi).
+ *  - compose(): đưa kết quả tool (role-scoped, đã cắt trần) lại cho Gemini soạn câu trả lời
+ *    tự nhiên. Đây là chặng DUY NHẤT dữ liệu tài sản ra Google (user đã đồng ý — có khoá
+ *    chống bịa; nút bấm/guided KHÔNG đi qua đây, không lộ dữ liệu).
+ * Lỗi/timeout/thiếu key → null (orchestrator lùi về template/fallback).
  */
 @Injectable()
 export class GeminiAdapter {
@@ -164,6 +167,81 @@ export class GeminiAdapter {
       clearTimeout(timer);
     }
   }
+
+  /**
+   * RAG bước 2 — gửi kết quả tool (dữ liệu role-scoped, đã cắt trần) lại cho Gemini để
+   * SOẠN câu trả lời tự nhiên (câu bất kỳ/nhiều vế). null nếu lỗi → orchestrator dùng
+   * template thay thế. Đây là chặng DUY NHẤT dữ liệu tài sản ra Google (user đã đồng ý).
+   */
+  async compose(
+    userMessage: string,
+    functionName: string,
+    functionArgs: Record<string, unknown>,
+    responseData: unknown,
+    ctx: GeminiContext,
+  ): Promise<string | null> {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return null;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const res = await fetch(ENDPOINT, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: composePrompt(ctx) }] },
+          contents: [
+            { role: 'user', parts: [{ text: userMessage }] },
+            {
+              role: 'model',
+              parts: [
+                { functionCall: { name: functionName, args: functionArgs } },
+              ],
+            },
+            {
+              role: 'user',
+              parts: [
+                {
+                  functionResponse: {
+                    name: functionName,
+                    response: { data: responseData },
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      });
+      if (!res.ok) {
+        this.logger.warn(`Gemini compose HTTP ${res.status}`);
+        return null;
+      }
+      const data = (await res.json()) as GeminiResponse;
+      const parts = data.candidates?.[0]?.content?.parts;
+      if (Array.isArray(parts)) {
+        for (const p of parts) {
+          if (typeof p.text === 'string' && p.text.trim()) return p.text.trim();
+        }
+      }
+      return null;
+    } catch (e) {
+      this.logger.warn(`Gemini compose lỗi: ${(e as Error).message}`);
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
+function composePrompt(ctx: GeminiContext): string {
+  return [
+    'Bạn là trợ lý QLTS (quản lý tài sản nội bộ).',
+    `Hôm nay ${ctx.today} (+07:00). Người dùng vai '${ctx.role}'.`,
+    'Dựa CHỈ trên dữ liệu trong functionResponse để trả lời câu hỏi, NGẮN GỌN, tự nhiên, tiếng Việt.',
+    'Trả lời TRỌNG TÂM đúng câu hỏi (kể cả nhiều vế): so sánh/cái nào nhất/tóm tắt. Người dùng đã thấy bảng chi tiết bên dưới nên KHÔNG liệt kê lại toàn bộ.',
+    'TUYỆT ĐỐI không bịa: nếu dữ liệu được cấp không chứa thông tin được hỏi, nói "mình không có thông tin đó". Chỉ kết luận trong phạm vi dữ liệu được cấp.',
+  ].join(' ');
 }
 
 function systemPrompt(ctx: GeminiContext): string {

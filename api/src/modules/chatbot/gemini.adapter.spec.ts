@@ -107,4 +107,40 @@ describe('GeminiAdapter', () => {
       await adapter.interpret('x', { today: 't', role: 'member' }),
     ).toBeNull();
   });
+
+  it('compose (RAG bước 2) → câu trả lời tự nhiên từ dữ liệu', async () => {
+    process.env.GEMINI_API_KEY = 'k';
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      okJson({
+        candidates: [
+          { content: { parts: [{ text: 'Máy rẻ nhất là LAP-01.' }] } },
+        ],
+      }),
+    );
+    const r = await adapter.compose(
+      'máy nào rẻ nhất',
+      'search_assets',
+      {},
+      { items: [] },
+      { today: 't', role: 'admin' },
+    );
+    expect(r).toBe('Máy rẻ nhất là LAP-01.');
+  });
+
+  it('compose lỗi → null (orchestrator dùng template)', async () => {
+    process.env.GEMINI_API_KEY = 'k';
+    jest.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('x'));
+    expect(
+      await adapter.compose(
+        'q',
+        'search_assets',
+        {},
+        {},
+        {
+          today: 't',
+          role: 'admin',
+        },
+      ),
+    ).toBeNull();
+  });
 });

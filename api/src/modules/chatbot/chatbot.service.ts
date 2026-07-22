@@ -13,8 +13,9 @@ import {
 import type { ChatReply, ChatRequest, Identity } from './chatbot.types';
 
 /**
- * Điều phối: guided (nút) vs message (câu gõ → Gemini → tool, hoặc fallback từ khoá).
- * Kết quả tool luôn render bằng template Ở ĐÂY (không nhờ LLM). Ghi lại cả 2 lượt.
+ * Điều phối: guided (nút) render TEMPLATE (không lộ dữ liệu) vs message (câu gõ):
+ * Gemini interpret → tool → RAG compose (Gemini soạn câu tự nhiên từ dữ liệu role-scoped),
+ * lỗi/thiếu key → template/fallback. Ghi lại cả 2 lượt.
  */
 @Injectable()
 export class ChatbotService {
@@ -77,7 +78,7 @@ export class ChatbotService {
       });
       if (result) {
         // Gemini chọn tool (hỏi tài sản) → thực thi; ngược lại là câu chào/ngoài phạm vi.
-        if ('tool' in result) return this.runTool(identity, result);
+        if ('tool' in result) return this.runTool(identity, result, message);
         return { reply: result.text, source: 'gemini' };
       }
     }
@@ -96,6 +97,7 @@ export class ChatbotService {
   private async runTool(
     identity: Identity,
     call: ToolCall,
+    message: string,
   ): Promise<ChatReply> {
     switch (call.tool) {
       case 'search_assets': {
@@ -103,8 +105,15 @@ export class ChatbotService {
           identity,
           toFilter(call.args),
         );
+        const reply = await this.compose(
+          message,
+          call,
+          { total, items: cards },
+          identity,
+          listReply(total, cards.length),
+        );
         return {
-          reply: listReply(total, cards.length),
+          reply,
           cards,
           total,
           chips: [
@@ -115,14 +124,16 @@ export class ChatbotService {
       }
       case 'my_assets': {
         const { cards, total } = await this.tools.myAssets(identity.sub);
-        return {
-          reply: total
+        const reply = await this.compose(
+          message,
+          call,
+          { total, items: cards },
+          identity,
+          total
             ? `Bạn đang giữ ${total} tài sản:`
             : 'Hiện bạn không giữ tài sản nào.',
-          cards,
-          total,
-          source: 'gemini',
-        };
+        );
+        return { reply, cards, total, source: 'gemini' };
       }
       case 'check_availability': {
         const { from, to, type } = toAvailabilityParams(call.args);
@@ -131,14 +142,16 @@ export class ChatbotService {
           to,
           type,
         );
-        return {
-          reply: total
+        const reply = await this.compose(
+          message,
+          call,
+          { total, machines: cards },
+          identity,
+          total
             ? `Có ${total} máy còn trống trong khung giờ này:`
             : 'Tiếc quá, không có máy nào trống trong khung giờ này.',
-          cards,
-          total,
-          source: 'gemini',
-        };
+        );
+        return { reply, cards, total, source: 'gemini' };
       }
       case 'get_asset': {
         const code =
@@ -160,8 +173,36 @@ export class ChatbotService {
             source: 'gemini',
           };
         }
-        return { reply: `Chi tiết ${detail.code}:`, detail, source: 'gemini' };
+        const reply = await this.compose(
+          message,
+          call,
+          detail,
+          identity,
+          `Chi tiết ${detail.code}:`,
+        );
+        return { reply, detail, source: 'gemini' };
       }
     }
+  }
+
+  /** RAG bước 2: đưa dữ liệu (role-scoped) cho Gemini soạn câu trả lời; lỗi → template. */
+  private async compose(
+    message: string,
+    call: ToolCall,
+    data: unknown,
+    identity: Identity,
+    fallback: string,
+  ): Promise<string> {
+    const text = await this.gemini.compose(
+      message,
+      call.tool,
+      call.args,
+      data,
+      {
+        today: todayVn(),
+        role: identity.role,
+      },
+    );
+    return text ?? fallback;
   }
 }
