@@ -1,0 +1,93 @@
+import { GeminiAdapter } from './gemini.adapter';
+
+/** Unit: Gemini adapter — parse functionCall; lỗi/timeout/no-key → null; MỘT-chặng. */
+describe('GeminiAdapter', () => {
+  const OLD = process.env.GEMINI_API_KEY;
+  let adapter: GeminiAdapter;
+
+  const okJson = (body: unknown) =>
+    ({ ok: true, json: () => Promise.resolve(body) }) as unknown as Response;
+
+  beforeEach(() => {
+    adapter = new GeminiAdapter();
+  });
+  afterEach(() => {
+    if (OLD === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = OLD;
+    jest.restoreAllMocks();
+  });
+
+  it('thiếu key → isEnabled false + interpret null, KHÔNG gọi fetch', async () => {
+    delete process.env.GEMINI_API_KEY;
+    const spy = jest.spyOn(globalThis, 'fetch');
+    expect(adapter.isEnabled()).toBe(false);
+    expect(
+      await adapter.interpret('x', { today: '2026-07-22', role: 'member' }),
+    ).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('functionCall hợp lệ → {tool,args}; CHỈ gọi fetch 1 lần (không chặng 2 kèm dữ liệu)', async () => {
+    process.env.GEMINI_API_KEY = 'k';
+    const spy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      okJson({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  functionCall: {
+                    name: 'search_assets',
+                    args: { type: 'laptop' },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+    const r = await adapter.interpret('laptop nào', {
+      today: '2026-07-22',
+      role: 'admin',
+    });
+    expect(r).toEqual({ tool: 'search_assets', args: { type: 'laptop' } });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('tên hàm ngoài whitelist → null (chống leo thang)', async () => {
+    process.env.GEMINI_API_KEY = 'k';
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      okJson({
+        candidates: [
+          {
+            content: {
+              parts: [{ functionCall: { name: 'delete_all', args: {} } }],
+            },
+          },
+        ],
+      }),
+    );
+    expect(
+      await adapter.interpret('x', { today: 't', role: 'member' }),
+    ).toBeNull();
+  });
+
+  it('HTTP lỗi → null', async () => {
+    process.env.GEMINI_API_KEY = 'k';
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue({ ok: false, status: 429 } as unknown as Response);
+    expect(
+      await adapter.interpret('x', { today: 't', role: 'member' }),
+    ).toBeNull();
+  });
+
+  it('fetch throw (timeout) → null', async () => {
+    process.env.GEMINI_API_KEY = 'k';
+    jest.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('aborted'));
+    expect(
+      await adapter.interpret('x', { today: 't', role: 'member' }),
+    ).toBeNull();
+  });
+});
