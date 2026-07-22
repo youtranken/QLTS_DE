@@ -119,7 +119,7 @@ export function ConfigPage({ me }: { me: Me }) {
       {error && <p className="alert error">{error}</p>}
       {saved && <p className="alert ok">{t('config.saved')}</p>}
 
-      <div className="form-section" style={{ maxWidth: 560 }}>
+      <div className="form-section" style={{ maxWidth: 560, marginInline: 'auto' }}>
         <div className="form-section-title">{t('config.params')}</div>
         <div className="form-grid">
           {NUM_KEYS.map((k) => (
@@ -136,7 +136,7 @@ export function ConfigPage({ me }: { me: Me }) {
         </div>
       </div>
 
-      <div className="form-section" style={{ maxWidth: 560 }}>
+      <div className="form-section" style={{ maxWidth: 560, marginInline: 'auto' }}>
         <div className="form-section-title">{t('config.working_hours')}</div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
           <label className="field">

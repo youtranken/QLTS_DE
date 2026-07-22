@@ -36,6 +36,7 @@
 /* Redesign: 1 danh mục hiển thị tại một thời điểm (chọn qua tab) → cột đơn rộng vừa phải. */
 .dmboard {
   max-width: 640px;
+  margin-inline: auto;
 }
 /* Tab Danh mục — to, tách thoáng, active nổi bật + hiệu ứng mượt. */
 .dmtabs {
