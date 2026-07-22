@@ -212,6 +212,53 @@ export class ChatbotService {
         );
         return { reply, source: 'gemini' };
       }
+      case 'software_info': {
+        const name =
+          typeof call.args.name === 'string' && call.args.name.trim()
+            ? call.args.name.trim()
+            : undefined;
+        const data = await this.tools.softwareInfo(identity, name);
+        if (!data) {
+          return {
+            reply: 'Thông tin phần mềm/license chỉ admin xem được.',
+            source: 'gemini',
+          };
+        }
+        const reply = await this.compose(
+          message,
+          call,
+          data,
+          identity,
+          data.soLicense
+            ? `Có ${data.soLicense} license.`
+            : 'Không tìm thấy license nào khớp.',
+        );
+        return { reply, source: 'gemini' };
+      }
+      case 'asset_history': {
+        const code =
+          typeof call.args.code === 'string' ? call.args.code.trim() : '';
+        const data = code
+          ? await this.tools.assetHistory(identity, code)
+          : null;
+        if (!data) {
+          const isMember = !(
+            identity.role === 'admin' || identity.role === 'sa'
+          );
+          return {
+            reply: `Chưa có lịch sử cấp phát cho máy ${code || 'này'}${isMember ? ' (hoặc bạn không có quyền xem)' : ''}.`,
+            source: 'gemini',
+          };
+        }
+        const reply = await this.compose(
+          message,
+          call,
+          data,
+          identity,
+          `Lịch sử cấp phát máy ${data.code}:`,
+        );
+        return { reply, source: 'gemini' };
+      }
       case 'get_asset': {
         const code =
           typeof call.args.code === 'string' ? call.args.code.trim() : '';

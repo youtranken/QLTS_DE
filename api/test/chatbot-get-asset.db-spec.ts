@@ -5,8 +5,13 @@ import { runMigrations } from '../src/database/migration-runner';
 import type { Database } from '../src/database/database.module';
 import { ChatbotToolsService } from '../src/modules/chatbot/chatbot-tools.service';
 import type { AssetsService } from '../src/modules/assets/assets.service';
+import type { AssetSoftwareService } from '../src/modules/assets/asset-software.service';
 import type { BookingService } from '../src/modules/booking/booking.service';
+import type { TicketsService } from '../src/modules/tickets/tickets.service';
+import type { ExtensionService } from '../src/modules/tickets/extension.service';
 import type { Identity } from '../src/modules/chatbot/chatbot.types';
+
+const stub = <T>() => ({}) as unknown as T;
 
 /** Story 12.x — get_asset: chỉ trả khía cạnh được hỏi + khối phần mềm tách + member self-scope. */
 if (!process.env.DATABASE_URL) {
@@ -49,11 +54,20 @@ describe('Chatbot get_asset (chi tiết theo khía cạnh)', () => {
        SELECT 'software','in_use','perpetual','Office 365', id FROM assets WHERE code='M-01'`,
     );
 
+    // Lịch sử cấp phát cho M-01 (test asset_history).
+    await pool.query(
+      `INSERT INTO allocation_history (asset_id, from_user_sub, to_user_sub, actor, note)
+       SELECT id, NULL, 'mem', 'import-seed', 'giao máy ban đầu' FROM assets WHERE code='M-01'`,
+    );
+
     const db = drizzle(pool) as unknown as Database;
     tools = new ChatbotToolsService(
       db,
-      {} as unknown as AssetsService,
-      {} as unknown as BookingService,
+      stub<AssetsService>(),
+      stub<BookingService>(),
+      stub<TicketsService>(),
+      stub<ExtensionService>(),
+      stub<AssetSoftwareService>(),
     );
   });
 
@@ -96,5 +110,17 @@ describe('Chatbot get_asset (chi tiết theo khía cạnh)', () => {
 
   it('mã không tồn tại → null', async () => {
     expect(await tools.getAsset(MEM, 'X-99', ['config'])).toBeNull();
+  });
+
+  it('asset_history: máy mình → có lịch sử cấp phát', async () => {
+    const h = await tools.assetHistory(MEM, 'M-01');
+    expect(h?.code).toBe('M-01');
+    expect(h?.lichSu).toHaveLength(1);
+    expect(h?.lichSu[0].den).toBe('Member'); // to_user_sub='mem' → full_name 'Member'
+    expect(h?.lichSu[0].boi).toBe('import-seed'); // actor không phải sub → raw
+  });
+
+  it('asset_history: member KHÔNG xem máy người khác → null', async () => {
+    expect(await tools.assetHistory(MEM, 'O-01')).toBeNull();
   });
 });

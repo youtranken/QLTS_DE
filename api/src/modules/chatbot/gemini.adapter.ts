@@ -16,7 +16,9 @@ export type ToolName =
   | 'day_availability'
   | 'asset_stats'
   | 'my_borrowings'
-  | 'pending_approvals';
+  | 'pending_approvals'
+  | 'software_info'
+  | 'asset_history';
 const WHITELIST = new Set<ToolName>([
   'search_assets',
   'my_assets',
@@ -26,6 +28,8 @@ const WHITELIST = new Set<ToolName>([
   'asset_stats',
   'my_borrowings',
   'pending_approvals',
+  'software_info',
+  'asset_history',
 ]);
 
 export interface ToolCall {
@@ -105,6 +109,32 @@ const FUNCTION_DECLARATIONS = [
     description:
       'CHỈ ADMIN: hàng chờ duyệt mượn + chờ duyệt gia hạn. Dùng khi admin hỏi "có gì chờ duyệt", "bao nhiêu yêu cầu chờ", "chờ gia hạn".',
     parameters: { type: 'object', properties: {} },
+  },
+  {
+    name: 'software_info',
+    description:
+      'Thông tin phần mềm/license: số bản (seat), đã gắn máy, còn trống, sắp hết hạn. Dùng khi hỏi về phần mềm/license ("Office 365 còn mấy bản", "phần mềm nào sắp hết hạn").',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'tên license (tùy chọn; bỏ trống = tất cả)',
+        },
+      },
+    },
+  },
+  {
+    name: 'asset_history',
+    description:
+      'Lịch sử cấp phát của MỘT máy theo mã (ai từng dùng/nhận, từ khi nào). Dùng khi hỏi "MTS-123 trước ai dùng", "lịch sử cấp phát máy X".',
+    parameters: {
+      type: 'object',
+      properties: {
+        code: { type: 'string', description: 'mã máy, vd MTS-123' },
+      },
+      required: ['code'],
+    },
   },
   {
     name: 'day_availability',
@@ -304,6 +334,7 @@ function systemPrompt(ctx: GeminiContext): string {
     'Khi người dùng HỎI VỀ tài sản/máy (danh sách, chi tiết 1 máy, máy đang giữ, máy còn trống) → gọi đúng MỘT hàm phù hợp và điền tham số.',
     'Hỏi GIỜ/khung giờ trống của một NGÀY cụ thể ("ngày 26 giờ nào trống") → day_availability(date). Còn hỏi máy trống trong 1 khoảng giờ cho sẵn → check_availability.',
     'Hỏi THỐNG KÊ (bao nhiêu/tổng/mỗi loại mấy cái/tổng giá trị) → asset_stats. Hỏi "tôi đang mượn gì/khi nào trả" → my_borrowings. Admin hỏi "có gì chờ duyệt/gia hạn" → pending_approvals.',
+    'Hỏi về PHẦN MỀM/license (số bản/còn trống/sắp hết hạn) → software_info(name?). Hỏi LỊCH SỬ dùng/cấp phát của 1 máy → asset_history(code).',
     'Hỏi CHI TIẾT/thuộc tính của MỘT máy cụ thể (theo mã) → dùng get_asset, điền aspects ĐÚNG thứ được hỏi (chỉ hỏi cấu hình thì aspects=["config"]; hỏi giá thì ["price"]…), KHÔNG thêm khía cạnh không được hỏi.',
     'Khoảng ngày dùng YYYY-MM-DD; thời điểm mượn dùng ISO-8601 có offset +07:00.',
     'Nếu là CHÀO HỎI / nói chuyện phiếm / câu KHÔNG liên quan tài sản → KHÔNG gọi hàm; trả lời NGẮN GỌN, thân thiện bằng tiếng Việt và gợi ý có thể hỏi về danh sách tài sản, máy đang giữ, hoặc máy còn trống. TUYỆT ĐỐI không bịa số liệu/thông tin tài sản khi chưa gọi hàm.',

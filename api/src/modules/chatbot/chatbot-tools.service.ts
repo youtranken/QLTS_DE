@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AssetsService } from '../assets/assets.service';
+import { AssetSoftwareService } from '../assets/asset-software.service';
 import { BookingService } from '../booking/booking.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { ExtensionService } from '../tickets/extension.service';
@@ -28,7 +29,51 @@ export class ChatbotToolsService {
     private readonly booking: BookingService,
     private readonly tickets: TicketsService,
     private readonly extension: ExtensionService,
+    private readonly software: AssetSoftwareService,
   ) {}
+
+  /** #3 Phần mềm/license: theo tên license (số bản total/gắn/trống/sắp hết hạn). Admin only. */
+  async softwareInfo(identity: Identity, name?: string) {
+    if (!(identity.role === 'admin' || identity.role === 'sa')) return null;
+    const licenses = await this.software.listLicenseGroups(name?.trim());
+    return { soLicense: licenses.length, licenses };
+  }
+
+  /** #4 Lịch sử cấp phát của MỘT máy (ai từng dùng). Member chỉ xem máy mình; admin mọi máy. */
+  async assetHistory(identity: Identity, code: string) {
+    const member = !(identity.role === 'admin' || identity.role === 'sa');
+    const rows = await this.db.execute<{
+      created_at: Date;
+      from_name: string | null;
+      to_name: string | null;
+      actor_name: string | null;
+      actor_raw: string;
+      note: string | null;
+    }>(sql`
+      SELECT h.created_at, fu.full_name AS from_name, tu.full_name AS to_name,
+             au.full_name AS actor_name, h.actor AS actor_raw, h.note
+      FROM allocation_history h
+      JOIN assets a ON a.id = h.asset_id
+      LEFT JOIN users fu ON fu.sub = h.from_user_sub
+      LEFT JOIN users tu ON tu.sub = h.to_user_sub
+      LEFT JOIN users au ON au.sub = h.actor
+      WHERE upper(a.code) = upper(${code}) AND a.purged_at IS NULL
+        ${member ? sql`AND a.assigned_user_sub = ${identity.sub}` : sql``}
+      ORDER BY h.created_at DESC
+      LIMIT 20
+    `);
+    if (!rows.rows.length) return null;
+    return {
+      code,
+      lichSu: rows.rows.map((r) => ({
+        ngay: r.created_at,
+        tu: r.from_name,
+        den: r.to_name,
+        boi: r.actor_name ?? r.actor_raw,
+        ghiChu: r.note,
+      })),
+    };
+  }
 
   /** #1 Thống kê: đếm/tổng/nhóm theo loại — SQL aggregate, chỉ trả CON SỐ (scale vô tư). */
   async assetStats(identity: Identity) {
