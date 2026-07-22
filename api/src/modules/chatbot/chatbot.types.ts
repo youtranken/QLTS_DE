@@ -12,7 +12,9 @@ export interface AssetCard {
   holder: string | null;
   status: string;
   endDate: string | null;
-  /** Phần mềm đang cài trên máy (admin tra cứu) — chuỗi tên license, null nếu không. */
+  /** Cấu hình máy (vd i5/16GB/512GB) — để trả lời "cấu hình như thế nào". */
+  configuration?: string | null;
+  /** Phần mềm đang cài trên máy — chuỗi tên license, null nếu không. */
   software?: string | null;
 }
 

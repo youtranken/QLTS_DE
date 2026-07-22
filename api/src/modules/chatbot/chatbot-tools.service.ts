@@ -44,6 +44,7 @@ export class ChatbotToolsService {
           holder: i.assignedUserName ?? null,
           status: i.status,
           endDate: i.endDate,
+          configuration: i.configuration ?? null,
           // Admin tra cứu mã cụ thể → kèm phần mềm đang cài trên máy (installedSoftware sẵn có).
           software: i.installedSoftware ?? null,
         })),
@@ -108,11 +109,18 @@ export class ChatbotToolsService {
       type: string;
       status: string;
       end_date: string | null;
+      configuration: string | null;
+      software: string | null;
     }>(sql`
-      SELECT code, type, status, end_date
-      FROM assets
+      SELECT a.code, a.type, a.status, a.end_date, a.configuration,
+        (SELECT string_agg(sw.license_name, ', ' ORDER BY sw.license_name)
+         FROM assets sw
+         WHERE sw.installed_on_asset_id = a.id
+           AND sw.type = 'software' AND sw.status <> 'disposed'
+           AND sw.license_name IS NOT NULL) AS software
+      FROM assets a
       WHERE ${where}
-      ORDER BY code
+      ORDER BY a.code
       LIMIT ${RESULT_CAP}
     `);
     const totalRes = await this.db.execute<{ n: number }>(
@@ -125,6 +133,8 @@ export class ChatbotToolsService {
         holder: null,
         status: r.status,
         endDate: r.end_date,
+        configuration: r.configuration,
+        software: r.software,
       })),
       total: totalRes.rows[0]?.n ?? 0,
     };

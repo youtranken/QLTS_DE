@@ -5,7 +5,9 @@ export interface Card {
   holder: string | null;
   status: string;
   endDate: string | null;
-  /** Phần mềm cài trên máy (admin tra cứu) — chuỗi tên license. */
+  /** Cấu hình máy (vd i5/16GB/512GB). */
+  configuration?: string | null;
+  /** Phần mềm cài trên máy — chuỗi tên license. */
   software?: string | null;
 }
 

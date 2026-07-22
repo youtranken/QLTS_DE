@@ -18,7 +18,11 @@ const asMember = { 'x-dev-user-sub': 'mem', 'x-dev-role': 'member' };
 const asAdmin = { 'x-dev-user-sub': 'adm', 'x-dev-role': 'admin' };
 
 interface ChatRes {
-  cards: { code: string | null }[];
+  cards: {
+    code: string | null;
+    configuration?: string | null;
+    software?: string | null;
+  }[];
   total: number;
   source: string;
 }
@@ -61,6 +65,14 @@ describe('Chatbot tools (quyền/lọc/cap) — story 12.1', () => {
          ('O-01','laptop','in_use','oth','2026-12-31'),
          ('U-01','laptop','in_use',NULL,'2026-12-31')`,
     );
+    // M-01 của mem: có cấu hình + 1 phần mềm gắn kèm (để test detail máy mình).
+    await pool.query(
+      `UPDATE assets SET configuration='i5/16GB/512GB' WHERE code='M-01'`,
+    );
+    await pool.query(
+      `INSERT INTO assets (type, status, license_type, license_name, installed_on_asset_id)
+       SELECT 'software','in_use','perpetual','Office 365', id FROM assets WHERE code='M-01'`,
+    );
     app = await createTestApp();
   });
 
@@ -98,6 +110,13 @@ describe('Chatbot tools (quyền/lọc/cap) — story 12.1', () => {
   it('G9 — member KHÔNG thấy máy người khác (search O-01 → 0)', async () => {
     const res = await list(asMember, { search: 'O-01' }).expect(201);
     expect((res.body as ChatRes).total).toBe(0);
+  });
+
+  it('member: hỏi máy mình → thẻ kèm cấu hình + phần mềm', async () => {
+    const res = await list(asMember, { search: 'M-01' }).expect(201);
+    const card = (res.body as ChatRes).cards.find((c) => c.code === 'M-01');
+    expect(card?.configuration).toBe('i5/16GB/512GB');
+    expect(card?.software).toContain('Office 365');
   });
 
   it('AC1 — admin thấy TOÀN sổ (13 máy)', async () => {
