@@ -191,6 +191,8 @@ export class GeminiAdapter {
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: composePrompt(ctx) }] },
+          // Khai tools ở chặng 2 nữa — thiếu thì functionCall/functionResponse bị 400.
+          tools: [{ functionDeclarations: FUNCTION_DECLARATIONS }],
           contents: [
             { role: 'user', parts: [{ text: userMessage }] },
             {
