@@ -1,24 +1,20 @@
 import { useCallback, useRef, useState } from 'react';
 import { apiFetch } from '../api-client';
 import {
-  BACK_CHIP,
-  MENU_CHIPS,
   WELCOME_TEXT,
   type ChatAction,
   type ChatReply,
-  type ConversationSummary,
+  type HistoryResponse,
   type Msg,
-  type StoredMessage,
 } from './chat-types';
 
 const welcomeMsg = (id: string): Msg => ({
   id,
   role: 'assistant',
   text: WELCOME_TEXT,
-  chips: MENU_CHIPS,
 });
 
-/** Trạng thái + hành động chatbot. conversationId giữ ở ref (không cần render lại). */
+/** Trạng thái + hành động chatbot — MỘT luồng/người (lưu lại, mở lại thấy tiếp). */
 export function useChatbot(csrfToken: string | null) {
   const idRef = useRef(0);
   const nextId = useCallback(() => String(++idRef.current), []);
@@ -27,9 +23,30 @@ export function useChatbot(csrfToken: string | null) {
   const [loading, setLoading] = useState(false);
 
   const push = useCallback(
-    (m: Omit<Msg, 'id'>) => setMessages((prev) => [...prev, { ...m, id: nextId() }]),
+    (m: Omit<Msg, 'id'>) =>
+      setMessages((prev) => [...prev, { ...m, id: nextId() }]),
     [nextId],
   );
+
+  /** Nạp đoạn chat cũ của người dùng (get-or-create) — gọi khi mở popup. */
+  const loadHistory = useCallback(async () => {
+    try {
+      const h = await apiFetch<HistoryResponse>('/api/chatbot/history');
+      convId.current = h.conversationId;
+      setMessages(
+        h.messages.length
+          ? h.messages.map((m) => ({
+              id: nextId(),
+              role: m.role === 'user' ? 'user' : 'assistant',
+              text: m.content,
+              cards: m.cards ?? undefined,
+            }))
+          : [welcomeMsg(nextId())],
+      );
+    } catch {
+      setMessages([welcomeMsg(nextId())]);
+    }
+  }, [nextId]);
 
   const send = useCallback(
     async (body: { message?: string; action?: ChatAction }) => {
@@ -55,7 +72,6 @@ export function useChatbot(csrfToken: string | null) {
         push({
           role: 'assistant',
           text: 'Có lỗi khi kết nối. Bạn thử lại nhé.',
-          chips: [BACK_CHIP],
         });
       } finally {
         setLoading(false);
@@ -80,52 +96,26 @@ export function useChatbot(csrfToken: string | null) {
     [push, send],
   );
 
-  const newChat = useCallback(() => {
-    convId.current = null;
-    setMessages([welcomeMsg(nextId())]);
-  }, [nextId]);
-
-  const listConversations = useCallback(
-    () => apiFetch<ConversationSummary[]>('/api/chatbot/conversations'),
-    [],
-  );
-
-  const loadConversation = useCallback(
-    async (id: string) => {
-      const rows = await apiFetch<StoredMessage[]>(
-        `/api/chatbot/conversations/${id}`,
-      );
-      convId.current = id;
-      setMessages(
-        rows.map((r) => ({
-          id: nextId(),
-          role: r.role === 'user' ? 'user' : 'assistant',
-          text: r.content,
-          cards: r.cards ?? undefined,
-        })),
-      );
-    },
-    [nextId],
-  );
-
-  const deleteConversation = useCallback(
-    (id: string) =>
-      apiFetch<void>(`/api/chatbot/conversations/${id}`, {
+  /** "Xoá đoạn chat" — xoá sạch ở BE + reset về lời chào. */
+  const clearChat = useCallback(async () => {
+    try {
+      await apiFetch<void>('/api/chatbot/history', {
         method: 'DELETE',
         csrfToken,
-      }),
-    [csrfToken],
-  );
+      });
+    } catch {
+      /* nuốt lỗi — vẫn reset UI */
+    }
+    convId.current = null;
+    setMessages([welcomeMsg(nextId())]);
+  }, [csrfToken, nextId]);
 
   return {
     messages,
     loading,
-    currentId: convId,
     sendAction,
     sendMessage,
-    newChat,
-    listConversations,
-    loadConversation,
-    deleteConversation,
+    loadHistory,
+    clearChat,
   };
 }

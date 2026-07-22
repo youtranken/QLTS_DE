@@ -30,6 +30,11 @@ function stub(reply: Record<string, unknown>) {
       if (url.includes('/api/chatbot/message')) {
         return Promise.resolve(jsonResponse(201, reply));
       }
+      if (url.includes('/api/chatbot/history')) {
+        return Promise.resolve(
+          jsonResponse(200, { conversationId: 'c1', messages: [] }),
+        );
+      }
       return Promise.resolve(jsonResponse(200, []));
     }),
   );
@@ -44,7 +49,7 @@ const render = () =>
   );
 
 describe('ChatbotPopup', () => {
-  it('mở mascot → hiện welcome + chip menu', async () => {
+  it('mở mascot → welcome + thanh hành động (Danh sách/Máy của tôi/Máy trống)', async () => {
     stub({ conversationId: 'c1', reply: 'ok', source: 'guided' });
     render();
     await userEvent.click(
@@ -52,11 +57,17 @@ describe('ChatbotPopup', () => {
     );
     expect(screen.getByText('Trợ lý QLTS')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Máy của tôi/ }),
+      await screen.findByRole('button', { name: /Máy của tôi/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Danh sách/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Máy trống/ }),
     ).toBeInTheDocument();
   });
 
-  it('bấm chip "Máy của tôi" → gọi /chatbot/message (my_assets) + render kết quả', async () => {
+  it('bấm "Máy của tôi" ở thanh hành động → gọi /chatbot/message (my_assets) + render', async () => {
     const calls = stub({
       conversationId: 'c1',
       reply: 'Bạn đang giữ 2 tài sản:',
@@ -64,14 +75,15 @@ describe('ChatbotPopup', () => {
         { code: 'M-01', type: 'laptop', holder: null, status: 'in_use', endDate: null },
       ],
       total: 2,
-      chips: [{ label: '⬅️ Về đầu', action: { intent: 'menu' } }],
       source: 'guided',
     });
     render();
     await userEvent.click(
       screen.getByRole('button', { name: 'Mở trợ lý QLTS' }),
     );
-    await userEvent.click(screen.getByRole('button', { name: /Máy của tôi/ }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Máy của tôi/ }),
+    );
 
     expect(await screen.findByText('Bạn đang giữ 2 tài sản:')).toBeInTheDocument();
     expect(screen.getByText('M-01')).toBeInTheDocument();
@@ -83,20 +95,20 @@ describe('ChatbotPopup', () => {
   it('gõ câu + Enter → gọi /chatbot/message (message)', async () => {
     const calls = stub({
       conversationId: 'c1',
-      reply: 'Không tìm thấy tài sản khớp. Bạn thử dùng nút bấm nhé.',
+      reply: 'Mình chưa tìm thấy tài sản nào khớp.',
       source: 'fallback',
     });
     render();
     await userEvent.click(
       screen.getByRole('button', { name: 'Mở trợ lý QLTS' }),
     );
-    const box = screen.getByPlaceholderText(/Nhập câu hỏi/);
+    const box = await screen.findByPlaceholderText(/Nhập câu hỏi/);
     await userEvent.type(box, 'tài sản sắp hết hạn{Enter}');
 
     const msgCall = calls.find((c) => c.url.includes('/api/chatbot/message'));
     expect(msgCall?.init?.body).toContain('tài sản sắp hết hạn');
     expect(
-      await screen.findByText(/Không tìm thấy tài sản khớp/),
+      await screen.findByText(/chưa tìm thấy tài sản/),
     ).toBeInTheDocument();
   });
 });

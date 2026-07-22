@@ -4,7 +4,6 @@ import { ChatbotGuidedService } from './chatbot-guided.service';
 import { ChatbotToolsService } from './chatbot-tools.service';
 import { GeminiAdapter, type ToolCall } from './gemini.adapter';
 import {
-  BACK_CHIP,
   actionLabel,
   listReply,
   toAvailabilityParams,
@@ -40,18 +39,15 @@ export class ChatbotService {
     try {
       if (body.action) {
         reply = await this.guided.handle(identity, body.action);
-      } else if (body.message) {
-        reply = await this.handleMessage(identity, body.message);
       } else {
-        reply = await this.guided.handle(identity, { intent: 'menu' });
+        reply = await this.handleMessage(identity, body.message ?? '');
       }
     } catch (e) {
       // Lỗi tool (vd khoảng thời gian không hợp lệ) → không 500, trả reply thân thiện.
       this.logger.warn(`Tool lỗi: ${(e as Error).message}`);
       reply = {
         reply:
-          'Có lỗi khi xử lý yêu cầu (có thể do khoảng thời gian không hợp lệ). Bạn thử lại hoặc dùng nút bấm nhé.',
-        chips: [BACK_CHIP],
+          'Xin lỗi, mình gặp lỗi khi xử lý (có thể do khoảng thời gian không hợp lệ). Bạn thử lại giúp mình nhé.',
         source: 'fallback',
       };
     }
@@ -59,7 +55,6 @@ export class ChatbotService {
     const convId = await this.history.ensureConversation(
       identity.sub,
       body.conversationId,
-      userText || 'Cuộc trò chuyện',
     );
     await this.history.appendTurn(convId, 'user', userText || '(mở đầu)');
     await this.history.appendTurn(
@@ -90,7 +85,6 @@ export class ChatbotService {
       reply: listReply(total, cards.length, true),
       cards,
       total,
-      chips: [BACK_CHIP],
       source: 'fallback',
     };
   }
@@ -109,7 +103,9 @@ export class ChatbotService {
           reply: listReply(total, cards.length),
           cards,
           total,
-          chips: [BACK_CHIP],
+          chips: [
+            { label: '🔎 Lọc loại khác', action: { intent: 'list_types' } },
+          ],
           source: 'gemini',
         };
       }
@@ -118,10 +114,9 @@ export class ChatbotService {
         return {
           reply: total
             ? `Bạn đang giữ ${total} tài sản:`
-            : 'Bạn chưa giữ tài sản nào.',
+            : 'Hiện bạn không giữ tài sản nào.',
           cards,
           total,
-          chips: [BACK_CHIP],
           source: 'gemini',
         };
       }
@@ -134,11 +129,10 @@ export class ChatbotService {
         );
         return {
           reply: total
-            ? `Có ${total} máy còn trống:`
-            : 'Không có máy trống trong khoảng này.',
+            ? `Có ${total} máy còn trống trong khung giờ này:`
+            : 'Tiếc quá, không có máy nào trống trong khung giờ này.',
           cards,
           total,
-          chips: [BACK_CHIP],
           source: 'gemini',
         };
       }

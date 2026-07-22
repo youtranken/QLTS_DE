@@ -1,9 +1,4 @@
-import type { AssetFilter, Chip, GuidedAction } from './chatbot.types';
-
-export const BACK_CHIP: Chip = {
-  label: '⬅️ Về đầu',
-  action: { intent: 'menu' },
-};
+import type { AssetFilter, GuidedAction } from './chatbot.types';
 
 const str = (v: unknown): string | undefined =>
   typeof v === 'string' && v.trim() ? v.trim() : undefined;
@@ -65,9 +60,10 @@ export function listReply(
 ): string {
   if (total === 0) {
     return fromSearch
-      ? 'Không tìm thấy tài sản khớp. Bạn thử dùng nút bấm nhé.'
-      : 'Không tìm thấy tài sản nào.';
+      ? 'Mình chưa tìm thấy tài sản nào khớp. Bạn thử gõ mã máy/tên người, hoặc chọn nhanh ở thanh bên dưới nhé.'
+      : 'Không có tài sản nào khớp bộ lọc này.';
   }
-  const suffix = total > shown ? ` (hiển thị ${shown}/tổng ${total})` : '';
+  const suffix =
+    total > shown ? ` — hiển thị ${shown} đầu (tổng ${total})` : '';
   return `Tìm thấy ${total} tài sản${suffix}:`;
 }

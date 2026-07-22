@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Me } from '../me';
 import { useChatbot } from './use-chatbot';
@@ -6,7 +6,7 @@ import { Mascot } from './mascot';
 import { ChatMessageList } from './chat-message-list';
 import { ChatComposer } from './chat-composer';
 import { ChatDateStep } from './chat-date-step';
-import { ChatHistoryDrawer } from './chat-history-drawer';
+import { ChatActionBar } from './chat-action-bar';
 import type { Chip } from './chat-types';
 
 type Step =
@@ -20,21 +20,26 @@ function initials(name?: string): string {
   return (last?.[0] ?? 'B').toUpperCase();
 }
 
-/** Mascot nổi mọi trang → popup 1 cột. Lịch sử = drawer trong popup. */
+/** Mascot nổi mọi trang → popup 1 cột, 1 luồng chat (lưu lại), menu ở thanh cố định. */
 export function ChatbotPopup({ me }: { me: Me }) {
   const [open, setOpen] = useState(false);
-  const [drawer, setDrawer] = useState(false);
   const [step, setStep] = useState<Step>(null);
+  const loadedRef = useRef(false);
   const navigate = useNavigate();
   const chat = useChatbot(me.csrfToken);
+
+  const openChat = useCallback(() => {
+    setOpen(true);
+    if (!loadedRef.current) {
+      loadedRef.current = true;
+      void chat.loadHistory();
+    }
+  }, [chat]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setDrawer(false);
-        setOpen(false);
-      }
+      if (e.key === 'Escape') setOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -63,7 +68,8 @@ export function ChatbotPopup({ me }: { me: Me }) {
       ...(from ? { endFrom: from } : {}),
       ...(to ? { endTo: to } : {}),
     };
-    const echo = step.label + (from || to ? ` · ${from ?? '…'}→${to ?? '…'}` : '');
+    const echo =
+      step.label + (from || to ? ` · ${from ?? '…'}→${to ?? '…'}` : '');
     setStep(null);
     void chat.sendAction({ intent: 'list_result', params }, echo);
   };
@@ -84,21 +90,11 @@ export function ChatbotPopup({ me }: { me: Me }) {
     navigate('/tai-san');
   };
 
-  const selectConv = (id: string) => {
-    setDrawer(false);
-    setStep(null);
-    void chat.loadConversation(id);
-  };
-
-  const delConv = async (id: string) => {
-    await chat.deleteConversation(id);
-    if (chat.currentId.current === id) chat.newChat();
-  };
-
-  const newChat = () => {
-    setDrawer(false);
-    setStep(null);
-    chat.newChat();
+  const clearChat = () => {
+    if (window.confirm('Xoá toàn bộ đoạn chat này?')) {
+      setStep(null);
+      void chat.clearChat();
+    }
   };
 
   if (!open) {
@@ -107,7 +103,7 @@ export function ChatbotPopup({ me }: { me: Me }) {
         type="button"
         className="qc-fab"
         aria-label="Mở trợ lý QLTS"
-        onClick={() => setOpen(true)}
+        onClick={openChat}
       >
         <Mascot />
       </button>
@@ -130,13 +126,13 @@ export function ChatbotPopup({ me }: { me: Me }) {
         <button
           type="button"
           className="qc-iconbtn"
-          aria-label="Lịch sử trò chuyện"
-          onClick={() => setDrawer(true)}
+          aria-label="Xoá đoạn chat"
+          title="Xoá đoạn chat"
+          onClick={clearChat}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
           </svg>
         </button>
         <button
@@ -168,20 +164,14 @@ export function ChatbotPopup({ me }: { me: Me }) {
           onCancel={() => setStep(null)}
         />
       ) : (
-        <ChatComposer
-          disabled={chat.loading}
-          onSend={(t) => void chat.sendMessage(t)}
-        />
+        <>
+          <ChatActionBar onPick={onChip} />
+          <ChatComposer
+            disabled={chat.loading}
+            onSend={(t) => void chat.sendMessage(t)}
+          />
+        </>
       )}
-
-      <ChatHistoryDrawer
-        open={drawer}
-        onClose={() => setDrawer(false)}
-        list={chat.listConversations}
-        onSelect={selectConv}
-        onDelete={delConv}
-        onNew={newChat}
-      />
     </div>
   );
 }

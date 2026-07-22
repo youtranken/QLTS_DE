@@ -35,27 +35,23 @@ export interface Msg {
   chips?: Chip[];
 }
 
-export interface ConversationSummary {
-  id: string;
-  title: string | null;
-  updated_at: string;
-}
-
 export interface StoredMessage {
   role: string;
   content: string;
   cards: Card[] | null;
 }
 
-/** Chip menu mở đầu — hiển thị client-side, KHÔNG gọi BE khi mới mở (tránh tạo cuộc rỗng). */
+export interface HistoryResponse {
+  conversationId: string;
+  messages: StoredMessage[];
+}
+
+/** Hành động chính — thanh cố định trên ô nhập (icon SVG gắn theo intent ở action-bar). */
 export const MENU_CHIPS: Chip[] = [
-  { label: '📋 Xem danh sách tài sản', action: { intent: 'list_types' } },
-  { label: '🔧 Máy của tôi', action: { intent: 'my_assets' } },
-  { label: '🗓️ Tìm máy trống', action: { intent: 'availability' } },
+  { label: 'Danh sách', action: { intent: 'list_types' } },
+  { label: 'Máy của tôi', action: { intent: 'my_assets' } },
+  { label: 'Máy trống', action: { intent: 'availability' } },
 ];
 
-export const WELCOME_TEXT = 'Chào bạn 👋 Mình là trợ lý QLTS. Bạn cần gì?';
-export const BACK_CHIP: Chip = {
-  label: '⬅️ Về đầu',
-  action: { intent: 'menu' },
-};
+export const WELCOME_TEXT =
+  'Chào bạn 👋 Mình là trợ lý QLTS. Mình giúp tra cứu tài sản, xem máy bạn đang giữ và tìm máy còn trống. Chọn nhanh bên dưới hoặc gõ câu hỏi nhé 🙂';

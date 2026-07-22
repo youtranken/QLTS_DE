@@ -32,16 +32,6 @@ describe('ChatbotGuidedService', () => {
     guided = new ChatbotGuidedService(tools as unknown as ChatbotToolsService);
   });
 
-  it('menu → 3 chip, không gọi tool', async () => {
-    const r = await guided.handle(identity, { intent: 'menu' });
-    expect(r.source).toBe('guided');
-    expect(r.chips?.map((c) => c.action.intent)).toEqual([
-      'list_types',
-      'my_assets',
-      'availability',
-    ]);
-  });
-
   it('list_types → chip Tất cả + từng loại', async () => {
     tools.assetTypes.mockResolvedValue(['laptop', 'pc']);
     const r = await guided.handle(identity, { intent: 'list_types' });
@@ -53,7 +43,7 @@ describe('ChatbotGuidedService', () => {
     });
   });
 
-  it('list_result → searchAssets + reply "hiển thị N/tổng M"', async () => {
+  it('list_result → searchAssets + reply có "hiển thị 8" + chỉ chip "Lọc loại khác" (không Về đầu)', async () => {
     tools.searchAssets.mockResolvedValue({
       cards: Array<AssetCard>(8).fill(card),
       total: 20,
@@ -66,15 +56,17 @@ describe('ChatbotGuidedService', () => {
       identity,
       expect.objectContaining({ type: 'laptop' }),
     );
-    expect(r.reply).toContain('hiển thị 8/tổng 20');
+    expect(r.reply).toContain('hiển thị 8');
     expect(r.cards).toHaveLength(8);
+    expect(r.chips?.map((c) => c.action.intent)).toEqual(['list_types']);
   });
 
-  it('my_assets → myAssets(sub)', async () => {
+  it('my_assets → myAssets(sub), không kèm chip', async () => {
     tools.myAssets.mockResolvedValue({ cards: [], total: 0 });
     const r = await guided.handle(identity, { intent: 'my_assets' });
     expect(tools.myAssets).toHaveBeenCalledWith('u1');
-    expect(r.reply).toContain('chưa giữ');
+    expect(r.reply).toContain('không giữ');
+    expect(r.chips).toBeUndefined();
   });
 
   it('availability thiếu ngày → mặc định hôm nay 07:00–18:00 (+07:00)', async () => {

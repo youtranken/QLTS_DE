@@ -4,8 +4,6 @@ import {
   Delete,
   Get,
   HttpCode,
-  Param,
-  ParseUUIDPipe,
   Post,
   Req,
   UnauthorizedException,
@@ -74,32 +72,17 @@ export class ChatbotController {
     return this.chatbot.handle(identity(req), body);
   }
 
-  @Get('conversations')
-  listConversations(@Req() req: AuthedRequest) {
-    return this.history.listConversations(identity(req).sub);
+  /** Đoạn chat DUY NHẤT của người dùng (mở lại thấy tiếp) — 1 luồng, không đa-cuộc. */
+  @Get('history')
+  getHistory(@Req() req: AuthedRequest) {
+    return this.history.getSingle(identity(req).sub);
   }
 
-  @Post('conversations')
-  @HttpCode(201)
-  newConversation(@Req() req: AuthedRequest) {
-    return this.history.newConversation(identity(req).sub);
-  }
-
-  @Get('conversations/:id')
-  getConversation(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: AuthedRequest,
-  ) {
-    return this.history.getMessages(identity(req).sub, id);
-  }
-
-  @Delete('conversations/:id')
+  /** "Xoá đoạn chat" — dọn sạch của chính mình. */
+  @Delete('history')
   @HttpCode(204)
-  deleteConversation(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: AuthedRequest,
-  ) {
-    return this.history.deleteConversation(identity(req).sub, id);
+  clear(@Req() req: AuthedRequest) {
+    return this.history.clear(identity(req).sub);
   }
 }
 

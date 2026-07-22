@@ -5,7 +5,7 @@ import request from 'supertest';
 import { runMigrations } from '../src/database/migration-runner';
 import { createTestApp } from './test-app.helper';
 
-/** Story 12.1 AC6 — lưu/đọc lịch sử theo sub + chống IDOR (A không chạm cuộc của B). */
+/** Story 12.1 (redesign 1-luồng) — GET/DELETE /chatbot/history self-scoped, chống IDOR. */
 if (!process.env.DATABASE_URL) {
   throw new Error('[chatbot-history.db-spec] DATABASE_URL chưa đặt.');
 }
@@ -17,15 +17,23 @@ if (!/test/i.test(dbName)) {
 const asA = { 'x-dev-user-sub': 'usrA', 'x-dev-role': 'member' };
 const asB = { 'x-dev-user-sub': 'usrB', 'x-dev-role': 'member' };
 
-describe('Chatbot lịch sử theo member (story 12.1 AC6)', () => {
+interface Hist {
+  conversationId: string;
+  messages: unknown[];
+}
+
+describe('Chatbot lịch sử 1-luồng (story 12.1 redesign)', () => {
   let app: INestApplication;
   let pool: Pool;
 
-  const menu = (headers: Record<string, string>, conversationId?: string) =>
+  const msg = (headers: Record<string, string>, conversationId?: string) =>
     request(app.getHttpServer())
       .post('/api/chatbot/message')
       .set(headers)
-      .send({ conversationId, action: { intent: 'menu' } });
+      .send({ conversationId, action: { intent: 'my_assets' } });
+
+  const getHistory = (headers: Record<string, string>) =>
+    request(app.getHttpServer()).get('/api/chatbot/history').set(headers);
 
   beforeAll(async () => {
     process.env.AUTH_DEV_MODE = 'true';
@@ -51,64 +59,35 @@ describe('Chatbot lịch sử theo member (story 12.1 AC6)', () => {
     delete process.env.AUTH_DEV_MODE;
   });
 
-  it('tạo cuộc mới + ghi tiếp cùng cuộc + đọc message', async () => {
-    const first = await menu(asA).expect(201);
-    const cid = (first.body as { conversationId: string }).conversationId;
-    expect(cid).toBeTruthy();
+  it('1 luồng: ghi tiếp cùng cuộc, mở lại thấy message cũ', async () => {
+    const h0 = (await getHistory(asA).expect(200)).body as Hist;
+    expect(h0.conversationId).toBeTruthy();
+    expect(h0.messages).toHaveLength(0);
 
-    await menu(asA, cid).expect(201);
+    const m1 = await msg(asA, h0.conversationId).expect(201);
+    expect((m1.body as { conversationId: string }).conversationId).toBe(
+      h0.conversationId,
+    );
+    await msg(asA, h0.conversationId).expect(201);
 
-    const convs = await request(app.getHttpServer())
-      .get('/api/chatbot/conversations')
-      .set(asA)
-      .expect(200);
-    expect((convs.body as unknown[]).length).toBe(1);
-
-    const msgs = await request(app.getHttpServer())
-      .get(`/api/chatbot/conversations/${cid}`)
-      .set(asA)
-      .expect(200);
-    // 2 lượt × (user + assistant) = 4 message
-    expect((msgs.body as unknown[]).length).toBe(4);
+    const h1 = (await getHistory(asA).expect(200)).body as Hist;
+    expect(h1.conversationId).toBe(h0.conversationId); // vẫn 1 luồng
+    expect(h1.messages).toHaveLength(4); // 2 lượt × (user + assistant)
   });
 
-  it('POST conversations tạo cuộc rỗng (sidebar +1)', async () => {
-    await request(app.getHttpServer())
-      .post('/api/chatbot/conversations')
-      .set(asA)
-      .expect(201);
-    const convs = await request(app.getHttpServer())
-      .get('/api/chatbot/conversations')
-      .set(asA)
-      .expect(200);
-    expect((convs.body as unknown[]).length).toBe(2);
+  it('IDOR — B chỉ thấy luồng của B (rỗng), không thấy của A', async () => {
+    const hB = (await getHistory(asB).expect(200)).body as Hist;
+    const hA = (await getHistory(asA).expect(200)).body as Hist;
+    expect(hB.conversationId).not.toBe(hA.conversationId);
+    expect(hB.messages).toHaveLength(0);
   });
 
-  it('IDOR — B KHÔNG đọc/xoá được cuộc của A (404)', async () => {
-    const a = await menu(asA).expect(201);
-    const cid = (a.body as { conversationId: string }).conversationId;
+  it('DELETE /history → xoá sạch của mình, mở lại là luồng trống mới', async () => {
     await request(app.getHttpServer())
-      .get(`/api/chatbot/conversations/${cid}`)
-      .set(asB)
-      .expect(404);
-    await request(app.getHttpServer())
-      .delete(`/api/chatbot/conversations/${cid}`)
-      .set(asB)
-      .expect(404);
-  });
-
-  it('A xoá cuộc của mình → 204, biến khỏi danh sách', async () => {
-    const a = await menu(asA).expect(201);
-    const cid = (a.body as { conversationId: string }).conversationId;
-    await request(app.getHttpServer())
-      .delete(`/api/chatbot/conversations/${cid}`)
+      .delete('/api/chatbot/history')
       .set(asA)
       .expect(204);
-    const convs = await request(app.getHttpServer())
-      .get('/api/chatbot/conversations')
-      .set(asA)
-      .expect(200);
-    const ids = (convs.body as { id: string }[]).map((c) => c.id);
-    expect(ids).not.toContain(cid);
+    const h = (await getHistory(asA).expect(200)).body as Hist;
+    expect(h.messages).toHaveLength(0);
   });
 });
