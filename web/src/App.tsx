@@ -7,6 +7,7 @@ import { LoginScreen } from './login-screen';
 import { navGroups } from './app-nav';
 import { SidebarNav } from './app-sidebar-nav';
 import { AppRoutes } from './app-routes';
+import { ChatbotPopup } from './chatbot/chatbot-popup';
 import { ConfirmProvider } from './ui/confirm-provider';
 
 type AuthState =
@@ -201,6 +202,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
         )}
         onLogout={onLogout}
       />
+      <ChatbotPopup me={me} />
     </div>
   );
 }
