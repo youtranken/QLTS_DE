@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Mascot } from './mascot';
 import { ChatResultCard } from './chat-result-card';
 import { ChatDetailCard } from './chat-detail-card';
-import type { Chip, Msg } from './chat-types';
+import type { Card, Chip, Msg } from './chat-types';
 
 /** Danh sách tin nhắn + typing; render card/chips của từng bong bóng assistant. */
 export function ChatMessageList({
@@ -18,7 +18,7 @@ export function ChatMessageList({
   meInitials: string;
   onChip: (chip: Chip) => void;
   onSeeAll: () => void;
-  onBook: () => void;
+  onBook: (card: Card) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {

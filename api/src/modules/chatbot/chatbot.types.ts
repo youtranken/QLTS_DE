@@ -12,6 +12,8 @@ export interface AssetCard {
   holder: string | null;
   status: string;
   endDate: string | null;
+  /** id máy — chỉ set ở kết quả "máy trống" để nút Đặt mở BookingSheet preselect. */
+  assetId?: string;
   /** Cấu hình máy (vd i5/16GB/512GB) — để trả lời "cấu hình như thế nào". */
   configuration?: string | null;
   /** Phần mềm đang cài trên máy — chuỗi tên license, null nếu không. */

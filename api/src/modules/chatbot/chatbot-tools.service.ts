@@ -82,6 +82,8 @@ export class ChatbotToolsService {
         holder: null,
         status: 'Trống',
         endDate: null,
+        assetId: m.id,
+        configuration: m.configuration ?? null,
       })),
       total: machines.length,
     };

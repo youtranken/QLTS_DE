@@ -9,6 +9,8 @@ export interface Card {
   configuration?: string | null;
   /** Phần mềm cài trên máy — chuỗi tên license. */
   software?: string | null;
+  /** id máy trống — để nút Đặt mở BookingSheet preselect. */
+  assetId?: string;
 }
 
 export interface ChatAction {

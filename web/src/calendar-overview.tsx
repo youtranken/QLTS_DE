@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LoadError } from './load-state';
 import { DatePicker } from './ui/date-picker';
@@ -74,6 +75,8 @@ interface PlacedBlock {
 /** UP: Lịch máy tổng + panel đặt nhanh (máy trống) + bảng đang mượn — route /lich-may. */
 export function CalendarOverviewPage({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [weekStart, setWeekStart] = useState<string | null>(null);
   const [data, setData] = useState<PoolCalendar | null>(null);
   // null = CHƯA tải xong (khác [] = đã tải, không có máy rảnh) — tránh nhấp nháy
@@ -164,6 +167,16 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
   useEffect(() => {
     void loadSide();
   }, [loadSide]);
+
+  // Chatbot bấm "Đặt" → điều hướng '/' kèm state.book → mở BookingSheet preselect máy đó.
+  useEffect(() => {
+    const book = (location.state as { book?: FreeMachine } | null)?.book;
+    if (book?.id) {
+      setPreset(book);
+      setSheetOpen(true);
+      navigate('.', { replace: true, state: null }); // xoá state, tránh mở lại khi back/refresh
+    }
+  }, [location.state, navigate]);
 
   const openBooking = (m?: FreeMachine) => {
     setPreset(m);

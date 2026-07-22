@@ -17,7 +17,7 @@ export function ChatResultCard({
   cards: Card[];
   total?: number;
   onSeeAll?: () => void;
-  onBook?: () => void;
+  onBook?: (card: Card) => void;
 }) {
   if (cards.length === 0) return null;
   const more = typeof total === 'number' && total > cards.length;
@@ -45,7 +45,11 @@ export function ChatResultCard({
                 <td>{c.type}</td>
                 <td>
                   {free && onBook ? (
-                    <button type="button" className="qc-book" onClick={onBook}>
+                    <button
+                      type="button"
+                      className="qc-book"
+                      onClick={() => onBook(c)}
+                    >
                       Đặt
                     </button>
                   ) : (

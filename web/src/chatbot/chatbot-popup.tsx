@@ -7,7 +7,7 @@ import { ChatMessageList } from './chat-message-list';
 import { ChatComposer } from './chat-composer';
 import { ChatDateStep } from './chat-date-step';
 import { ChatActionBar } from './chat-action-bar';
-import type { Chip } from './chat-types';
+import type { Card, Chip } from './chat-types';
 
 type Step =
   | null
@@ -90,10 +90,21 @@ export function ChatbotPopup({ me }: { me: Me }) {
     navigate('/assets');
   };
 
-  // Member đặt máy: mở màn Đặt máy sẵn có (trang chủ) — không đặt trong chat.
-  const bookNow = () => {
+  // Member đặt máy: mở màn Đặt máy sẵn có (trang chủ) với máy đã chọn — BookingSheet preselect.
+  const bookNow = (card: Card) => {
     setOpen(false);
-    navigate('/');
+    navigate('/', {
+      state: card.assetId
+        ? {
+            book: {
+              id: card.assetId,
+              code: card.code ?? '',
+              type: card.type,
+              configuration: card.configuration ?? null,
+            },
+          }
+        : undefined,
+    });
   };
 
   const clearChat = () => {
