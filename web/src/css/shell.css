@@ -113,16 +113,6 @@
 .sb-foot .sb-userbtn[aria-expanded='true'] {
   background: rgba(255, 255, 255, 0.08);
 }
-.sb-usercaret {
-  flex: none;
-  color: var(--sidebar-label);
-  transform: rotate(90deg);
-  transition: transform 0.15s var(--ease);
-}
-.sb-usercaret.open {
-  transform: rotate(-90deg);
-}
-
 /* Menu tài khoản: ẩn mặc định; bấm tên → bung LÊN TRÊN dạng popup. */
 .sb-actions {
   display: none;

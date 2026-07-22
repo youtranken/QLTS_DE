@@ -40,7 +40,7 @@ export function ChatResultCard({
                 <td>
                   <span className="qc-code">{c.code ?? '—'}</span>
                   {c.holder && <div className="qc-sub">{c.holder}</div>}
-                  {c.endDate && <div className="qc-sub">HĐ đến {c.endDate}</div>}
+                  {c.endDate && <div className="qc-sub">Hạn đến {c.endDate}</div>}
                 </td>
                 <td>{c.type}</td>
                 <td>

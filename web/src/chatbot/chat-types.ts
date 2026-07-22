@@ -84,5 +84,8 @@ export function menuFor(role: string): Chip[] {
   return role === 'admin' || role === 'sa' ? ADMIN_MENU : MEMBER_MENU;
 }
 
-export const WELCOME_TEXT =
-  'Chào bạn 👋 Mình là trợ lý QLTS. Mình giúp tra cứu tài sản, xem máy bạn đang giữ và tìm máy còn trống. Chọn nhanh bên dưới hoặc gõ câu hỏi nhé 🙂';
+/** Lời chào (client-side) — kèm tên người dùng nếu có; chip menu bên dưới đã phân vai. */
+export function welcomeText(name?: string): string {
+  const who = name?.trim() ? name.trim() : 'bạn';
+  return `Chào ${who} 👋 Mình là trợ lý QLTS. Chọn nhanh bên dưới hoặc trao đổi với mình nhé 🙂`;
+}

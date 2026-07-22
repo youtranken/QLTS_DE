@@ -11,7 +11,7 @@ export default {
     loginHeading: 'Sign in',
     loginSlogan: 'Track machines, software and loans — all in one place.',
     loginPerk1: 'Fast borrow/return with auto-approval',
-    loginPerk2: 'Clear inventory, warranty and asset lifecycle',
+    loginPerk2: 'Clear warranty and asset lifecycle',
     notFoundTitle: 'Page not found',
     notFoundHint: 'The page you are looking for does not exist or has moved.',
     backHome: 'Back to home',

@@ -26,7 +26,7 @@ export function ChatbotPopup({ me }: { me: Me }) {
   const [step, setStep] = useState<Step>(null);
   const loadedRef = useRef(false);
   const navigate = useNavigate();
-  const chat = useChatbot(me.csrfToken);
+  const chat = useChatbot(me.csrfToken, me.fullName ?? undefined);
 
   const openChat = useCallback(() => {
     setOpen(true);

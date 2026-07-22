@@ -1,27 +1,29 @@
 import { useCallback, useRef, useState } from 'react';
 import { apiFetch } from '../api-client';
 import {
-  WELCOME_TEXT,
+  welcomeText,
   type ChatAction,
   type ChatReply,
   type HistoryResponse,
   type Msg,
 } from './chat-types';
 
-const welcomeMsg = (id: string): Msg => ({
+const welcomeMsg = (id: string, name?: string): Msg => ({
   id,
   role: 'assistant',
-  text: WELCOME_TEXT,
+  text: welcomeText(name),
 });
 
 /** Trạng thái + hành động chatbot — MỘT luồng/người (lưu lại, mở lại thấy tiếp). */
-export function useChatbot(csrfToken: string | null) {
+export function useChatbot(csrfToken: string | null, userName?: string) {
   const idRef = useRef(0);
   const nextId = useCallback(() => String(++idRef.current), []);
   const convId = useRef<string | null>(null);
   // Đã gửi lượt nào chưa → loadHistory (chạy async lúc mở) KHÔNG ghi đè, tránh mất lượt.
   const sentRef = useRef(false);
-  const [messages, setMessages] = useState<Msg[]>(() => [welcomeMsg('0')]);
+  const [messages, setMessages] = useState<Msg[]>(() => [
+    welcomeMsg('0', userName),
+  ]);
   const [loading, setLoading] = useState(false);
 
   const push = useCallback(
@@ -47,13 +49,13 @@ export function useChatbot(csrfToken: string | null) {
               detail: m.detail ?? undefined,
               chips: m.chips ?? undefined,
             }))
-          : [welcomeMsg(nextId())],
+          : [welcomeMsg(nextId(), userName)],
       );
     } catch {
       if (sentRef.current) return;
-      setMessages([welcomeMsg(nextId())]);
+      setMessages([welcomeMsg(nextId(), userName)]);
     }
-  }, [nextId]);
+  }, [nextId, userName]);
 
   const send = useCallback(
     async (body: { message?: string; action?: ChatAction }) => {
@@ -116,8 +118,8 @@ export function useChatbot(csrfToken: string | null) {
       /* nuốt lỗi — vẫn reset UI */
     }
     convId.current = null;
-    setMessages([welcomeMsg(nextId())]);
-  }, [csrfToken, nextId]);
+    setMessages([welcomeMsg(nextId(), userName)]);
+  }, [csrfToken, nextId, userName]);
 
   return {
     messages,

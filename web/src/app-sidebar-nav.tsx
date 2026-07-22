@@ -156,9 +156,6 @@ export function SidebarNav({
               <b>{me.fullName ?? me.sub}</b>
               <span>{isAdmin ? t('nav.roleAdmin', 'Quản trị viên') : t('nav.roleMember', 'Thành viên')}</span>
             </span>
-            <span className={`sb-usercaret${menuOpen ? ' open' : ''}`} aria-hidden="true">
-              ›
-            </span>
           </button>
         </div>
         <div className={`sb-actions lbl${menuOpen ? ' open' : ''}`} role="menu">
