@@ -452,7 +452,7 @@ export default {
     errGeneric: 'Không gửi được yêu cầu gia hạn.',
   },
   importx: {
-    link: 'Import Excel',
+    link: 'Import',
     title: 'Import sổ Excel (go-live)',
     hint: '',
     preview: 'Xem trước',
@@ -699,7 +699,7 @@ export default {
     activeFilters: 'Đang lọc',
     expiringFilter: 'Sắp hết hạn',
     noMatch: 'Không có tài sản nào khớp bộ lọc.',
-    exportExcel: 'Export Excel',
+    exportExcel: 'Export',
     selectedCount: 'Đã chọn {{count}}',
     exportSelected: 'Xuất đã chọn',
     clearSelection: 'Bỏ chọn',

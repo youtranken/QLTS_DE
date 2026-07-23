@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Dialog, DialogClose, DialogTitle } from './ui/dialog';
@@ -356,6 +356,13 @@ export function useQuickImport({
     setResult(null);
     inputRef.current?.click();
   }, []);
+
+  // Thông báo THÀNH CÔNG tự ẩn sau 2s; lỗi giữ lại để đọc/sửa.
+  useEffect(() => {
+    if (!result?.ok) return;
+    const id = setTimeout(() => setResult(null), 2000);
+    return () => clearTimeout(id);
+  }, [result]);
 
   const send = useCallback(
     async (path: string, file: File) => {

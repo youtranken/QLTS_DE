@@ -455,7 +455,7 @@ export default {
     },
   },
   importx: {
-    link: 'Import Excel',
+    link: 'Import',
     title: 'Import Excel book (go-live)',
     hint: 'Upload the legacy Excel book to bulk-load assets — users are matched by name/email.',
     preview: 'Preview',
@@ -702,7 +702,7 @@ export default {
     activeFilters: 'Active filters',
     expiringFilter: 'Expiring soon',
     noMatch: 'No assets match the filters.',
-    exportExcel: 'Export Excel',
+    exportExcel: 'Export',
     selectedCount: 'Selected {{count}}',
     exportSelected: 'Export selected',
     clearSelection: 'Clear',
