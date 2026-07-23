@@ -13,6 +13,8 @@ import { allocationHistoryTable } from './allocation-history.schema';
 import { assetsTable } from './assets.schema';
 import { parseWorkbook } from './import-parser';
 import type { ImportRow } from './import-parser';
+import { parseSoftwareWorkbook } from './import-software-parser';
+import type { SoftwareImportRow } from './import-software-parser';
 
 /** Actor ghi vào history/audit cho dòng import (FR-40). */
 export const IMPORT_ACTOR = 'import go-live';
@@ -202,6 +204,123 @@ export class ImportService {
     } catch (error) {
       throw this.mapImportError(error, rows);
     }
+  }
+
+  /**
+   * Preview import PHẦN MỀM (VĐ4, dry-run): parse + kiểm mã MÁY có tồn tại (máy sống).
+   * Mã MÁY không thấy → lỗi dòng (để tự sửa); để trống MÁY = license chưa gắn máy (hợp lệ).
+   */
+  async previewSoftware(buf: Buffer) {
+    const rows = await parseSoftwareWorkbook(buf);
+    const found = await this.machineIdByCode(rows);
+    for (const row of rows) {
+      if (
+        row.installedOnCode &&
+        !found.has(row.installedOnCode.toUpperCase())
+      ) {
+        row.errors.push(
+          `Máy "${row.installedOnCode}" không tồn tại (hoặc đã thanh lý).`,
+        );
+      }
+    }
+    return {
+      total: rows.length,
+      valid: rows.filter((r) => r.errors.length === 0).length,
+      invalid: rows.filter((r) => r.errors.length > 0).length,
+      rows,
+    };
+  }
+
+  /**
+   * Import PHẦN MỀM thật (VĐ4): nạp MỚI hàng loạt (luôn insert, không update). Mỗi dòng =
+   * 1 bản (seat) của license; gắn máy theo cột MÁY nếu khớp mã máy sống. Atomic 1 tx.
+   */
+  async commitSoftware(buf: Buffer, actorSub: string) {
+    const rows = await parseSoftwareWorkbook(buf);
+    if (rows.length === 0) {
+      throw new BadRequestException({
+        code: 'EMPTY_IMPORT',
+        message: 'File không có dòng dữ liệu nào.',
+      });
+    }
+    const found = await this.machineIdByCode(rows);
+    for (const row of rows) {
+      if (
+        row.installedOnCode &&
+        !found.has(row.installedOnCode.toUpperCase())
+      ) {
+        row.errors.push(
+          `Máy "${row.installedOnCode}" không tồn tại (hoặc đã thanh lý).`,
+        );
+      }
+    }
+    const invalid = rows.filter((r) => r.errors.length > 0);
+    if (invalid.length > 0) {
+      throw new BadRequestException({
+        code: 'IMPORT_HAS_ERRORS',
+        message: `Còn ${invalid.length} dòng lỗi — chạy preview, sửa file rồi import lại.`,
+        rows: invalid.map((r) => ({
+          rowNumber: r.rowNumber,
+          errors: r.errors,
+        })),
+      });
+    }
+    const created = await this.db.transaction(async (tx) => {
+      for (const row of rows) {
+        const installedOn =
+          row.installedOnCode && row.status !== 'disposed'
+            ? (found.get(row.installedOnCode.toUpperCase()) ?? null)
+            : null;
+        await tx.insert(assetsTable).values({
+          code: null,
+          type: 'software',
+          status: row.status,
+          licenseName: row.licenseName,
+          licenseType: row.licenseType,
+          startDate: row.startDate,
+          endDate: row.endDate,
+          cost: row.cost,
+          serial: row.serial,
+          brand: row.brand,
+          note: row.note,
+          installedOnAssetId: installedOn,
+        });
+      }
+      await this.audit.appendWithin(tx, {
+        actor: actorSub,
+        action: 'assets.import_software_commit',
+        objectType: 'assets_import',
+        detail: { softwares: rows.length },
+      });
+      return rows.length;
+    });
+    return { created, softwares: created, needsUserMatch: 0 };
+  }
+
+  /** Map upper(code) → id cho các mã MÁY sống (type<>software, chưa thanh lý) trong file. */
+  private async machineIdByCode(
+    rows: SoftwareImportRow[],
+  ): Promise<Map<string, string>> {
+    const codes = [
+      ...new Set(
+        rows
+          .map((r) => r.installedOnCode)
+          .filter((c): c is string => !!c)
+          .map((c) => c.toUpperCase()),
+      ),
+    ];
+    if (codes.length === 0) return new Map();
+    const found = await this.db
+      .select({ id: assetsTable.id, code: assetsTable.code })
+      .from(assetsTable)
+      .where(
+        and(
+          inArray(sql`upper(${assetsTable.code})`, codes),
+          ne(assetsTable.type, 'software'),
+          ne(assetsTable.status, 'disposed'),
+        ),
+      );
+    return new Map(found.map((m) => [(m.code ?? '').toUpperCase(), m.id]));
   }
 
   /**

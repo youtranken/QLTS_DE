@@ -96,6 +96,80 @@ describe('Import Excel go-live trên DB thật (story 2.9)', () => {
     expect(await assetCount()).toBe(before); // dry-run thật
   });
 
+  it('import phần mềm (VĐ4): khớp cột Export, fill-down tên, gắn máy theo mã; máy ma → lỗi; commit tạo seat', async () => {
+    const SW_HEADERS = [
+      'TÊN PHẦN MỀM',
+      'MÁY',
+      'NGƯỜI GIỮ',
+      'LOẠI LICENSE',
+      'START DATE',
+      'END DATE',
+      'STATUS',
+      'COST',
+      'SERIAL',
+      'BRAND',
+      'NOTE',
+    ];
+    const buildSw = async (rows: unknown[][]): Promise<Buffer> => {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Phan mem');
+      ws.addRow(SW_HEADERS);
+      for (const r of rows) ws.addRow(r);
+      return Buffer.from(await wb.xlsx.writeBuffer());
+    };
+    const host = await pool.query(
+      "INSERT INTO assets (code, type) VALUES ('PC-SWIMP', 'desktop') RETURNING id",
+    );
+    const hostId = host.rows[0].id as string;
+
+    // preview: dòng 3 gắn máy 'GHOST-XX' không tồn tại → lỗi
+    const previewBuf = await buildSw([
+      ['Office 365', 'PC-SWIMP', '', 'term', '', '2027-01-01', '', '', '', '', ''],
+      ['', '', '', 'perpetual', '', '', '', '', '', '', ''], // fill-down 'Office 365'
+      ['Autocad', 'GHOST-XX', '', 'perpetual', '', '', '', '', '', '', ''],
+    ]);
+    const pv = await request(app.getHttpServer())
+      .post('/api/admin/assets-import/software/preview')
+      .set(asAdmin())
+      .attach('file', previewBuf, 'pm.xlsx')
+      .expect(200);
+    expect(pv.body).toMatchObject({ total: 3, valid: 2, invalid: 1 });
+    const pvRows = pv.body.rows as Array<{
+      licenseName: string;
+      errors: string[];
+    }>;
+    expect(pvRows[1].licenseName).toBe('Office 365'); // fill-down cột A
+    expect(pvRows[2].errors.join(' ')).toContain('không tồn tại');
+
+    // commit chỉ 2 dòng hợp lệ → tạo 2 seat, seat 1 gắn PC-SWIMP, seat 2 chưa gắn
+    const before = await assetCount();
+    const commitBuf = await buildSw([
+      ['Office 365', 'PC-SWIMP', '', 'term', '', '2027-01-01', '', '', '', '', ''],
+      ['', '', '', 'perpetual', '', '', '', '', '', '', ''],
+    ]);
+    const cm = await request(app.getHttpServer())
+      .post('/api/admin/assets-import/software/commit')
+      .set(asAdmin())
+      .attach('file', commitBuf, 'pm.xlsx')
+      .expect(200);
+    expect(cm.body).toMatchObject({ created: 2, softwares: 2 });
+    expect(await assetCount()).toBe(before + 2);
+
+    const seats = await pool.query(
+      "SELECT license_type, installed_on_asset_id FROM assets WHERE type='software' AND license_name='Office 365' ORDER BY license_type",
+    );
+    expect(seats.rows).toHaveLength(2);
+    // perpetual (chưa gắn) + term (gắn PC-SWIMP)
+    expect(seats.rows[0]).toMatchObject({
+      license_type: 'perpetual',
+      installed_on_asset_id: null,
+    });
+    expect(seats.rows[1]).toMatchObject({
+      license_type: 'term',
+      installed_on_asset_id: hostId,
+    });
+  });
+
   it('epic review: file rỗng → 400 EMPTY_IMPORT; software STATUS "Sửa chữa" → dòng lỗi (F3)', async () => {
     const empty = await buildXlsx([]);
     const res = await request(app.getHttpServer())

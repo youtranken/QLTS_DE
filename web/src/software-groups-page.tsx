@@ -6,6 +6,7 @@ import { downloadFile } from './download-file';
 import { AssetForm } from './asset-form';
 import { RowActionsMenu } from './asset-row-actions';
 import { SoftwareTransferDialog } from './software-transfer-dialog';
+import { ImportDialog } from './import-page';
 import { SoftwareSeatList } from './software-seat-list';
 import { ConfirmDialog } from './confirm-dialog';
 import { DatePicker } from './ui/date-picker';
@@ -56,6 +57,8 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
     Record<string, AssetRow[] | 'loading'>
   >({});
   const [transferSw, setTransferSw] = useState<AssetRow | null>(null);
+  // Import phần mềm dạng popup (VĐ4).
+  const [importOpen, setImportOpen] = useState(false);
   const [confirm, setConfirm] = useState<{
     kind: 'detach' | 'dispose';
     seat: AssetRow;
@@ -218,12 +221,30 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
         </button>
         <button
           type="button"
+          className="linkbtn"
+          onClick={() => setImportOpen(true)}
+        >
+          {t('importx.link')}
+        </button>
+        <button
+          type="button"
           className="primary"
           onClick={() => setForm({ ...EMPTY_FORM, isSoftware: true })}
         >
           {t('software.add')}
         </button>
       </div>
+      {importOpen && (
+        <ImportDialog
+          me={me}
+          kind="software"
+          onClose={() => setImportOpen(false)}
+          onCommitted={() => {
+            void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
+            void queryClient.invalidateQueries({ queryKey: ['assets'] });
+          }}
+        />
+      )}
       {(isError || actionErr) && (
         <p className="alert error">{actionErr ?? t('assets.loadFailed')}</p>
       )}

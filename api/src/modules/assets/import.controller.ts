@@ -81,4 +81,26 @@ export class ImportController {
   rematch(@Req() req: AuthedRequest) {
     return this.importService.rematch(requireSub(req));
   }
+
+  /** Preview import PHẦN MỀM (VĐ4) — dry-run khớp cột Export phần mềm. */
+  @Post('software/preview')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { limits: MULTER_LIMIT }))
+  previewSoftware(@UploadedFile() file: Express.Multer.File | undefined) {
+    return this.importService.previewSoftware(requireXlsx(file));
+  }
+
+  /** Import PHẦN MỀM thật (VĐ4) — nạp mới hàng loạt, atomic 1 tx. */
+  @Post('software/commit')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { limits: MULTER_LIMIT }))
+  commitSoftware(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.importService.commitSoftware(
+      requireXlsx(file),
+      requireSub(req),
+    );
+  }
 }

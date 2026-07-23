@@ -188,7 +188,7 @@ const HEADERS: Record<string, keyof ImportRow | 'no'> = {
   NOTE: 'note',
 };
 
-function cellText(value: ExcelJS.CellValue): string {
+export function cellText(value: ExcelJS.CellValue): string {
   if (value == null) return '';
   if (typeof value === 'object') {
     if (value instanceof Date) return value.toISOString().slice(0, 10);

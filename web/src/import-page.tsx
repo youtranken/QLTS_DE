@@ -17,12 +17,57 @@ interface PreviewResult {
   rows: PreviewRow[];
 }
 
+type ImportKind = 'assets' | 'software';
+
+/** Cột preview phần mềm (VĐ4) — khớp file Export phần mềm. */
+const SOFTWARE_COLS: { key: string; label: string; mono?: boolean }[] = [
+  { key: 'licenseName', label: 'Tên phần mềm' },
+  { key: 'installedOnCode', label: 'Máy', mono: true },
+  { key: 'licenseType', label: 'Loại license' },
+  { key: 'startDate', label: 'Start' },
+  { key: 'endDate', label: 'End' },
+  { key: 'status', label: 'Status' },
+  { key: 'cost', label: 'Cost' },
+  { key: 'serial', label: 'Serial' },
+  { key: 'brand', label: 'Brand' },
+  { key: 'note', label: 'Note' },
+];
+const ASSET_COL_KEYS = [
+  'user',
+  'code',
+  'type',
+  'configuration',
+  'cost',
+  'startDate',
+  'endDate',
+  'floor',
+  'status',
+  'note',
+] as const;
+
 /**
- * Lõi Import (dùng chung trang + popup) — chọn file → preview dry-run → commit → rematch.
- * `onCommitted` gọi sau khi import thật thành công (để trang cha refetch danh sách).
+ * Lõi Import (dùng chung trang + popup; assets/software) — chọn file → preview → commit
+ * → rematch (chỉ assets). `onCommitted` gọi sau import thật thành công (cha refetch).
  */
-function ImportPanel({ me, onCommitted }: { me: Me; onCommitted?: () => void }) {
+function ImportPanel({
+  me,
+  kind = 'assets',
+  onCommitted,
+}: {
+  me: Me;
+  kind?: ImportKind;
+  onCommitted?: () => void;
+}) {
   const { t } = useTranslation();
+  const base = kind === 'software' ? 'assets-import/software' : 'assets-import';
+  const cols =
+    kind === 'software'
+      ? SOFTWARE_COLS
+      : ASSET_COL_KEYS.map((k) => ({
+          key: k,
+          label: t(`importx.col.${k}`),
+          mono: k === 'code',
+        }));
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [commitMsg, setCommitMsg] = useState<string | null>(null);
@@ -36,14 +81,14 @@ function ImportPanel({ me, onCommitted }: { me: Me; onCommitted?: () => void }) 
     async (path: string, withFile: boolean) => {
       const form = new FormData();
       if (withFile && file) form.append('file', file);
-      const res = await fetch(`/api/admin/assets-import/${path}`, {
+      const res = await fetch(`/api/admin/${base}/${path}`, {
         method: 'POST',
         headers: me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {},
         ...(withFile ? { body: form } : {}),
       });
       return res;
     },
-    [file, me.csrfToken],
+    [file, me.csrfToken, base],
   );
 
   const runPreview = useCallback(async () => {
@@ -131,19 +176,6 @@ function ImportPanel({ me, onCommitted }: { me: Me; onCommitted?: () => void }) 
     }
   }, [post, t]);
 
-  const columns = [
-    'user',
-    'code',
-    'type',
-    'configuration',
-    'cost',
-    'startDate',
-    'endDate',
-    'floor',
-    'status',
-    'note',
-  ] as const;
-
   return (
     <>
       {error && <p className="alert error">{error}</p>}
@@ -171,10 +203,16 @@ function ImportPanel({ me, onCommitted }: { me: Me; onCommitted?: () => void }) 
         >
           {t('importx.commit')}
         </button>
-        <button type="button" disabled={busy} onClick={() => void runRematch()}>
-          {t('importx.rematch')}
-        </button>
-        {rematchMsg && <span style={{ fontSize: '0.85rem' }}>{rematchMsg}</span>}
+        {kind !== 'software' && (
+          <>
+            <button type="button" disabled={busy} onClick={() => void runRematch()}>
+              {t('importx.rematch')}
+            </button>
+            {rematchMsg && (
+              <span style={{ fontSize: '0.85rem' }}>{rematchMsg}</span>
+            )}
+          </>
+        )}
       </div>
       {preview && (
         <>
@@ -190,8 +228,8 @@ function ImportPanel({ me, onCommitted }: { me: Me; onCommitted?: () => void }) 
               <thead>
                 <tr>
                   <th>#</th>
-                  {columns.map((c) => (
-                    <th key={c}>{t(`importx.col.${c}`)}</th>
+                  {cols.map((c) => (
+                    <th key={c.key}>{c.label}</th>
                   ))}
                   <th>{t('importx.rowErrors')}</th>
                 </tr>
@@ -203,12 +241,12 @@ function ImportPanel({ me, onCommitted }: { me: Me; onCommitted?: () => void }) 
                     className={r.errors.length > 0 ? 'overdue' : undefined}
                   >
                     <td>{r.rowNumber}</td>
-                    {columns.map((c) => (
-                      <td key={c}>
-                        {c === 'code' ? (
-                          <span className="mono">{r.display[c] ?? ''}</span>
+                    {cols.map((c) => (
+                      <td key={c.key}>
+                        {c.mono ? (
+                          <span className="mono">{r.display[c.key] ?? ''}</span>
                         ) : (
-                          (r.display[c] ?? '')
+                          (r.display[c.key] ?? '')
                         )}
                       </td>
                     ))}
@@ -244,17 +282,23 @@ export function ImportPage({ me }: { me: Me }) {
   );
 }
 
-/** Popup Import — mở từ nút Import ở sổ tài sản (không rời trang). */
+/** Popup Import — mở từ nút Import ở sổ tài sản / phần mềm (không rời trang). */
 export function ImportDialog({
   me,
+  kind = 'assets',
   onClose,
   onCommitted,
 }: {
   me: Me;
+  kind?: ImportKind;
   onClose: () => void;
   onCommitted?: () => void;
 }) {
   const { t } = useTranslation();
+  const title =
+    kind === 'software'
+      ? t('importx.titleSoftware', 'Import phần mềm')
+      : t('importx.title');
   return (
     <Dialog
       open
@@ -263,7 +307,7 @@ export function ImportDialog({
       maxWidth={900}
     >
       <div className="sheet-header">
-        <DialogTitle className="sheet-title">{t('importx.title')}</DialogTitle>
+        <DialogTitle className="sheet-title">{title}</DialogTitle>
         <span className="spacer" />
         <DialogClose asChild>
           <button
@@ -277,7 +321,7 @@ export function ImportDialog({
         </DialogClose>
       </div>
       <div className="sheet-body">
-        <ImportPanel me={me} onCommitted={onCommitted} />
+        <ImportPanel me={me} kind={kind} onCommitted={onCommitted} />
       </div>
     </Dialog>
   );
