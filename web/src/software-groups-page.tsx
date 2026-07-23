@@ -6,7 +6,7 @@ import { downloadFile } from './download-file';
 import { AssetForm } from './asset-form';
 import { RowActionsMenu } from './asset-row-actions';
 import { SoftwareTransferDialog } from './software-transfer-dialog';
-import { ImportDialog } from './import-page';
+import { useQuickImport, QuickImportSlot } from './import-page';
 import { SoftwareSeatList } from './software-seat-list';
 import { ConfirmDialog } from './confirm-dialog';
 import { DatePicker } from './ui/date-picker';
@@ -57,8 +57,15 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
     Record<string, AssetRow[] | 'loading'>
   >({});
   const [transferSw, setTransferSw] = useState<AssetRow | null>(null);
-  // Import phần mềm dạng popup (VĐ4).
-  const [importOpen, setImportOpen] = useState(false);
+  // Import phần mềm "1 chạm" (VĐ4): bấm → hộp chọn file → sạch nạp ngay, lỗi báo cụ thể.
+  const quickImport = useQuickImport({
+    me,
+    kind: 'software',
+    onCommitted: () => {
+      void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
   const [confirm, setConfirm] = useState<{
     kind: 'detach' | 'dispose';
     seat: AssetRow;
@@ -219,11 +226,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
         >
           {t('assets.exportExcel')}
         </button>
-        <button
-          type="button"
-          className="linkbtn"
-          onClick={() => setImportOpen(true)}
-        >
+        <button type="button" className="linkbtn" onClick={quickImport.pick}>
           {t('importx.link')}
         </button>
         <button
@@ -234,17 +237,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
           {t('software.add')}
         </button>
       </div>
-      {importOpen && (
-        <ImportDialog
-          me={me}
-          kind="software"
-          onClose={() => setImportOpen(false)}
-          onCommitted={() => {
-            void queryClient.invalidateQueries({ queryKey: ['software-groups'] });
-            void queryClient.invalidateQueries({ queryKey: ['assets'] });
-          }}
-        />
-      )}
+      <QuickImportSlot hook={quickImport} />
       {(isError || actionErr) && (
         <p className="alert error">{actionErr ?? t('assets.loadFailed')}</p>
       )}

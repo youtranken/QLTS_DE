@@ -17,7 +17,7 @@ import { useAssetPageActions } from './use-asset-page-actions';
 import { useAssetColumns } from './assets-columns';
 import { AssetsFilterBar } from './assets-filter-bar';
 import { AssetsPageHeader } from './assets-page-header';
-import { ImportDialog } from './import-page';
+import { useQuickImport, QuickImportSlot } from './import-page';
 import { ReactivateDialog } from './reactivate-dialog';
 import { ConfirmDialog } from './confirm-dialog';
 
@@ -58,8 +58,12 @@ export function AssetsPage({
   // Chuyển máy sang người khác (đổi người đứng tên) — mở dialog từ nút "Chuyển" ở cột Action.
   const [transferOwner, setTransferOwner] = useState<AssetRow | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Import mở dạng popup (không rời trang) — VĐ3.
-  const [importOpen, setImportOpen] = useState(false);
+  // Import "1 chạm" (VĐ3): bấm → hộp chọn file → sạch thì nạp ngay, lỗi thì báo cụ thể.
+  const quickImport = useQuickImport({
+    me,
+    kind: 'assets',
+    onCommitted: () => queryClient.invalidateQueries({ queryKey: ['assets'] }),
+  });
   // Tái sử dụng máy đã thanh lý (hồi sinh giữ/đổi mã) — VĐ2.
   const [reuseTarget, setReuseTarget] = useState<AssetRow | null>(null);
   // Tìm/lọc server-side (2.2): searchInput gõ tự do → search sau debounce 300ms
@@ -352,17 +356,9 @@ export function AssetsPage({
               : EMPTY_FORM,
           )
         }
-        onImport={() => setImportOpen(true)}
+        onImport={quickImport.pick}
       />
-      {importOpen && (
-        <ImportDialog
-          me={me}
-          onClose={() => setImportOpen(false)}
-          onCommitted={() =>
-            void queryClient.invalidateQueries({ queryKey: ['assets'] })
-          }
-        />
-      )}
+      <QuickImportSlot hook={quickImport} />
       {reuseTarget && (
         <ReactivateDialog
           me={me}

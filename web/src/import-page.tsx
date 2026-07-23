@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Dialog, DialogClose, DialogTitle } from './ui/dialog';
@@ -324,5 +324,141 @@ export function ImportDialog({
         <ImportPanel me={me} kind={kind} onCommitted={onCommitted} />
       </div>
     </Dialog>
+  );
+}
+
+interface QuickResult {
+  ok: boolean;
+  text: string;
+  errors?: { row: number; msgs: string[] }[];
+}
+
+/**
+ * Import "1 chạm" (không popup): bấm nút → hiện hộp chọn file luôn → preview; file SẠCH thì
+ * NẠP NGAY, có lỗi/sai cột thì liệt kê lỗi cụ thể theo dòng để sửa. `pick` mở hộp chọn file.
+ */
+export function useQuickImport({
+  me,
+  kind,
+  onCommitted,
+}: {
+  me: Me;
+  kind: ImportKind;
+  onCommitted?: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<QuickResult | null>(null);
+  const base =
+    kind === 'software' ? 'assets-import/software' : 'assets-import';
+
+  const pick = useCallback(() => {
+    setResult(null);
+    inputRef.current?.click();
+  }, []);
+
+  const send = useCallback(
+    async (path: string, file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`/api/admin/${base}/${path}`, {
+        method: 'POST',
+        headers: me.csrfToken ? { 'X-CSRF-Token': me.csrfToken } : {},
+        body: form,
+      });
+      return {
+        ok: res.ok,
+        body: (await res.json().catch(() => ({}))) as {
+          total?: number;
+          invalid?: number;
+          created?: number;
+          message?: string;
+          rowNumber?: number | null;
+          rows?: { rowNumber: number; errors: string[] }[];
+        },
+      };
+    },
+    [base, me.csrfToken],
+  );
+
+  const onChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = ''; // cho chọn lại cùng file
+      if (!file) return;
+      setBusy(true);
+      setResult(null);
+      try {
+        const pv = await send('preview', file);
+        if (!pv.ok) {
+          setResult({ ok: false, text: pv.body.message ?? 'Không đọc được file.' });
+          return;
+        }
+        if ((pv.body.invalid ?? 0) > 0) {
+          setResult({
+            ok: false,
+            text: `${pv.body.invalid}/${pv.body.total} dòng lỗi — sửa file rồi Import lại.`,
+            errors: (pv.body.rows ?? [])
+              .filter((r) => r.errors.length > 0)
+              .map((r) => ({ row: r.rowNumber, msgs: r.errors })),
+          });
+          return;
+        }
+        // File sạch → nạp ngay.
+        const cm = await send('commit', file);
+        if (!cm.ok) {
+          setResult({
+            ok: false,
+            text: cm.body.message ?? 'Nạp dữ liệu thất bại.',
+            errors: (cm.body.rows ?? [])
+              .filter((r) => r.errors.length > 0)
+              .map((r) => ({ row: r.rowNumber, msgs: r.errors })),
+          });
+          return;
+        }
+        setResult({ ok: true, text: `Đã nạp ${cm.body.created} dòng.` });
+        onCommitted?.();
+      } catch {
+        setResult({ ok: false, text: 'Không kết nối được máy chủ.' });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [send, onCommitted],
+  );
+
+  return { pick, busy, result, inputRef, onChange };
+}
+
+/** Hộp chọn file ẩn + vùng báo kết quả/lỗi cho useQuickImport. */
+export function QuickImportSlot({
+  hook,
+}: {
+  hook: ReturnType<typeof useQuickImport>;
+}) {
+  return (
+    <>
+      <input
+        ref={hook.inputRef}
+        type="file"
+        accept=".xlsx"
+        style={{ display: 'none' }}
+        onChange={(e) => void hook.onChange(e)}
+      />
+      {hook.result && (
+        <div className={`alert ${hook.result.ok ? 'ok' : 'error'}`}>
+          <div>{hook.result.text}</div>
+          {hook.result.errors && hook.result.errors.length > 0 && (
+            <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem' }}>
+              {hook.result.errors.slice(0, 30).map((er) => (
+                <li key={er.row}>
+                  Dòng {er.row}: {er.msgs.join(' ')}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </>
   );
 }
