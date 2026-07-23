@@ -945,6 +945,67 @@ describe('Sổ tài sản trên DB thật (story 2.1)', () => {
     expect(autoNote.rows[0].n).toBe(1);
   });
 
+  it('tái sử dụng (VĐ2): disposed → in_use giữ mã; đổi sang mã đang dùng → 409; đổi mã mới OK', async () => {
+    const may = await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'M-REACT', type: 'desktop' })
+      .expect(201);
+    // thanh lý (v1 → disposed v2)
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${may.body.id}/dispose`)
+      .set(asAdmin())
+      .send({ version: 1 })
+      .expect(200);
+
+    // tái sử dụng GIỮ mã (v2 → in_use v3): mã cũ không kẹt unique vì cùng bản ghi
+    const back = await request(app.getHttpServer())
+      .post(`/api/admin/assets/${may.body.id}/reactivate`)
+      .set(asAdmin())
+      .send({ version: 2 })
+      .expect(200);
+    expect(back.body.version).toBe(3);
+    const afterBack = await pool.query(
+      "SELECT status, code FROM assets WHERE id = $1",
+      [may.body.id],
+    );
+    expect(afterBack.rows[0]).toMatchObject({
+      status: 'in_use',
+      code: 'M-REACT',
+    });
+
+    // thanh lý lại (v3 → v4) + tạo máy chiếm mã 'M-TAKEN'
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${may.body.id}/dispose`)
+      .set(asAdmin())
+      .send({ version: 3 })
+      .expect(200);
+    await request(app.getHttpServer())
+      .post('/api/admin/assets')
+      .set(asAdmin())
+      .send({ code: 'M-TAKEN', type: 'desktop' })
+      .expect(201);
+
+    // đổi sang mã đang dùng → 409 (cảnh báo trùng)
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${may.body.id}/reactivate`)
+      .set(asAdmin())
+      .send({ version: 4, code: 'M-TAKEN' })
+      .expect(409);
+
+    // đổi sang mã mới trống → OK, code đổi
+    await request(app.getHttpServer())
+      .post(`/api/admin/assets/${may.body.id}/reactivate`)
+      .set(asAdmin())
+      .send({ version: 4, code: 'M-NEW' })
+      .expect(200);
+    const renamed = await pool.query(
+      "SELECT status, code FROM assets WHERE id = $1",
+      [may.body.id],
+    );
+    expect(renamed.rows[0]).toMatchObject({ status: 'in_use', code: 'M-NEW' });
+  });
+
   it('thanh lý (2.6): cascade license hết đỏ end-to-end, TERMINAL, vẫn trong danh sách', async () => {
     // máy mới + license term sắp hết hạn gắn vào → đỏ
     const may = await request(app.getHttpServer())

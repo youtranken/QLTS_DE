@@ -32,6 +32,7 @@ export function useAssetColumns(opts: {
   disposedOnly: boolean;
   openEdit: (id: string) => void | Promise<void>;
   copyFrom: (id: string) => void | Promise<void>;
+  onReuse: (a: AssetRow) => void;
   handleDelete: (row: AssetRow) => void | Promise<void>;
   onPurge: (row: AssetRow) => void;
   onDispose: (row: AssetRow) => void;
@@ -45,6 +46,7 @@ export function useAssetColumns(opts: {
     disposedOnly,
     openEdit,
     copyFrom,
+    onReuse,
     handleDelete,
     onPurge,
     onDispose,
@@ -81,7 +83,7 @@ export function useAssetColumns(opts: {
               {
                 label: t('assets.reuse', 'Tái sử dụng'),
                 icon: 'reuse' as const,
-                onClick: () => void copyFrom(a.id),
+                onClick: () => onReuse(a),
               },
               {
                 label: t('assets.purge', 'Xóa vĩnh viễn'),
@@ -319,6 +321,7 @@ export function useAssetColumns(opts: {
     disposedOnly,
     openEdit,
     copyFrom,
+    onReuse,
     handleDelete,
     onPurge,
     onDispose,

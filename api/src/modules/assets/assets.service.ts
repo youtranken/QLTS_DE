@@ -732,6 +732,25 @@ export class AssetsService {
     );
   }
 
+  /**
+   * Tái sử dụng máy đã thanh lý (VĐ2): disposed → in_use, GIỮ mã MTS cũ (hoặc đổi mã mới).
+   * KHÔNG tạo bản ghi mới → mã cũ không kẹt trong unique index. Đổi sang mã máy khác đang
+   * dùng → PG unique violation → 409 (cảnh báo). Không cascade (máy disposed không booking).
+   */
+  async reactivate(
+    id: string,
+    version: number,
+    actorSub: string,
+    newCode: string | null,
+  ) {
+    return this.lifecycle(
+      id,
+      version,
+      actorSub,
+      this.reactivateSpec(id, newCode),
+    );
+  }
+
   /** Bật/gỡ pool (2.6, FR-31/33): CHỈ cờ đổi, status giữ nguyên; software/disposed chặn. */
   async setPool(
     id: string,
@@ -938,6 +957,27 @@ export class AssetsService {
           pool_cleared: row.isPool,
           holder_cleared: clearHolder ? row.assignedUserSub : null,
         };
+      },
+    };
+  }
+
+  private reactivateSpec(id: string, newCode: string | null) {
+    return {
+      action: 'assets.reactivate',
+      guard: (row: LifecycleRow) =>
+        row.status !== 'disposed' ? ('INVALID_STATE' as const) : null,
+      apply: async (tx: LifecycleTx, row: LifecycleRow) => {
+        await tx
+          .update(assetsTable)
+          .set({
+            status: 'in_use',
+            lockEta: null,
+            ...(newCode ? { code: newCode } : {}),
+            version: row.version + 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(assetsTable.id, id));
+        return { to_status: 'in_use', ...(newCode ? { new_code: newCode } : {}) };
       },
     };
   }

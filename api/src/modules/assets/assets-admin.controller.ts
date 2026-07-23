@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
@@ -154,6 +155,15 @@ class VersionDto {
   @IsInt()
   @Min(1)
   version!: number;
+}
+
+/** Body cho POST :id/reactivate (VĐ2) — version + mã mới tùy chọn (bỏ trống = giữ mã cũ). */
+class ReactivateDto extends VersionDto {
+  @IsOptional()
+  @trimToUndef
+  @IsString()
+  @Length(1, 100)
+  code?: string | null;
 }
 
 class TransferLicenseDto {
@@ -487,6 +497,22 @@ export class AssetsAdminController {
     @Req() req: AuthedRequest,
   ) {
     return this.assets.purgeDisposedAsset(id, body.version, requireSub(req));
+  }
+
+  /** Tái sử dụng máy ĐÃ THANH LÝ (VĐ2): disposed → in_use, giữ mã cũ hoặc đổi mã mới. */
+  @Post(':id/reactivate')
+  @HttpCode(200)
+  reactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ReactivateDto,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.assets.reactivate(
+      id,
+      body.version,
+      requireSub(req),
+      body.code?.trim() || null,
+    );
   }
 }
 

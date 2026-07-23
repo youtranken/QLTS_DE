@@ -18,6 +18,7 @@ import { useAssetColumns } from './assets-columns';
 import { AssetsFilterBar } from './assets-filter-bar';
 import { AssetsPageHeader } from './assets-page-header';
 import { ImportDialog } from './import-page';
+import { ReactivateDialog } from './reactivate-dialog';
 import { ConfirmDialog } from './confirm-dialog';
 
 // Re-export để App.tsx tiếp tục import cả hai từ './assets' (route không đổi).
@@ -59,6 +60,8 @@ export function AssetsPage({
   const [error, setError] = useState<string | null>(null);
   // Import mở dạng popup (không rời trang) — VĐ3.
   const [importOpen, setImportOpen] = useState(false);
+  // Tái sử dụng máy đã thanh lý (hồi sinh giữ/đổi mã) — VĐ2.
+  const [reuseTarget, setReuseTarget] = useState<AssetRow | null>(null);
   // Tìm/lọc server-side (2.2): searchInput gõ tự do → search sau debounce 300ms
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -297,6 +300,7 @@ export function AssetsPage({
     disposedOnly,
     openEdit,
     copyFrom,
+    onReuse: (row) => setReuseTarget(row),
     handleDelete,
     onPurge: (row) =>
       setPurgeTarget({
@@ -357,6 +361,19 @@ export function AssetsPage({
           onCommitted={() =>
             void queryClient.invalidateQueries({ queryKey: ['assets'] })
           }
+        />
+      )}
+      {reuseTarget && (
+        <ReactivateDialog
+          me={me}
+          asset={reuseTarget}
+          onDone={(changed) => {
+            setReuseTarget(null);
+            if (changed) {
+              void queryClient.invalidateQueries({ queryKey: ['assets'] });
+              void loadMeta();
+            }
+          }}
         />
       )}
       {(error || listError) && (
