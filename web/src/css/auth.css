@@ -25,16 +25,16 @@
   flex-direction: column;
   gap: 22px;
   padding: 30px 28px;
-  color: #e8f0fb;
-  background: linear-gradient(160deg, rgba(20, 32, 56, 0.82), rgba(10, 16, 32, 0.86));
-  backdrop-filter: blur(18px) saturate(1.15);
-  -webkit-backdrop-filter: blur(18px) saturate(1.15);
-  border: 1px solid rgba(120, 190, 235, 0.2);
+  color: #16202e;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 18px;
   box-shadow:
-    0 30px 70px -18px rgba(0, 0, 0, 0.65),
-    0 0 0 1px rgba(56, 189, 248, 0.06),
-    0 0 60px -12px rgba(56, 189, 248, 0.18);
+    0 30px 70px -18px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(15, 30, 60, 0.05),
+    0 0 60px -14px rgba(56, 189, 248, 0.22);
   animation: pageIn 0.3s var(--ease) both;
 }
 
@@ -44,14 +44,14 @@
   top: 14px;
   right: 14px;
   padding: 4px 10px;
-  color: #9db2cd;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(160, 190, 220, 0.22);
+  color: #5a6b82;
+  background: rgba(15, 30, 60, 0.04);
+  border: 1px solid rgba(15, 30, 60, 0.12);
   border-radius: 8px;
 }
 .auth-card > .ghost.sm:hover {
-  color: #e8f0fb;
-  background: rgba(255, 255, 255, 0.09);
+  color: #16202e;
+  background: rgba(15, 30, 60, 0.08);
 }
 
 /* Thương hiệu — chỉ text (không avatar) */
@@ -73,7 +73,7 @@
 .auth-sub {
   font-size: 0.8rem;
   font-weight: 500;
-  color: #9db2cd;
+  color: #5a6b82;
 }
 
 /* Form — khoảng cách RÕ giữa các khối (hết dính input↔nút) */
@@ -92,34 +92,34 @@
   font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.01em;
-  color: #f2f7ff;
+  color: #0f1b2e;
 }
 .auth-form .muted {
   margin: 0;
   font-size: 0.86rem;
-  color: #9db2cd;
+  color: #5a6b82;
 }
 
-/* Ô nhập tối + focus glow cyan (ăn nhập hologram) */
+/* Ô nhập SÁNG + focus glow brand xanh */
 .auth-card input {
   width: 100%;
   height: 48px;
   padding: 0 14px;
   font-size: 0.95rem;
-  color: #eaf2ff;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(160, 190, 220, 0.24);
+  color: #16202e;
+  background: #f4f7fb;
+  border: 1px solid #d6deea;
   border-radius: 11px;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 .auth-card input::placeholder {
-  color: #8ea4c0;
+  color: #90a0b4;
 }
 .auth-card input:focus {
-  border-color: #38bdf8;
-  background: rgba(56, 189, 248, 0.08);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+  border-color: #0e9f6e;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(14, 159, 110, 0.18);
 }
 .auth-card .pw-field {
   position: relative;
@@ -140,12 +140,12 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #9db2cd;
+  color: #7a8aa0;
   cursor: pointer;
 }
 .auth-card .pw-eye:hover {
-  color: #e8f0fb;
-  background: rgba(255, 255, 255, 0.06);
+  color: #16202e;
+  background: rgba(15, 30, 60, 0.06);
 }
 .auth-card .pw-eye svg {
   width: 18px;
@@ -163,7 +163,7 @@
   background: var(--grad);
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 10px 24px -10px rgba(56, 189, 248, 0.4);
+  box-shadow: 0 10px 22px -10px rgba(14, 159, 110, 0.5);
   transition: filter 0.15s, transform 0.06s;
 }
 .auth-card .primary:hover {
@@ -190,17 +190,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #cdd9ea;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(160, 190, 220, 0.22);
+  color: #4a5b72;
+  background: rgba(15, 30, 60, 0.04);
+  border: 1px solid rgba(15, 30, 60, 0.14);
   border-radius: 9px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .auth-back:hover {
-  color: #fff;
-  background: rgba(56, 189, 248, 0.16);
-  border-color: rgba(56, 189, 248, 0.5);
+  color: #0e9f6e;
+  background: rgba(14, 159, 110, 0.1);
+  border-color: rgba(14, 159, 110, 0.4);
 }
 .auth-back svg {
   width: 18px;
@@ -214,16 +214,16 @@
   padding: 6px 12px;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #eaf2ff;
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.22);
+  color: #0f1b2e;
+  background: rgba(14, 159, 110, 0.1);
+  border: 1px solid rgba(14, 159, 110, 0.28);
   border-radius: 999px;
 }
 .auth-acct svg {
   width: 15px;
   height: 15px;
   flex: none;
-  color: #7fd4ff;
+  color: #0e9f6e;
 }
 .auth-acct span {
   overflow: hidden;
