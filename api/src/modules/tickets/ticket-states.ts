@@ -83,3 +83,17 @@ export const TICKET_TO_BOOKING_STATE: Record<TicketState, BookingState> = {
   rejected: 'cancelled',
   cancelled: 'cancelled',
 };
+
+/**
+ * Hủy được: pending_approval bất kỳ lúc nào; awaiting_pickup CHỈ trước giờ nhận (FR-11).
+ * `pickupPassed` derive từ DB now() (F5 — MỘT nguồn đồng hồ = Postgres, không trộn
+ * Date.now() Node; đồng bộ với sweep expireStalePendingApprovals/autoCloseNoShow).
+ */
+export function isTicketCancellable(
+  state: string,
+  pickupPassed: boolean | null,
+): boolean {
+  if (state === 'pending_approval') return true;
+  if (state === 'awaiting_pickup') return pickupPassed !== true;
+  return false;
+}
