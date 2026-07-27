@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AssetHolo3D } from './asset-holo-3d';
-import { LanguageSwitch, ThemeSwitch } from './switches';
+import { LanguageSwitch } from './switches';
 
 /** Nhận dạng email tối thiểu — quyết định rẽ nhánh SSO (email) vs SA cục bộ (còn lại). */
 function isEmail(v: string): boolean {
@@ -80,10 +80,11 @@ export function LoginScreen({
     <div className="auth">
       <AssetHolo3D className="auth-holo" />
       <div className="auth-card">
+        <LanguageSwitch />
         <div className="auth-logo">
           <span className="brand-mark">QL</span>
           <div>
-            <div className="auth-name">{t('app.title')}</div>
+            <div className="auth-name">QLTS</div>
             <div className="auth-sub">{t('app.loginSub')}</div>
           </div>
         </div>
@@ -97,20 +98,23 @@ export function LoginScreen({
         {loginForbidden ? (
           // Bị chặn (bị xóa/gỡ group): bấm login thường sẽ silent re-auth ra access_denied
           // → lặp. Lối thoát DUY NHẤT là đổi tài khoản (kết thúc phiên SSO).
-          <>
+          <div className="auth-form">
+            <div className="auth-head">
+              <h1>{t('app.loginHeading')}</h1>
+            </div>
             <p className="alert error" style={{ margin: 0 }}>
               {t('app.loginForbidden')}
             </p>
             <button type="button" className="primary" onClick={onSwitchAccount}>
               {t('app.loginOtherAccount')}
             </button>
-          </>
+          </div>
         ) : mode === 'id' ? (
-          <form onSubmit={submitId}>
-            <h1>{t('app.loginHeading')}</h1>
-            <p className="muted" style={{ margin: '0 0 4px' }}>
-              {t('app.loginPrompt')}
-            </p>
+          <form className="auth-form" onSubmit={submitId}>
+            <div className="auth-head">
+              <h1>{t('app.loginHeading')}</h1>
+              <p className="muted">{t('app.loginPrompt')}</p>
+            </div>
             {error && (
               <p className="alert error" style={{ margin: 0 }}>
                 {error}
@@ -124,23 +128,36 @@ export function LoginScreen({
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               required
-              style={{ width: '100%' }}
             />
-            <button type="submit" className="primary" style={{ width: '100%' }}>
+            <button type="submit" className="primary">
               {t('app.loginContinue')}
             </button>
           </form>
         ) : (
-          <form onSubmit={(e) => void submitSecret(e)}>
-            <h1>{t('app.loginHeading')}</h1>
-            <button
-              type="button"
-              className="ghost sm"
-              onClick={backToId}
-              style={{ margin: '0 0 4px' }}
-            >
-              ← {identifier.trim()}
-            </button>
+          <form className="auth-form" onSubmit={(e) => void submitSecret(e)}>
+            <div className="auth-head">
+              <div className="auth-acct-row">
+                <button
+                  type="button"
+                  className="auth-back"
+                  onClick={backToId}
+                  aria-label={t('app.loginBack')}
+                  title={t('app.loginBack')}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                </button>
+                <span className="auth-acct" title={identifier.trim()}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <span>{identifier.trim()}</span>
+                </span>
+              </div>
+              <p className="muted">{t('app.loginPasswordPrompt')}</p>
+            </div>
             {error && (
               <p className="alert error" style={{ margin: 0 }}>
                 {error}
@@ -176,21 +193,11 @@ export function LoginScreen({
                 )}
               </button>
             </div>
-            <button
-              type="submit"
-              className="primary"
-              disabled={busy}
-              style={{ width: '100%' }}
-            >
+            <button type="submit" className="primary" disabled={busy}>
               {t('app.saLoginSubmit')}
             </button>
           </form>
         )}
-
-        <div className="auth-switches">
-          <ThemeSwitch />
-          <LanguageSwitch />
-        </div>
       </div>
     </div>
   );
