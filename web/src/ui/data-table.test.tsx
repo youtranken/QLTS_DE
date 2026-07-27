@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { ColumnDef } from '@tanstack/react-table';
-import { DataTable } from './data-table';
+import { DataTable } from '@/ui/data-table';
 import {
   renderWithI18n,
   screen,
   within,
   waitFor,
   userEvent,
-} from '../test/test-utils';
+} from '@/test/test-utils';
 
 interface Row {
   name: string;

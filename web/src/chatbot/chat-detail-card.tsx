@@ -1,4 +1,4 @@
-import type { AssetDetail } from './chat-types';
+import type { AssetDetail } from '@/chatbot/chat-types';
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   in_use: { label: 'Đang dùng', cls: 'ok' },

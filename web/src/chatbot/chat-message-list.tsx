@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { Mascot } from './mascot';
-import { ChatResultCard } from './chat-result-card';
-import { ChatDetailCard } from './chat-detail-card';
-import type { Card, Chip, Msg } from './chat-types';
+import { Mascot } from '@/chatbot/mascot';
+import { ChatResultCard } from '@/chatbot/chat-result-card';
+import { ChatDetailCard } from '@/chatbot/chat-detail-card';
+import type { Card, Chip, Msg } from '@/chatbot/chat-types';
 
 /** Danh sách tin nhắn + typing; render card/chips của từng bong bóng assistant. */
 export function ChatMessageList({

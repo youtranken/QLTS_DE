@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Me } from '../me';
-import { useChatbot } from './use-chatbot';
-import { Mascot } from './mascot';
-import { ChatMessageList } from './chat-message-list';
-import { ChatComposer } from './chat-composer';
-import { ChatDateStep } from './chat-date-step';
-import { ChatActionBar } from './chat-action-bar';
-import type { Card, Chip } from './chat-types';
+import type { Me } from '@/lib/me';
+import { useChatbot } from '@/chatbot/use-chatbot';
+import { Mascot } from '@/chatbot/mascot';
+import { ChatMessageList } from '@/chatbot/chat-message-list';
+import { ChatComposer } from '@/chatbot/chat-composer';
+import { ChatDateStep } from '@/chatbot/chat-date-step';
+import { ChatActionBar } from '@/chatbot/chat-action-bar';
+import type { Card, Chip } from '@/chatbot/chat-types';
 
 type Step =
   | null

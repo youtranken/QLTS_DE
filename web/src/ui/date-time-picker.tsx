@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { DatePicker } from './date-picker';
-import { TimeField } from '../time-field';
+import { DatePicker } from '@/ui/date-picker';
+import { TimeField } from '@/ui/time-field';
 
 /**
  * DateTimePicker: ghép DatePicker (Sunset Grove) cho phần NGÀY + ô giờ cho phần GIỜ.
