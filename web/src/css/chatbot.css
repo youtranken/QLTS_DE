@@ -72,11 +72,15 @@
 }
 @media (max-width: 480px) {
   .qc-panel {
+    /* Neo cả top+bottom thay 100vh: né bug mobile 100vh > vùng nhìn thấy
+       (header X/xoá bị đẩy khuất sau thanh địa chỉ). Panel lấp đúng viewport. */
     right: 8px;
     left: 8px;
+    top: 8px;
     bottom: 8px;
     width: auto;
-    height: calc(100vh - 16px);
+    height: auto;
+    max-height: none;
   }
   .qc-fab {
     right: 16px;
