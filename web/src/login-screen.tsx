@@ -127,7 +127,7 @@ export function LoginScreen({
               required
             />
             <button type="submit" className="primary">
-              {t('app.loginContinue')}
+              {t('app.login')}
             </button>
           </form>
         ) : (

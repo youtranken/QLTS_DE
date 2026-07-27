@@ -8,7 +8,6 @@ export default {
     retry: 'Retry',
     loginPrompt: 'Enter your company email to continue.',
     loginIdPlaceholder: 'Email or account',
-    loginContinue: 'Continue',
     loginPasswordPrompt: 'Enter your password to sign in.',
     loginBack: 'Back',
     loginSub: 'PMH Asset Management',

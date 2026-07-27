@@ -8,7 +8,6 @@ export default {
     retry: 'Thử lại',
     loginPrompt: 'Nhập email công ty để tiếp tục.',
     loginIdPlaceholder: 'Email hoặc tài khoản',
-    loginContinue: 'Tiếp tục',
     loginPasswordPrompt: 'Nhập mật khẩu để đăng nhập.',
     loginBack: 'Quay lại',
     loginSub: 'Quản lý tài sản PMH',
