@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { ProfilePage } from '@/profile';
+import { ProfilePage } from '@/features/profile/profile';
 import { Dialog, DialogTitle, DialogClose } from '@/ui/dialog';
 import type { Me } from '@/lib/me';
 

@@ -9,7 +9,7 @@ import type { Me } from '@/lib/me';
 
 // Lazy: giữ Hồ sơ (profile) ở chunk riêng — sidebar luôn tải nên không nhồi profile vào chunk chính.
 const ProfileDialog = lazy(() =>
-  import('@/profile-dialog').then((m) => ({ default: m.ProfileDialog })),
+  import('@/features/profile/profile-dialog').then((m) => ({ default: m.ProfileDialog })),
 );
 
 /** Mọi đích điều hướng (kể cả mục con của dropdown) — để tính "prefix dài nhất thắng". */

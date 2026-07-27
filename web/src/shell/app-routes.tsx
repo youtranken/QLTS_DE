@@ -23,7 +23,7 @@ const SoftwareLicensePage = lazy(() =>
   import('@/features/assets/assets').then((m) => ({ default: m.SoftwareLicensePage })),
 );
 const ProfilePage = lazy(() =>
-  import('@/profile').then((m) => ({ default: m.ProfilePage })),
+  import('@/features/profile/profile').then((m) => ({ default: m.ProfilePage })),
 );
 const CalendarOverviewPage = lazy(() =>
   import('@/features/booking/calendar-overview').then((m) => ({
@@ -34,7 +34,7 @@ const ApprovalQueuePage = lazy(() =>
   import('@/features/tickets/approval-queue').then((m) => ({ default: m.ApprovalQueuePage })),
 );
 const NotificationsFailedPage = lazy(() =>
-  import('@/notifications-failed').then((m) => ({
+  import('@/features/admin/notifications-failed').then((m) => ({
     default: m.NotificationsFailedPage,
   })),
 );
@@ -44,10 +44,10 @@ const OffboardingQueuePage = lazy(() =>
   })),
 );
 const AuditLogPage = lazy(() =>
-  import('@/audit-log').then((m) => ({ default: m.AuditLogPage })),
+  import('@/features/admin/audit-log').then((m) => ({ default: m.AuditLogPage })),
 );
 const ConfigPage = lazy(() =>
-  import('@/config-page').then((m) => ({ default: m.ConfigPage })),
+  import('@/features/admin/config-page').then((m) => ({ default: m.ConfigPage })),
 );
 const CatalogPage = lazy(() =>
   import('@/features/catalog/catalog-page').then((m) => ({ default: m.CatalogPage })),
