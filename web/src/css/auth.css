@@ -1,88 +1,76 @@
-/* --- Đăng nhập: 2 cột branded (hero gradient + card), 1 cột ≤820px ---------- */
+/* --- Đăng nhập: nền hologram 3D (laptop xoay) + card kính nổi giữa ----------- */
 .auth {
-  display: grid;
-  grid-template-columns: 1.05fr 1fr;
+  position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-7);
+  padding-right: clamp(var(--space-7), 9vw, 150px);
+  overflow: hidden;
 }
-.auth-hero {
-  background: var(--grad);
-  color: #fff;
-  padding: 3rem 2.75rem;
+/* .holo3 (nền) đã position:absolute inset:0 — phủ kín .auth, nằm dưới card.
+   Laptop hologram dời sang TRÁI-giữa để thấy rõ; card nổi bên PHẢI. */
+.auth .holo3-stage { left: 34%; top: 52%; }
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: min(92vw, 380px);
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 1.75rem;
+  gap: var(--space-6);
+  padding: 2rem 1.75rem;
+  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 24px 60px -14px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(56, 189, 248, 0.08),
+    0 0 40px -8px rgba(56, 189, 248, 0.14);
+  animation: pageIn 0.3s var(--ease) both;
 }
+/* Thương hiệu trên đầu card (thay cột hero cũ) */
 .auth-logo {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-5);
 }
-.auth-hero .brand-mark {
-  width: 44px;
-  height: 44px;
+.auth-card .brand-mark {
+  width: 40px;
+  height: 40px;
+  flex: none;
   font-size: var(--fs-md);
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--grad);
+  color: #fff;
 }
 .auth-name {
-  font-size: var(--fs-2xl);
+  font-size: var(--fs-lg);
   font-weight: 800;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.15;
 }
 .auth-sub {
   font-size: var(--fs-xs);
   font-weight: 600;
-  opacity: 0.85;
-}
-.auth-slogan {
-  font-size: var(--fs-xl);
-  font-weight: 700;
-  line-height: 1.35;
-  max-width: 22ch;
-  margin: 0;
-}
-.auth-perks {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  max-width: 34ch;
-  font-weight: 500;
-}
-.auth-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem var(--space-10);
-  background: var(--canvas);
-}
-.auth-card {
-  width: 100%;
-  max-width: 360px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-7);
-  animation: pageIn 0.3s var(--ease) both;
+  opacity: 0.7;
 }
 .auth-switches {
   display: flex;
   gap: var(--space-3);
   margin-top: var(--space-1);
 }
+/* Hẹp/điện thoại: không đặt cạnh nhau được → laptop lên TRÊN, card giữa-dưới */
 @media (max-width: 820px) {
   .auth {
-    grid-template-columns: 1fr;
+    justify-content: center;
+    padding-right: var(--space-7);
   }
-  .auth-hero {
-    padding: 2.25rem var(--space-10);
-    gap: var(--space-7);
-  }
-  .auth-slogan {
-    font-size: var(--fs-lg);
-  }
+  .auth .holo3-stage { left: 50%; top: 27%; }
+  .auth-card { margin-top: 150px; }
 }
 .error-state {
   min-height: 60vh;

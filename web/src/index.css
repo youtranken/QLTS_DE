@@ -10,7 +10,8 @@
 @import './css/table.css';         /* bảng chữ ký, menu ⋯, badge/pill, recurring expander */
 @import './css/assets-table.css';  /* /tai-san: caret ô Mã, icon Loại, #, hover (scope .assets-table) */
 @import './css/overlays.css';      /* alerts, field, modal, command palette (⌘K), utilities */
-@import './css/auth.css';          /* màn đăng nhập 2 cột branded */
+@import './css/auth.css';          /* màn đăng nhập: nền hologram + card kính giữa */
+@import './css/asset-holo-3d.css'; /* khối 3D laptop xoay (port PMH-ID) — nền login */
 @import './css/form-layout.css';   /* segmented, form section, combobox, chip, sheet editor */
 @import './css/detail-tabs.css';   /* data grid, tabs, filter bar, stat card */
 @import './css/filters.css';       /* chip lọc đang bật (hàng dưới filter-bar) — /tai-san, /phan-mem */

@@ -1,0 +1,110 @@
+/* HOLOGRAM ĐỘI THIẾT BỊ — CSS thuần (port từ PMH-ID portal-fe/AssetHolo3D).
+   Palette đêm: cyan/teal trên navy. Dùng làm nền màn đăng nhập QLTS. */
+.holo3 {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(120% 120% at 50% 46%, #12203c 0%, #0a0f1e 60%, #070b16 100%);
+}
+
+/* sân khấu 3D — perspective + nghiêng nhẹ nhìn từ trên */
+.holo3-stage { position: absolute; left: 50%; top: 57%; width: 0; height: 0; perspective: 620px; }
+.holo3-tilt { position: absolute; transform-style: preserve-3d; transform: rotateX(14deg); }
+
+/* laptop chính — wireframe cyan xoay quanh trục đứng */
+.holo3-spin { position: absolute; transform-style: preserve-3d; animation: h3Spin 15s linear infinite; }
+@keyframes h3Spin { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
+.holo3-base {
+  position: absolute; left: -46px; top: -30px; width: 92px; height: 60px;
+  transform: rotateX(90deg);
+  border: 1.5px solid rgba(56, 189, 248, 0.85); border-radius: 3px;
+  background:
+    repeating-linear-gradient(90deg, rgba(56, 189, 248, 0.22) 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(0deg, rgba(56, 189, 248, 0.22) 0 1px, transparent 1px 8px),
+    rgba(56, 189, 248, 0.05);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25) inset;
+}
+.holo3-lid {
+  position: absolute; left: -46px; top: -58px; width: 92px; height: 58px;
+  transform-origin: bottom; transform: translateZ(-30px) rotateX(-14deg);
+  border: 1.5px solid rgba(56, 189, 248, 0.9); border-radius: 3px;
+  background: linear-gradient(160deg, rgba(52, 211, 153, 0.2), rgba(56, 189, 248, 0.1) 55%, rgba(56, 189, 248, 0.03));
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.3) inset;
+}
+.holo3-lid::after {
+  content: ""; position: absolute; inset: 3px;
+  background: repeating-linear-gradient(0deg, rgba(160, 235, 255, 0.14) 0 1px, transparent 1px 5px);
+  animation: h3Flicker 3.4s ease-in-out infinite;
+}
+@keyframes h3Flicker { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+/* bệ hologram: vành liền + vành nét đứt quay */
+.holo3-ring {
+  position: absolute; left: -70px; top: -70px; width: 140px; height: 140px;
+  border-radius: 50%; border: 1px solid rgba(56, 189, 248, 0.35);
+  transform: translateY(26px) rotateX(90deg);
+}
+.holo3-ring--dash { border: none; animation: h3Ring 21s linear infinite; }
+.holo3-ring--dash::after {
+  content: ""; position: absolute; inset: 8px; border-radius: 50%;
+  border: 1.6px dashed rgba(52, 211, 153, 0.55);
+}
+@keyframes h3Ring {
+  from { transform: translateY(26px) rotateX(90deg) rotate(0); }
+  to { transform: translateY(26px) rotateX(90deg) rotate(360deg); }
+}
+
+/* đội mini — quay ngược chiều laptop chính */
+.holo3-orbit { position: absolute; transform-style: preserve-3d; animation: h3Orbit 26s linear infinite reverse; }
+@keyframes h3Orbit { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
+.holo3-sat { position: absolute; transform-style: preserve-3d; }
+.holo3-sat1 { transform: rotateY(0deg) translateX(84px) scale3d(0.38, 0.38, 0.38); }
+.holo3-sat2 { transform: rotateY(120deg) translateX(84px) scale3d(0.38, 0.38, 0.38); }
+.holo3-sat3 { transform: rotateY(240deg) translateX(84px) scale3d(0.38, 0.38, 0.38); }
+.holo3-sbase, .holo3-slid { display: block; position: absolute; }
+.holo3-sbase {
+  left: -46px; top: -30px; width: 92px; height: 60px; transform: rotateX(90deg);
+  border: 2px solid rgba(52, 211, 153, 0.7); border-radius: 3px;
+  background: rgba(52, 211, 153, 0.12);
+}
+.holo3-slid {
+  left: -46px; top: -58px; width: 92px; height: 58px;
+  transform-origin: bottom; transform: translateZ(-30px) rotateX(-14deg);
+  border: 2px solid rgba(52, 211, 153, 0.75); border-radius: 3px;
+  background: linear-gradient(160deg, rgba(52, 211, 153, 0.22), rgba(52, 211, 153, 0.05));
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.25) inset;
+}
+
+/* quầng sáng đáy + vòng scan chạy dọc */
+.holo3-glow {
+  position: absolute; left: -60px; top: -18px; width: 120px; height: 90px;
+  background: radial-gradient(50% 42% at 50% 78%, rgba(56, 189, 248, 0.28), transparent 70%);
+  pointer-events: none;
+}
+.holo3-scan {
+  position: absolute; left: -62px; width: 124px; height: 10px; border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(160, 235, 255, 0.55), rgba(56, 189, 248, 0.12) 60%, transparent 75%);
+  animation: h3Scan 3.8s ease-in-out infinite; pointer-events: none;
+}
+@keyframes h3Scan {
+  0% { transform: translateY(38px); opacity: 0; }
+  12% { opacity: 0.95; }
+  58% { transform: translateY(-64px); opacity: 0.8; }
+  70%, 100% { transform: translateY(-72px); opacity: 0; }
+}
+
+/* hạt dữ liệu trôi */
+.holo3-bit {
+  position: absolute; width: 2.5px; height: 2.5px; border-radius: 50%;
+  background: #7fd4ff; box-shadow: 0 0 6px #7fd4ff; opacity: 0.6;
+  animation: h3Bit 6s ease-in-out infinite;
+}
+@keyframes h3Bit {
+  0%, 100% { transform: translateY(0); opacity: 0.25; }
+  50% { transform: translateY(-9px); opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holo3-spin, .holo3-orbit, .holo3-ring--dash, .holo3-scan, .holo3-bit, .holo3-lid::after { animation: none; }
+  .holo3-scan { opacity: 0; }
+}
