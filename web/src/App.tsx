@@ -28,11 +28,6 @@ function useIsNarrow(): boolean {
   return narrow;
 }
 
-// Chống vòng lặp auto-login: đã thử SSO im lặng 1 lần mà vẫn anonymous → dừng, hiện nút login.
-const SSO_ATTEMPT_KEY = 'qlts_sso_attempt';
-// Vừa logout local (phiên IdP còn sống) → CẤM auto-SSO vào lại; chờ user bấm login.
-const LOGGED_OUT_KEY = 'qlts_logged_out';
-
 function App() {
   const { t } = useTranslation();
   const [auth, setAuth] = useState<AuthState>({ kind: 'loading' });
@@ -45,8 +40,6 @@ function App() {
     fetch('/api/auth/me')
       .then(async (res) => {
         if (res.ok) {
-          sessionStorage.removeItem(SSO_ATTEMPT_KEY);
-          sessionStorage.removeItem(LOGGED_OUT_KEY);
           setAuth({ kind: 'authenticated', me: (await res.json()) as Me });
         } else if (res.status === 401) {
           setAuth({ kind: 'anonymous' });
@@ -57,22 +50,6 @@ function App() {
       .catch(() => setAuth({ kind: 'error' }));
   }, []);
 
-  // SSO liền mạch: chưa có phiên QLTS → thử /api/auth/login. Đã đăng nhập ở PMH ID (vào từ portal)
-  // → IdP cấp code im lặng, vào thẳng. Chưa đăng nhập (vào link trực tiếp) → IdP hiện form login.
-  // KHÔNG auto khi login=failed (vd access_denied) hoặc đã thử 1 lần (chống lặp).
-  const willAutoLogin =
-    auth.kind === 'anonymous' &&
-    !loginFailed &&
-    !loginForbidden &&
-    !sessionStorage.getItem(SSO_ATTEMPT_KEY) &&
-    !sessionStorage.getItem(LOGGED_OUT_KEY);
-  useEffect(() => {
-    if (willAutoLogin) {
-      sessionStorage.setItem(SSO_ATTEMPT_KEY, '1');
-      window.location.href = '/api/auth/login';
-    }
-  }, [willAutoLogin]);
-
   const logout = useCallback(async () => {
     if (auth.kind !== 'authenticated') return;
     try {
@@ -81,8 +58,8 @@ function App() {
         headers: auth.me.csrfToken ? { 'X-CSRF-Token': auth.me.csrfToken } : {},
       });
       if (res.ok) {
-        // Local logout: phiên IdP còn sống → đánh dấu để KHÔNG auto-SSO vào lại
-        sessionStorage.setItem(LOGGED_OUT_KEY, '1');
+        // Local logout: phiên IdP còn sống, nhưng màn login là ô email thủ công (không
+        // auto-SSO) nên không lo tự đăng nhập lại — về '/' hiện màn login là đủ.
         window.location.href = '/';
         return;
       }
@@ -92,15 +69,13 @@ function App() {
     window.location.href = '/';
   }, [auth]);
 
-  // "Đăng nhập bằng tài khoản khác" (trang forbidden): xóa cờ chặn auto-SSO để sau khi PMH ID
-  // kết thúc phiên SSO, app tự đưa về form login PMH ID; rồi chuyển tới endpoint end_session.
+  // "Đăng nhập bằng tài khoản khác" (trang forbidden): PMH ID kết thúc phiên SSO rồi đưa về
+  // app → màn login ô email; qua endpoint switch-account để gọi end_session của IdP.
   const switchAccount = useCallback(() => {
-    sessionStorage.removeItem(LOGGED_OUT_KEY);
-    sessionStorage.removeItem(SSO_ATTEMPT_KEY);
     window.location.href = '/api/auth/switch-account';
   }, []);
 
-  if (auth.kind === 'loading' || willAutoLogin) {
+  if (auth.kind === 'loading') {
     return (
       <Center>
         <p>{t('app.checkingSession')}</p>

@@ -8,6 +8,7 @@ import {
   Inject,
   Logger,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -53,6 +54,13 @@ function clientIp(req: AuthedRequest): string {
 }
 
 const OIDC_TX_COOKIE = 'qlts_oidc_tx';
+
+/** Chỉ chuyển tiếp login_hint nếu đúng dạng email + cap độ dài (giá trị từ query, L1). */
+function sanitizeLoginHint(raw?: string): string | undefined {
+  const v = raw?.trim();
+  if (!v || v.length > 200) return undefined;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : undefined;
+}
 
 function appBaseUrl(): string {
   return process.env.APP_BASE_URL ?? 'http://localhost:8080';
@@ -154,13 +162,17 @@ export class AuthController {
 
   @Public()
   @Get('login')
-  async login(@Res() res: Response): Promise<void> {
+  async login(
+    @Res() res: Response,
+    @Query('login_hint') loginHint?: string,
+  ): Promise<void> {
     const codeVerifier = randomBytes(32).toString('base64url');
     const state = randomBytes(16).toString('base64url');
     const url = await this.oidc.buildAuthUrl({
       redirectUri: redirectUri(),
       state,
       codeChallenge: pkceChallenge(codeVerifier),
+      loginHint: sanitizeLoginHint(loginHint),
     });
     // Giao dịch OIDC tạm (10') — httpOnly, không chứa gì nhạy cảm ngoài verifier một lần
     res.cookie(OIDC_TX_COOKIE, JSON.stringify({ codeVerifier, state }), {

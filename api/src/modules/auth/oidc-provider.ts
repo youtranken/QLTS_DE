@@ -15,6 +15,8 @@ export interface AuthUrlRequest {
   redirectUri: string;
   state: string;
   codeChallenge: string;
+  /** Email gợi ý (login_hint) để PMH ID điền sẵn — user gõ email ở QLTS khỏi gõ lại. */
+  loginHint?: string;
 }
 
 export interface CodeExchangeRequest {
