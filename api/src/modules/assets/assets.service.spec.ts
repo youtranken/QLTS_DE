@@ -4,7 +4,10 @@ import {
   HttpException,
   NotFoundException,
 } from '@nestjs/common';
-import { AssetsService, diffChanged } from './assets.service';
+import { AssetsService } from './assets.service';
+import { AssetsWriteService, diffChanged } from './assets-write.service';
+import { AssetsLifecycleService } from './assets-lifecycle.service';
+import { AssetsReadService } from './assets-read.service';
 import { AssetSoftwareService } from './asset-software.service';
 import { validateSoftwareInput } from './software-license';
 import type { AssetInput } from './assets.service';
@@ -48,12 +51,21 @@ function makeService(tx: Partial<Record<string, unknown>>) {
     audit as unknown as AuditWriterService,
     config as unknown as SystemConfigService,
   );
-  const svc = new AssetsService(
+  const write = new AssetsWriteService(
     db as unknown as Database,
     audit as unknown as AuditWriterService,
+    software,
+  );
+  const lifecycle = new AssetsLifecycleService(
+    db as unknown as Database,
+    audit as unknown as AuditWriterService,
+  );
+  const read = new AssetsReadService(
+    db as unknown as Database,
     config as unknown as SystemConfigService,
     software,
   );
+  const svc = new AssetsService(read, lifecycle, write);
   return { svc, software, audit };
 }
 
