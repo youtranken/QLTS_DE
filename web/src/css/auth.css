@@ -54,38 +54,26 @@
   background: rgba(255, 255, 255, 0.09);
 }
 
-/* Thương hiệu */
+/* Thương hiệu — chỉ text (không avatar) */
 .auth-logo {
   display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.auth-card .brand-mark {
-  width: 42px;
-  height: 42px;
-  flex: none;
-  border-radius: 11px;
-  font-size: var(--fs-md);
-  font-weight: 800;
-  background: var(--grad);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.5);
+  flex-direction: column;
+  gap: 2px;
 }
 .auth-name {
-  font-size: 1.15rem;
+  font-size: 1.55rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
-  line-height: 1.1;
-  color: #f2f7ff;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .auth-sub {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: #9db2cd;
-  margin-top: 2px;
 }
 
 /* Form — khoảng cách RÕ giữa các khối (hết dính input↔nút) */

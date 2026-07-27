@@ -82,11 +82,8 @@ export function LoginScreen({
       <div className="auth-card">
         <LanguageSwitch />
         <div className="auth-logo">
-          <span className="brand-mark">QL</span>
-          <div>
-            <div className="auth-name">QLTS</div>
-            <div className="auth-sub">{t('app.loginSub')}</div>
-          </div>
+          <div className="auth-name">QLTS</div>
+          <div className="auth-sub">{t('app.loginSub')}</div>
         </div>
 
         {loginFailed && (
