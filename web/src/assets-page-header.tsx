@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { downloadFile } from '@/download-file';
+import { downloadFile } from '@/lib/download-file';
 
 /**
  * Đầu trang sổ tài sản: tiêu đề (tài sản / phần mềm / kho thanh lý / tên license), link kiểm kê

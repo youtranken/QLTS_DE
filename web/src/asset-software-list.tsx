@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { apiFetch } from '@/api-client';
+import { apiFetch } from '@/lib/api-client';
 import { STATUS_BADGE, formatDmy } from '@/asset-types';
 
 /** Phần mềm/license đang cài trên một máy (GET /assets/:id/software). */

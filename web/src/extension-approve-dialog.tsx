@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogTitle, DialogDescription } from '@/ui/dialog';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 
 /**
  * Duyệt/từ chối 1 yêu cầu gia hạn treo NGAY từ bảng "Máy đang mượn" (nút Duyệt trên row có cờ

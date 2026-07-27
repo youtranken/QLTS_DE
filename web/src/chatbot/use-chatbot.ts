@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { apiFetch } from '@/api-client';
+import { apiFetch } from '@/lib/api-client';
 import {
   welcomeText,
   type ChatAction,

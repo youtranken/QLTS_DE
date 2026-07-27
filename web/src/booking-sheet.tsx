@@ -5,7 +5,7 @@ import { RecurringAdminBuilder } from '@/recurring-admin-builder';
 import { BookingTimeFields } from '@/booking-time-fields';
 import { BookingTopRow } from '@/booking-top-row';
 import { Dialog, DialogTitle, DialogClose } from '@/ui/dialog';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 import {
   DEFAULT_WORK_HOURS,
   isBlockedDay,

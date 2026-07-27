@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { CatalogPage } from '@/catalog-page';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 import {
   jsonResponse,
   renderWithI18n,

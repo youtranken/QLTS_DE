@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { DatePicker } from '@/ui/date-picker';
-import { TimeField } from '@/time-field';
+import { TimeField } from '@/ui/time-field';
 import { PICKUP_SLOTS, nowTimeLocal, todayLocal } from '@/booking-types';
 
 /**

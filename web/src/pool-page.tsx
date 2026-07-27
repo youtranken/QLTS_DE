@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Combobox } from '@/combobox';
+import { Combobox } from '@/ui/combobox';
 import { PoolTable } from '@/pool-table';
 import { useConfirm } from '@/ui/confirm-provider';
 import type { PoolItem } from '@/pool-types';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 
 interface AssetOption {
   id: string;

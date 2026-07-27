@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Combobox } from '@/combobox';
+import { Combobox } from '@/ui/combobox';
 import { AssetTypeIcon } from '@/asset-type-icon';
 import type { FreeMachine, UserOption } from '@/booking-types';
 

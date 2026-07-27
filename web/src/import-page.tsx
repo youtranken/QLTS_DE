@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Dialog, DialogClose, DialogTitle } from '@/ui/dialog';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 
 interface PreviewRow {
   rowNumber: number;

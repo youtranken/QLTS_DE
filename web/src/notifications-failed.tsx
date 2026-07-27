@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { fetchJson } from '@/fetch-json';
-import { LoadError } from '@/load-state';
-import type { Me } from '@/me';
+import { fetchJson } from '@/lib/fetch-json';
+import { LoadError } from '@/ui/load-state';
+import type { Me } from '@/lib/me';
 
 interface FailedItem {
   id: string;

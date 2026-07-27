@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { savedLanguage, setLanguage } from '@/i18n';
-import { currentTheme, toggleTheme } from '@/theme';
+import { savedLanguage, setLanguage } from '@/lib/i18n';
+import { currentTheme, toggleTheme } from '@/lib/theme';
 
 /** Nút đổi ngôn ngữ VI/EN — dùng ở topbar và màn đăng nhập. */
 export function LanguageSwitch() {

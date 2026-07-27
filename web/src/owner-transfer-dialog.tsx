@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Combobox } from '@/combobox';
+import { Combobox } from '@/ui/combobox';
 import { Dialog, DialogTitle, DialogClose } from '@/ui/dialog';
 import type { AssetDetail, AssetRow, UserOption } from '@/asset-types';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 
 /**
  * Chuyển máy sang người khác = đổi người đứng tên (assignOwner, PUT :id/assignee).

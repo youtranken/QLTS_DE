@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { OnChangeFn, SortingState } from '@tanstack/react-table';
 import { AssetForm } from '@/asset-form';
-import { apiFetch } from '@/api-client';
+import { apiFetch } from '@/lib/api-client';
 import { AssetSoftwareExpand } from '@/asset-software-list';
 import { SoftwareTransferDialog } from '@/software-transfer-dialog';
 import { OwnerTransferDialog } from '@/owner-transfer-dialog';
@@ -12,14 +12,14 @@ import { useAssetLifecycle } from '@/asset-lifecycle-actions';
 import { DataTable } from '@/ui/data-table';
 import { EMPTY_FORM, detailToForm } from '@/asset-types';
 import type { AssetDetail, AssetRow, FormState } from '@/asset-types';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 import { useAssetPageActions } from '@/use-asset-page-actions';
 import { useAssetColumns } from '@/assets-columns';
 import { AssetsFilterBar } from '@/assets-filter-bar';
 import { AssetsPageHeader } from '@/assets-page-header';
 import { useQuickImport, QuickImportSlot } from '@/import-page';
 import { ReactivateDialog } from '@/reactivate-dialog';
-import { ConfirmDialog } from '@/confirm-dialog';
+import { ConfirmDialog } from '@/ui/confirm-dialog';
 
 // Re-export để App.tsx tiếp tục import cả hai từ './assets' (route không đổi).
 export { AssetDetailPage } from '@/asset-detail';

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ProfilePage } from '@/profile';
 import { Dialog, DialogTitle, DialogClose } from '@/ui/dialog';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 
 /**
  * Hồ sơ dạng POPUP (thay vì chuyển trang) — mở từ nút "Hồ sơ" ở sidebar. Bọc ProfilePage trong

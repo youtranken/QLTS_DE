@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fetchJson } from '@/fetch-json';
+import { fetchJson } from '@/lib/fetch-json';
 import { jsonResponse } from '@/test/test-utils';
 
 describe('fetchJson', () => {

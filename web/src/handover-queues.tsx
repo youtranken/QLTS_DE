@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ForceCancelButton } from '@/force-cancel-button';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 
 interface QueueRow {
   id: string;

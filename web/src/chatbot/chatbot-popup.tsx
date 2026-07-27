@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 import { useChatbot } from '@/chatbot/use-chatbot';
 import { Mascot } from '@/chatbot/mascot';
 import { ChatMessageList } from '@/chatbot/chat-message-list';

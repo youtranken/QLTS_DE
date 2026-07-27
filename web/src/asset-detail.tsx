@@ -6,9 +6,9 @@ import { AssetSoftwareTable } from '@/asset-software-list';
 import type { InstalledSoftware } from '@/asset-software-list';
 import { detailToForm, STATUS_BADGE } from '@/asset-types';
 import type { AllocationRow, AssetDetail, NoteRow } from '@/asset-types';
-import type { Me } from '@/me';
-import { PhotoLightbox } from '@/photo-lightbox';
-import type { LightboxImage } from '@/photo-lightbox';
+import type { Me } from '@/lib/me';
+import { PhotoLightbox } from '@/ui/photo-lightbox';
+import type { LightboxImage } from '@/ui/photo-lightbox';
 
 /** Trang chi tiết máy 3 tab (story 2.7, UJ-3) — route /tai-san/:id. */
 export function AssetDetailPage({ me }: { me: Me }) {

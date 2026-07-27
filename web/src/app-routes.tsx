@@ -1,10 +1,10 @@
 import { Suspense, lazy } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { NotFound } from '@/load-state';
-import { ChunkErrorBoundary } from '@/chunk-error-boundary';
-import { DirectorySyncPanel, RolesPanel } from '@/panels';
-import type { Me } from '@/me';
+import { NotFound } from '@/ui/load-state';
+import { ChunkErrorBoundary } from '@/ui/chunk-error-boundary';
+import { DirectorySyncPanel, RolesPanel } from '@/ui/panels';
+import type { Me } from '@/lib/me';
 
 // Code-splitting theo route (perf): mỗi trang thành 1 chunk tải khi điều hướng tới, giảm
 // bundle khởi động. Landing '/' = Lịch máy (CalendarOverviewPage) cũng lazy như các trang khác.

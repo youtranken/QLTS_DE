@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { LoadError } from '@/load-state';
+import { LoadError } from '@/ui/load-state';
 import { renderWithI18n, screen, userEvent } from '@/test/test-utils';
 
 describe('LoadError', () => {

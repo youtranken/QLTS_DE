@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { AssetsPage } from '@/assets';
 import { AssetForm } from '@/asset-form';
 import { EMPTY_FORM } from '@/asset-types';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 import {
   jsonResponse,
   renderWithI18n,

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { ChatbotPopup } from '@/chatbot/chatbot-popup';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 import {
   jsonResponse,
   renderWithI18n,

@@ -1,9 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
 import '@/index.css';
-import { TimePicker } from '@/time-picker';
-import type { TimeValue } from '@/time-picker';
-import { currentTheme, toggleTheme } from '@/theme';
+import { TimePicker } from '@/ui/time-picker';
+import type { TimeValue } from '@/ui/time-picker';
+import { currentTheme, toggleTheme } from '@/lib/theme';
 
 // Trang demo tách riêng để duyệt TimePicker trong stack thật (React 19 + Vite + token QLTS).
 function Demo() {

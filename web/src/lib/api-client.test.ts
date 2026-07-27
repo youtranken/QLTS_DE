@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { apiFetch, ApiError } from '@/api-client';
+import { apiFetch, ApiError } from '@/lib/api-client';
 import { jsonResponse } from '@/test/test-utils';
 
 describe('apiFetch', () => {

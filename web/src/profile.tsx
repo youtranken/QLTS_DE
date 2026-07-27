@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/ui/data-table';
-import { LoadError } from '@/load-state';
+import { LoadError } from '@/ui/load-state';
 import { STATUS_BADGE } from '@/asset-types';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 
 interface Device {
   id: string;

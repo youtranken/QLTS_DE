@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Combobox } from '@/combobox';
+import { Combobox } from '@/ui/combobox';
 import type { AssetRow, FormState } from '@/asset-types';
 
 /**

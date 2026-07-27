@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LoadError } from '@/load-state';
+import { LoadError } from '@/ui/load-state';
 import { DatePicker } from '@/ui/date-picker';
 import { BookingSheet } from '@/booking-sheet';
 import { ExtensionDialog } from '@/extension-dialog';
 import { ExtensionApproveDialog } from '@/extension-approve-dialog';
 import { ForceCancelButton } from '@/force-cancel-button';
-import type { Me } from '@/me';
+import type { Me } from '@/lib/me';
 
 interface BusyBlock {
   from: string;
