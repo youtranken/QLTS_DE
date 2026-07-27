@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MemberRecurringSessions } from '@/member-recurring-sessions';
+import { MemberRecurringSessions } from '@/features/tickets/member-recurring-sessions';
 import { DateTimePicker } from '@/ui/date-time-picker';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import type { Me } from '@/lib/me';

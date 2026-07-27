@@ -3,10 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LoadError } from '@/ui/load-state';
 import { DatePicker } from '@/ui/date-picker';
-import { BookingSheet } from '@/booking-sheet';
-import { ExtensionDialog } from '@/extension-dialog';
-import { ExtensionApproveDialog } from '@/extension-approve-dialog';
-import { ForceCancelButton } from '@/force-cancel-button';
+import { BookingSheet } from '@/features/booking/booking-sheet';
+import { ExtensionDialog } from '@/features/tickets/extension-dialog';
+import { ExtensionApproveDialog } from '@/features/tickets/extension-approve-dialog';
+import { ForceCancelButton } from '@/features/tickets/force-cancel-button';
 import type { Me } from '@/lib/me';
 
 interface BusyBlock {

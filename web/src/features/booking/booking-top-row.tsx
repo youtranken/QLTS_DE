@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from '@/ui/combobox';
 import { AssetTypeIcon } from '@/ui/asset-type-icon';
-import type { FreeMachine, UserOption } from '@/booking-types';
+import type { FreeMachine, UserOption } from '@/features/booking/booking-types';
 
 /**
  * Hàng trên popup Đặt máy: Người mượn (chỉ admin, tạo hộ) + Máy trên CÙNG 1 hàng.

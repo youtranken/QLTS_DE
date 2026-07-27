@@ -26,12 +26,12 @@ const ProfilePage = lazy(() =>
   import('@/profile').then((m) => ({ default: m.ProfilePage })),
 );
 const CalendarOverviewPage = lazy(() =>
-  import('@/calendar-overview').then((m) => ({
+  import('@/features/booking/calendar-overview').then((m) => ({
     default: m.CalendarOverviewPage,
   })),
 );
 const ApprovalQueuePage = lazy(() =>
-  import('@/approval-queue').then((m) => ({ default: m.ApprovalQueuePage })),
+  import('@/features/tickets/approval-queue').then((m) => ({ default: m.ApprovalQueuePage })),
 );
 const NotificationsFailedPage = lazy(() =>
   import('@/notifications-failed').then((m) => ({
@@ -39,7 +39,7 @@ const NotificationsFailedPage = lazy(() =>
   })),
 );
 const OffboardingQueuePage = lazy(() =>
-  import('@/offboarding-queue').then((m) => ({
+  import('@/features/tickets/offboarding-queue').then((m) => ({
     default: m.OffboardingQueuePage,
   })),
 );

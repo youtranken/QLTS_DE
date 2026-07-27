@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { OffboardingQueuePage } from '@/offboarding-queue';
+import { OffboardingQueuePage } from '@/features/tickets/offboarding-queue';
 import {
   jsonResponse,
   renderWithI18n,

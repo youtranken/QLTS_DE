@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Me } from '@/lib/me';
-import { RecurringSessionQueue } from '@/recurring-session-queue';
-import { ExtensionQueue } from '@/extension-queue';
-import { HandoverQueues } from '@/handover-queues';
+import { RecurringSessionQueue } from '@/features/tickets/recurring-session-queue';
+import { ExtensionQueue } from '@/features/tickets/extension-queue';
+import { HandoverQueues } from '@/features/tickets/handover-queues';
 
 interface PendingRequest {
   id: string;
