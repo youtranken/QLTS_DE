@@ -16,6 +16,9 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Alias @/ → src/ (feature-folder imports độc lập vị trí file) */
+    "paths": { "@/*": ["./src/*"] },
+
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
