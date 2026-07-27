@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { PoolPage } from '@/pool-page';
+import { PoolPage } from '@/features/pool/pool-page';
 import type { Me } from '@/lib/me';
 import {
   jsonResponse,

@@ -10,7 +10,7 @@ import type {
   PendingCascade,
   UserOption,
 } from '@/lib/asset-types';
-import type { Seat } from '@/software-seats-fields';
+import type { Seat } from '@/features/software/software-seats-fields';
 import { useDebouncedSearch } from '@/features/assets/use-asset-search';
 import { useAssetCatalog } from '@/features/assets/use-asset-catalog';
 import { useAssetSave } from '@/features/assets/use-asset-save';

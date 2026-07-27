@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from '@/ui/combobox';
-import { PoolTable } from '@/pool-table';
+import { PoolTable } from '@/features/pool/pool-table';
 import { useConfirm } from '@/ui/confirm-provider';
-import type { PoolItem } from '@/pool-types';
+import type { PoolItem } from '@/features/pool/pool-types';
 import type { Me } from '@/lib/me';
 
 interface AssetOption {

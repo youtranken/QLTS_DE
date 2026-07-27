@@ -15,7 +15,7 @@ const AssetDetailPage = lazy(() =>
   import('@/features/assets/assets').then((m) => ({ default: m.AssetDetailPage })),
 );
 const SoftwareGroupsPage = lazy(() =>
-  import('@/software-groups-page').then((m) => ({
+  import('@/features/software/software-groups-page').then((m) => ({
     default: m.SoftwareGroupsPage,
   })),
 );
@@ -50,10 +50,10 @@ const ConfigPage = lazy(() =>
   import('@/config-page').then((m) => ({ default: m.ConfigPage })),
 );
 const CatalogPage = lazy(() =>
-  import('@/catalog-page').then((m) => ({ default: m.CatalogPage })),
+  import('@/features/catalog/catalog-page').then((m) => ({ default: m.CatalogPage })),
 );
 const PoolPage = lazy(() =>
-  import('@/pool-page').then((m) => ({ default: m.PoolPage })),
+  import('@/features/pool/pool-page').then((m) => ({ default: m.PoolPage })),
 );
 const ImportPage = lazy(() =>
   import('@/features/assets/import-page').then((m) => ({ default: m.ImportPage })),

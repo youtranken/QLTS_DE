@@ -1,7 +1,7 @@
 import { Combobox } from '@/ui/combobox';
 import { AssetSoftwarePicker } from '@/features/assets/asset-software-picker';
 import { AssetGeneralFields } from '@/features/assets/asset-general-fields';
-import { SoftwareSeatsFields } from '@/software-seats-fields';
+import { SoftwareSeatsFields } from '@/features/software/software-seats-fields';
 import { AssetInstalledOn } from '@/features/assets/asset-installed-on';
 import { AssetCascadeDialog } from '@/features/assets/asset-cascade-dialog';
 import { Dialog, DialogTitle, DialogClose } from '@/ui/dialog';

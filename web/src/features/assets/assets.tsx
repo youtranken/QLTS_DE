@@ -6,7 +6,7 @@ import type { OnChangeFn, SortingState } from '@tanstack/react-table';
 import { AssetForm } from '@/features/assets/asset-form';
 import { apiFetch } from '@/lib/api-client';
 import { AssetSoftwareExpand } from '@/features/assets/asset-software-list';
-import { SoftwareTransferDialog } from '@/software-transfer-dialog';
+import { SoftwareTransferDialog } from '@/features/software/software-transfer-dialog';
 import { OwnerTransferDialog } from '@/features/assets/owner-transfer-dialog';
 import { useAssetLifecycle } from '@/features/assets/asset-lifecycle-actions';
 import { DataTable } from '@/ui/data-table';

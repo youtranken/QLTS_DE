@@ -5,13 +5,13 @@ import { apiFetch } from '@/lib/api-client';
 import { downloadFile } from '@/lib/download-file';
 import { AssetForm } from '@/features/assets/asset-form';
 import { RowActionsMenu } from '@/features/assets/asset-row-actions';
-import { SoftwareTransferDialog } from '@/software-transfer-dialog';
+import { SoftwareTransferDialog } from '@/features/software/software-transfer-dialog';
 import { useQuickImport, QuickImportSlot } from '@/features/assets/import-page';
-import { SoftwareSeatList } from '@/software-seat-list';
+import { SoftwareSeatList } from '@/features/software/software-seat-list';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { DatePicker } from '@/ui/date-picker';
 import { Select } from '@/ui/select';
-import { detachSeat, disposeSeat } from '@/software-seat-ops';
+import { detachSeat, disposeSeat } from '@/features/software/software-seat-ops';
 import {
   EMPTY_FORM,
   detailToForm,

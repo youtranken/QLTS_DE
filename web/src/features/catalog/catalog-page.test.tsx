@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { CatalogPage } from '@/catalog-page';
+import { CatalogPage } from '@/features/catalog/catalog-page';
 import type { Me } from '@/lib/me';
 import {
   jsonResponse,

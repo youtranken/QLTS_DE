@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AssetDetail, AssetRow, FormState } from '@/lib/asset-types';
-import type { Seat } from '@/software-seats-fields';
+import type { Seat } from '@/features/software/software-seats-fields';
 
 /**
  * Cụm LƯU form tài sản (tạo/sửa): tạo phần mềm theo từng bản (seat), tạo/sửa máy, và gắn
