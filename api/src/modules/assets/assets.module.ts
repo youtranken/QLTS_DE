@@ -5,6 +5,7 @@ import { AssetsAdminController } from './assets-admin.controller';
 import { MeController } from './me.controller';
 import { MeService } from './me.service';
 import { AssetsService } from './assets.service';
+import { AssetsReadService } from './assets-read.service';
 import { AssetSoftwareService } from './asset-software.service';
 import { AssetExportService } from './asset-export.service';
 import { ImportController } from './import.controller';
@@ -18,6 +19,7 @@ import { AssetsSweepRegistrar } from './assets-sweep.registrar';
   controllers: [AssetsAdminController, ImportController, MeController],
   providers: [
     AssetsService,
+    AssetsReadService,
     MeService,
     AssetSoftwareService,
     AssetExportService,
