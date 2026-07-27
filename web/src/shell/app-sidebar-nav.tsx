@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
-import { navGroups, type NavItem } from '@/app-nav';
+import { navGroups, type NavItem } from '@/shell/app-nav';
 import { NavIcon } from '@/ui/nav-icon';
 import { ThemeSwitch } from '@/ui/switches';
-import { useNavCounts } from '@/use-nav-counts';
+import { useNavCounts } from '@/shell/use-nav-counts';
 import type { Me } from '@/lib/me';
 
 // Lazy: giữ Hồ sơ (profile) ở chunk riêng — sidebar luôn tải nên không nhồi profile vào chunk chính.

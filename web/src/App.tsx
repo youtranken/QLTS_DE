@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, useLocation } from 'react-router-dom';
-import { CommandPalette } from '@/command-palette';
+import { CommandPalette } from '@/shell/command-palette';
 import type { Me } from '@/lib/me';
-import { LoginScreen } from '@/login-screen';
-import { navGroups } from '@/app-nav';
-import { SidebarNav } from '@/app-sidebar-nav';
-import { AppRoutes } from '@/app-routes';
+import { LoginScreen } from '@/shell/login-screen';
+import { navGroups } from '@/shell/app-nav';
+import { SidebarNav } from '@/shell/app-sidebar-nav';
+import { AppRoutes } from '@/shell/app-routes';
 import { ChatbotPopup } from '@/chatbot/chatbot-popup';
 import { ConfirmProvider } from '@/ui/confirm-provider';
 
