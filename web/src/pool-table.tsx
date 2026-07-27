@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AssetTypeIcon } from '@/asset-type-icon';
+import { AssetTypeIcon } from '@/ui/asset-type-icon';
 import type { PoolItem } from '@/pool-types';
 
 /**

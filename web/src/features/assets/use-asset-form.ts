@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Me } from '@/lib/me';
-import { detailToForm } from '@/asset-types';
+import { detailToForm } from '@/lib/asset-types';
 import type {
   AssetDetail,
   AssetRow,
@@ -9,11 +9,11 @@ import type {
   FormState,
   PendingCascade,
   UserOption,
-} from '@/asset-types';
+} from '@/lib/asset-types';
 import type { Seat } from '@/software-seats-fields';
-import { useDebouncedSearch } from '@/use-asset-search';
-import { useAssetCatalog } from '@/use-asset-catalog';
-import { useAssetSave } from '@/use-asset-save';
+import { useDebouncedSearch } from '@/features/assets/use-asset-search';
+import { useAssetCatalog } from '@/features/assets/use-asset-catalog';
+import { useAssetSave } from '@/features/assets/use-asset-save';
 
 /** Phần mềm đã cài trên máy đang sửa (2.4) — hiển thị trong AssetSoftwarePicker. */
 export interface InstalledSoftware {

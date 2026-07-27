@@ -1,6 +1,6 @@
-import { AssetTypeIcon } from '@/asset-type-icon';
+import { AssetTypeIcon } from '@/ui/asset-type-icon';
 import type { ExpandMeta } from '@/ui/data-table';
-import type { AssetRow } from '@/asset-types';
+import type { AssetRow } from '@/lib/asset-types';
 
 /**
  * Các ô "giàu" của bảng /tai-san (làm đẹp — không đổi dữ liệu). Tách khỏi assets-columns (§6):

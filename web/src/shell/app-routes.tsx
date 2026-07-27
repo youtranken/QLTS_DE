@@ -9,10 +9,10 @@ import type { Me } from '@/lib/me';
 // Code-splitting theo route (perf): mỗi trang thành 1 chunk tải khi điều hướng tới, giảm
 // bundle khởi động. Landing '/' = Lịch máy (CalendarOverviewPage) cũng lazy như các trang khác.
 const AssetsPage = lazy(() =>
-  import('@/assets').then((m) => ({ default: m.AssetsPage })),
+  import('@/features/assets/assets').then((m) => ({ default: m.AssetsPage })),
 );
 const AssetDetailPage = lazy(() =>
-  import('@/assets').then((m) => ({ default: m.AssetDetailPage })),
+  import('@/features/assets/assets').then((m) => ({ default: m.AssetDetailPage })),
 );
 const SoftwareGroupsPage = lazy(() =>
   import('@/software-groups-page').then((m) => ({
@@ -20,7 +20,7 @@ const SoftwareGroupsPage = lazy(() =>
   })),
 );
 const SoftwareLicensePage = lazy(() =>
-  import('@/assets').then((m) => ({ default: m.SoftwareLicensePage })),
+  import('@/features/assets/assets').then((m) => ({ default: m.SoftwareLicensePage })),
 );
 const ProfilePage = lazy(() =>
   import('@/profile').then((m) => ({ default: m.ProfilePage })),
@@ -56,7 +56,7 @@ const PoolPage = lazy(() =>
   import('@/pool-page').then((m) => ({ default: m.PoolPage })),
 );
 const ImportPage = lazy(() =>
-  import('@/import-page').then((m) => ({ default: m.ImportPage })),
+  import('@/features/assets/import-page').then((m) => ({ default: m.ImportPage })),
 );
 
 /** Fallback khi chunk trang lazy đang tải — skeleton nhẹ để không chớp trắng. */

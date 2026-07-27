@@ -1,13 +1,13 @@
 import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AssetCascadeDialog } from '@/asset-cascade-dialog';
+import { AssetCascadeDialog } from '@/features/assets/asset-cascade-dialog';
 import { DatePicker } from '@/ui/date-picker';
 import type {
   AssetRow,
   CascadePreview,
   PendingCascade,
-} from '@/asset-types';
-import type { RowAction } from '@/asset-row-actions';
+} from '@/lib/asset-types';
+import type { RowAction } from '@/features/assets/asset-row-actions';
 import type { Me } from '@/lib/me';
 
 type Method = 'POST' | 'PUT';

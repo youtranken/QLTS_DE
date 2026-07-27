@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AssetHolo3D } from '@/asset-holo-3d';
+import { AssetHolo3D } from '@/shell/asset-holo-3d';
 import { LanguageSwitch } from '@/ui/switches';
 
 /** Nhận dạng email tối thiểu — quyết định rẽ nhánh SSO (email) vs SA cục bộ (còn lại). */

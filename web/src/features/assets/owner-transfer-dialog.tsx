@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from '@/ui/combobox';
 import { Dialog, DialogTitle, DialogClose } from '@/ui/dialog';
-import type { AssetDetail, AssetRow, UserOption } from '@/asset-types';
+import type { AssetDetail, AssetRow, UserOption } from '@/lib/asset-types';
 import type { Me } from '@/lib/me';
 
 /**

@@ -3,26 +3,26 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { OnChangeFn, SortingState } from '@tanstack/react-table';
-import { AssetForm } from '@/asset-form';
+import { AssetForm } from '@/features/assets/asset-form';
 import { apiFetch } from '@/lib/api-client';
-import { AssetSoftwareExpand } from '@/asset-software-list';
+import { AssetSoftwareExpand } from '@/features/assets/asset-software-list';
 import { SoftwareTransferDialog } from '@/software-transfer-dialog';
-import { OwnerTransferDialog } from '@/owner-transfer-dialog';
-import { useAssetLifecycle } from '@/asset-lifecycle-actions';
+import { OwnerTransferDialog } from '@/features/assets/owner-transfer-dialog';
+import { useAssetLifecycle } from '@/features/assets/asset-lifecycle-actions';
 import { DataTable } from '@/ui/data-table';
-import { EMPTY_FORM, detailToForm } from '@/asset-types';
-import type { AssetDetail, AssetRow, FormState } from '@/asset-types';
+import { EMPTY_FORM, detailToForm } from '@/lib/asset-types';
+import type { AssetDetail, AssetRow, FormState } from '@/lib/asset-types';
 import type { Me } from '@/lib/me';
-import { useAssetPageActions } from '@/use-asset-page-actions';
-import { useAssetColumns } from '@/assets-columns';
-import { AssetsFilterBar } from '@/assets-filter-bar';
-import { AssetsPageHeader } from '@/assets-page-header';
-import { useQuickImport, QuickImportSlot } from '@/import-page';
-import { ReactivateDialog } from '@/reactivate-dialog';
+import { useAssetPageActions } from '@/features/assets/use-asset-page-actions';
+import { useAssetColumns } from '@/features/assets/assets-columns';
+import { AssetsFilterBar } from '@/features/assets/assets-filter-bar';
+import { AssetsPageHeader } from '@/features/assets/assets-page-header';
+import { useQuickImport, QuickImportSlot } from '@/features/assets/import-page';
+import { ReactivateDialog } from '@/features/assets/reactivate-dialog';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 
 // Re-export để App.tsx tiếp tục import cả hai từ './assets' (route không đổi).
-export { AssetDetailPage } from '@/asset-detail';
+export { AssetDetailPage } from '@/features/assets/asset-detail';
 
 const PAGE_SIZE = 20;
 

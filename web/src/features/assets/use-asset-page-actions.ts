@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { QueryClient } from '@tanstack/react-query';
-import { detailToForm } from '@/asset-types';
-import type { AssetDetail, AssetRow, FormState } from '@/asset-types';
+import { detailToForm } from '@/lib/asset-types';
+import type { AssetDetail, AssetRow, FormState } from '@/lib/asset-types';
 import { useConfirm } from '@/ui/confirm-provider';
 import type { Me } from '@/lib/me';
 

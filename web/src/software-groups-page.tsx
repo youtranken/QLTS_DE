@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { downloadFile } from '@/lib/download-file';
-import { AssetForm } from '@/asset-form';
-import { RowActionsMenu } from '@/asset-row-actions';
+import { AssetForm } from '@/features/assets/asset-form';
+import { RowActionsMenu } from '@/features/assets/asset-row-actions';
 import { SoftwareTransferDialog } from '@/software-transfer-dialog';
-import { useQuickImport, QuickImportSlot } from '@/import-page';
+import { useQuickImport, QuickImportSlot } from '@/features/assets/import-page';
 import { SoftwareSeatList } from '@/software-seat-list';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { DatePicker } from '@/ui/date-picker';
@@ -18,8 +18,8 @@ import {
   formatDmy,
   daysUntil,
   EXPIRY_SOON_DAYS,
-} from '@/asset-types';
-import type { AssetDetail, AssetRow, FormState } from '@/asset-types';
+} from '@/lib/asset-types';
+import type { AssetDetail, AssetRow, FormState } from '@/lib/asset-types';
 import type { Me } from '@/lib/me';
 
 /** 1 dòng = 1 tên license (nhiều bản/seat gộp lại) — đếm bản/đã gắn/còn dư/sắp hết hạn. */

@@ -1,13 +1,13 @@
 import { useTranslation } from 'react-i18next';
-import { RowActionsMenu } from '@/asset-row-actions';
+import { RowActionsMenu } from '@/features/assets/asset-row-actions';
 import {
   STATUS_BADGE,
   formatVnd,
   formatDmy,
   daysUntil,
   EXPIRY_SOON_DAYS,
-} from '@/asset-types';
-import type { AssetRow } from '@/asset-types';
+} from '@/lib/asset-types';
+import type { AssetRow } from '@/lib/asset-types';
 
 /**
  * Hàng bung của 1 license ở /phan-mem: MỘT lưới căn cột Code/User/Cost/Start/End/Note + ⋯.

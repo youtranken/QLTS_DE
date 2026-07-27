@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/ui/data-table';
 import { LoadError } from '@/ui/load-state';
-import { STATUS_BADGE } from '@/asset-types';
+import { STATUS_BADGE } from '@/lib/asset-types';
 import type { Me } from '@/lib/me';
 
 interface Device {

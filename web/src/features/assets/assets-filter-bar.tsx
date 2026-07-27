@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { DatePicker } from '@/ui/date-picker';
 import { Select } from '@/ui/select';
-import { formatDmy } from '@/asset-types';
+import { formatDmy } from '@/lib/asset-types';
 
 /**
  * Thanh lọc sổ tài sản: tìm kiếm + Loại + Trạng thái + khoảng ngày hết hạn + chip "sắp hết hạn"

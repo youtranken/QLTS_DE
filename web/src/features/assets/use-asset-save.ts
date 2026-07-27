@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { AssetDetail, AssetRow, FormState } from '@/asset-types';
+import type { AssetDetail, AssetRow, FormState } from '@/lib/asset-types';
 import type { Seat } from '@/software-seats-fields';
 
 /**

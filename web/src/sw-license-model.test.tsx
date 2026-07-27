@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { AssetsPage } from '@/assets';
-import { AssetForm } from '@/asset-form';
-import { EMPTY_FORM } from '@/asset-types';
+import { AssetsPage } from '@/features/assets/assets';
+import { AssetForm } from '@/features/assets/asset-form';
+import { EMPTY_FORM } from '@/lib/asset-types';
 import type { Me } from '@/lib/me';
 import {
   jsonResponse,

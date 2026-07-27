@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { AssetForm } from '@/asset-form';
-import { AssetSoftwareTable } from '@/asset-software-list';
-import type { InstalledSoftware } from '@/asset-software-list';
-import { detailToForm, STATUS_BADGE } from '@/asset-types';
-import type { AllocationRow, AssetDetail, NoteRow } from '@/asset-types';
+import { AssetForm } from '@/features/assets/asset-form';
+import { AssetSoftwareTable } from '@/features/assets/asset-software-list';
+import type { InstalledSoftware } from '@/features/assets/asset-software-list';
+import { detailToForm, STATUS_BADGE } from '@/lib/asset-types';
+import type { AllocationRow, AssetDetail, NoteRow } from '@/lib/asset-types';
 import type { Me } from '@/lib/me';
 import { PhotoLightbox } from '@/ui/photo-lightbox';
 import type { LightboxImage } from '@/ui/photo-lightbox';

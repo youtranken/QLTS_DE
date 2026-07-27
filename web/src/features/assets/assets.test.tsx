@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { AssetsPage } from '@/assets';
+import { AssetsPage } from '@/features/assets/assets';
 import type { Me } from '@/lib/me';
 import {
   jsonResponse,

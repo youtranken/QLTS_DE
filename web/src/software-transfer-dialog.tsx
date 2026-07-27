@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogTitle, DialogClose } from '@/ui/dialog';
-import type { AssetDetail, AssetRow } from '@/asset-types';
+import type { AssetDetail, AssetRow } from '@/lib/asset-types';
 import type { Me } from '@/lib/me';
 
 /**
