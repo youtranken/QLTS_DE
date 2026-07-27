@@ -1,8 +1,8 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Combobox } from './combobox';
-import { formatDmy } from './asset-types';
-import type { AssetRow } from './asset-types';
+import { Combobox } from '@/combobox';
+import { formatDmy } from '@/asset-types';
+import type { AssetRow } from '@/asset-types';
 
 export interface InstalledSoftwareRow {
   id: string;

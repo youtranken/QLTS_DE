@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { MyRequestsPanel } from './my-requests';
-import { RecurringBuilder } from './recurring-builder';
-import type { Me } from './me';
+import { MyRequestsPanel } from '@/my-requests';
+import { RecurringBuilder } from '@/recurring-builder';
+import type { Me } from '@/me';
 
 const MAX_DURATION_AUTO_MS = 48 * 60 * 60 * 1000;
 

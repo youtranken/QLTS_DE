@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { TimePicker, type TimeValue } from './time-picker';
-import { useAnchoredMenu } from './ui/use-anchored-menu';
-import { useDialogPortal } from './ui/dialog';
-import './time-field.css';
+import { TimePicker, type TimeValue } from '@/time-picker';
+import { useAnchoredMenu } from '@/ui/use-anchored-menu';
+import { useDialogPortal } from '@/ui/dialog';
+import '@/time-field.css';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 

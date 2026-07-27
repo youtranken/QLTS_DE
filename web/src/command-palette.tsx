@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { toggleTheme } from './theme';
+import { toggleTheme } from '@/theme';
 
 /** Bỏ dấu tiếng Việt để lọc không phân biệt dấu (gõ "tai san" khớp "Tài sản"). */
 const deaccent = (s: string) =>

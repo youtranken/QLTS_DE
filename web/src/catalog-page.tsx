@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Me } from './me';
+import type { Me } from '@/me';
 
 type Kind = 'type' | 'brand' | 'configuration' | 'place';
 const KINDS: Kind[] = ['type', 'brand', 'configuration', 'place'];

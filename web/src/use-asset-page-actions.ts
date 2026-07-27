@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { QueryClient } from '@tanstack/react-query';
-import { detailToForm } from './asset-types';
-import type { AssetDetail, AssetRow, FormState } from './asset-types';
-import { useConfirm } from './ui/confirm-provider';
-import type { Me } from './me';
+import { detailToForm } from '@/asset-types';
+import type { AssetDetail, AssetRow, FormState } from '@/asset-types';
+import { useConfirm } from '@/ui/confirm-provider';
+import type { Me } from '@/me';
 
 /**
  * Các thao tác hàng của sổ tài sản (mở sửa / copy / xóa cứng / xóa vĩnh viễn). Tách khỏi

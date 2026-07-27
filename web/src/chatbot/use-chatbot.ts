@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
-import { apiFetch } from '../api-client';
+import { apiFetch } from '@/api-client';
 import {
   welcomeText,
   type ChatAction,
   type ChatReply,
   type HistoryResponse,
   type Msg,
-} from './chat-types';
+} from '@/chatbot/chat-types';
 
 const welcomeMsg = (id: string, name?: string): Msg => ({
   id,

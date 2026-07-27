@@ -1,15 +1,15 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
-import { navGroups, type NavItem } from './app-nav';
-import { NavIcon } from './nav-icon';
-import { ThemeSwitch } from './switches';
-import { useNavCounts } from './use-nav-counts';
-import type { Me } from './me';
+import { navGroups, type NavItem } from '@/app-nav';
+import { NavIcon } from '@/nav-icon';
+import { ThemeSwitch } from '@/switches';
+import { useNavCounts } from '@/use-nav-counts';
+import type { Me } from '@/me';
 
 // Lazy: giữ Hồ sơ (profile) ở chunk riêng — sidebar luôn tải nên không nhồi profile vào chunk chính.
 const ProfileDialog = lazy(() =>
-  import('./profile-dialog').then((m) => ({ default: m.ProfileDialog })),
+  import('@/profile-dialog').then((m) => ({ default: m.ProfileDialog })),
 );
 
 /** Mọi đích điều hướng (kể cả mục con của dropdown) — để tính "prefix dài nhất thắng". */

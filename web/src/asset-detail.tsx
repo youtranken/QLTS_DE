@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { AssetForm } from './asset-form';
-import { AssetSoftwareTable } from './asset-software-list';
-import type { InstalledSoftware } from './asset-software-list';
-import { detailToForm, STATUS_BADGE } from './asset-types';
-import type { AllocationRow, AssetDetail, NoteRow } from './asset-types';
-import type { Me } from './me';
-import { PhotoLightbox } from './photo-lightbox';
-import type { LightboxImage } from './photo-lightbox';
+import { AssetForm } from '@/asset-form';
+import { AssetSoftwareTable } from '@/asset-software-list';
+import type { InstalledSoftware } from '@/asset-software-list';
+import { detailToForm, STATUS_BADGE } from '@/asset-types';
+import type { AllocationRow, AssetDetail, NoteRow } from '@/asset-types';
+import type { Me } from '@/me';
+import { PhotoLightbox } from '@/photo-lightbox';
+import type { LightboxImage } from '@/photo-lightbox';
 
 /** Trang chi tiết máy 3 tab (story 2.7, UJ-3) — route /tai-san/:id. */
 export function AssetDetailPage({ me }: { me: Me }) {

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { formatVnd, parseVnd } from './asset-types';
-import { DatePicker } from './ui/date-picker';
+import { formatVnd, parseVnd } from '@/asset-types';
+import { DatePicker } from '@/ui/date-picker';
 
 /** 1 bản (seat) khi TẠO phần mềm: mỗi bản có kỳ hạn + giá + ghi chú riêng (mua nhiều bản chung tên). */
 export interface Seat {

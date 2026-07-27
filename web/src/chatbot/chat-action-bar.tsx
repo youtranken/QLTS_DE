@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import { menuFor, type Chip } from './chat-types';
+import { menuFor, type Chip } from '@/chatbot/chat-types';
 
 const S = {
   fill: 'none',

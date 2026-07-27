@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from './api-client';
+import { apiFetch } from '@/api-client';
 
 /**
  * Số đếm cho badge sidebar (app-shell): Tài sản (tổng máy), Phần mềm (số license),

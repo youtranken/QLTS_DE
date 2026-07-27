@@ -1,4 +1,4 @@
-import type { Card } from './chat-types';
+import type { Card } from '@/chatbot/chat-types';
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   in_use: { label: 'Đang dùng', cls: 'ok' },

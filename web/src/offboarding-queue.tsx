@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { fetchJson } from './fetch-json';
-import { LoadError } from './load-state';
+import { fetchJson } from '@/fetch-json';
+import { LoadError } from '@/load-state';
 
 interface Alert {
   sub: string;

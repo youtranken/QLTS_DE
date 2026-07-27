@@ -1,62 +1,62 @@
 import { Suspense, lazy } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { NotFound } from './load-state';
-import { ChunkErrorBoundary } from './chunk-error-boundary';
-import { DirectorySyncPanel, RolesPanel } from './panels';
-import type { Me } from './me';
+import { NotFound } from '@/load-state';
+import { ChunkErrorBoundary } from '@/chunk-error-boundary';
+import { DirectorySyncPanel, RolesPanel } from '@/panels';
+import type { Me } from '@/me';
 
 // Code-splitting theo route (perf): mỗi trang thành 1 chunk tải khi điều hướng tới, giảm
 // bundle khởi động. Landing '/' = Lịch máy (CalendarOverviewPage) cũng lazy như các trang khác.
 const AssetsPage = lazy(() =>
-  import('./assets').then((m) => ({ default: m.AssetsPage })),
+  import('@/assets').then((m) => ({ default: m.AssetsPage })),
 );
 const AssetDetailPage = lazy(() =>
-  import('./assets').then((m) => ({ default: m.AssetDetailPage })),
+  import('@/assets').then((m) => ({ default: m.AssetDetailPage })),
 );
 const SoftwareGroupsPage = lazy(() =>
-  import('./software-groups-page').then((m) => ({
+  import('@/software-groups-page').then((m) => ({
     default: m.SoftwareGroupsPage,
   })),
 );
 const SoftwareLicensePage = lazy(() =>
-  import('./assets').then((m) => ({ default: m.SoftwareLicensePage })),
+  import('@/assets').then((m) => ({ default: m.SoftwareLicensePage })),
 );
 const ProfilePage = lazy(() =>
-  import('./profile').then((m) => ({ default: m.ProfilePage })),
+  import('@/profile').then((m) => ({ default: m.ProfilePage })),
 );
 const CalendarOverviewPage = lazy(() =>
-  import('./calendar-overview').then((m) => ({
+  import('@/calendar-overview').then((m) => ({
     default: m.CalendarOverviewPage,
   })),
 );
 const ApprovalQueuePage = lazy(() =>
-  import('./approval-queue').then((m) => ({ default: m.ApprovalQueuePage })),
+  import('@/approval-queue').then((m) => ({ default: m.ApprovalQueuePage })),
 );
 const NotificationsFailedPage = lazy(() =>
-  import('./notifications-failed').then((m) => ({
+  import('@/notifications-failed').then((m) => ({
     default: m.NotificationsFailedPage,
   })),
 );
 const OffboardingQueuePage = lazy(() =>
-  import('./offboarding-queue').then((m) => ({
+  import('@/offboarding-queue').then((m) => ({
     default: m.OffboardingQueuePage,
   })),
 );
 const AuditLogPage = lazy(() =>
-  import('./audit-log').then((m) => ({ default: m.AuditLogPage })),
+  import('@/audit-log').then((m) => ({ default: m.AuditLogPage })),
 );
 const ConfigPage = lazy(() =>
-  import('./config-page').then((m) => ({ default: m.ConfigPage })),
+  import('@/config-page').then((m) => ({ default: m.ConfigPage })),
 );
 const CatalogPage = lazy(() =>
-  import('./catalog-page').then((m) => ({ default: m.CatalogPage })),
+  import('@/catalog-page').then((m) => ({ default: m.CatalogPage })),
 );
 const PoolPage = lazy(() =>
-  import('./pool-page').then((m) => ({ default: m.PoolPage })),
+  import('@/pool-page').then((m) => ({ default: m.PoolPage })),
 );
 const ImportPage = lazy(() =>
-  import('./import-page').then((m) => ({ default: m.ImportPage })),
+  import('@/import-page').then((m) => ({ default: m.ImportPage })),
 );
 
 /** Fallback khi chunk trang lazy đang tải — skeleton nhẹ để không chớp trắng. */

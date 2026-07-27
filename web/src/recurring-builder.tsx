@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DateTimePicker } from './ui/date-time-picker';
-import type { Me } from './me';
+import { DateTimePicker } from '@/ui/date-time-picker';
+import type { Me } from '@/me';
 
 interface FreeMachine {
   id: string;

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dialog, DialogClose, DialogTitle } from './ui/dialog';
-import type { AssetDetail, AssetRow } from './asset-types';
-import type { Me } from './me';
+import { Dialog, DialogClose, DialogTitle } from '@/ui/dialog';
+import type { AssetDetail, AssetRow } from '@/asset-types';
+import type { Me } from '@/me';
 
 /**
  * Tái sử dụng máy đã thanh lý (VĐ2) — hồi sinh CHÍNH máy đó (disposed → in_use), GIỮ mã MTS

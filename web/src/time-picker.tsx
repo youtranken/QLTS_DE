@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import './time-picker.css';
+import '@/time-picker.css';
 
 const ITEM_H = 42; // px — khớp --item-h trong CSS
 const ANGLE = 22; // độ nghiêng mỗi item → cảm giác mặt trống

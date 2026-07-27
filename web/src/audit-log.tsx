@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DatePicker } from './ui/date-picker';
+import { DatePicker } from '@/ui/date-picker';
 
 interface AuditRow {
   id: string;

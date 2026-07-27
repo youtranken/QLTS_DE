@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AssetHolo3D } from './asset-holo-3d';
-import { LanguageSwitch } from './switches';
+import { AssetHolo3D } from '@/asset-holo-3d';
+import { LanguageSwitch } from '@/switches';
 
 /** Nhận dạng email tối thiểu — quyết định rẽ nhánh SSO (email) vs SA cục bộ (còn lại). */
 function isEmail(v: string): boolean {

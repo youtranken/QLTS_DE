@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAnchoredMenu } from './ui/use-anchored-menu';
+import { useAnchoredMenu } from '@/ui/use-anchored-menu';
 
 /** Loại hành động → icon (tách bạch Thanh lý=lưu kho vs Xóa=thùng rác). */
 export type ActionKind =

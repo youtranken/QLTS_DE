@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useAnchoredMenu } from './ui/use-anchored-menu';
-import { useDialogPortal } from './ui/dialog';
+import { useAnchoredMenu } from '@/ui/use-anchored-menu';
+import { useDialogPortal } from '@/ui/dialog';
 
 interface ComboboxProps<T> {
   placeholder: string;

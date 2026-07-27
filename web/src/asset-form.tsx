@@ -1,14 +1,14 @@
-import { Combobox } from './combobox';
-import { AssetSoftwarePicker } from './asset-software-picker';
-import { AssetGeneralFields } from './asset-general-fields';
-import { SoftwareSeatsFields } from './software-seats-fields';
-import { AssetInstalledOn } from './asset-installed-on';
-import { AssetCascadeDialog } from './asset-cascade-dialog';
-import { Dialog, DialogTitle, DialogClose } from './ui/dialog';
-import { useConfirm } from './ui/confirm-provider';
-import type { Me } from './me';
-import type { FormState } from './asset-types';
-import { useAssetForm } from './use-asset-form';
+import { Combobox } from '@/combobox';
+import { AssetSoftwarePicker } from '@/asset-software-picker';
+import { AssetGeneralFields } from '@/asset-general-fields';
+import { SoftwareSeatsFields } from '@/software-seats-fields';
+import { AssetInstalledOn } from '@/asset-installed-on';
+import { AssetCascadeDialog } from '@/asset-cascade-dialog';
+import { Dialog, DialogTitle, DialogClose } from '@/ui/dialog';
+import { useConfirm } from '@/ui/confirm-provider';
+import type { Me } from '@/me';
+import type { FormState } from '@/asset-types';
+import { useAssetForm } from '@/use-asset-form';
 
 /**
  * Form thêm/sửa tài sản (FR-30) — dạng popup (sheet modal) cho cả Thêm và Sửa.

@@ -1,15 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { AssetsPage } from './assets';
-import { AssetForm } from './asset-form';
-import { EMPTY_FORM } from './asset-types';
-import type { Me } from './me';
+import { AssetsPage } from '@/assets';
+import { AssetForm } from '@/asset-form';
+import { EMPTY_FORM } from '@/asset-types';
+import type { Me } from '@/me';
 import {
   jsonResponse,
   renderWithI18n,
   screen,
   waitFor,
-} from './test/test-utils';
+} from '@/test/test-utils';
 
 const ME = { sub: 'sa', role: 'sa', csrfToken: null } as unknown as Me;
 

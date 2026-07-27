@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Combobox } from './combobox';
-import type { AssetRow, FormState } from './asset-types';
+import { Combobox } from '@/combobox';
+import type { AssetRow, FormState } from '@/asset-types';
 
 /**
  * Khối "Cài trên máy" (installedOn) của PHẦN MỀM — chọn/đổi/gỡ máy chủ. Tách khỏi asset-form (§6).

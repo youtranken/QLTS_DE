@@ -1,18 +1,18 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ColumnDef } from '@tanstack/react-table';
-import { RowActionsMenu } from './asset-row-actions';
-import type { RowAction } from './asset-row-actions';
-import { CodeCell, TypeCell } from './asset-cell';
-import type { ExpandMeta } from './ui/data-table';
+import { RowActionsMenu } from '@/asset-row-actions';
+import type { RowAction } from '@/asset-row-actions';
+import { CodeCell, TypeCell } from '@/asset-cell';
+import type { ExpandMeta } from '@/ui/data-table';
 import {
   STATUS_BADGE,
   formatVnd,
   formatDmy,
   daysUntil,
   EXPIRY_SOON_DAYS,
-} from './asset-types';
-import type { AssetRow } from './asset-types';
+} from '@/asset-types';
+import type { AssetRow } from '@/asset-types';
 
 /** Header cột kèm tooltip hover — giải thích nhãn English cho người dùng Việt. */
 const th = (label: string, tip: string) => () =>

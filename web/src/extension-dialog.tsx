@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DateTimePicker } from './ui/date-time-picker';
-import { Dialog, DialogTitle, DialogDescription } from './ui/dialog';
-import type { Me } from './me';
+import { DateTimePicker } from '@/ui/date-time-picker';
+import { Dialog, DialogTitle, DialogDescription } from '@/ui/dialog';
+import type { Me } from '@/me';
 
 /**
  * Dialog gia hạn dùng chung cho bảng "Máy đang mượn".

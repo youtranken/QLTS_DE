@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DateTimePicker } from './ui/date-time-picker';
-import type { Me } from './me';
-import type { FreeMachine, SessionRow } from './booking-types';
+import { DateTimePicker } from '@/ui/date-time-picker';
+import type { Me } from '@/me';
+import type { FreeMachine, SessionRow } from '@/booking-types';
 
 /** Admin đặt định kỳ hộ (7.5) — builder buổi + máy (theo buổi đầu) → recurring-for. */
 export function RecurringAdminBuilder({

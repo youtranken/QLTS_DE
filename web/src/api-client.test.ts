@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { apiFetch, ApiError } from './api-client';
-import { jsonResponse } from './test/test-utils';
+import { apiFetch, ApiError } from '@/api-client';
+import { jsonResponse } from '@/test/test-utils';
 
 describe('apiFetch', () => {
   it('trả JSON khi ok', async () => {

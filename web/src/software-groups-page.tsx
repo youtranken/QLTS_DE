@@ -1,26 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiFetch } from './api-client';
-import { downloadFile } from './download-file';
-import { AssetForm } from './asset-form';
-import { RowActionsMenu } from './asset-row-actions';
-import { SoftwareTransferDialog } from './software-transfer-dialog';
-import { useQuickImport, QuickImportSlot } from './import-page';
-import { SoftwareSeatList } from './software-seat-list';
-import { ConfirmDialog } from './confirm-dialog';
-import { DatePicker } from './ui/date-picker';
-import { Select } from './ui/select';
-import { detachSeat, disposeSeat } from './software-seat-ops';
+import { apiFetch } from '@/api-client';
+import { downloadFile } from '@/download-file';
+import { AssetForm } from '@/asset-form';
+import { RowActionsMenu } from '@/asset-row-actions';
+import { SoftwareTransferDialog } from '@/software-transfer-dialog';
+import { useQuickImport, QuickImportSlot } from '@/import-page';
+import { SoftwareSeatList } from '@/software-seat-list';
+import { ConfirmDialog } from '@/confirm-dialog';
+import { DatePicker } from '@/ui/date-picker';
+import { Select } from '@/ui/select';
+import { detachSeat, disposeSeat } from '@/software-seat-ops';
 import {
   EMPTY_FORM,
   detailToForm,
   formatDmy,
   daysUntil,
   EXPIRY_SOON_DAYS,
-} from './asset-types';
-import type { AssetDetail, AssetRow, FormState } from './asset-types';
-import type { Me } from './me';
+} from '@/asset-types';
+import type { AssetDetail, AssetRow, FormState } from '@/asset-types';
+import type { Me } from '@/me';
 
 /** 1 dòng = 1 tên license (nhiều bản/seat gộp lại) — đếm bản/đã gắn/còn dư/sắp hết hạn. */
 interface LicenseGroup {

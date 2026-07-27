@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatVnd, parseVnd } from './asset-types';
-import type { FormState } from './asset-types';
-import { DatePicker } from './ui/date-picker';
-import { Select } from './ui/select';
+import { formatVnd, parseVnd } from '@/asset-types';
+import type { FormState } from '@/asset-types';
+import { DatePicker } from '@/ui/date-picker';
+import { Select } from '@/ui/select';
 
 /**
  * Khối "Thông tin chung" (máy + trường license phần mềm) tách khỏi asset-form (§6).

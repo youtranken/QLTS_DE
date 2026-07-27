@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { DatePicker } from './ui/date-picker';
-import { TimeField } from './time-field';
-import { PICKUP_SLOTS, nowTimeLocal, todayLocal } from './booking-types';
+import { DatePicker } from '@/ui/date-picker';
+import { TimeField } from '@/time-field';
+import { PICKUP_SLOTS, nowTimeLocal, todayLocal } from '@/booking-types';
 
 /**
  * Khối chọn THỜI GIAN của popup Đặt máy (Thường/Nâng cao): 4 ô Ngày/Giờ nhận-trả,

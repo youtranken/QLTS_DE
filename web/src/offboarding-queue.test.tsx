@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { OffboardingQueuePage } from './offboarding-queue';
+import { OffboardingQueuePage } from '@/offboarding-queue';
 import {
   jsonResponse,
   renderWithI18n,
   screen,
   userEvent,
   waitFor,
-} from './test/test-utils';
+} from '@/test/test-utils';
 
 const LOAD_ERROR = 'Không tải được dữ liệu — thử lại.';
 const OK_BODY = { total: 0, alerts: [], needsMatch: [] };

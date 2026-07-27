@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Dialog, DialogTitle, DialogDescription, DialogClose } from './ui/dialog';
+import { Dialog, DialogTitle, DialogDescription, DialogClose } from '@/ui/dialog';
 
 /**
  * Hộp thoại xác nhận dùng chung — thay window.confirm cho các thao tác nguy hiểm

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ConfirmDialog } from '../confirm-dialog';
+import { ConfirmDialog } from '@/confirm-dialog';
 
 /**
  * Thay window.confirm bằng ConfirmDialog (Radix) qua một API async dùng chung:

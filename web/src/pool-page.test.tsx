@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { PoolPage } from './pool-page';
-import type { Me } from './me';
+import { PoolPage } from '@/pool-page';
+import type { Me } from '@/me';
 import {
   jsonResponse,
   renderWithI18n,
   screen,
-} from './test/test-utils';
+} from '@/test/test-utils';
 
 const ME = { sub: 'admin', role: 'admin', csrfToken: null } as unknown as Me;
 

@@ -1,4 +1,4 @@
-import type { AssetDetail } from './asset-types';
+import type { AssetDetail } from '@/asset-types';
 
 /**
  * Thao tác 1 bản (seat) phần mềm KHÔNG dính React — dùng ở /phan-mem (expand) + nơi khác.

@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { CatalogPage } from './catalog-page';
-import type { Me } from './me';
+import { CatalogPage } from '@/catalog-page';
+import type { Me } from '@/me';
 import {
   jsonResponse,
   renderWithI18n,
   screen,
   userEvent,
-} from './test/test-utils';
+} from '@/test/test-utils';
 
 const ME = { sub: 'sa', role: 'sa', csrfToken: null } as unknown as Me;
 

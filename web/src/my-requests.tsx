@@ -1,9 +1,9 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MemberRecurringSessions } from './member-recurring-sessions';
-import { DateTimePicker } from './ui/date-time-picker';
-import { ConfirmDialog } from './confirm-dialog';
-import type { Me } from './me';
+import { MemberRecurringSessions } from '@/member-recurring-sessions';
+import { DateTimePicker } from '@/ui/date-time-picker';
+import { ConfirmDialog } from '@/confirm-dialog';
+import type { Me } from '@/me';
 
 interface MyTicket {
   id: string;

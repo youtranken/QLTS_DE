@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fetchJson } from './fetch-json';
-import { jsonResponse } from './test/test-utils';
+import { fetchJson } from '@/fetch-json';
+import { jsonResponse } from '@/test/test-utils';
 
 describe('fetchJson', () => {
   it('trả JSON đã parse khi response ok', async () => {

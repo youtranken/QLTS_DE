@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { ChatbotPopup } from './chatbot-popup';
-import type { Me } from '../me';
+import { ChatbotPopup } from '@/chatbot/chatbot-popup';
+import type { Me } from '@/me';
 import {
   jsonResponse,
   renderWithI18n,
   screen,
   userEvent,
-} from '../test/test-utils';
+} from '@/test/test-utils';
 
 const ME = {
   sub: 'u1',

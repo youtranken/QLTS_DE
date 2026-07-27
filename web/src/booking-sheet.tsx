@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RecurringBuilder } from './recurring-builder';
-import { RecurringAdminBuilder } from './recurring-admin-builder';
-import { BookingTimeFields } from './booking-time-fields';
-import { BookingTopRow } from './booking-top-row';
-import { Dialog, DialogTitle, DialogClose } from './ui/dialog';
-import type { Me } from './me';
+import { RecurringBuilder } from '@/recurring-builder';
+import { RecurringAdminBuilder } from '@/recurring-admin-builder';
+import { BookingTimeFields } from '@/booking-time-fields';
+import { BookingTopRow } from '@/booking-top-row';
+import { Dialog, DialogTitle, DialogClose } from '@/ui/dialog';
+import type { Me } from '@/me';
 import {
   DEFAULT_WORK_HOURS,
   isBlockedDay,
@@ -14,7 +14,7 @@ import {
   type FreeMachine,
   type Mode,
   type UserOption,
-} from './booking-types';
+} from '@/booking-types';
 
 /**
  * Popup Đặt máy (7.5) — loại mượn gate theo quyền (Thường/Nâng cao/Định kỳ); admin tạo hộ.

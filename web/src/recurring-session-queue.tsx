@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useConfirm } from './ui/confirm-provider';
-import type { Me } from './me';
+import { useConfirm } from '@/ui/confirm-provider';
+import type { Me } from '@/me';
 
 interface SessionRow {
   id: string;
