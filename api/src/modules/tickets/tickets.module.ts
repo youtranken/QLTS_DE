@@ -14,6 +14,7 @@ import { RecurringLifecycleService } from './recurring-lifecycle.service';
 import { RecurringService } from './recurring.service';
 import { TicketsService } from './tickets.service';
 import { TicketsLifecycleService } from './tickets-lifecycle.service';
+import { TicketsReadService } from './tickets-read.service';
 import { TicketsSweepRegistrar } from './tickets-sweep.registrar';
 
 /**
@@ -33,6 +34,7 @@ import { TicketsSweepRegistrar } from './tickets-sweep.registrar';
   providers: [
     TicketsService,
     TicketsLifecycleService,
+    TicketsReadService,
     ExtensionService,
     RecurringService,
     RecurringLifecycleService,
