@@ -7,7 +7,7 @@ export default {
     systemError: 'The system is having trouble — please try again.',
     retry: 'Retry',
     loginPrompt: 'Enter your company email to continue.',
-    loginIdPlaceholder: 'Email or account',
+    loginIdPlaceholder: 'Company email',
     loginPasswordPrompt: 'Enter your password to sign in.',
     loginBack: 'Back',
     loginSub: 'PMH Asset Management',

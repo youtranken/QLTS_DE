@@ -7,7 +7,7 @@ export default {
     systemError: 'Hệ thống đang gặp sự cố — vui lòng thử lại.',
     retry: 'Thử lại',
     loginPrompt: 'Nhập email công ty để tiếp tục.',
-    loginIdPlaceholder: 'Email hoặc tài khoản',
+    loginIdPlaceholder: 'Email công ty',
     loginPasswordPrompt: 'Nhập mật khẩu để đăng nhập.',
     loginBack: 'Quay lại',
     loginSub: 'Quản lý tài sản PMH',
