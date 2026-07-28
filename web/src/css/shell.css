@@ -144,9 +144,10 @@
 .sb-act {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  /* Gọn hơn (khớp QLHS ~9×10px): icon + chữ trái, badge đẩy phải bằng margin-auto. */
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--r-sm);
   border: 1px solid transparent;
   background: transparent;
@@ -183,6 +184,14 @@
   background: rgba(255, 255, 255, 0.12);
   color: var(--sidebar-ink-2);
 }
+/* Icon menu tài khoản: không co, hơi mờ để chữ nổi hơn. Badge đẩy sát phải trong nút. */
+.sb-ico {
+  flex: none;
+  opacity: 0.8;
+}
+.sb-act .sb-badge {
+  margin-left: auto;
+}
 .sb-who {
   display: flex;
   flex-direction: column;
@@ -198,6 +207,19 @@
 .sb-who span {
   color: var(--sidebar-label);
   font-size: var(--fs-2xs);
+}
+/* Avatar 2 chữ — hiện ở cả rail thu gọn (bấm để bung sidebar) lẫn khi mở rộng. */
+.sb-av {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--sidebar-ink-2);
 }
 
 /* Rail thu gọn (desktop): ẩn nhãn/badge/label, canh giữa icon. */
@@ -224,9 +246,14 @@
   padding-left: 0;
   padding-right: 0;
 }
-/* Rail: footer chỉ còn nút thu gọn (tên + hành động ẩn theo .lbl). */
+/* Rail: footer chỉ còn AVATAR user (tên/hành động ẩn theo .lbl); bấm avatar → bung sidebar. */
 .app-shell.collapsed .sb-user {
   justify-content: center;
+}
+.app-shell.collapsed .sb-userbtn {
+  flex: none;
+  justify-content: center;
+  padding: var(--space-2);
 }
 
 /* Không còn header: nút nổi mở drawer trên mobile (desktop luôn hiện sidebar). */

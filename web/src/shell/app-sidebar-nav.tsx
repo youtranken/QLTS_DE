@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 import { navGroups, type NavItem } from '@/shell/app-nav';
@@ -11,6 +12,52 @@ import type { Me } from '@/lib/me';
 const ProfileDialog = lazy(() =>
   import('@/features/profile/profile-dialog').then((m) => ({ default: m.ProfileDialog })),
 );
+
+// Icon menu tài khoản (inline SVG — QLTS không dùng thư viện icon). 16px, stroke currentColor.
+function SbIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      className="sb-ico"
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      {children}
+    </svg>
+  );
+}
+const IconUser = () => (
+  <SbIcon>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 20c0-4 3.6-6 8-6s8 2 8 6" />
+  </SbIcon>
+);
+const IconGlobe = () => (
+  <SbIcon>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18" />
+  </SbIcon>
+);
+const IconLogout = () => (
+  <SbIcon>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="M16 17l5-5-5-5M21 12H9" />
+  </SbIcon>
+);
+
+// 2 chữ cái đầu cho avatar (rail thu gọn vẫn nhận ra user). "Nguyễn Văn An" → "NA".
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 /** Mọi đích điều hướng (kể cả mục con của dropdown) — để tính "prefix dài nhất thắng". */
 function allTargets(items: NavItem[]): string[] {
@@ -133,26 +180,31 @@ export function SidebarNav({
       ))}
       <div className="sb-foot" ref={footRef}>
         <div className="sb-user">
+          {/* Rail thu gọn: ẩn nút hamburger — avatar user kiêm luôn nút mở rộng (QLHS). */}
+          {!collapsed && (
+            <button
+              type="button"
+              className="sb-collapse"
+              aria-label={t('app.toggleNav', 'Thu gọn menu')}
+              title={t('app.toggleNav', 'Thu gọn menu')}
+              onClick={onToggleCollapse}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+            </button>
+          )}
+          {/* Thu gọn: bấm avatar → BUNG sidebar (không mở menu). Mở rộng: bấm → menu tài khoản. */}
           <button
             type="button"
-            className="sb-collapse"
-            aria-label={t('app.toggleNav', 'Thu gọn menu')}
-            title={collapsed ? t('app.expandNav', 'Mở rộng') : t('app.toggleNav', 'Thu gọn menu')}
-            onClick={onToggleCollapse}
+            className="sb-userbtn"
+            aria-haspopup={collapsed ? undefined : 'menu'}
+            aria-expanded={collapsed ? undefined : menuOpen}
+            title={collapsed ? t('app.expandNav', 'Mở rộng') : t('app.accountMenu', 'Tài khoản')}
+            onClick={() => (collapsed ? onToggleCollapse() : setMenuOpen((v) => !v))}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M4 7h16M4 12h16M4 17h16" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="sb-userbtn lbl"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            title={t('app.accountMenu', 'Tài khoản')}
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <span className="sb-who">
+            <span className="sb-av" aria-hidden>{initials(me.fullName ?? me.sub)}</span>
+            <span className="sb-who lbl">
               <b>{me.fullName ?? me.sub}</b>
               <span>{isAdmin ? t('nav.roleAdmin', 'Quản trị viên') : t('nav.roleMember', 'Thành viên')}</span>
             </span>
@@ -168,6 +220,7 @@ export function SidebarNav({
               onNavigate();
             }}
           >
+            <IconUser />
             {t('profile.myProfile', 'Hồ sơ')}
           </button>
           <div className="sb-act-row">
@@ -176,6 +229,7 @@ export function SidebarNav({
               className="sb-act"
               onClick={() => void i18n.changeLanguage(isVi ? 'en' : 'vi')}
             >
+              <IconGlobe />
               {t('app.language', 'Ngôn ngữ')}
               <span className="sb-badge">{isVi ? 'EN' : 'VI'}</span>
             </button>
@@ -189,6 +243,7 @@ export function SidebarNav({
               onLogout();
             }}
           >
+            <IconLogout />
             {t('app.logout')}
           </button>
         </div>

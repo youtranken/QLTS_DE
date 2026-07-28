@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Me } from '@/lib/me';
+import { useConfirm } from '@/ui/confirm-provider';
 import { useChatbot } from '@/chatbot/use-chatbot';
 import { Mascot } from '@/chatbot/mascot';
 import { ChatMessageList } from '@/chatbot/chat-message-list';
@@ -27,6 +28,7 @@ export function ChatbotPopup({ me }: { me: Me }) {
   const loadedRef = useRef(false);
   const navigate = useNavigate();
   const chat = useChatbot(me.csrfToken, me.fullName ?? undefined);
+  const askConfirm = useConfirm();
 
   const openChat = useCallback(() => {
     setOpen(true);
@@ -109,8 +111,14 @@ export function ChatbotPopup({ me }: { me: Me }) {
     });
   };
 
-  const clearChat = () => {
-    if (window.confirm('Xoá toàn bộ đoạn chat này?')) {
+  const clearChat = async () => {
+    const ok = await askConfirm({
+      title: 'Xoá đoạn chat',
+      message: 'Xoá toàn bộ đoạn chat này? Không thể hoàn tác.',
+      confirmLabel: 'Xoá',
+      danger: true,
+    });
+    if (ok) {
       setStep(null);
       void chat.clearChat();
     }
