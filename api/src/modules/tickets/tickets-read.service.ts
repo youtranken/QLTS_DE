@@ -344,33 +344,43 @@ export class TicketsReadService {
       extension_count: number;
       has_pending_extension: boolean;
     }>(sql`
-      SELECT t.id AS ticket_id, a.code AS asset_code, a.type,
-        u.full_name AS borrower_name,
-        lower(b.period) AS from_ts, upper(b.period) AS due_ts,
-        t.state, t.is_overdue,
-        (t.borrower_sub = ${callerSub}) AS is_mine,
-        -- Note do member tự nhập là RIÊNG TƯ: chỉ chủ ticket thấy, không public trên board
-        -- (AD-5 read-model công khai chỉ tên+máy+khung giờ; review P0 3.1).
-        CASE WHEN t.borrower_sub = ${callerSub} THEN b.note END AS note,
-        CASE WHEN t.kind = 'recurring'
-          THEN (SELECT count(*)::int FROM booking bb
-                WHERE bb.ticket_id = t.id AND bb.kind = 'recurring')
-          END AS recurring_count,
-        -- Gia hạn (Epic 4): version cho optimistic lock member, kind để ẩn ở buổi định kỳ,
-        -- đếm lần đã dùng + cờ đang có yêu cầu treo (ẩn nút xin ở member).
-        t.version, t.kind, t.extension_count,
-        EXISTS (SELECT 1 FROM booking be
-          WHERE be.ticket_id = t.id AND be.kind = 'extension' AND be.state = 'held')
-          AS has_pending_extension
-      FROM ticket t
-      JOIN booking b ON b.ticket_id = t.id
-      LEFT JOIN assets a ON a.id = b.asset_id
-      LEFT JOIN users u ON u.sub = t.borrower_sub
-      WHERE (t.state = 'in_use' AND b.state = 'delivered')
-         OR (t.borrower_sub = ${callerSub}
-             AND ((t.state = 'awaiting_pickup' AND b.state = 'pending')
-                  OR (t.state = 'pending_approval' AND b.state = 'held')))
-      ORDER BY t.is_overdue DESC, (t.state = 'in_use') DESC, upper(b.period) ASC
+      SELECT ticket_id, asset_code, type, borrower_name, from_ts, due_ts,
+        state, is_overdue, is_mine, note, recurring_count, version, kind,
+        extension_count, has_pending_extension
+      FROM (
+        -- DISTINCT ON (t.id): chuỗi định kỳ = 1 ticket nhiều buổi cùng state (N held/pending/
+        -- delivered) → gộp về 1 dòng/ticket (buổi có due sớm nhất), như listOverdue/listQueue.
+        -- Thiếu bước này → board nhân N dòng cùng ticketId, FE key trùng (review FL-4).
+        SELECT DISTINCT ON (t.id)
+          t.id AS ticket_id, a.code AS asset_code, a.type AS type,
+          u.full_name AS borrower_name,
+          lower(b.period) AS from_ts, upper(b.period) AS due_ts,
+          t.state AS state, t.is_overdue AS is_overdue,
+          (t.borrower_sub = ${callerSub}) AS is_mine,
+          -- Note do member tự nhập là RIÊNG TƯ: chỉ chủ ticket thấy, không public trên board
+          -- (AD-5 read-model công khai chỉ tên+máy+khung giờ; review P0 3.1).
+          CASE WHEN t.borrower_sub = ${callerSub} THEN b.note END AS note,
+          CASE WHEN t.kind = 'recurring'
+            THEN (SELECT count(*)::int FROM booking bb
+                  WHERE bb.ticket_id = t.id AND bb.kind = 'recurring')
+            END AS recurring_count,
+          -- Gia hạn (Epic 4): version cho optimistic lock member, kind để ẩn ở buổi định kỳ,
+          -- đếm lần đã dùng + cờ đang có yêu cầu treo (ẩn nút xin ở member).
+          t.version AS version, t.kind AS kind, t.extension_count AS extension_count,
+          EXISTS (SELECT 1 FROM booking be
+            WHERE be.ticket_id = t.id AND be.kind = 'extension' AND be.state = 'held')
+            AS has_pending_extension
+        FROM ticket t
+        JOIN booking b ON b.ticket_id = t.id
+        LEFT JOIN assets a ON a.id = b.asset_id
+        LEFT JOIN users u ON u.sub = t.borrower_sub
+        WHERE (t.state = 'in_use' AND b.state = 'delivered')
+           OR (t.borrower_sub = ${callerSub}
+               AND ((t.state = 'awaiting_pickup' AND b.state = 'pending')
+                    OR (t.state = 'pending_approval' AND b.state = 'held')))
+        ORDER BY t.id, upper(b.period) ASC
+      ) q
+      ORDER BY q.is_overdue DESC, (q.state = 'in_use') DESC, q.due_ts ASC
     `);
     return rows.rows.map((r) => ({
       ticketId: r.ticket_id,
@@ -457,14 +467,28 @@ export class TicketsReadService {
         overdue_minutes: number | null;
         photo_count: number;
       }>(sql`
-        SELECT t.id AS ticket_id, t.state, u.full_name AS borrower_name,
+        SELECT t.id AS ticket_id,
+          -- FL-3: chuỗi định kỳ = 1 ticket nhiều buổi → state/mốc/quá-hạn phải THEO BUỔI
+          -- (b.*), không lấy rollup cha (t.*) như trước (mọi buổi hiện state cha + NULL mốc).
+          -- Buổi thường (kind='normal') vẫn theo ticket cha.
+          CASE WHEN t.kind = 'recurring' THEN
+            CASE b.state
+              WHEN 'held' THEN 'pending_approval'
+              WHEN 'pending' THEN 'awaiting_pickup'
+              WHEN 'delivered' THEN 'in_use'
+              WHEN 'returned' THEN 'closed'
+              ELSE b.state END
+          ELSE t.state END AS state,
+          u.full_name AS borrower_name,
           lower(b.period) AS from_ts, upper(b.period) AS to_ts,
-          t.delivered_at, t.returned_at,
-          t.is_overdue,
+          CASE WHEN t.kind = 'recurring' THEN b.delivered_at ELSE t.delivered_at END AS delivered_at,
+          CASE WHEN t.kind = 'recurring' THEN b.returned_at ELSE t.returned_at END AS returned_at,
+          -- FL-9: quá hạn THEO BUỔI (buổi delivered & đã quá hạn), không theo cờ cha rollup
+          -- (trước đây buổi đã trả/tương lai của chuỗi quá hạn bị gắn cờ + phút âm/vô nghĩa).
+          (b.state = 'delivered' AND upper(b.period) < now()) AS is_overdue,
           -- UP-5.5: số ảnh biên bản của ticket → FE chỉ hiện nút "Xem ảnh" khi >0
           (SELECT count(*)::int FROM ticket_file tf WHERE tf.ticket_id = t.id) AS photo_count,
-          -- F9: cờ/thời lượng quá hạn cho tab Mượn-trả (3.8 Task 4)
-          CASE WHEN t.is_overdue THEN
+          CASE WHEN b.state = 'delivered' AND upper(b.period) < now() THEN
             EXTRACT(EPOCH FROM (now() - upper(b.period)))::int / 60
             ELSE NULL END AS overdue_minutes
         FROM booking b

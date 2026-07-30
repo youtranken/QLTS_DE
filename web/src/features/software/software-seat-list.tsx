@@ -110,6 +110,7 @@ export function SoftwareSeatList({
             <span>{t('assets.col.cost')}</span>
             <span>{t('assets.col.startDate')}</span>
             <span>{t('assets.col.endDate')}</span>
+            <span>{t('assets.contract', 'Contract')}</span>
             <span>{t('assets.col.note')}</span>
             <span aria-hidden="true" />
           </div>
@@ -149,6 +150,13 @@ export function SoftwareSeatList({
                 </div>
                 <div className="seat-date">{formatDmy(s.startDate)}</div>
                 <div className="seat-date">{endNode(s)}</div>
+                <div className="seat-note">
+                  {s.contract ? (
+                    <span title={s.contract}>{s.contract}</span>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </div>
                 <div className="seat-note">
                   {s.note ? (
                     <span title={s.note}>{s.note}</span>

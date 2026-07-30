@@ -12,18 +12,3 @@ export const filesTable = pgTable('files', {
     .notNull()
     .defaultNow(),
 });
-
-export const inventoryRoundsTable = pgTable('inventory_rounds', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  year: integer('year').notNull(),
-  note: text('note'),
-  createdBy: text('created_by').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
-export const inventoryRoundFilesTable = pgTable('inventory_round_files', {
-  roundId: uuid('round_id').notNull(),
-  fileId: uuid('file_id').notNull(),
-});

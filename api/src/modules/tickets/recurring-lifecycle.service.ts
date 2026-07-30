@@ -345,8 +345,12 @@ export class RecurringLifecycleService {
           message: 'Buổi không ở trạng thái phù hợp thao tác này.',
         });
       }
+      // FL-3: ghi mốc giao/trả THEO BUỔI (delivered_at/returned_at trên booking) để tab
+      // Mượn-trả hiện đúng mốc từng buổi thay vì mốc cha (NULL/sai). Giữ mốc còn lại.
       await tx.execute(sql`
-        UPDATE booking SET state = ${toState}, version = version + 1, updated_at = now()
+        UPDATE booking SET state = ${toState}, version = version + 1, updated_at = now(),
+          delivered_at = CASE WHEN ${phase} = 'deliver' THEN now() ELSE delivered_at END,
+          returned_at = CASE WHEN ${phase} = 'return' THEN now() ELSE returned_at END
         WHERE id = ${bookingId}
       `);
       await this.attachArtifacts(

@@ -452,7 +452,7 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
                               <span className="rng">
                                 {days[b.startDay]?.d}
                                 {b.span > 1
-                                  ? ` → ${days[Math.min(6, b.startDay + b.span - 1)]?.d}`
+                                  ? ` → ${days[Math.min(days.length - 1, b.startDay + b.span - 1)]?.d}`
                                   : ''}
                               </span>
                               <span className={`badge ${b.type === 'pending' ? 'warn' : 'ok'}`}>

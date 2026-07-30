@@ -86,6 +86,10 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0041_config_max_booking_duration.sql',
       '0042_chat_history.sql',
       '0043_chat_unique_sub_and_payload.sql',
+      '0044_catalog_add_license_name.sql',
+      '0045_assets_contract.sql',
+      '0046_config_asset_lifespan_years.sql',
+      '0047_booking_session_handover_ts.sql',
     ]);
   });
 
@@ -108,9 +112,11 @@ describe('Migrations + seed config (Postgres thật)', () => {
     const byKey = Object.fromEntries(
       res.rows.map((r: { key: string; value: unknown }) => [r.key, r.value]),
     );
-    expect(res.rowCount).toBe(10);
+    expect(res.rowCount).toBe(11);
     expect(byKey).toEqual({
       booking_window_days: 30,
+      // 0046: tuổi thọ máy (năm) cho cảnh báo EOL/thanh lý
+      asset_lifespan_years: 8,
       active_ticket_quota: 2,
       extension_days_per_grant: 2,
       extension_max_grants: 3,
@@ -138,7 +144,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
     });
     expect(appliedAgain).toEqual([]);
     const res = await pool.query('SELECT count(*)::int AS n FROM config');
-    expect(res.rows[0].n).toBe(10);
+    expect(res.rows[0].n).toBe(11);
   });
 
   it('migration đã apply bị sửa nội dung (checksum lệch) → fail to, không im lặng', async () => {

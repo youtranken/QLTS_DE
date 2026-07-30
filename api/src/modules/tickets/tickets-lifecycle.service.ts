@@ -6,6 +6,7 @@ import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
 import { OutboxService } from '../outbox/outbox.service';
 import { AssetsService } from '../assets/assets.service';
+import { deriveParentState } from './derive-parent-state';
 
 /**
  * Vòng đời máy cascade (3.10, AD-1 Tickets→Assets): mở tx, gọi AssetsService đổi trạng thái
@@ -166,8 +167,8 @@ export class TicketsLifecycleService {
     `);
     let count = 0;
     for (const { ticket_id } of tickets.rows) {
-      await tx.execute(
-        sql`SELECT 1 FROM ticket WHERE id = ${ticket_id} FOR UPDATE`,
+      const locked = await tx.execute<{ kind: string }>(
+        sql`SELECT kind FROM ticket WHERE id = ${ticket_id} FOR UPDATE`,
       );
       const cancelled = await tx.execute<{ id: string }>(sql`
         UPDATE booking SET state = 'cancelled', version = version + 1, updated_at = now()
@@ -177,12 +178,17 @@ export class TicketsLifecycleService {
         RETURNING id
       `);
       if (cancelled.rows.length === 0) continue;
-      // ticket normal (1 booking) → cancelled. (Recurring Epic 4: cần deriveParentState.)
-      await tx.execute(sql`
-        UPDATE ticket SET state = 'cancelled', version = version + 1, updated_at = now()
-        WHERE id = ${ticket_id}
-          AND state IN ('pending_approval', 'awaiting_pickup')
-      `);
+      // Recurring: suy state cha từ các buổi còn lại (buổi đã returned → 'closed' + closed_at,
+      // đừng ép 'cancelled' làm sót báo cáo 6.1). Normal (1 booking) → 'cancelled' trực tiếp.
+      if (locked.rows[0]?.kind === 'recurring') {
+        await deriveParentState(tx, ticket_id);
+      } else {
+        await tx.execute(sql`
+          UPDATE ticket SET state = 'cancelled', version = version + 1, updated_at = now()
+          WHERE id = ${ticket_id}
+            AND state IN ('pending_approval', 'awaiting_pickup')
+        `);
+      }
       for (const b of cancelled.rows) {
         // 3.13: chỉ enqueue mail khi Admin tick "báo user"; audit ghi VÔ ĐIỀU KIỆN (audit ≠ mail).
         if (notify) {

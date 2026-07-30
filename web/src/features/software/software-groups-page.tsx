@@ -464,6 +464,19 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
                               icon: 'view',
                               onClick: () => void toggle(g.licenseName),
                             },
+                            {
+                              // "Mua thêm bản" cho license có sẵn: mở AssetForm chế độ thêm bản với
+                              // tên + loại license điền sẵn (khóa tên qua initial) → tạo N bản mới.
+                              label: t('software.addSeat'),
+                              icon: 'edit',
+                              onClick: () =>
+                                setForm({
+                                  ...EMPTY_FORM,
+                                  isSoftware: true,
+                                  licenseName: g.licenseName,
+                                  licenseType: g.licenseType ?? '',
+                                }),
+                            },
                           ]}
                         />
                       </div>

@@ -210,6 +210,7 @@ export class ExtensionService {
     version: number,
     actorSub: string,
   ): Promise<{ id: string; state: string }> {
+    const maxDurationHours = await this.config.getMaxBookingDurationHours();
     try {
       return await this.db.transaction(async (tx) => {
         const ref = await tx.execute<{ ticket_id: string }>(sql`
@@ -272,6 +273,14 @@ export class ExtensionService {
             message: 'Ticket không còn booking đang mượn.',
           });
         }
+        // Trần thời lượng (audit H-2): duyệt gia hạn cũng ghi thẳng period như adminExtend —
+        // requestExtension chỉ chặn số ngày MỖI lần, cộng dồn nhiều lần vẫn có thể vượt trần
+        // giam máy vô hạn nếu không chặn ở đây.
+        assertBookingDuration(
+          new Date(orig.rows[0].from_ts),
+          new Date(e.new_due),
+          maxDurationHours,
+        );
         await tx.execute(sql`
           UPDATE booking SET state = 'cancelled', result = 'approved',
             version = version + 1, updated_at = now()

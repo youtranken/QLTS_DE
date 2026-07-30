@@ -66,11 +66,13 @@ export function useChatbot(csrfToken: string | null, userName?: string) {
           method: 'POST',
           body: JSON.stringify({
             ...body,
-            conversationId: convId.current ?? undefined,
+            // '' (BE trả khi ensureConversation lỗi ở tin đầu) KHÔNG được gửi lại → @IsUUID
+            // reject 400 kẹt mọi tin sau; coi rỗng như "chưa có hội thoại".
+            conversationId: convId.current || undefined,
           }),
           csrfToken,
         });
-        convId.current = r.conversationId;
+        convId.current = r.conversationId || null;
         push({
           role: 'assistant',
           text: r.reply,

@@ -28,16 +28,22 @@ export function useAssetSave(ctx: {
       const detailRes = await fetch(
         `/api/admin/assets/${encodeURIComponent(softwareId)}`,
       );
-      if (!detailRes.ok) return;
+      // Ném lỗi (không return im lặng) để caller .catch → failed++; nếu không, transfer 409
+      // (STALE_VERSION/seat đã bị máy khác chiếm) sẽ bị báo THÀNH CÔNG dù chưa gắn.
+      if (!detailRes.ok) throw new Error('detail_fetch_failed');
       const sw = (await detailRes.json()) as AssetDetail;
-      await fetch(`/api/admin/assets/${encodeURIComponent(softwareId)}/transfer`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+      const res = await fetch(
+        `/api/admin/assets/${encodeURIComponent(softwareId)}/transfer`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+          },
+          body: JSON.stringify({ targetAssetId: machineId, version: sw.version }),
         },
-        body: JSON.stringify({ targetAssetId: machineId, version: sw.version }),
-      });
+      );
+      if (!res.ok) throw new Error('transfer_failed');
     },
     [csrfToken],
   );
@@ -64,6 +70,7 @@ export function useAssetSave(ctx: {
           ? null
           : form.endDate || null,
       note: form.note || null,
+      contract: form.contract || null,
       serial: form.serial || null,
       // Place (vị trí) — chỉ máy; phần mềm không gửi.
       floor: form.isSoftware ? null : form.floor || null,
@@ -102,6 +109,7 @@ export function useAssetSave(ctx: {
           endDate: form.licenseType === 'perpetual' ? null : s.endDate || null,
           cost: s.cost === '' ? null : Number(s.cost),
           note: s.note || null,
+          contract: s.contract || null,
         };
         const ok = await fetch('/api/admin/assets', {
           method: 'POST',

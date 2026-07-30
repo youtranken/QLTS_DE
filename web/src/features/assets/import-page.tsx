@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Dialog, DialogClose, DialogTitle } from '@/ui/dialog';
 import type { Me } from '@/lib/me';
 
 interface PreviewRow {
@@ -279,51 +278,6 @@ export function ImportPage({ me }: { me: Me }) {
       </div>
       <ImportPanel me={me} />
     </>
-  );
-}
-
-/** Popup Import — mở từ nút Import ở sổ tài sản / phần mềm (không rời trang). */
-export function ImportDialog({
-  me,
-  kind = 'assets',
-  onClose,
-  onCommitted,
-}: {
-  me: Me;
-  kind?: ImportKind;
-  onClose: () => void;
-  onCommitted?: () => void;
-}) {
-  const { t } = useTranslation();
-  const title =
-    kind === 'software'
-      ? t('importx.titleSoftware', 'Import phần mềm')
-      : t('importx.title');
-  return (
-    <Dialog
-      open
-      onOpenChange={(o) => !o && onClose()}
-      className="sheet sheet-wide"
-      maxWidth={900}
-    >
-      <div className="sheet-header">
-        <DialogTitle className="sheet-title">{title}</DialogTitle>
-        <span className="spacer" />
-        <DialogClose asChild>
-          <button
-            type="button"
-            className="sheet-close"
-            aria-label={t('app.close', 'Đóng')}
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </DialogClose>
-      </div>
-      <div className="sheet-body">
-        <ImportPanel me={me} kind={kind} onCommitted={onCommitted} />
-      </div>
-    </Dialog>
   );
 }
 

@@ -288,6 +288,23 @@ export class ChatbotService {
         );
         return { reply, source: 'gemini' };
       }
+      case 'eol_alerts': {
+        const data = await this.tools.eolAlerts(identity);
+        if (!data) {
+          return {
+            reply: 'Cảnh báo EOL (thanh lý / hết hạn) chỉ admin xem được.',
+            source: 'gemini',
+          };
+        }
+        const reply = await this.compose(
+          message,
+          call,
+          data,
+          identity,
+          `Có ${data.soMayCanThanhLy} máy sắp/đã hết hạn cần thanh lý và ${data.soLicenseSapHetHan} license sắp/đã hết hạn. Bạn vào mục "Cảnh báo EOL" để xử lý.`,
+        );
+        return { reply, source: 'gemini' };
+      }
       case 'get_asset': {
         const code =
           typeof call.args.code === 'string' ? call.args.code.trim() : '';

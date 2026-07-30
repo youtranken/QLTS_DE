@@ -4,6 +4,7 @@ import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AssetsService } from '../assets/assets.service';
 import { AssetSoftwareService } from '../assets/asset-software.service';
+import { EolService } from '../assets/eol.service';
 import { BookingService } from '../booking/booking.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { ExtensionService } from '../tickets/extension.service';
@@ -38,7 +39,36 @@ export class ChatbotToolsService {
     private readonly tickets: TicketsService,
     private readonly extension: ExtensionService,
     private readonly software: AssetSoftwareService,
+    private readonly eol: EolService,
   ) {}
+
+  /** Cảnh báo EOL: máy đủ tuổi thọ nên thanh lý + license term sắp/đã hết hạn. Admin only. */
+  async eolAlerts(identity: Identity) {
+    if (!(identity.role === 'admin' || identity.role === 'sa')) return null;
+    const { lifespanYears, warningDays, machines, software } =
+      await this.eol.list();
+    return {
+      thoiHanSuDungNam: lifespanYears,
+      cuaSoCanhBaoNgay: warningDays,
+      soMayCanThanhLy: machines.length,
+      soLicenseSapHetHan: software.length,
+      may: machines.slice(0, COMPOSE_CAP).map((m) => ({
+        ma: m.code,
+        loai: m.type,
+        tuoi: m.ageYears,
+        ngayEol: m.eolDate,
+        conLaiNgay: m.daysToEol,
+        nguoiGiu: m.assignedUserName,
+      })),
+      license: software.slice(0, COMPOSE_CAP).map((s) => ({
+        ten: s.licenseName,
+        caiTrenMay: s.installedOnCode,
+        ngayHetHan: s.endDate,
+        conLaiNgay: s.daysLeft,
+        nguoiGiu: s.assignedUserName,
+      })),
+    };
+  }
 
   /** #3 Phần mềm/license: theo tên license (số bản total/gắn/trống/sắp hết hạn). Admin only. */
   async softwareInfo(identity: Identity, name?: string) {

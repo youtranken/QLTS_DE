@@ -37,10 +37,6 @@ export const OCCUPYING_STATES = [
   'delivered',
 ] as const satisfies readonly BookingState[];
 
-export function isOccupying(state: BookingState): boolean {
-  return (OCCUPYING_STATES as readonly string[]).includes(state);
-}
-
 /**
  * AD-4/FR-7 — "ticket active" (đếm quota): giữ chỗ/chờ giao/đang mượn.
  * MỘT nguồn — mọi chỗ đếm quota import đây, không tự liệt kê lại.
@@ -72,16 +68,6 @@ export const BOOKING_SESSION_LABELS_VI: Record<BookingState, string> = {
   delivered: 'Đang mượn',
   returned: 'Đã trả',
   cancelled: 'Đã hủy',
-};
-
-/** Bảng ánh xạ AD-16: ticket.state → booking.state tương ứng của luồng thuận. */
-export const TICKET_TO_BOOKING_STATE: Record<TicketState, BookingState> = {
-  pending_approval: 'held',
-  awaiting_pickup: 'pending',
-  in_use: 'delivered',
-  closed: 'returned', // no-show: booking 'cancelled' — xử riêng theo close_reason (AD-16)
-  rejected: 'cancelled',
-  cancelled: 'cancelled',
 };
 
 /**

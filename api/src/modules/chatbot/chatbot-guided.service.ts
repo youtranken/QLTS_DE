@@ -91,6 +91,47 @@ export class ChatbotGuidedService {
         };
       }
 
+      case 'eol_alerts': {
+        const data = await this.tools.eolAlerts(identity);
+        if (!data) {
+          return {
+            reply: 'Chỉ admin mới xem được cảnh báo EOL (thanh lý/hết hạn).',
+            source: 'guided',
+          };
+        }
+        if (!data.soMayCanThanhLy && !data.soLicenseSapHetHan) {
+          return {
+            reply: 'Hiện không có máy hay license nào sắp/đã hết hạn. 👍',
+            source: 'guided',
+          };
+        }
+        const daysLabel = (n: number) =>
+          n <= 0 ? `quá hạn ${Math.abs(n)} ngày` : `còn ${n} ngày`;
+        const parts: string[] = [];
+        if (data.soMayCanThanhLy) {
+          const top = data.may
+            .slice(0, 5)
+            .map((m) => `${m.ma ?? '—'} (${daysLabel(m.conLaiNgay)})`)
+            .join(', ');
+          parts.push(
+            `${data.soMayCanThanhLy} máy sắp/đã hết hạn: ${top}${data.soMayCanThanhLy > 5 ? '…' : ''}`,
+          );
+        }
+        if (data.soLicenseSapHetHan) {
+          const top = data.license
+            .slice(0, 5)
+            .map((s) => `${s.ten ?? '—'} (${daysLabel(s.conLaiNgay)})`)
+            .join(', ');
+          parts.push(
+            `${data.soLicenseSapHetHan} license sắp/đã hết hạn: ${top}${data.soLicenseSapHetHan > 5 ? '…' : ''}`,
+          );
+        }
+        return {
+          reply: `${parts.join('. ')}. Vào mục "Cảnh báo EOL" để chọn và thanh lý.`,
+          source: 'guided',
+        };
+      }
+
       case 'availability': {
         const { from, to, type } = toAvailabilityParams(action.params);
         const { cards, total } = await this.tools.checkAvailability(

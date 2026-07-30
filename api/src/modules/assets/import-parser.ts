@@ -162,7 +162,12 @@ function toIsoDate(y: number, mo: number, d: number): string | undefined {
 export function parseCostCell(value: unknown): number | null | undefined {
   if (value == null || value === '') return null;
   if (typeof value === 'number') {
-    return Number.isFinite(value) && value >= 0 ? Math.round(value) : undefined;
+    // isSafeInteger (khớp nhánh string dưới): chặn giá > 2^53 vừa mất chính xác vừa tràn
+    // bigint khi commit (Postgres 22003 → 500 + rollback cả file). undefined = dòng không hợp lệ.
+    const r = Math.round(value);
+    return Number.isFinite(value) && value >= 0 && Number.isSafeInteger(r)
+      ? r
+      : undefined;
   }
   if (typeof value !== 'string') return undefined;
   const s = value.trim();

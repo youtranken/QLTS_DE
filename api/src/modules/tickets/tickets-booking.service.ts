@@ -326,9 +326,10 @@ export class TicketsBookingService {
         borrower_sub: string;
         state: string;
         version: number;
+        kind: string;
         pickup_passed: boolean | null;
       }>(sql`
-        SELECT t.borrower_sub, t.state, t.version,
+        SELECT t.borrower_sub, t.state, t.version, t.kind,
           (SELECT min(lower(b.period)) < now() FROM booking b
              WHERE b.ticket_id = t.id
                AND b.state IN (${sql.join(
@@ -355,6 +356,16 @@ export class TicketsBookingService {
         throw new ConflictException({
           code: 'STALE_VERSION',
           message: 'Request vừa được cập nhật — vui lòng tải lại.',
+        });
+      }
+      // Chuỗi định kỳ = 1 ticket cha nhiều buổi: hủy cả cụm ở đây sẽ ghi thẳng 'cancelled'
+      // bỏ qua deriveParentState (buổi đã returned phải ra 'closed'). Member hủy từng buổi
+      // qua chức năng chuỗi (4.6) — chặn như adminForceCancel để giữ bất biến cha (AD-4).
+      if (t.kind !== 'normal') {
+        throw new ConflictException({
+          code: 'IS_RECURRING',
+          message:
+            'Chuỗi định kỳ phải hủy qua chức năng chuỗi (giữ bất biến trạng thái cha).',
         });
       }
       if (!isTicketCancellable(t.state, t.pickup_passed)) {
