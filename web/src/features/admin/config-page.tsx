@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Me } from '@/lib/me';
+import { SmtpSettingsPanel } from '@/features/admin/smtp-settings-panel';
 
 interface WorkingHours {
   tz: string;
@@ -14,6 +15,7 @@ interface ConfigShape {
   extension_days_per_grant: number;
   extension_max_grants: number;
   license_warning_days: number;
+  asset_lifespan_years: number;
   approval_reminder_working_hours: number;
   auto_approve_max_hours: number;
   working_hours: WorkingHours;
@@ -25,6 +27,7 @@ const NUM_KEYS: Array<keyof ConfigShape> = [
   'extension_days_per_grant',
   'extension_max_grants',
   'license_warning_days',
+  'asset_lifespan_years',
   'approval_reminder_working_hours',
   'auto_approve_max_hours',
 ];
@@ -112,16 +115,16 @@ export function ConfigPage({ me }: { me: Me }) {
   }
 
   return (
-    <section>
+    <section className="config-page">
       <div className="page-header">
         <h1>{t('config.title')}</h1>
       </div>
       {error && <p className="alert error">{error}</p>}
       {saved && <p className="alert ok">{t('config.saved')}</p>}
 
-      <div className="form-section" style={{ maxWidth: 560, marginInline: 'auto' }}>
+      <div className="form-section">
         <div className="form-section-title">{t('config.params')}</div>
-        <div className="form-grid">
+        <div className="form-grid config-nums">
           {NUM_KEYS.map((k) => (
             <label className="field" key={k}>
               <span>{t(`config.${k}`)}</span>
@@ -136,7 +139,7 @@ export function ConfigPage({ me }: { me: Me }) {
         </div>
       </div>
 
-      <div className="form-section" style={{ maxWidth: 560, marginInline: 'auto' }}>
+      <div className="form-section">
         <div className="form-section-title">{t('config.working_hours')}</div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
           <label className="field">
@@ -175,6 +178,8 @@ export function ConfigPage({ me }: { me: Me }) {
         {busy && <span className="spinner" style={{ marginRight: 6 }} />}
         {t('config.save')}
       </button>
+
+      <SmtpSettingsPanel me={me} />
     </section>
   );
 }

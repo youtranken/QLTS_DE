@@ -91,6 +91,11 @@ export class SystemConfigService {
     return this.getInt('license_warning_days');
   }
 
+  /** Tuổi thọ máy (năm) — máy đủ tuổi → cảnh báo EOL/thanh lý. Mặc định 8 (0046). */
+  getAssetLifespanYears(): Promise<number> {
+    return this.getInt('asset_lifespan_years');
+  }
+
   async getWorkingHours(): Promise<WorkingHours> {
     const raw = await this.get<WorkingHours>('working_hours');
     if (!raw || typeof raw.tz !== 'string' || !Array.isArray(raw.days)) {

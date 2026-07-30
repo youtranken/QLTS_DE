@@ -6,10 +6,12 @@ import { CascadeCancelMailRegistrar } from './cascade-cancel-mail.registrar';
 import { ForceCancelMailRegistrar } from './force-cancel-mail.registrar';
 import { OffboardMailRegistrar } from './offboard-mail.registrar';
 import { LicenseDigestMailRegistrar } from './license-digest-mail.registrar';
+import { EolDigestMailRegistrar } from './eol-digest-mail.registrar';
 import { MailTransportService } from './mail-transport.service';
 import { NotificationRecipientsService } from './notification-recipients.service';
 import { NotificationsConsumer } from './notifications.consumer';
 import { NotificationsController } from './notifications.controller';
+import { SmtpConfigController } from './smtp-config.controller';
 
 /**
  * Notifications (AD-11) — consumer mail chạy ở worker + endpoint badge lỗi cho API. OutboxService
@@ -28,8 +30,9 @@ import { NotificationsController } from './notifications.controller';
     ForceCancelMailRegistrar,
     OffboardMailRegistrar,
     LicenseDigestMailRegistrar,
+    EolDigestMailRegistrar,
   ],
-  controllers: [NotificationsController],
+  controllers: [NotificationsController, SmtpConfigController],
   exports: [NotificationsConsumer],
 })
 export class NotificationsModule {}

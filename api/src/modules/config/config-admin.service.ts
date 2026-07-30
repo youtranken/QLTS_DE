@@ -16,6 +16,7 @@ const EDITABLE_KEYS = [
   'extension_days_per_grant',
   'extension_max_grants',
   'license_warning_days',
+  'asset_lifespan_years',
   'working_hours',
   'approval_reminder_working_hours',
   'auto_approve_max_hours',
@@ -28,6 +29,7 @@ export interface ConfigPatch {
   extension_days_per_grant?: number;
   extension_max_grants?: number;
   license_warning_days?: number;
+  asset_lifespan_years?: number;
   approval_reminder_working_hours?: number;
   auto_approve_max_hours?: number;
   max_booking_duration_hours?: number;

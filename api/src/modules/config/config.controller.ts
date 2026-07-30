@@ -72,6 +72,13 @@ class ConfigUpdateDto {
   @Max(365)
   license_warning_days?: number;
 
+  // Tuổi thọ máy (năm) cho cảnh báo EOL — 1..50 năm.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  asset_lifespan_years?: number;
+
   @IsOptional()
   @IsInt()
   @Min(0)

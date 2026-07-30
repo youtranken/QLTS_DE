@@ -34,6 +34,8 @@ services:
       # Chatbot Gemini free-tier (Epic 12) — CHỈ api cần (worker không có chatbot).
       # Thiếu/rỗng = tắt "gõ câu tự do" (lùi về nút bấm + tìm từ khoá), app vẫn chạy.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Khóa mã hoá secret SMTP (màn Cấu hình › Email). api cần để mã hoá lúc lưu + gửi mail thử.
+      MAIL_ENC_KEY: ${MAIL_ENC_KEY:-}
     volumes:
       - filesdata:/data/files
     depends_on:
@@ -77,6 +79,8 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      # Khóa giải mã secret SMTP lưu DB (màn Cấu hình › Email) — worker gửi mail nền cần.
+      MAIL_ENC_KEY: ${MAIL_ENC_KEY:-}
     depends_on:
       # đợi api healthy → migration đã chạy xong trước khi worker đọc bảng
       api:
