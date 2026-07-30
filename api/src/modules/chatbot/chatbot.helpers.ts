@@ -3,7 +3,7 @@ import type { AssetFilter, GuidedAction } from './chatbot.types';
 const str = (v: unknown): string | undefined =>
   typeof v === 'string' && v.trim() ? v.trim() : undefined;
 
-/** Lọc tài sản từ args (guided params hoặc Gemini functionCall.args). */
+/** Lọc tài sản từ args (guided params). */
 export function toFilter(
   params: Record<string, unknown> | undefined,
 ): AssetFilter {

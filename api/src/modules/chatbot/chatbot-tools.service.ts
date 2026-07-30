@@ -18,8 +18,8 @@ import type {
 /** Trần dòng đổ vào một bong bóng (G4) — kèm "hiển thị N/tổng M". */
 export const RESULT_CAP = 8;
 
-/** Trần dòng payload gửi Gemini compose (soạn câu) — con số tổng vẫn gửi đủ, chỉ cắt mảng. */
-const COMPOSE_CAP = 20;
+/** Trần dòng mảng dữ liệu trả về — con số tổng vẫn đủ, chỉ cắt mảng chi tiết. */
+const LIST_CAP = 20;
 
 /** Escape wildcard ILIKE để khớp nghĩa đen (không phải injection — đã tham số hoá). */
 function escapeLike(s: string): string {
@@ -27,8 +27,8 @@ function escapeLike(s: string): string {
 }
 
 /**
- * Lớp tool dùng chung cho guided + Gemini. Bọc service ĐÃ CÓ; QUYỀN enforce Ở ĐÂY
- * theo `identity.role` — Gemini chỉ chọn tool + args, KHÔNG quyết quyền (chống leo thang).
+ * Lớp tool tra cứu (chỉ đọc) cho chatbot guided. Bọc service ĐÃ CÓ; QUYỀN enforce Ở ĐÂY
+ * theo `identity.role` (self-scoped member, admin toàn sổ) — chống leo thang.
  */
 @Injectable()
 export class ChatbotToolsService {
@@ -52,7 +52,7 @@ export class ChatbotToolsService {
       cuaSoCanhBaoNgay: warningDays,
       soMayCanThanhLy: machines.length,
       soLicenseSapHetHan: software.length,
-      may: machines.slice(0, COMPOSE_CAP).map((m) => ({
+      may: machines.slice(0, LIST_CAP).map((m) => ({
         ma: m.code,
         loai: m.type,
         tuoi: m.ageYears,
@@ -60,7 +60,7 @@ export class ChatbotToolsService {
         conLaiNgay: m.daysToEol,
         nguoiGiu: m.assignedUserName,
       })),
-      license: software.slice(0, COMPOSE_CAP).map((s) => ({
+      license: software.slice(0, LIST_CAP).map((s) => ({
         ten: s.licenseName,
         caiTrenMay: s.installedOnCode,
         ngayHetHan: s.endDate,
@@ -76,7 +76,7 @@ export class ChatbotToolsService {
     const licenses = await this.software.listLicenseGroups(name?.trim());
     return {
       soLicense: licenses.length,
-      licenses: licenses.slice(0, COMPOSE_CAP),
+      licenses: licenses.slice(0, LIST_CAP),
     };
   }
 
@@ -180,8 +180,8 @@ export class ChatbotToolsService {
     return {
       soChoDuyet: approvals.length,
       soChoGiaHan: extensions.length,
-      choDuyet: approvals.slice(0, COMPOSE_CAP),
-      choGiaHan: extensions.slice(0, COMPOSE_CAP),
+      choDuyet: approvals.slice(0, LIST_CAP),
+      choGiaHan: extensions.slice(0, LIST_CAP),
     };
   }
 

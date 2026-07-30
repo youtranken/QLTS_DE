@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-/** Ô gõ câu tự do (→ Gemini/fallback). Enter gửi, Shift+Enter xuống dòng. */
+/** Ô gõ từ khoá tìm tài sản (mã/tên/cấu hình). Enter gửi, Shift+Enter xuống dòng. */
 export function ChatComposer({
   disabled,
   onSend,
@@ -19,7 +19,7 @@ export function ChatComposer({
     <div className="qc-composer">
       <textarea
         rows={1}
-        placeholder="Nhập câu hỏi… (vd: tài sản sắp hết hạn)"
+        placeholder="Tìm tài sản theo từ khoá (mã, tên, cấu hình)…"
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {

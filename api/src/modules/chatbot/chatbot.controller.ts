@@ -41,7 +41,7 @@ class ChatMessageDto {
   @IsUUID()
   conversationId?: string;
 
-  /** Câu gõ tự do (→ Gemini/fallback). */
+  /** Câu gõ tự do (→ tìm tài sản theo từ khoá, nội bộ). */
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -66,11 +66,11 @@ export class ChatbotController {
     private readonly history: ChatHistoryService,
   ) {}
 
-  /** Siết riêng để chống đốt quota Gemini free-tier (G11) — ngoài UserThrottler toàn cục. */
+  /** Siết riêng chống spam tra cứu — ngoài UserThrottler toàn cục. */
   @Post('message')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   message(@Body() body: ChatMessageDto, @Req() req: AuthedRequest) {
-    // Phải có message HOẶC action — body rỗng {} không tạo lượt "(mở đầu)" phí quota.
+    // Phải có message HOẶC action — body rỗng {} không tạo lượt "(mở đầu)" thừa.
     if (!body.message?.trim() && !body.action) {
       throw new BadRequestException({
         code: 'EMPTY_CHAT_INPUT',

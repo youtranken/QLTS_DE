@@ -31,9 +31,6 @@ services:
       LOCAL_SA_PASSWORD_HASH: ${LOCAL_SA_PASSWORD_HASH:?LOCAL_SA_PASSWORD_HASH bắt buộc trong .env (scrypt.saltHex.hashHex)}
       # Module file (story 2.8, AD-6) — file lưu volume, tên uuid
       FILE_STORAGE_DIR: /data/files
-      # Chatbot Gemini free-tier (Epic 12) — CHỈ api cần (worker không có chatbot).
-      # Thiếu/rỗng = tắt "gõ câu tự do" (lùi về nút bấm + tìm từ khoá), app vẫn chạy.
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       # Khóa mã hoá secret SMTP (màn Cấu hình › Email). api cần để mã hoá lúc lưu + gửi mail thử.
       MAIL_ENC_KEY: ${MAIL_ENC_KEY:-}
     volumes:

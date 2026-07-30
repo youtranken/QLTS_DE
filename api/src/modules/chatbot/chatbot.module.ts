@@ -7,7 +7,6 @@ import { ChatbotController } from './chatbot.controller';
 import { ChatbotGuidedService } from './chatbot-guided.service';
 import { ChatbotService } from './chatbot.service';
 import { ChatbotToolsService } from './chatbot-tools.service';
-import { GeminiAdapter } from './gemini.adapter';
 
 /**
  * Epic 12 — chatbot v1 (chỉ đọc). Bọc AssetsService/BookingService qua lớp tool;
@@ -20,7 +19,6 @@ import { GeminiAdapter } from './gemini.adapter';
     ChatbotService,
     ChatbotToolsService,
     ChatbotGuidedService,
-    GeminiAdapter,
     ChatHistoryService,
   ],
 })

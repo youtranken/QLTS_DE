@@ -4,7 +4,7 @@ export interface Identity {
   role: string;
 }
 
-/** Thẻ tài sản chuẩn hoá để FE render chung (guided + gemini). */
+/** Thẻ tài sản chuẩn hoá để FE render chung (guided + tìm từ khoá). */
 export interface AssetCard {
   code: string | null;
   type: string;
@@ -26,6 +26,7 @@ export interface Chip {
   action: { intent: string; params?: Record<string, unknown> };
 }
 
+// 'gemini' giữ lại cho lịch sử chat CŨ đã lưu (không còn phát sinh mới sau khi gỡ LLM).
 export type ChatSource = 'guided' | 'gemini' | 'fallback';
 
 export interface DetailRow {

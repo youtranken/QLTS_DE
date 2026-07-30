@@ -100,7 +100,7 @@ describe('ChatbotPopup', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Mở trợ lý QLTS' }),
     );
-    const box = await screen.findByPlaceholderText(/Nhập câu hỏi/);
+    const box = await screen.findByPlaceholderText(/Tìm tài sản/);
     await userEvent.type(box, 'tài sản sắp hết hạn{Enter}');
 
     const msgCall = calls.find((c) => c.url.includes('/api/chatbot/message'));
