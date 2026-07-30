@@ -88,5 +88,5 @@ export function menuFor(role: string): Chip[] {
 /** Lời chào (client-side) — kèm tên người dùng nếu có; chip menu bên dưới đã phân vai. */
 export function welcomeText(name?: string): string {
   const who = name?.trim() ? name.trim() : 'bạn';
-  return `Chào ${who} 👋 Mình là trợ lý QLTS. Chọn nhanh bên dưới hoặc gõ từ khoá tìm tài sản nhé 🙂`;
+  return `Chào ${who} 👋 Mình là trợ lý QLTS. Chọn nhanh bên dưới hoặc hỏi tự nhiên (vd: "máy nào trống mai", "cấu hình MTS-123") nhé 🙂`;
 }

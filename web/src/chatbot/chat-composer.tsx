@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-/** Ô gõ từ khoá tìm tài sản (mã/tên/cấu hình). Enter gửi, Shift+Enter xuống dòng. */
+/** Ô hỏi tự do → định tuyến ý định nội bộ. Enter gửi, Shift+Enter xuống dòng. */
 export function ChatComposer({
   disabled,
   onSend,
@@ -19,7 +19,7 @@ export function ChatComposer({
     <div className="qc-composer">
       <textarea
         rows={1}
-        placeholder="Tìm tài sản theo từ khoá (mã, tên, cấu hình)…"
+        placeholder="Hỏi mình… (vd: máy nào trống mai, cấu hình MTS-123)"
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {

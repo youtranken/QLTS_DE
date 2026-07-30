@@ -2,12 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ChatHistoryService } from './chat-history.service';
 import { ChatbotGuidedService } from './chatbot-guided.service';
 import { ChatbotToolsService } from './chatbot-tools.service';
-import { actionLabel, listReply } from './chatbot.helpers';
+import { detectIntent } from './chatbot-intent';
+import { actionLabel, listReply, todayVn } from './chatbot.helpers';
 import type { ChatReply, ChatRequest, Identity } from './chatbot.types';
 
 /**
- * Điều phối chatbot NỘI BỘ (không LLM): guided (nút bấm) render template role-scoped;
- * câu gõ tự do → tìm kiếm tài sản theo từ khoá. Ghi lại cả 2 lượt.
+ * Điều phối chatbot NỘI BỘ (không LLM): guided (nút bấm) + câu gõ tự do → định tuyến ý định
+ * bằng luật (detectIntent) sang tool tra cứu; không khớp luật thì lùi về tìm từ khoá. Ghi cả 2 lượt.
  */
 @Injectable()
 export class ChatbotService {
@@ -65,7 +66,10 @@ export class ChatbotService {
     return { conversationId: convId, ...reply };
   }
 
-  /** Câu gõ tự do → tìm tài sản theo từ khoá (role-scoped). Không dùng LLM. */
+  /**
+   * Câu gõ tự do: định tuyến ý định bằng luật (không LLM) → tool tra cứu; không khớp thì
+   * coi cả câu là từ khoá tìm tài sản. Tất cả role-scoped trong tool.
+   */
   private async handleMessage(
     identity: Identity,
     message: string,
@@ -73,9 +77,13 @@ export class ChatbotService {
     if (!message.trim()) {
       return {
         reply:
-          'Bạn gõ từ khoá (mã máy, tên, cấu hình) hoặc chọn nhanh ở thanh bên dưới giúp mình nhé 🙂',
+          'Bạn hỏi mình nhé (vd: "máy nào trống ngày mai", "cấu hình MTS-123", "tôi đang mượn gì") hoặc chọn nhanh ở thanh bên dưới 🙂',
         source: 'fallback',
       };
+    }
+    const detected = detectIntent(message, todayVn());
+    if (detected) {
+      return this.guided.handle(identity, detected);
     }
     const { cards, total } = await this.tools.searchAssets(identity, {
       search: message,
