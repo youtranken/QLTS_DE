@@ -100,6 +100,9 @@ export function actionLabel(action: GuidedAction): string {
     asset_history: 'Lịch sử cấp phát',
     pending_approvals: 'Hàng chờ duyệt',
     eol_alerts: 'Cảnh báo EOL',
+    policy_hours: 'Giờ làm việc',
+    policy_borrow: 'Quy định mượn',
+    help: 'Trợ giúp',
   };
   return map[action.intent] ?? action.intent;
 }

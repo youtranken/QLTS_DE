@@ -67,4 +67,35 @@ describe('detectIntent', () => {
   it('"bao nhiêu máy trống" ưu tiên availability (không phải stats)', () => {
     expect(intentOf('bao nhiêu máy còn trống')).toBe('day_availability');
   });
+
+  it('máy CỤ THỂ có trống ngày X → day_availability kèm code', () => {
+    expect(detectIntent('MTS-123 có trống ngày mai không', today)).toEqual({
+      intent: 'day_availability',
+      params: { date: '2026-07-31', code: 'MTS-123' },
+    });
+  });
+
+  it('nhóm A: hạn trả / quá hạn / trạng thái → my_borrowings', () => {
+    expect(intentOf('khi nào tôi phải trả máy')).toBe('my_borrowings');
+    expect(intentOf('tôi có máy nào quá hạn không')).toBe('my_borrowings');
+    expect(intentOf('yêu cầu mượn của tôi duyệt chưa')).toBe('my_borrowings');
+  });
+
+  it('máy đang sửa chữa → list_result lọc trạng thái', () => {
+    expect(detectIntent('máy nào đang sửa chữa', today)).toEqual({
+      intent: 'list_result',
+      params: { status: 'locked_repair' },
+    });
+  });
+
+  it('chính sách: giờ làm việc / thời hạn mượn', () => {
+    expect(intentOf('mượn được từ mấy giờ')).toBe('policy_hours');
+    expect(intentOf('mượn tối đa mấy ngày')).toBe('policy_borrow');
+    expect(intentOf('cuối tuần có mượn được không')).toBe('policy_borrow');
+  });
+
+  it('trợ giúp', () => {
+    expect(intentOf('bạn làm được gì')).toBe('help');
+    expect(intentOf('hướng dẫn cho mình')).toBe('help');
+  });
 });

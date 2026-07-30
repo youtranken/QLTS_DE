@@ -160,8 +160,12 @@ export class ChatbotGuidedService {
             source: 'guided',
           };
         }
+        const code =
+          typeof action.params?.code === 'string'
+            ? action.params.code.trim().toUpperCase()
+            : undefined;
         const data = await this.tools.dayAvailability(date);
-        return { reply: daySlotsReply(data), source: 'guided' };
+        return { reply: daySlotsReply(data, code), source: 'guided' };
       }
 
       case 'get_asset': {
@@ -230,6 +234,27 @@ export class ChatbotGuidedService {
         };
       }
 
+      case 'policy_hours':
+        return {
+          reply:
+            'Giờ mượn máy: 07:00–18:00, Thứ 2 đến Thứ 7 (nghỉ Chủ nhật). Ngoài khung giờ này máy không cho đặt.',
+          source: 'guided',
+        };
+
+      case 'policy_borrow':
+        return {
+          reply:
+            'Quy định mượn: đặt trong giờ làm việc (07:00–18:00, T2–T7). Mượn từ 2 ngày trở xuống được duyệt tự động; mượn dài hơn hoặc lịch định kỳ cần admin duyệt. Cần dùng thêm thì bấm nút "Gia hạn" ở trang chủ.',
+          source: 'guided',
+        };
+
+      case 'help':
+        return {
+          reply:
+            'Mình tra cứu giúp bạn: 🔎 tìm tài sản (gõ mã/tên/cấu hình) · 🖥️ chi tiết & cấu hình 1 máy · 📅 máy trống theo ngày (vd "máy nào trống mai") · 📦 máy bạn đang giữ / đang mượn · ⏰ hạn trả & quá hạn · 🕘 giờ làm việc & quy định mượn. Với admin còn có: thống kê, hàng chờ duyệt, cảnh báo EOL, phần mềm/license. Cứ hỏi tự nhiên hoặc bấm nút nhanh bên dưới nhé!',
+          source: 'guided',
+        };
+
       default:
         throw new BadRequestException({
           code: 'CHATBOT_BAD_INTENT',
@@ -245,10 +270,17 @@ function isoDate(v: unknown): string {
   return Number.isNaN(d.getTime()) ? '—' : d.toISOString().slice(0, 10);
 }
 
-/** Câu tóm tắt khung giờ trống trong MỘT ngày (template thuần, không LLM). */
-function daySlotsReply(d: DayAvailability): string {
+/** Câu tóm tắt khung giờ trống trong MỘT ngày (template thuần, không LLM). code = lọc 1 máy. */
+function daySlotsReply(d: DayAvailability, code?: string): string {
   if (!d.isWorkingDay) {
     return `Ngày ${d.date} không phải ngày làm việc (giờ làm ${d.start}–${d.end}).`;
+  }
+  if (code) {
+    const m = d.machines.find((x) => x.code?.toUpperCase() === code);
+    if (!m) return `Máy ${code} không nằm trong nhóm máy cho mượn.`;
+    if (!m.freeSlots.length)
+      return `Máy ${code} đã kín lịch ngày ${d.date}, không còn khung giờ trống.`;
+    return `Máy ${code} ngày ${d.date} còn trống: ${m.freeSlots.map((s) => `${s.from}–${s.to}`).join(', ')}.`;
   }
   const free = d.machines.filter((m) => m.freeSlots.length);
   if (!free.length) {
