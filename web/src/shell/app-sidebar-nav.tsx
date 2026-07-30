@@ -137,8 +137,8 @@ export function SidebarNav({
   const badgeFor = (key: string) => {
     const n = counts[key];
     if (n == null) return null;
-    // Duyệt: chỉ hiện khi >0 (nav.lending); Tài sản/Phần mềm hiện tổng.
-    if (key === 'nav.lending') {
+    // Duyệt + Cảnh báo EOL: chỉ hiện khi >0 (việc cần xử lý). Tài sản/Phần mềm hiện tổng.
+    if (key === 'nav.lending' || key === 'nav.eol') {
       return n > 0 ? <span className="nav-badge warn">{n}</span> : null;
     }
     return <span className="nav-badge">{n}</span>;
@@ -168,7 +168,7 @@ export function SidebarNav({
                 end
                 onClick={onNavigate}
                 className={item.to === activeTo ? 'nav-item active' : 'nav-item'}
-                title={t(item.key)}
+                title={item.key === 'nav.eol' ? t('nav.eolTooltip', 'End of life') : t(item.key)}
               >
                 <NavIcon navKey={item.key} />
                 <span className="lbl">{t(item.key)}</span>

@@ -58,6 +58,9 @@ const PoolPage = lazy(() =>
 const ImportPage = lazy(() =>
   import('@/features/assets/import-page').then((m) => ({ default: m.ImportPage })),
 );
+const EolPage = lazy(() =>
+  import('@/features/eol/eol-page').then((m) => ({ default: m.EolPage })),
+);
 
 /** Fallback khi chunk trang lazy đang tải — skeleton nhẹ để không chớp trắng. */
 function PageFallback() {
@@ -183,6 +186,7 @@ export function AppRoutes({ me }: { me: Me }) {
           <Route path="/assets/:id" element={admin(<AssetDetailPage me={me} />)} />
           <Route path="/admin" element={admin(<AdminPage me={me} />)} />
           <Route path="/pool" element={admin(<PoolPage me={me} />)} />
+          <Route path="/eol" element={admin(<EolPage me={me} />)} />
           <Route
             path="/admin/catalog"
             element={admin(<CatalogPage me={me} />)}

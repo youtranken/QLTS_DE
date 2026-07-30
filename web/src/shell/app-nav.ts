@@ -31,6 +31,7 @@ export function navGroups(role: string): NavGroup[] {
         { to: '/assets', key: 'nav.assets' },
         { to: '/software', key: 'nav.software' },
         { to: '/pool', key: 'nav.pool' },
+        { to: '/eol', key: 'nav.eol' },
         {
           key: 'nav.disposed',
           children: [
@@ -51,6 +52,7 @@ export function navGroups(role: string): NavGroup[] {
           ? [
               { to: '/admin/audit', key: 'nav.audit' },
               { to: '/admin/config', key: 'nav.config' },
+              { to: '/notifications', key: 'nav.notifications' },
             ]
           : []),
       ],

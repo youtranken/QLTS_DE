@@ -35,6 +35,14 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M12 12 3 7M12 12l9-5M12 12v10" />
     </>
   ),
+  'nav.eol': (
+    <>
+      {/* Tam giác cảnh báo — "Cảnh báo EOL" (máy đủ tuổi / license sắp hết hạn). */}
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </>
+  ),
   'nav.disposed': (
     <>
       <path d="M3 6h18" />
@@ -60,6 +68,14 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M12 8v4l3 2" />
       <path d="M3.05 11a9 9 0 1 1 .5 4" />
       <path d="M3 4v4h4" />
+    </>
+  ),
+  'nav.notifications': (
+    <>
+      {/* Chuông có chấm cảnh báo — "Thông báo lỗi" (thông báo gửi lỗi cần xử lý/gửi lại). */}
+      <path d="M19.4 14.9C20.2 16.4 21 17 21 17H3s3-2 3-9c0-.7.1-1.4.3-2" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      <circle cx="18" cy="5" r="3" />
     </>
   ),
   'nav.config': (

@@ -33,10 +33,21 @@ export function useNavCounts(enabled: boolean) {
     enabled,
     staleTime: 30_000,
   });
+  // Cảnh báo EOL: tổng máy đủ tuổi + license term sắp hết hạn (dùng chung endpoint trang EOL).
+  const eol = useQuery({
+    queryKey: ['nav-count', 'eol'],
+    queryFn: () =>
+      apiFetch<{ machines: unknown[]; software: unknown[] }>(
+        '/api/admin/assets/eol',
+      ).then((r) => r.machines.length + r.software.length),
+    enabled,
+    staleTime: 60_000,
+  });
   // Map theo key nav để sidebar gắn badge đúng mục.
   return {
     'nav.assets': assets.data,
     'nav.software': software.data,
     'nav.lending': approvals.data,
+    'nav.eol': eol.data,
   } as Record<string, number | undefined>;
 }
