@@ -66,6 +66,7 @@ export class AssetsReadService {
           brand: assetsTable.brand,
           // Ghi chú: cột "Ghi chú" ở chi tiết license (/phan-mem) — hiển thị rút gọn + title.
           note: assetsTable.note,
+          contract: assetsTable.contract,
           // Máy tính license_name (định danh phần mềm thay mã) + host để tab Phần mềm hiển thị
           licenseName: assetsTable.licenseName,
           licenseType: assetsTable.licenseType,
@@ -202,6 +203,7 @@ export class AssetsReadService {
         floor: assetsTable.floor,
         status: assetsTable.status,
         note: assetsTable.note,
+        contract: assetsTable.contract,
         serial: assetsTable.serial,
         brand: assetsTable.brand,
         assignedUserSub: sql<

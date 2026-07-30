@@ -35,6 +35,7 @@ import { Roles } from '../auth/roles.decorator';
 import { AssetsService } from './assets.service';
 import { AssetSoftwareService } from './asset-software.service';
 import { AssetExportService } from './asset-export.service';
+import { EolService, type EolFilter } from './eol.service';
 import type { AssetInput } from './assets.service';
 
 /**
@@ -93,6 +94,12 @@ class AssetBodyDto {
   @IsString()
   @MaxLength(2000)
   note?: string | null;
+
+  /** Số hợp đồng mua (Contract) — tách riêng khỏi Note; chủ yếu cho license phần mềm. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  contract?: string | null;
 
   @IsOptional()
   @IsString()
@@ -281,12 +288,56 @@ function toInput(body: AssetBodyDto): AssetInput {
     endDate: body.endDate ?? null,
     floor: body.floor?.trim() || null,
     note: body.note ?? null,
+    contract: body.contract ?? null,
     serial: body.serial ?? null,
     brand: body.brand ?? null,
     // trim + '' → null: '  ' = thu hồi chứ không phải 400 khó hiểu
     assignedUserSub: body.assignedUserSub?.trim() || null,
     licenseType: body.licenseType ?? null,
     licenseName: body.licenseName?.trim() || null,
+  };
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Query lọc cảnh báo EOL — máy (tuổi + khoảng ngày dùng) & phần mềm (khoảng ngày hết hạn). */
+class EolQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  minYears?: number;
+
+  // @IsISO8601 strict CHẶN ngày không có thật (2026-02-30) → 400 sạch, tránh Postgres 22008 → 500.
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @Matches(DATE)
+  startFrom?: string;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @Matches(DATE)
+  startTo?: string;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @Matches(DATE)
+  endFrom?: string;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @Matches(DATE)
+  endTo?: string;
+}
+
+function toEolFilter(q: EolQueryDto): EolFilter {
+  return {
+    minYears: q.minYears,
+    startFrom: q.startFrom,
+    startTo: q.startTo,
+    endFrom: q.endFrom,
+    endTo: q.endTo,
   };
 }
 
@@ -298,6 +349,7 @@ export class AssetsAdminController {
     private readonly assets: AssetsService,
     private readonly software: AssetSoftwareService,
     private readonly exporter: AssetExportService,
+    private readonly eol: EolService,
   ) {}
 
   @Get()
@@ -336,6 +388,34 @@ export class AssetsAdminController {
   @Get('expiring-count')
   async expiringCount() {
     return { count: await this.software.countExpiring() };
+  }
+
+  /** Cảnh báo EOL (End of Life) — máy đủ/gần đủ tuổi + license term sắp hết hạn.
+   *  Đứng trước ':id' như 'meta'. Lọc: máy theo tuổi (minYears) + khoảng ngày dùng;
+   *  phần mềm theo khoảng ngày hết hạn. FE: 2 khối + chọn nhiều → thanh lý + xuất Excel. */
+  @Get('eol')
+  eolAlerts(@Query() q: EolQueryDto) {
+    return this.eol.list(toEolFilter(q));
+  }
+
+  @Get('eol/export-machines')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async exportEolMachines(
+    @Query() q: EolQueryDto,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.eol.exportMachines(toEolFilter(q));
+    this.sendXlsx(res, buffer, 'may-eol');
+  }
+
+  @Get('eol/export-software')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async exportEolSoftware(
+    @Query() q: EolQueryDto,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.eol.exportSoftware(toEolFilter(q));
+    this.sendXlsx(res, buffer, 'license-eol');
   }
 
   /** Export sổ TÀI SẢN (máy) theo bộ lọc (2.10, FR-41) — đứng trước ':id' như 'meta'. */

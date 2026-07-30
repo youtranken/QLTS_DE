@@ -4,6 +4,7 @@ import { formatVnd, parseVnd } from '@/lib/asset-types';
 import type { FormState } from '@/lib/asset-types';
 import { DatePicker } from '@/ui/date-picker';
 import { Select } from '@/ui/select';
+import { LicenseNameField } from '@/features/assets/license-name-field';
 
 /**
  * Khối "Thông tin chung" (máy + trường license phần mềm) tách khỏi asset-form (§6).
@@ -23,6 +24,10 @@ export function AssetGeneralFields({
   onDispose,
   userField,
   hideDatesNote = false,
+  lockLicense = false,
+  licenseNameOptions,
+  addLicenseName,
+  addingLicenseName,
 }: {
   form: FormState;
   set: (key: keyof FormState) => (value: string) => void;
@@ -37,6 +42,12 @@ export function AssetGeneralFields({
   userField?: ReactNode;
   /** TẠO phần mềm nhiều bản: Start/End/Ghi chú chuyển sang nhập theo TỪNG bản (ẩn ở đây). */
   hideDatesNote?: boolean;
+  /** "Thêm bản" vào license có sẵn: khóa Tên + Loại license (đổi → tạo nhầm nhóm mới). */
+  lockLicense?: boolean;
+  /** Tên license từ danh mục (kind=licenseName) → dropdown chọn nhanh + nút (+) thêm mới. */
+  licenseNameOptions: string[];
+  addLicenseName: () => void;
+  addingLicenseName: boolean;
 }) {
   const { t } = useTranslation();
   const isEditing = form.id != null;
@@ -88,6 +99,7 @@ export function AssetGeneralFields({
             ariaLabel={t('assets.licenseType')}
             value={form.licenseType}
             onChange={set('licenseType')}
+            disabled={lockLicense}
             options={[
               { value: '', label: '—' },
               { value: 'term', label: t('assets.licenseTerm') },
@@ -96,17 +108,21 @@ export function AssetGeneralFields({
           />
         </label>
       )}
-      {/* Tên license: định danh phần mềm — BẮT BUỘC mọi license (không chỉ vĩnh viễn) */}
+      {/* Tên license: định danh phần mềm — BẮT BUỘC mọi license. DROPDOWN chọn từ danh mục
+          (kind=licenseName) có mũi tên như License Type + nút ＋ thêm tên mới; "Thêm bản"
+          vào license có sẵn thì KHÓA (lockLicense) để không tạo nhầm nhóm mới. */}
       {form.isSoftware && (
         <label className="field">
           <span>
             {t('assets.licenseName')} <span className="field-req">*</span>
           </span>
-          <input
-            required
-            maxLength={200}
+          <LicenseNameField
             value={form.licenseName}
-            onChange={(e) => set('licenseName')(e.target.value)}
+            onChange={set('licenseName')}
+            options={licenseNameOptions}
+            onAdd={addLicenseName}
+            adding={addingLicenseName}
+            locked={lockLicense}
           />
         </label>
       )}
@@ -254,6 +270,17 @@ export function AssetGeneralFields({
             ]}
           />
         </label>
+      )}
+      {/* Contract (số hợp đồng) — tách riêng khỏi Note; Note để CUỐI theo yêu cầu. */}
+      {!hideDatesNote && (
+      <label className="field">
+        <span>{t('assets.contract', 'Contract')}</span>
+        <input
+          maxLength={2000}
+          value={form.contract}
+          onChange={(e) => set('contract')(e.target.value)}
+        />
+      </label>
       )}
       {!hideDatesNote && (
       <label className="field">

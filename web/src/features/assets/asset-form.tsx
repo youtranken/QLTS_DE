@@ -64,6 +64,9 @@ export function AssetForm({
     typeOptions,
     brandOptions,
     placeOptions,
+    licenseNameOptions,
+    addLicenseName,
+    addingLicenseName,
     softwareCreate,
     showInstall,
     reload,
@@ -182,6 +185,11 @@ export function AssetForm({
                 addConfig={addConfig}
                 addingConfig={addingConfig}
                 hideDatesNote={softwareCreate}
+                // "Thêm bản" (mua thêm) vào license có sẵn: tên+loại điền sẵn & khóa.
+                lockLicense={softwareCreate && !!initial.licenseName}
+                licenseNameOptions={licenseNameOptions}
+                addLicenseName={addLicenseName}
+                addingLicenseName={addingLicenseName}
                 userField={
                   // Người đứng tên (User) sửa NGAY trong Thông tin chung ở cả Thêm lẫn Sửa.
                   // Đổi/xóa người giữ đi qua "Lưu" — BE PUT máy tự ghi allocation_history khi

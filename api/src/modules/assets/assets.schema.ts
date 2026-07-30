@@ -25,6 +25,8 @@ export const assetsTable = pgTable('assets', {
   lockEta: date('lock_eta'),
   status: text('status').notNull().default('in_use'),
   note: text('note'),
+  /** Số hợp đồng mua (Contract) — tách khỏi Note; cột thêm ở migration 0045. */
+  contract: text('contract'),
   serial: text('serial'),
   brand: text('brand'),
   model: text('model'),

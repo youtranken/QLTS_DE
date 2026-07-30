@@ -53,7 +53,7 @@ export function useAssetForm({
   const [busy, setBusy] = useState(false);
   // Thêm NHIỀU bản (seat) cùng license — mỗi bản kỳ hạn + ghi chú riêng (mua 20-30 bản chung tên).
   const [seats, setSeats] = useState<Seat[]>([
-    { startDate: '', endDate: '', cost: '', note: '' },
+    { startDate: '', endDate: '', cost: '', note: '', contract: '' },
   ]);
   // 2.5/2.6: đã đổi qua endpoint phụ (transfer/vòng đời) → Hủy vẫn refresh danh sách
   const [transferred, setTransferred] = useState(false);
@@ -74,9 +74,12 @@ export function useAssetForm({
     catBrand,
     catConfig,
     catPlace,
+    catLicenseName,
     addConfig,
     addingConfig,
-  } = useAssetCatalog(me.csrfToken, form.configuration);
+    addLicenseName,
+    addingLicenseName,
+  } = useAssetCatalog(me.csrfToken, form.configuration, form.licenseName);
 
   // Người đứng tên (users có thể ~3.000 — không tải hết, tìm server-side).
   const {
@@ -359,6 +362,7 @@ export function useAssetForm({
   );
   const brandOptions = withCurrent(catBrand, form.brand);
   const placeOptions = withCurrent(catPlace, form.floor);
+  const licenseNameOptions = withCurrent(catLicenseName, form.licenseName);
 
   // TẠO phần mềm: nhập kỳ hạn theo TỪNG bản (per-seat), không gắn máy ở đây (gán sau).
   const softwareCreate = !form.id && form.isSoftware;
@@ -396,9 +400,12 @@ export function useAssetForm({
     catConfig,
     addConfig,
     addingConfig,
+    addLicenseName,
+    addingLicenseName,
     typeOptions,
     brandOptions,
     placeOptions,
+    licenseNameOptions,
     softwareCreate,
     showInstall,
     reload,

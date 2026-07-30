@@ -13,6 +13,8 @@ import { AssetExportService } from './asset-export.service';
 import { ImportController } from './import.controller';
 import { ImportService } from './import.service';
 import { LicenseDigestService } from './license-digest.service';
+import { EolService } from './eol.service';
+import { EolDigestService } from './eol-digest.service';
 import { AssetsSweepRegistrar } from './assets-sweep.registrar';
 
 /** Module assets (AD-1) — sổ tài sản; Epic 3 (Tickets) phụ thuộc chiều Tickets → Assets. */
@@ -29,8 +31,10 @@ import { AssetsSweepRegistrar } from './assets-sweep.registrar';
     AssetExportService,
     ImportService,
     LicenseDigestService,
+    EolService,
+    EolDigestService,
     AssetsSweepRegistrar,
   ],
-  exports: [AssetsService, AssetSoftwareService],
+  exports: [AssetsService, AssetSoftwareService, EolService],
 })
 export class AssetsModule {}

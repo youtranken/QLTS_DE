@@ -17,6 +17,7 @@ export interface AssetInput {
   /** Vị trí đặt máy (Place). Hồi sinh sau 7.6 theo yêu cầu UAT — cột floor sẵn có. */
   floor: string | null;
   note: string | null;
+  contract: string | null;
   serial: string | null;
   brand: string | null;
   assignedUserSub: string | null;

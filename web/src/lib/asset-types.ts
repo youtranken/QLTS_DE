@@ -27,6 +27,8 @@ export interface AssetRow {
   brand?: string | null;
   /** Ghi chú — list trả kèm để hiện cột "Ghi chú" ở chi tiết license (/phan-mem). */
   note?: string | null;
+  /** Số hợp đồng mua (Contract) — list trả kèm để hiện cột ở chi tiết license. */
+  contract?: string | null;
 }
 
 export interface AssetDetail extends AssetRow {
@@ -36,6 +38,7 @@ export interface AssetDetail extends AssetRow {
   endDate: string | null;
   floor: string | null;
   note: string | null;
+  contract: string | null;
   serial: string | null;
   brand: string | null;
   licenseType: string | null;
@@ -58,6 +61,7 @@ export interface FormState {
   endDate: string;
   floor: string;
   note: string;
+  contract: string;
   serial: string;
   brand: string;
   assignedUserSub: string;
@@ -83,6 +87,7 @@ export const EMPTY_FORM: FormState = {
   endDate: '',
   floor: '',
   note: '',
+  contract: '',
   serial: '',
   brand: '',
   assignedUserSub: '',
@@ -177,6 +182,7 @@ export function detailToForm(a: AssetDetail): FormState {
     endDate: a.endDate ?? '',
     floor: a.floor ?? '',
     note: a.note ?? '',
+    contract: a.contract ?? '',
     serial: a.serial ?? '',
     brand: a.brand ?? '',
     assignedUserSub: a.assignedUserSub ?? '',

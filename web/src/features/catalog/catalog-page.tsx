@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Me } from '@/lib/me';
 
-type Kind = 'type' | 'brand' | 'configuration' | 'place';
-const KINDS: Kind[] = ['type', 'brand', 'configuration', 'place'];
+type Kind = 'type' | 'brand' | 'configuration' | 'place' | 'licenseName';
+const KINDS: Kind[] = ['type', 'brand', 'configuration', 'place', 'licenseName'];
 
 interface CatalogItem {
   id: string;
@@ -19,12 +19,14 @@ const emptyItems = (): ByKind<CatalogItem[]> => ({
   brand: [],
   configuration: [],
   place: [],
+  licenseName: [],
 });
 const emptyStrings = (): ByKind<string> => ({
   type: '',
   brand: '',
   configuration: '',
   place: '',
+  licenseName: '',
 });
 
 /**
@@ -163,8 +165,8 @@ export function CatalogPage({ me }: { me: Me }) {
   };
 
   return (
-    <section>
-      <h1 style={{ fontSize: '1.2rem', marginBottom: '0.25rem' }}>
+    <section className="catalog-page">
+      <h1 style={{ fontSize: 'var(--fs-2xl)', marginBottom: '0.25rem' }}>
         {t('catalog.title')}
       </h1>
       <p className="muted" style={{ marginBottom: '1rem' }}>
@@ -177,26 +179,27 @@ export function CatalogPage({ me }: { me: Me }) {
         </p>
       )}
 
-      {/* Tab chọn danh mục — thêm kind mới chỉ cần nối vào KINDS, không phá layout. */}
-      <div className="segmented dmtabs" role="tablist">
+      {/* Master–detail: TRÁI = danh sách loại danh mục, PHẢI = mục của loại đang chọn. */}
+      <div className="dm-split">
+      <nav className="dm-kinds" role="tablist" aria-label={t('catalog.title')}>
         {KINDS.map((k) => (
-          <label key={k}>
+          <label key={k} className={activeKind === k ? 'on' : ''}>
             <input
               type="radio"
               name="catalogKind"
               checked={activeKind === k}
               onChange={() => {
-                // Đổi tab → bỏ trạng thái sửa inline / menu đang mở của tab cũ (tránh "ẩn mà còn sống").
+                // Đổi loại → bỏ trạng thái sửa inline / menu đang mở (tránh "ẩn mà còn sống").
                 setActiveKind(k);
                 setEditing(null);
                 setMenu(null);
               }}
             />
-            {t(`catalog.kind.${k}`)}
+            <span className="dm-kind-lbl">{t(`catalog.kind.${k}`)}</span>
             <span className="badge muted plain">{items[k].length}</span>
           </label>
         ))}
-      </div>
+      </nav>
 
       <div className="dmboard">
         {[activeKind].map((k) => (
@@ -206,12 +209,10 @@ export function CatalogPage({ me }: { me: Me }) {
               <span className="badge muted plain">{items[k].length}</span>
             </div>
 
-            {items[k].length === 0 && (
-              <div className="dmrow">
-                <span className="dm-g muted">{t('catalog.empty')}</span>
-              </div>
-            )}
-
+            {items[k].length === 0 ? (
+              <div className="dm-empty muted">{t('catalog.empty')}</div>
+            ) : (
+            <div className="dm-list">
             {items[k].map((it) => {
               const isEditing = editing?.id === it.id;
               const isMenu = menu?.kind === k && menu.id === it.id;
@@ -340,6 +341,8 @@ export function CatalogPage({ me }: { me: Me }) {
                 </div>
               );
             })}
+            </div>
+            )}
 
             <div className="dm-add">
               <input
@@ -368,6 +371,7 @@ export function CatalogPage({ me }: { me: Me }) {
             </div>
           </div>
         ))}
+      </div>
       </div>
     </section>
   );
