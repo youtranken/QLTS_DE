@@ -122,6 +122,27 @@
   background: rgba(255, 255, 255, 0.09);
   box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
 }
+/* Ô nhập có icon dẫn (mail) — mép trái, đổi sang brand khi focus (khớp QLHS) */
+.auth-card .field-inp {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.auth-card .field-inp .field-ic {
+  position: absolute;
+  left: 15px;
+  width: 18px;
+  height: 18px;
+  color: #9fb2cc;
+  pointer-events: none;
+  transition: color 0.15s;
+}
+.auth-card .field-inp input {
+  padding-left: 44px;
+}
+.auth-card .field-inp:focus-within .field-ic {
+  color: #34d399;
+}
 .auth-card .pw-field {
   position: relative;
 }

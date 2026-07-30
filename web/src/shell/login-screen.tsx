@@ -117,15 +117,21 @@ export function LoginScreen({
                 {error}
               </p>
             )}
-            <input
-              type="text"
-              autoComplete="username"
-              autoFocus
-              placeholder={t('app.loginIdPlaceholder')}
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              required
-            />
+            <div className="field-inp">
+              <svg className="field-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="m3 7 9 6 9-6" />
+              </svg>
+              <input
+                type="text"
+                autoComplete="username"
+                autoFocus
+                placeholder={t('app.loginIdPlaceholder')}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                required
+              />
+            </div>
             <button type="submit" className="primary">
               {t('app.login')}
             </button>

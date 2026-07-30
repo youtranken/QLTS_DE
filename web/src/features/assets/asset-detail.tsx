@@ -155,6 +155,17 @@ export function AssetDetailPage({ me }: { me: Me }) {
     void loadAll();
   }, [loadAll]);
 
+  // Máy KHÔNG trong pool (không cho mượn) thì tab Mượn-trả / Note tình trạng vô nghĩa → ẩn.
+  // NHƯNG vẫn hiện nếu ĐÃ có dữ liệu: máy từng ở pool còn lịch sử bàn giao, hoặc note vòng đời
+  // (khóa/thanh lý ghi asset_note) — ẩn theo pool đơn thuần sẽ giấu mất dữ liệu thật.
+  const showLoan = (detail?.isPool ?? false) || handoverTotal > 0;
+  const showNotes = (detail?.isPool ?? false) || notes.length > 0;
+  useEffect(() => {
+    if ((tab === 'loan' && !showLoan) || (tab === 'notes' && !showNotes)) {
+      setTab('alloc');
+    }
+  }, [tab, showLoan, showNotes]);
+
   const fmtDateTime = (v: string) =>
     new Date(v).toLocaleString(i18n.language === 'en' ? 'en-GB' : 'vi-VN');
 
@@ -247,11 +258,31 @@ export function AssetDetailPage({ me }: { me: Me }) {
 
   return (
     <>
-      <p style={{ marginBottom: '0.5rem' }}>
-        <Link to="/assets">‹ {t('assets.backToList')}</Link>
-      </p>
+      <Link
+        to="/assets"
+        className="backchip"
+        aria-label={t('assets.backToAssets', 'Quay lại tài sản')}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M15 6l-6 6 6 6" />
+        </svg>
+        <span>{t('assets.backToAssets', 'Quay lại tài sản')}</span>
+      </Link>
       <div className="page-header">
-        <h1>{detail.code ?? detail.licenseName ?? '—'}</h1>
+        <h1>
+          {t('assets.detailTitle', {
+            name: detail.code ?? detail.licenseName ?? '—',
+            defaultValue: 'Thông tin chi tiết {{name}}',
+          })}
+        </h1>
         <span className={`badge ${STATUS_BADGE[detail.status] ?? 'muted'}`}>
           {t(`assets.status.${detail.status}`)}
         </span>
@@ -329,20 +360,24 @@ export function AssetDetailPage({ me }: { me: Me }) {
         >
           {t('assets.allocationHistory')}
         </button>
-        <button
-          type="button"
-          className={tab === 'loan' ? 'tab active' : 'tab'}
-          onClick={() => setTab('loan')}
-        >
-          {t('assets.loanTab')}
-        </button>
-        <button
-          type="button"
-          className={tab === 'notes' ? 'tab active' : 'tab'}
-          onClick={() => setTab('notes')}
-        >
-          {t('assets.notesTab')}
-        </button>
+        {showLoan && (
+          <button
+            type="button"
+            className={tab === 'loan' ? 'tab active' : 'tab'}
+            onClick={() => setTab('loan')}
+          >
+            {t('assets.loanTab')}
+          </button>
+        )}
+        {showNotes && (
+          <button
+            type="button"
+            className={tab === 'notes' ? 'tab active' : 'tab'}
+            onClick={() => setTab('notes')}
+          >
+            {t('assets.notesTab')}
+          </button>
+        )}
       </div>
       <div className="detail-tabs-body" style={{ marginTop: '0.75rem' }}>
         {tab === 'alloc' &&
@@ -382,7 +417,8 @@ export function AssetDetailPage({ me }: { me: Me }) {
               </table>
             </div>
           ))}
-        {tab === 'loan' &&
+        {showLoan &&
+          tab === 'loan' &&
           (handovers.length === 0 ? (
             <p className="empty">{t('assets.loanTabEmpty')}</p>
           ) : (
@@ -430,7 +466,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
               </table>
             </div>
           ))}
-        {tab === 'loan' && handoverTotal > HANDOVER_PAGE_SIZE && (
+        {showLoan && tab === 'loan' && handoverTotal > HANDOVER_PAGE_SIZE && (
           <div style={{ marginTop: '0.5rem', display: 'flex', gap: 8 }}>
             <button
               type="button"
@@ -451,7 +487,8 @@ export function AssetDetailPage({ me }: { me: Me }) {
             </button>
           </div>
         )}
-        {tab === 'notes' &&
+        {showNotes &&
+          tab === 'notes' &&
           (notes.length === 0 ? (
             <p className="empty">{t('assets.noNotes')}</p>
           ) : (

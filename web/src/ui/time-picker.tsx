@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import '@/ui/time-picker.css';
 
 const ITEM_H = 42; // px — khớp --item-h trong CSS
-const ANGLE = 22; // độ nghiêng mỗi item → cảm giác mặt trống
 
 const ClockIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -25,7 +24,12 @@ interface WheelProps {
   ariaLabel: string;
 }
 
-/** Một cột bánh xe: cuộn native + scroll-snap lo đà/quán tính; JS chỉ tô 3D theo scrollTop. */
+/**
+ * Một cột bánh xe — cuộn NATIVE thuần (overflow-y) + CSS scroll-snap lo việc hít nấc: lăn
+ * chuột/trackpad/cảm ứng + kéo thanh cuộn + phím mũi tên + click đều mượt. Bỏ hẳn pointer-drag
+ * + biến hình 3D mỗi frame của bản cũ (nguồn gây kẹt/nhảy loạn). JS chỉ đọc nấc đang ở giữa
+ * để tô đậm + phát value; KHÔNG tự scrollTo trong lúc user cuộn (tránh giằng native ⇄ JS).
+ */
 function Wheel({ count, render, value, onChange, ariaLabel }: WheelProps) {
   const colRef = useRef<HTMLDivElement>(null);
   const emitted = useRef(value); // chặn vòng lặp scrollTo ⇄ onChange
@@ -34,28 +38,15 @@ function Wheel({ count, render, value, onChange, ariaLabel }: WheelProps) {
 
   useEffect(() => {
     const col = colRef.current!;
-    const cells = Array.from(col.querySelectorAll<HTMLElement>('.tp-cell'));
     const clamp = (v: number) => (v < 0 ? 0 : v > count - 1 ? count - 1 : v);
     const glide = (i: number) => col.scrollTo({ top: clamp(i) * ITEM_H, behavior: 'smooth' });
 
     const paint = () => {
-      const center = col.scrollTop / ITEM_H;
-      const sel = Math.round(center);
-      cells.forEach((c, i) => {
-        const off = i - center;
-        const a = Math.abs(off);
-        // Ô xa (nhất là cột phút 60 ô) vốn bị mask che → chỉ ẩn, KHÔNG tính lại transform mỗi
-        // frame → giảm việc/khung, cuộn mượt hơn.
-        if (a > 4) {
-          if (c.style.opacity !== '0') c.style.opacity = '0';
-          if (c.classList.contains('on')) c.classList.remove('on');
-          return;
-        }
-        c.style.opacity = String(Math.max(0, 1 - a * 0.26));
-        c.style.transform = `perspective(650px) rotateX(${off * -ANGLE}deg) scale(${Math.max(0.82, 1 - a * 0.05)})`;
-        c.classList.toggle('on', i === sel);
-      });
-      if (sel !== emitted.current && sel >= 0 && sel < count) {
+      const sel = clamp(Math.round(col.scrollTop / ITEM_H));
+      col
+        .querySelectorAll<HTMLElement>('.tp-cell')
+        .forEach((c, i) => c.classList.toggle('on', i === sel));
+      if (sel !== emitted.current) {
         emitted.current = sel;
         onChangeRef.current(sel);
       }
@@ -71,44 +62,7 @@ function Wheel({ count, render, value, onChange, ariaLabel }: WheelProps) {
       });
     };
 
-    // Kéo bằng chuột (cảm ứng đã có cuộn native). Thả tay → "ném" theo vận tốc rồi snap.
-    let dragging = false;
-    let moved = false;
-    let startY = 0;
-    let startScroll = 0;
-    let lastY = 0;
-    let lastT = 0;
-    let vY = 0;
-    const down = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') return;
-      col.style.scrollSnapType = 'none'; // tắt snap khi kéo tay → không giằng, theo sát con trỏ
-      dragging = true;
-      moved = false;
-      startY = lastY = e.clientY;
-      lastT = e.timeStamp;
-      startScroll = col.scrollTop;
-      vY = 0;
-      col.setPointerCapture(e.pointerId);
-      e.preventDefault();
-    };
-    const move = (e: PointerEvent) => {
-      if (!dragging) return;
-      const dy = e.clientY - startY;
-      if (Math.abs(dy) > 3) moved = true;
-      col.scrollTop = startScroll - dy;
-      const dt = e.timeStamp - lastT;
-      if (dt > 0) vY = (e.clientY - lastY) / dt;
-      lastY = e.clientY;
-      lastT = e.timeStamp;
-    };
-    const up = () => {
-      if (!dragging) return;
-      dragging = false;
-      glide(Math.round((col.scrollTop - vY * 130) / ITEM_H)); // "ném" theo vận tốc rồi trượt tới
-      window.setTimeout(() => (col.style.scrollSnapType = ''), 380); // bật lại snap sau khi trượt xong
-    };
     const click = (e: MouseEvent) => {
-      if (moved) return;
       const c = (e.target as HTMLElement).closest<HTMLElement>('.tp-cell');
       if (c) glide(Number(c.dataset.i));
     };
@@ -123,10 +77,6 @@ function Wheel({ count, render, value, onChange, ariaLabel }: WheelProps) {
     };
 
     col.addEventListener('scroll', onScroll, { passive: true });
-    col.addEventListener('pointerdown', down);
-    col.addEventListener('pointermove', move);
-    col.addEventListener('pointerup', up);
-    col.addEventListener('pointercancel', up);
     col.addEventListener('click', click);
     col.addEventListener('keydown', key);
 
@@ -135,10 +85,6 @@ function Wheel({ count, render, value, onChange, ariaLabel }: WheelProps) {
 
     return () => {
       col.removeEventListener('scroll', onScroll);
-      col.removeEventListener('pointerdown', down);
-      col.removeEventListener('pointermove', move);
-      col.removeEventListener('pointerup', up);
-      col.removeEventListener('pointercancel', up);
       col.removeEventListener('click', click);
       col.removeEventListener('keydown', key);
     };
@@ -146,7 +92,7 @@ function Wheel({ count, render, value, onChange, ariaLabel }: WheelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [count]);
 
-  // value đổi từ ngoài (Now/Cancel) → cuộn tới, bỏ qua nếu đã ở đúng vị trí (tránh lặp).
+  // value đổi từ ngoài (Now/Cancel/nhập tay) → cuộn tới, bỏ qua nếu đã ở đúng vị trí (tránh lặp).
   useEffect(() => {
     const col = colRef.current!;
     if (Math.round(col.scrollTop / ITEM_H) === value) return;
@@ -189,6 +135,18 @@ interface TimePickerProps {
 const pad = (n: number) => String(n).padStart(2, '0');
 const DEFAULT: TimeValue = { hour: 8, minute: 6, pm: true };
 
+/** Giờ/phút hiện tại theo múi giờ VN (Asia/Ho_Chi_Minh) — "Now" đúng giờ VN kể cả máy nước ngoài. */
+function vnHourMinute(): { h24: number; minute: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? '0');
+  return { h24: get('hour'), minute: get('minute') };
+}
+
 export function TimePicker({ value = DEFAULT, onDone, onCancel }: TimePickerProps) {
   const [h, setH] = useState(value.hour - 1); // index 0..11
   const [m, setM] = useState(value.minute);
@@ -216,10 +174,10 @@ export function TimePicker({ value = DEFAULT, onDone, onCancel }: TimePickerProp
   };
 
   const now = () => {
-    const d = new Date();
-    setPm(d.getHours() >= 12);
-    setH(((d.getHours() + 11) % 12)); // 0..11 cho 1..12
-    setM(d.getMinutes());
+    const { h24, minute } = vnHourMinute();
+    setPm(h24 >= 12);
+    setH((h24 + 11) % 12); // 0..11 cho 1..12
+    setM(minute);
   };
   const reset = () => {
     setH(value.hour - 1);

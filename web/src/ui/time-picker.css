@@ -144,9 +144,9 @@ input.tp-time:focus {
   flex: 1;
   height: 100%;
   overflow-y: scroll;
-  /* proximity (không mandatory): con lăn chuột desktop cuộn momentum mượt rồi mới hít giữa —
-     mandatory snap từng nấc gây "giật giật". Kéo tay vẫn glide-snap ở JS khi thả. */
-  scroll-snap-type: y proximity;
+  /* mandatory: trình duyệt tự hít đúng nấc khi cuộn dừng → không cần JS scrollTo can thiệp
+     (bản cũ JS drag + glide giằng với native gây "nhảy loạn xạ"). Native lo cuộn + hít mượt. */
+  scroll-snap-type: y mandatory;
   overscroll-behavior: contain;
   contain: paint;
   scrollbar-width: none;

@@ -182,7 +182,7 @@ table.table td.right {
 /* Bề rộng CỐ ĐỊNH cho Cost/Start/End (không dùng auto): header & rows là 2 grid riêng,
    auto co theo nội dung ("—") nên lệch cột. Fixed px → thẳng hàng dù ô rỗng. */
 .seat-list {
-  --seat-cols: minmax(110px, 1.1fr) minmax(90px, 1fr) 112px 108px 108px minmax(0, 1.2fr) 140px;
+  --seat-cols: minmax(110px, 1.1fr) minmax(90px, 1fr) 112px 108px 108px minmax(0, 1fr) minmax(0, 1.2fr) 140px;
 }
 /* Hàng bung /tai-san (phần mềm đang cài trên máy): License/Loại/Start/End/Trạng thái (5 cột).
    Dùng fr cho MỌI cột để slack chia đều (khỏi gap lớn sau tên khi bảng rộng). */

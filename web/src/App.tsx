@@ -18,6 +18,23 @@ type AuthState =
 
 const BREAKPOINT = 900;
 
+// Host portal PMH ID (khớp cả dev :9443 lẫn prod — hostname bỏ qua port). Mở QLTS TỪ portal
+// (đã đăng nhập SSO) thì phải vào THẲNG, không bắt gõ email lại.
+const PORTAL_HOST = 'id.pmh.com.vn';
+/**
+ * true nếu app được mở từ portal PMH ID. Tín hiệu CHÍNH là cờ ?sso=1 portal tự đính vào URL:
+ * cả link (rel=noreferrer) lẫn header no-referrer của cổng đều giấu Referer, nên
+ * document.referrer thường RỖNG → không thể tin. Vẫn giữ referrer làm fallback phụ.
+ */
+function cameFromPortal(): boolean {
+  if (new URLSearchParams(window.location.search).get('sso') === '1') return true;
+  try {
+    return new URL(document.referrer).hostname === PORTAL_HOST;
+  } catch {
+    return false;
+  }
+}
+
 function useIsNarrow(): boolean {
   const [narrow, setNarrow] = useState(window.innerWidth < BREAKPOINT);
   useEffect(() => {
@@ -35,6 +52,14 @@ function App() {
   const loginFailed = loginParam === 'failed';
   // 10.2: tài khoản không thuộc group được phép → callback chặn, KHÔNG auto-SSO lại (tránh lặp)
   const loginForbidden = loginParam === 'forbidden';
+  // Mở từ portal (đã có phiên SSO) + chưa có phiên QLTS → chạy SSO thẳng, khỏi gõ email lại.
+  // KHÔNG auto khi: đăng nhập trực tiếp URL (SA break-glass) hoặc trang lỗi/forbidden (tránh lặp).
+  const autoSso =
+    auth.kind === 'anonymous' && !loginFailed && !loginForbidden && cameFromPortal();
+
+  useEffect(() => {
+    if (autoSso) window.location.href = '/api/auth/login';
+  }, [autoSso]);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -93,6 +118,14 @@ function App() {
     );
   }
   if (auth.kind === 'anonymous') {
+    // Mở từ portal → đang redirect sang SSO: hiện màn chờ (đừng nháy form login rồi mới nhảy).
+    if (autoSso) {
+      return (
+        <Center>
+          <p>{t('app.checkingSession')}</p>
+        </Center>
+      );
+    }
     return (
       <LoginScreen
         loginFailed={loginFailed}

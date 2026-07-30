@@ -61,8 +61,20 @@ export function TimeField({
         setOpen(false);
       }
     };
+    // Esc chỉ đóng picker: capture + stopPropagation chặn Radix Dialog (DismissableLayer)
+    // đóng luôn cả modal và mất form chưa lưu (giống DatePicker).
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey, true);
+    };
   }, [open, refs.domReference, refs.floating]);
 
   return (

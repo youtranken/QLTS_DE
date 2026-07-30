@@ -1,0 +1,55 @@
+/* Audit log — filter gọn 1 hàng + chi tiết dạng cặp khoá:giá trị. */
+.audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-7);
+}
+.audit-filters input,
+.audit-filters select {
+  height: 38px;
+}
+.audit-filters .af-actor {
+  width: 150px;
+}
+.audit-filters .af-obj {
+  width: 120px;
+}
+.audit-filters select {
+  width: 170px;
+}
+/* DatePicker mặc định rộng full → ép hẹp để nằm CÙNG hàng filter. */
+.audit-filters .dp {
+  width: 140px;
+}
+
+.audit-table td {
+  vertical-align: top;
+}
+.audit-objid {
+  font-size: 0.72rem;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Chi tiết: các cặp khoá:giá trị xuống dòng gọn, dễ đọc thay JSON. */
+.audit-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.82rem;
+  max-width: 420px;
+}
+.audit-kv b {
+  color: var(--ink-2);
+  font-weight: 600;
+  margin-right: 2px;
+}
+.audit-pager {
+  display: flex;
+  gap: var(--space-6);
+  align-items: center;
+  margin-top: var(--space-7);
+}

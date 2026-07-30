@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DatePicker } from '@/ui/date-picker';
+import '@/features/admin/audit.css';
 
 interface AuditRow {
   id: string;
   actor: string;
+  actorName: string | null;
   action: string;
   objectType: string | null;
   objectId: string | null;
@@ -37,10 +39,14 @@ const EMPTY: Filters = {
   to: '',
 };
 
-/** Viewer audit log (6.2, chỉ SA) — lọc + phân trang server-side; chỉ đọc (AD-10). */
+/** Mã máy (assets.create) → nhãn người-đọc-hiểu; không có trong từ điển thì tách '.'/'_'. */
+const prettify = (s: string) =>
+  s.replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** Viewer audit log (6.2, chỉ SA) — lọc + phân trang server-side; chỉ đọc (AD-10).
+ *  Hiển thị người-đọc-hiểu: người (tên), hành động + đối tượng (dịch), chi tiết (cặp khoá:giá trị). */
 export function AuditLogPage() {
   const { t, i18n } = useTranslation();
-  // draft (ô nhập) tách applied (đã bấm Lọc) — gõ KHÔNG tự fetch (mẫu reports 6.1)
   const [draft, setDraft] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
   const [page, setPage] = useState(1);
@@ -91,6 +97,7 @@ export function AuditLogPage() {
   };
   const set = (k: keyof Filters) => (v: string) =>
     setDraft((d) => ({ ...d, [k]: v }));
+  const hasFilter = Object.values(draft).some(Boolean);
 
   const fmt = (iso: string) =>
     new Date(iso).toLocaleString(i18n.language === 'vi' ? 'vi-VN' : 'en-US', {
@@ -100,8 +107,20 @@ export function AuditLogPage() {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
     });
+
+  // Người: tên thật; system/SA → nhãn; còn lại (sub lạ) → hiện sub.
+  const actorLabel = (r: AuditRow) =>
+    r.actorName ??
+    (r.actor === 'system'
+      ? t('audit.actorSystem', 'Hệ thống')
+      : r.actor.startsWith('local:')
+        ? t('audit.actorSa', 'SA (nội bộ)')
+        : r.actor);
+  const actionLabel = (a: string) =>
+    t(`auditAction.${a}`, { defaultValue: prettify(a) });
+  const objectLabel = (ty: string | null) =>
+    ty ? t(`auditObject.${ty}`, { defaultValue: prettify(ty) }) : '—';
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
@@ -111,8 +130,10 @@ export function AuditLogPage() {
         <h1>{t('audit.title')}</h1>
       </div>
 
-      <div className="toolbar" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+      {/* Filter GỌN trên MỘT hàng (wrap khi hẹp). */}
+      <div className="audit-filters">
         <input
+          className="af-actor"
           aria-label={t('audit.actor')}
           placeholder={t('audit.actor')}
           value={draft.actor}
@@ -126,17 +147,19 @@ export function AuditLogPage() {
           <option value="">{t('audit.allActions')}</option>
           {actions.map((a) => (
             <option key={a} value={a}>
-              {a}
+              {actionLabel(a)}
             </option>
           ))}
         </select>
         <input
+          className="af-obj"
           aria-label={t('audit.objectType')}
           placeholder={t('audit.objectType')}
           value={draft.objectType}
           onChange={(e) => set('objectType')(e.target.value)}
         />
         <input
+          className="af-obj"
           aria-label={t('audit.objectId')}
           placeholder={t('audit.objectId')}
           value={draft.objectId}
@@ -157,12 +180,7 @@ export function AuditLogPage() {
         <button type="button" className="primary" onClick={apply}>
           {t('audit.filter')}
         </button>
-        {(draft.actor ||
-          draft.action ||
-          draft.objectType ||
-          draft.objectId ||
-          draft.from ||
-          draft.to) && (
+        {hasFilter && (
           <button
             type="button"
             onClick={() => {
@@ -182,7 +200,7 @@ export function AuditLogPage() {
         <p className="empty">{t('audit.empty')}</p>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table audit-table">
             <thead>
               <tr>
                 <th>{t('audit.time')}</th>
@@ -196,24 +214,21 @@ export function AuditLogPage() {
               {data?.items.map((r) => (
                 <tr key={r.id}>
                   <td style={{ whiteSpace: 'nowrap' }}>{fmt(r.createdAt)}</td>
-                  <td>{r.actor}</td>
+                  <td title={r.actor}>{actorLabel(r)}</td>
+                  <td>{actionLabel(r.action)}</td>
                   <td>
-                    <span className="mono">{r.action}</span>
-                  </td>
-                  <td>
-                    {r.objectType ?? '—'}
+                    {objectLabel(r.objectType)}
                     {r.objectId && (
-                      <div className="muted" style={{ fontSize: '0.8rem' }}>
-                        <span className="mono">{r.objectId}</span>
+                      <div
+                        className="muted audit-objid"
+                        title={r.objectId}
+                      >
+                        {r.objectId}
                       </div>
                     )}
                   </td>
                   <td>
-                    {r.detail != null && (
-                      <code style={{ fontSize: '0.78rem', wordBreak: 'break-all' }}>
-                        {JSON.stringify(r.detail)}
-                      </code>
-                    )}
+                    <AuditDetail detail={r.detail} />
                   </td>
                 </tr>
               ))}
@@ -223,27 +238,12 @@ export function AuditLogPage() {
       )}
 
       {data && data.total > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            gap: '0.75rem',
-            alignItems: 'center',
-            marginTop: '0.75rem',
-          }}
-        >
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
+        <div className="audit-pager">
+          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
             ‹ {t('audit.prev')}
           </button>
           <span className="muted" style={{ fontSize: '0.85rem' }}>
-            {t('audit.pageInfo', {
-              page: data.page,
-              pages: totalPages,
-              total: data.total,
-            })}
+            {t('audit.pageInfo', { page: data.page, pages: totalPages, total: data.total })}
           </span>
           <button
             type="button"
@@ -255,5 +255,33 @@ export function AuditLogPage() {
         </div>
       )}
     </section>
+  );
+}
+
+/** Chi tiết dạng cặp "khoá: giá trị" đọc-hiểu-được thay cho JSON thô. */
+function AuditDetail({ detail }: { detail: unknown }) {
+  const { t } = useTranslation();
+  if (detail == null) return <span className="muted">—</span>;
+  if (typeof detail !== 'object' || Array.isArray(detail)) {
+    return <span>{String(detail)}</span>;
+  }
+  const entries = Object.entries(detail as Record<string, unknown>).filter(
+    ([, v]) => v != null && v !== '' && !(Array.isArray(v) && v.length === 0),
+  );
+  if (entries.length === 0) return <span className="muted">—</span>;
+  const fmtVal = (v: unknown): string => {
+    if (Array.isArray(v)) return v.map((x) => String(x)).join(', ');
+    if (typeof v === 'boolean') return v ? t('common.yes', 'Có') : t('common.no', 'Không');
+    if (typeof v === 'object') return JSON.stringify(v);
+    return String(v);
+  };
+  return (
+    <div className="audit-detail">
+      {entries.map(([k, v]) => (
+        <span key={k} className="audit-kv">
+          <b>{t(`auditDetail.${k}`, { defaultValue: prettify(k) })}:</b> {fmtVal(v)}
+        </span>
+      ))}
+    </div>
   );
 }

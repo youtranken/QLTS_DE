@@ -18,6 +18,8 @@ export interface AuditQuery {
 export interface AuditRow {
   id: string;
   actor: string;
+  /** Tên người thao tác (join users theo actor=sub); null cho system/SA → FE tự dịch. */
+  actorName: string | null;
   action: string;
   objectType: string | null;
   objectId: string | null;
@@ -57,16 +59,19 @@ export class AuditQueryService {
       this.db.execute<{
         id: string;
         actor: string;
+        actor_name: string | null;
         action: string;
         object_type: string | null;
         object_id: string | null;
         detail: unknown;
         created_at: string;
       }>(sql`
-        SELECT id, actor, action, object_type, object_id, detail, created_at
-        FROM audit_log
+        SELECT a.id, a.actor, u.full_name AS actor_name, a.action,
+               a.object_type, a.object_id, a.detail, a.created_at
+        FROM audit_log a
+        LEFT JOIN users u ON u.sub = a.actor
         ${where}
-        ORDER BY created_at DESC, id DESC
+        ORDER BY a.created_at DESC, a.id DESC
         LIMIT ${q.pageSize} OFFSET ${offset}
       `),
       this.db.execute<{ n: number }>(sql`
@@ -77,6 +82,7 @@ export class AuditQueryService {
       items: items.rows.map((r) => ({
         id: r.id,
         actor: r.actor,
+        actorName: r.actor_name,
         action: r.action,
         objectType: r.object_type,
         objectId: r.object_id,

@@ -317,6 +317,32 @@ a.linkbtn:hover {
 }
 .page-header h1 {
   margin-right: auto;
+  font-size: var(--fs-2xl);
+}
+/* Cột nội dung hẹp, canh giữa NHẤT QUÁN cho trang cấu hình/danh mục — tiêu đề, thẻ, nút
+   cùng một mép trái (tránh cảnh tiêu đề trái / thẻ giữa / nút trái lệch nhau). */
+.admin-narrow {
+  max-width: 760px;
+  margin-inline: auto;
+}
+/* Trang Cấu hình — rộng hơn để tham số nằm NGANG gọn (đỡ trống 2 bên). */
+.config-page {
+  max-width: 1120px;
+  margin-inline: auto;
+}
+/* Tham số mượn & cảnh báo: 4 cột ngang; thu 2/1 cột ở màn hẹp. */
+.form-grid.config-nums {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 900px) {
+  .form-grid.config-nums {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .form-grid.config-nums {
+    grid-template-columns: 1fr;
+  }
 }
 .toolbar {
   display: flex;
