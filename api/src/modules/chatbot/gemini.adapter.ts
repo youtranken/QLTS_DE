@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-// alias "latest" → luôn trỏ bản Flash MỚI NHẤT (Gemini 3.x-class); tránh lỗi 404
-// "no longer available to new users" khi Google ngừng hỗ trợ phiên bản cũ (2.5-flash
-// đã dính). Flash đầy đủ (không lite) → hiểu tiếng Việt tốt hơn cho việc chọn tool +
-// trích ngày. Muốn mạnh hơn nữa: 'gemini-pro-latest' (quota ngày hẹp hơn, chậm hơn).
-const MODEL = 'gemini-flash-latest';
+// GHIM model cụ thể (không alias "latest") để quota/pricing free-tier ổn định, không
+// âm thầm nhảy sang bản preview/tính-phí. Bản 2.x-flash trên key free đời mới đã trả
+// 404 "no longer available to new users" hoặc 429 (hết free quota) → dùng bản 3.x còn
+// free tier. Chọn -flash-lite vì RPD/ngày rộng hơn (~4x bản full) để tiết kiệm quota.
+// Đổi model: verify bằng ListModels + generateContent với key thật TRƯỚC khi ghim.
+const MODEL = 'gemini-3.5-flash-lite';
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 // Tách ngân sách: chọn tool nhanh (chậm hơn → lùi keyword-search); soạn câu giữ đủ 8s
 // để KHÔNG cắt câu trả lời. Tổng xấu nhất ~14s thay vì 16s (AC5).
@@ -21,7 +22,8 @@ export type ToolName =
   | 'my_borrowings'
   | 'pending_approvals'
   | 'software_info'
-  | 'asset_history';
+  | 'asset_history'
+  | 'eol_alerts';
 const WHITELIST = new Set<ToolName>([
   'search_assets',
   'my_assets',
@@ -33,6 +35,7 @@ const WHITELIST = new Set<ToolName>([
   'pending_approvals',
   'software_info',
   'asset_history',
+  'eol_alerts',
 ]);
 
 export interface ToolCall {
@@ -138,6 +141,12 @@ const FUNCTION_DECLARATIONS = [
       },
       required: ['code'],
     },
+  },
+  {
+    name: 'eol_alerts',
+    description:
+      'CHỈ ADMIN: cảnh báo EOL (End of Life) — máy SẮP/ĐÃ HẾT HẠN sử dụng (đủ thời hạn) CẦN THANH LÝ và license thuê bao (term) sắp/đã hết hạn. Dùng khi hỏi "máy nào sắp hết hạn", "máy nào cần thanh lý", "máy nào hết tuổi thọ / quá cũ", "cảnh báo EOL", "máy nào sắp EOL", "license/phần mềm nào sắp hết hạn cần gia hạn".',
+    parameters: { type: 'object', properties: {} },
   },
   {
     name: 'day_availability',
@@ -345,6 +354,7 @@ function systemPrompt(ctx: GeminiContext): string {
     'Hỏi GIỜ/khung giờ trống của một NGÀY cụ thể ("ngày 26 giờ nào trống") → day_availability(date). Còn hỏi máy trống trong 1 khoảng giờ cho sẵn → check_availability.',
     'Hỏi THỐNG KÊ (bao nhiêu/tổng/mỗi loại mấy cái/tổng giá trị) → asset_stats. Hỏi "tôi đang mượn gì/khi nào trả" → my_borrowings. Admin hỏi "có gì chờ duyệt/gia hạn" → pending_approvals.',
     'Hỏi về PHẦN MỀM/license (số bản/còn trống/sắp hết hạn) → software_info(name?). Hỏi LỊCH SỬ dùng/cấp phát của 1 máy → asset_history(code).',
+    'Admin hỏi CẢNH BÁO EOL / máy nào CẦN THANH LÝ / máy hết tuổi thọ / license sắp hết hạn cần gia hạn → eol_alerts.',
     'Hỏi CHI TIẾT/thuộc tính của MỘT máy cụ thể (theo mã) → dùng get_asset, điền aspects ĐÚNG thứ được hỏi (chỉ hỏi cấu hình thì aspects=["config"]; hỏi giá thì ["price"]…), KHÔNG thêm khía cạnh không được hỏi.',
     'Khoảng ngày dùng YYYY-MM-DD; thời điểm mượn dùng ISO-8601 có offset +07:00.',
     'Nếu là CHÀO HỎI / nói chuyện phiếm / câu KHÔNG liên quan tài sản → KHÔNG gọi hàm; trả lời NGẮN GỌN, thân thiện bằng tiếng Việt và gợi ý có thể hỏi về danh sách tài sản, máy đang giữ, hoặc máy còn trống. TUYỆT ĐỐI không bịa số liệu/thông tin tài sản khi chưa gọi hàm.',
