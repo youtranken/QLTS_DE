@@ -14,7 +14,7 @@ Sinh 2 file trong `qlts/data_backups/`:
 - `qlts_db_<ngày_giờ>.dump` — DB (pg_dump custom-format, nén sẵn).
 - `qlts_files_<ngày_giờ>.tgz` — thư mục file `/data/files` (ảnh biên bản, file kiểm kê).
 
-Giữ 14 bản mới nhất mỗi loại (sửa `KEEP` trong script). Backup rỗng → script báo lỗi, không ghi đè.
+Giữ **30 ngày**, tự xóa tịnh tiến bản cũ hơn mỗi lần chạy (sửa `KEEP_DAYS` trong script, hoặc `KEEP_DAYS=60 bash script_backups/backup.sh`). Backup rỗng → script báo lỗi, không ghi đè.
 
 ## Restore
 ```bash

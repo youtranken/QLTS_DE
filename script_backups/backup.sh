@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Backup toàn bộ dữ liệu QLTS: DB (pg_dump custom-format) + thư mục file (ảnh biên bản/kiểm kê).
 # pg_dump/tar chạy NGAY TRONG container qua `docker exec` → không cần cài client trên host.
-# Xuất ra <repo>/qlts/data_backups/, xoay vòng giữ KEEP bản mới nhất. Veeam lo phần đưa ra ngoài.
+# Xuất ra <repo>/qlts/data_backups/, giữ KEEP_DAYS ngày (xóa tịnh tiến). Veeam lo phần đưa ra ngoài.
 set -euo pipefail
 
 # Git-Bash (Windows) tự đổi '/data/files' thành đường dẫn Windows → tắt đi. Vô hại trên Linux.
@@ -14,7 +14,7 @@ FILES_CONTAINER=${FILES_CONTAINER:-qlts-api-1}
 PG_USER=qlts
 PG_DB=qlts
 FILES_DIR=/data/files
-KEEP=14
+KEEP_DAYS=${KEEP_DAYS:-30}   # giữ backup trong bao nhiêu NGÀY (xóa tịnh tiến), override qua env
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT_DIR="$SCRIPT_DIR/../data_backups"
@@ -37,6 +37,6 @@ done
 
 echo "[backup] Xong: DB=$(du -h "$DB_FILE" | cut -f1)  File=$(du -h "$FILES_FILE" | cut -f1)"
 
-# Xoay vòng: giữ KEEP bản mới nhất mỗi loại (xóa cũ hơn).
-ls -1t "$OUT_DIR"/qlts_db_*.dump  2>/dev/null | tail -n +$((KEEP+1)) | xargs -r rm -f
-ls -1t "$OUT_DIR"/qlts_files_*.tgz 2>/dev/null | tail -n +$((KEEP+1)) | xargs -r rm -f
+# Xóa tịnh tiến: bỏ bản CŨ HƠN KEEP_DAYS ngày (theo mtime = lúc tạo). Chạy mỗi lần backup.
+find "$OUT_DIR" -maxdepth 1 -type f -name 'qlts_db_*.dump'  -mtime +"$KEEP_DAYS" -delete
+find "$OUT_DIR" -maxdepth 1 -type f -name 'qlts_files_*.tgz' -mtime +"$KEEP_DAYS" -delete
