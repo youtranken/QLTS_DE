@@ -7,8 +7,10 @@ set -euo pipefail
 # Git-Bash (Windows) tự đổi '/data/files' thành đường dẫn Windows → tắt đi. Vô hại trên Linux.
 export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'
 
-PG_CONTAINER=qlts-postgres-1
-FILES_CONTAINER=qlts-api-1
+# Tên container = <project>-<service>-1. Chốt COMPOSE_PROJECT_NAME=qlts trong .env để luôn là
+# 'qlts-*' dù thư mục clone tên khác (prod: QLTS_DE). Override được: PG_CONTAINER=... bash backup.sh
+PG_CONTAINER=${PG_CONTAINER:-qlts-postgres-1}
+FILES_CONTAINER=${FILES_CONTAINER:-qlts-api-1}
 PG_USER=qlts
 PG_DB=qlts
 FILES_DIR=/data/files
