@@ -15,3 +15,8 @@ graphify-out/
 
 # Backup dữ liệu (chạy script_backups/backup.sh) — KHÔNG commit
 /data_backups/
+
+# kho backup mã hóa (BACKUP_DIR = ./data-backups) — là DỮ LIỆU, không commit
+data-backups/
+backups/
+qlts-backup-*.tar.gz*

@@ -146,6 +146,59 @@ services:
       timeout: 3s
       retries: 10
 
+  # Backup định kỳ (giống PMH ID): pg_dump + thư mục file upload, chạy TRONG container.
+  # backup-cron tự chạy hằng ngày lúc BACKUP_AT; giữ TỊNH TIẾN BACKUP_KEEP_DAYS ngày.
+  #   Chạy tay 1 bản:  docker compose -f docker-compose.yml --profile backup run --rm backup
+  #   BACKUP_DIR (host) mặc định ./data-backups (đã .gitignore); nên copy .enc ra ngoài máy.
+  backup-cron:
+    build: ./ops/backup
+    image: qlts-backup:latest
+    restart: unless-stopped
+    mem_limit: 256m
+    entrypoint: ['sh', '/cron-loop.sh']
+    environment:
+      TZ: Asia/Bangkok
+      PGHOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      BACKUP_OUT: /backups
+      FILES_DIR: /data/files
+      BACKUP_AT: ${BACKUP_AT:-02:00}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+    volumes:
+      - filesdata:/data/files:ro
+      - ${BACKUP_DIR:-./data-backups}:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '5' }
+
+  # Chạy tay (profile) — CHUNG image/script với backup-cron.
+  backup:
+    build: ./ops/backup
+    image: qlts-backup:latest
+    profiles: ['backup']
+    environment:
+      TZ: Asia/Bangkok
+      PGHOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      BACKUP_OUT: /backups
+      FILES_DIR: /data/files
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+    volumes:
+      - filesdata:/data/files:ro
+      - ${BACKUP_DIR:-./data-backups}:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 networks:
   # Mạng chung cổng-vào (tạo ngoài: `docker network create edge`). Chỉ `web` join.
   edge:
