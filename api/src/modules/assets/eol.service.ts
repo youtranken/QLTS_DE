@@ -17,6 +17,8 @@ export type EolMachine = {
   /** eolDate − hôm nay (VN). <= 0 nghĩa là ĐÃ quá tuổi. */
   daysToEol: number;
   assignedUserName: string | null;
+  /** Ngày đã đưa vào digest cảnh báo EOL (YYYY-MM-DD). null = chưa báo lần nào. */
+  eolNotifiedAt: string | null;
 };
 
 export type EolSoftware = {
@@ -77,6 +79,7 @@ export class EolService {
              date_part('year', age(${TODAY_VN}, a.start_date))::int AS "ageYears",
              (a.start_date + make_interval(years => ${lifespanYears}::int))::date::text AS "eolDate",
              ((a.start_date + make_interval(years => ${lifespanYears}::int))::date - ${TODAY_VN})::int AS "daysToEol",
+             (a.eol_notified_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date::text AS "eolNotifiedAt",
              u.full_name AS "assignedUserName"
       FROM assets a
       LEFT JOIN users u ON u.sub = a.assigned_user_sub

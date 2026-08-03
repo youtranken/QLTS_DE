@@ -90,6 +90,7 @@ describe('Migrations + seed config (Postgres thật)', () => {
       '0045_assets_contract.sql',
       '0046_config_asset_lifespan_years.sql',
       '0047_booking_session_handover_ts.sql',
+      '0048_assets_eol_notified.sql',
     ]);
   });
 

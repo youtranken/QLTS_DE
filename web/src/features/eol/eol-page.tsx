@@ -21,6 +21,7 @@ interface EolMachine {
   eolDate: string;
   daysToEol: number;
   assignedUserName: string | null;
+  eolNotifiedAt: string | null;
 }
 interface EolSoftware {
   id: string;
@@ -255,6 +256,7 @@ export function EolPage({ me }: { me: Me }) {
                   <th>{t('eol.ageYears', 'Đã dùng')}</th>
                   <th>{t('eol.eolDate', 'Ngày hết hạn')}</th>
                   <th>{t('eol.status', 'Tình trạng')}</th>
+                  <th>{t('eol.notified', 'Đã báo EOL')}</th>
                   <th>{t('assets.col.user')}</th>
                 </tr>
               </thead>
@@ -274,6 +276,13 @@ export function EolPage({ me }: { me: Me }) {
                       <DayPill days={m.daysToEol}
                         overLabel={t('eol.overYears', 'Quá hạn {{n}} ngày')}
                         soonLabel={t('eol.soonDays', 'Còn {{n}} ngày')} />
+                    </td>
+                    <td>
+                      {m.eolNotifiedAt ? (
+                        formatDmy(m.eolNotifiedAt)
+                      ) : (
+                        <span className="muted">{t('eol.notNotified', 'Chưa báo')}</span>
+                      )}
                     </td>
                     <td>{m.assignedUserName ?? '—'}</td>
                   </tr>

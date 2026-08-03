@@ -115,6 +115,8 @@ export default {
     overDays: 'Quá hạn {{n}} ngày',
     soonDays: 'Còn {{n}} ngày',
     ageYears: 'Đã dùng',
+    notified: 'Đã báo EOL',
+    notNotified: 'Chưa báo',
     yearsUnit: '{{n}} năm',
     filterMinYears: 'Đã dùng từ (năm)',
     yearsPlus: '{{n}} năm trở lên',

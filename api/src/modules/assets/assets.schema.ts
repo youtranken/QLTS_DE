@@ -41,6 +41,8 @@ export const assetsTable = pgTable('assets', {
   isPool: boolean('is_pool').notNull().default(false),
   /** Soft-purge (0038): máy thanh lý "không còn dùng" → ẩn khỏi mọi list, giữ lịch sử/audit. */
   purgedAt: timestamp('purged_at', { withTimezone: true }),
+  /** Đã đưa vào digest EOL (0048): NULL = chưa báo. Digest chỉ nhắc máy MỚI (cột NULL). */
+  eolNotifiedAt: timestamp('eol_notified_at', { withTimezone: true }),
   version: integer('version').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()

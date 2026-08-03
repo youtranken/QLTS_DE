@@ -115,6 +115,8 @@ export default {
     overDays: 'Expired {{n}} days ago',
     soonDays: '{{n}} days left',
     ageYears: 'In use',
+    notified: 'EOL notified',
+    notNotified: 'Not notified',
     yearsUnit: '{{n}} yrs',
     filterMinYears: 'In use from (years)',
     yearsPlus: '{{n}} years & up',
