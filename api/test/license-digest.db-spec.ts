@@ -77,7 +77,11 @@ describe('License digest (story 5.6)', () => {
     db = drizzle(pool);
     outbox = new OutboxService(db);
     config = new SystemConfigService(db);
-    digest = new LicenseDigestService(db, config, outbox, fakeSweep);
+    const mailSettings = {
+      getDigestTime: async () => '00:00',
+      isEnabled: async () => true,
+    } as unknown as ConstructorParameters<typeof LicenseDigestService>[4];
+    digest = new LicenseDigestService(db, config, outbox, fakeSweep, mailSettings);
     recipients = new NotificationRecipientsService(db);
   });
 
@@ -146,6 +150,9 @@ describe('License digest (story 5.6)', () => {
       outbox,
       config,
       mail as unknown as MailTransportService,
+      { isEnabled: async () => true } as unknown as ConstructorParameters<
+        typeof NotificationsConsumer
+      >[3],
     );
     new LicenseDigestMailRegistrar(
       consumer,
@@ -179,6 +186,9 @@ describe('License digest (story 5.6)', () => {
       outbox,
       config,
       mail as unknown as MailTransportService,
+      { isEnabled: async () => true } as unknown as ConstructorParameters<
+        typeof NotificationsConsumer
+      >[3],
     );
     new LicenseDigestMailRegistrar(
       consumer,

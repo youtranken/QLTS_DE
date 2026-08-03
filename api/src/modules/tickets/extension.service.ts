@@ -13,6 +13,7 @@ import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
 import { SystemConfigService } from '../config/system-config.service';
+import { OutboxService } from '../outbox/outbox.service';
 
 /**
  * Luồng gia hạn (Epic 4.1–4.3) — tách khỏi TicketsService (granularity). Extension là dòng
@@ -25,6 +26,7 @@ export class ExtensionService {
     @Inject(DRIZZLE_DB) private readonly db: Database,
     private readonly config: SystemConfigService,
     private readonly audit: AuditWriterService,
+    private readonly outbox: OutboxService,
   ) {}
 
   /** Member xin gia hạn (4.1). period=[hạn_cũ, hạn_mới) — EXCLUDE chặn chồng khung (SLOT_TAKEN). */
@@ -146,6 +148,8 @@ export class ExtensionService {
           objectId: ticketId,
           detail: { newDue: newDueIso },
         });
+        // Báo Admin có yêu cầu gia hạn cần duyệt (bật/tắt ở Cấu hình thông báo).
+        await this.outbox.enqueueWithin(tx, 'extension_requested', { ticketId });
         return { id: ins.rows[0].id };
       });
     } catch (error) {
@@ -358,6 +362,11 @@ export class ExtensionService {
           objectType: 'ticket',
           objectId: e.ticket_id,
           detail: { reason },
+        });
+        // Báo người mượn yêu cầu gia hạn bị từ chối, kèm lý do (bật/tắt ở Cấu hình thông báo).
+        await this.outbox.enqueueWithin(tx, 'extension_rejected', {
+          ticketId: e.ticket_id,
+          reason,
         });
         return { id: e.ticket_id };
       });

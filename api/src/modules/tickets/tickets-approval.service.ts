@@ -9,6 +9,7 @@ import { mapBookingPgError } from '../../common/booking-errors';
 import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { AuditWriterService } from '../audit/audit-writer.service';
+import { OutboxService } from '../outbox/outbox.service';
 
 /**
  * Duyệt/từ chối request >48h + hết-hạn chờ-duyệt (FR-13, 3.4/3.5b). Optimistic-lock version,
@@ -20,6 +21,7 @@ export class TicketsApprovalService {
   constructor(
     @Inject(DRIZZLE_DB) private readonly db: Database,
     private readonly audit: AuditWriterService,
+    private readonly outbox: OutboxService,
   ) {}
 
   /** Đọc ticket pending_approval trong tx + kiểm version/state chung cho approve+reject. */
@@ -170,6 +172,11 @@ export class TicketsApprovalService {
           objectType: 'ticket',
           objectId: ticketId,
           detail: { reason },
+        });
+        // Báo người mượn yêu cầu bị từ chối, kèm lý do (bật/tắt ở Cấu hình thông báo).
+        await this.outbox.enqueueWithin(tx, 'request_rejected', {
+          ticketId,
+          reason,
         });
         return { id: ticketId, state: 'rejected' };
       });

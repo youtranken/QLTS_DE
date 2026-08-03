@@ -52,6 +52,7 @@ export function navGroups(role: string): NavGroup[] {
           ? [
               { to: '/admin/audit', key: 'nav.audit' },
               { to: '/admin/config', key: 'nav.config' },
+              { to: '/admin/mail', key: 'nav.mailSettings' },
               { to: '/notifications', key: 'nav.notifications' },
             ]
           : []),

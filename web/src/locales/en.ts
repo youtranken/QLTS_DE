@@ -91,6 +91,7 @@ export default {
     catalog: 'Catalog',
     audit: 'Audit log',
     config: 'Settings',
+    mailSettings: 'Notification settings',
     notifications: 'Failed notifications',
     menu: 'Menu',
   },

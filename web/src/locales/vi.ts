@@ -91,6 +91,7 @@ export default {
     catalog: 'Danh mục',
     audit: 'Audit log',
     config: 'Cấu hình',
+    mailSettings: 'Cấu hình thông báo',
     notifications: 'Thông báo lỗi',
     menu: 'Menu',
   },

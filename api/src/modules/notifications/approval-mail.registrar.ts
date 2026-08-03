@@ -5,6 +5,7 @@ import type { Database } from '../../database/database.module';
 import { MailTransportService } from './mail-transport.service';
 import { NotificationRecipientsService } from './notification-recipients.service';
 import { NotificationsConsumer } from './notifications.consumer';
+import { renderMail } from './mail-layout';
 
 interface ApprovalTicket {
   borrowerSub: string;
@@ -79,17 +80,30 @@ export class ApprovalMailRegistrar implements OnModuleInit {
       this.logger.warn('không có email admin — bỏ qua mail duyệt');
       return;
     }
-    const link = `${process.env.APP_BASE_URL ?? 'http://localhost:8080'}/xu-ly-muon`;
+    const link = `${process.env.APP_BASE_URL ?? 'http://localhost:8080'}/approvals`;
     const who = t.fullName ?? t.borrowerSub;
     const at = vnDateTime(t.createdAt);
     const subject =
       kind === 'requested'
         ? 'QLTS: Có yêu cầu mượn cần duyệt'
         : 'QLTS: Nhắc duyệt — yêu cầu mượn treo quá hạn';
-    const text =
-      kind === 'requested'
-        ? `Có yêu cầu mượn cần duyệt từ ${who} (gửi lúc ${at}).\nXem và xử lý: ${link}`
-        : `Yêu cầu mượn từ ${who} (gửi lúc ${at}) đã treo quá thời gian quy định, vui lòng duyệt.\nXem: ${link}`;
-    await mail.send({ to, subject, text });
+    const { html, text } = renderMail({
+      title:
+        kind === 'requested'
+          ? 'Yêu cầu mượn cần duyệt'
+          : 'Nhắc duyệt — yêu cầu treo quá hạn',
+      tone: kind === 'requested' ? 'info' : 'warn',
+      preheader: `Người mượn: ${who}`,
+      intro:
+        kind === 'requested'
+          ? 'Có một yêu cầu mượn máy đang chờ bạn duyệt.'
+          : 'Yêu cầu mượn dưới đây đã treo quá thời gian quy định, vui lòng duyệt sớm.',
+      details: [
+        { label: 'Người mượn', value: who },
+        { label: 'Thời điểm gửi', value: at },
+      ],
+      cta: { label: 'Xem và xử lý', url: link },
+    });
+    await mail.send({ to, subject, text, html });
   }
 }

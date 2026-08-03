@@ -6,7 +6,7 @@ import { MailTransportService } from './mail-transport.service';
 import { NotificationsConsumer } from './notifications.consumer';
 import { renderMail, vnDateTime } from './mail-layout';
 
-interface ForceCancelled {
+interface Rejected {
   assetCode: string | null;
   from: Date | null;
   to: Date | null;
@@ -15,20 +15,14 @@ interface ForceCancelled {
 
 const dt = (d: Date | null) => (d ? vnDateTime(d) : '?');
 
-/** Giai đoạn lúc bị hủy → câu chữ rõ (chờ duyệt vs chờ giao). */
-const phaseText = (fromState: string): string =>
-  fromState === 'pending_approval'
-    ? 'trong lúc chờ duyệt'
-    : 'trong lúc chờ giao máy';
-
 /**
- * Mail báo lượt mượn bị Admin hủy CƯỠNG CHẾ (audit H-2). Khác `booking_cancelled`
- * (cascade máy hỏng/thanh lý — lý do derive từ trạng thái máy): ở đây lý do do Admin
- * GÕ TAY nên phải chuyển nguyên văn tới người mượn, không diễn giải lại.
+ * Mail báo YÊU CẦU MƯỢN bị Admin TỪ CHỐI lúc chờ duyệt (topic `request_rejected`). Khác hủy
+ * cưỡng chế (đã duyệt rồi mới hủy): đây là từ chối ngay ở bước duyệt. Lý do Admin gõ → chuyển
+ * nguyên văn tới người mượn.
  */
 @Injectable()
-export class ForceCancelMailRegistrar implements OnModuleInit {
-  private readonly logger = new Logger(ForceCancelMailRegistrar.name);
+export class RequestRejectMailRegistrar implements OnModuleInit {
+  private readonly logger = new Logger(RequestRejectMailRegistrar.name);
 
   constructor(
     private readonly consumer: NotificationsConsumer,
@@ -36,7 +30,7 @@ export class ForceCancelMailRegistrar implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.consumer.register('ticket_force_cancelled', (ctx) =>
+    this.consumer.register('request_rejected', (ctx) =>
       this.send(ctx.payload, ctx.mail),
     );
   }
@@ -48,39 +42,36 @@ export class ForceCancelMailRegistrar implements OnModuleInit {
     const ticketId =
       typeof payload.ticketId === 'string' ? payload.ticketId : '';
     const reason = typeof payload.reason === 'string' ? payload.reason : '';
-    const fromState =
-      typeof payload.fromState === 'string' ? payload.fromState : '';
     if (!ticketId) return;
     const t = await this.load(ticketId);
     if (!t) return;
     if (!t.borrowerEmail) {
-      this.logger.warn('người mượn không có email — bỏ qua mail hủy cưỡng chế');
+      this.logger.warn('người mượn không có email — bỏ qua mail từ chối yêu cầu');
       return;
     }
     const { html, text } = renderMail({
-      title: 'Lượt mượn đã bị hủy',
-      tone: 'danger',
+      title: 'Yêu cầu mượn bị từ chối',
+      tone: 'warn',
       intro: [
-        `Lượt mượn của bạn đã bị quản trị viên hủy ${phaseText(fromState)}.`,
+        'Yêu cầu mượn máy của bạn đã bị quản trị viên từ chối.',
         'Nếu vẫn cần máy, vui lòng đặt lại hoặc liên hệ quản trị viên.',
       ],
       details: [
         { label: 'MTS (mã máy)', value: t.assetCode ?? '?' },
         { label: 'Ngày nhận', value: dt(t.from) },
         { label: 'Ngày trả', value: dt(t.to) },
-        { label: 'Lý do', value: reason || '(không nêu)' },
+        { label: 'Lý do từ chối', value: reason || '(không nêu)' },
       ],
     });
     await mail.send({
       to: [t.borrowerEmail],
-      subject: 'QLTS: Lượt mượn của bạn đã bị hủy',
+      subject: 'QLTS: Yêu cầu mượn của bạn đã bị từ chối',
       text,
       html,
     });
   }
 
-  private async load(ticketId: string): Promise<ForceCancelled | null> {
-    // Booking đã bị set 'cancelled' cùng tx — lấy bản occupying gần nhất để có khung giờ.
+  private async load(ticketId: string): Promise<Rejected | null> {
     const r = await this.db.execute<{
       asset_code: string | null;
       from_at: Date | null;

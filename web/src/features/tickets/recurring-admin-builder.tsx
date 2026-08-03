@@ -2,7 +2,11 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DateTimePicker } from '@/ui/date-time-picker';
 import type { Me } from '@/lib/me';
-import type { FreeMachine, SessionRow } from '@/features/booking/booking-types';
+import {
+  todayLocal,
+  type FreeMachine,
+  type SessionRow,
+} from '@/features/booking/booking-types';
 
 /** Admin đặt định kỳ hộ (7.5) — builder buổi + máy (theo buổi đầu) → recurring-for. */
 export function RecurringAdminBuilder({
@@ -99,6 +103,7 @@ export function RecurringAdminBuilder({
             <span>{t('booking.from')}</span>
             <DateTimePicker
               value={s.from}
+              min={todayLocal()}
               ariaLabel={t('booking.from')}
               onChange={(v) => setRow(i, { from: v })}
             />
@@ -107,6 +112,7 @@ export function RecurringAdminBuilder({
             <span>{t('booking.to')}</span>
             <DateTimePicker
               value={s.to}
+              min={s.from || todayLocal()}
               ariaLabel={t('booking.to')}
               onChange={(v) => setRow(i, { to: v })}
             />

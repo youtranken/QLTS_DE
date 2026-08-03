@@ -173,6 +173,9 @@ describe('Overdue reminder + pickup mail (story 5.3)', () => {
       outbox,
       config,
       mail as unknown as MailTransportService,
+      { isEnabled: async () => true } as unknown as ConstructorParameters<
+        typeof NotificationsConsumer
+      >[3],
     );
     new OverdueMailRegistrar(consumer, recipients, db).onModuleInit();
     return consumer;

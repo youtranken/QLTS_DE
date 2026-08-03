@@ -78,6 +78,13 @@ const ICONS: Record<string, React.ReactNode> = {
       <circle cx="18" cy="5" r="3" />
     </>
   ),
+  'nav.mailSettings': (
+    <>
+      {/* Phong bì — "Cấu hình thông báo" (bật/tắt email theo sự kiện). */}
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </>
+  ),
   'nav.config': (
     <>
       <circle cx="12" cy="12" r="3" />

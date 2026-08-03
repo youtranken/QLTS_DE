@@ -12,6 +12,9 @@ import { NotificationRecipientsService } from './notification-recipients.service
 import { NotificationsConsumer } from './notifications.consumer';
 import { NotificationsController } from './notifications.controller';
 import { SmtpConfigController } from './smtp-config.controller';
+import { MailSettingsController } from './mail-settings.controller';
+import { ExtensionMailRegistrar } from './extension-mail.registrar';
+import { RequestRejectMailRegistrar } from './request-reject-mail.registrar';
 
 /**
  * Notifications (AD-11) — consumer mail chạy ở worker + endpoint badge lỗi cho API. OutboxService
@@ -31,8 +34,14 @@ import { SmtpConfigController } from './smtp-config.controller';
     OffboardMailRegistrar,
     LicenseDigestMailRegistrar,
     EolDigestMailRegistrar,
+    ExtensionMailRegistrar,
+    RequestRejectMailRegistrar,
   ],
-  controllers: [NotificationsController, SmtpConfigController],
+  controllers: [
+    NotificationsController,
+    SmtpConfigController,
+    MailSettingsController,
+  ],
   exports: [NotificationsConsumer],
 })
 export class NotificationsModule {}

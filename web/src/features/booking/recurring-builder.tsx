@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DateTimePicker } from '@/ui/date-time-picker';
+import { todayLocal } from '@/features/booking/booking-types';
 import type { Me } from '@/lib/me';
 
 interface FreeMachine {
@@ -151,6 +152,7 @@ export function RecurringBuilder({
               {t('recur.from')} {i + 1}
               <DateTimePicker
                 value={s.from}
+                min={todayLocal()}
                 ariaLabel={`${t('recur.from')} ${i + 1}`}
                 onChange={(v) => setRow(i, { from: v })}
               />
@@ -159,6 +161,7 @@ export function RecurringBuilder({
               {t('recur.to')}
               <DateTimePicker
                 value={s.to}
+                min={s.from || todayLocal()}
                 ariaLabel={t('recur.to')}
                 onChange={(v) => setRow(i, { to: v })}
               />

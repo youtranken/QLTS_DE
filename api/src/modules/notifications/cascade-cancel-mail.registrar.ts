@@ -4,6 +4,7 @@ import { DRIZZLE_DB } from '../../database/database.module';
 import type { Database } from '../../database/database.module';
 import { MailTransportService } from './mail-transport.service';
 import { NotificationsConsumer } from './notifications.consumer';
+import { renderMail, vnDateTime } from './mail-layout';
 
 interface CancelledBooking {
   assetCode: string | null;
@@ -13,9 +14,6 @@ interface CancelledBooking {
   to: Date;
   borrowerEmail: string | null;
 }
-
-const vnTime = (d: Date) =>
-  d.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 
 /** Lý do hủy derive từ trạng thái asset hiện tại (cascade đã đổi asset cùng tx trước khi hủy). */
 function reasonText(status: string, isPool: boolean): string {
@@ -59,12 +57,25 @@ export class CascadeCancelMailRegistrar implements OnModuleInit {
       return;
     }
     const reason = reasonText(b.assetStatus, b.assetIsPool);
+    const { html, text } = renderMail({
+      title: 'Lượt mượn đã bị hủy',
+      tone: 'danger',
+      intro: [
+        `Lượt mượn của bạn đã bị hủy vì ${reason}.`,
+        'Vui lòng đặt lại máy khác nếu cần.',
+      ],
+      details: [
+        { label: 'MTS (mã máy)', value: b.assetCode ?? '?' },
+        { label: 'Ngày nhận', value: vnDateTime(b.from) },
+        { label: 'Ngày trả', value: vnDateTime(b.to) },
+        { label: 'Lý do', value: reason },
+      ],
+    });
     await mail.send({
       to: [b.borrowerEmail],
       subject: 'QLTS: Lượt mượn của bạn đã bị hủy',
-      text:
-        `Lượt đặt máy ${b.assetCode ?? '?'} khung ${vnTime(b.from)} – ${vnTime(b.to)} ` +
-        `đã bị hủy vì ${reason}.\nVui lòng đặt lại máy khác nếu cần.`,
+      text,
+      html,
     });
   }
 

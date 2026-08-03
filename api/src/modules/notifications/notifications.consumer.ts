@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SystemConfigService } from '../config/system-config.service';
+import { MailSettingsService } from '../config/mail-settings.service';
 import { OutboxService } from '../outbox/outbox.service';
 import { MailTransportService } from './mail-transport.service';
 
@@ -27,6 +28,7 @@ export class NotificationsConsumer {
     private readonly outbox: OutboxService,
     private readonly config: SystemConfigService,
     private readonly mail: MailTransportService,
+    private readonly mailSettings: MailSettingsService,
   ) {}
 
   /** 5.2–5.6 gọi (OnModuleInit) để gắn luật mail cho topic của mình. */
@@ -60,6 +62,11 @@ export class NotificationsConsumer {
     if (!handler) {
       // Topic chưa có luật mail (5.2–5.6 chưa gắn) → mark để không kẹt queue, không crash.
       this.logger.warn(`topic '${topic}' chưa có handler mail — bỏ qua`);
+      await this.outbox.markProcessed(id);
+      return;
+    }
+    // Cấu hình thông báo: admin tắt loại mail này → mark, không gửi (chốt chặn DUY NHẤT).
+    if (!(await this.mailSettings.isEnabled(topic))) {
       await this.outbox.markProcessed(id);
       return;
     }

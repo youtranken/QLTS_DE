@@ -7,6 +7,7 @@ import { SystemConfigService } from '../config/system-config.service';
 import { MailTransportService } from './mail-transport.service';
 import { NotificationRecipientsService } from './notification-recipients.service';
 import { NotificationsConsumer } from './notifications.consumer';
+import { renderMail } from './mail-layout';
 
 interface ExpiringLicense {
   name: string;
@@ -62,15 +63,22 @@ export class LicenseDigestMailRegistrar implements OnModuleInit {
       hostCode: r.host_code,
       endDate: r.end_date,
     }));
-    const lines = items
-      .map(
-        (i) => `- ${i.name} (máy ${i.hostCode ?? '?'}): hết hạn ${i.endDate}`,
-      )
-      .join('\n');
+    const list = items.map(
+      (i) => `${i.name} (máy ${i.hostCode ?? '?'}): hết hạn ${i.endDate}`,
+    );
+    const { html, text } = renderMail({
+      title: `${items.length} license sắp/đã hết hạn`,
+      tone: 'warn',
+      preheader: `${items.length} license cần gia hạn`,
+      intro: 'Các license sau cần được gia hạn:',
+      list,
+      cta: { label: 'Xem tài sản', url: `${appBase()}/assets` },
+    });
     await mail.send({
       to,
       subject: `QLTS: ${items.length} license sắp/đã hết hạn`,
-      text: `Các license cần gia hạn:\n${lines}\nXem: ${appBase()}/tai-san`,
+      text,
+      html,
     });
   }
 }

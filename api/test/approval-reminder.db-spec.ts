@@ -157,6 +157,9 @@ describe('Approval reminder + mail (story 5.2)', () => {
       outbox,
       config,
       mail as unknown as MailTransportService,
+      { isEnabled: async () => true } as unknown as ConstructorParameters<
+        typeof NotificationsConsumer
+      >[3],
     );
     const registrar = new ApprovalMailRegistrar(consumer, recipients, db);
     registrar.onModuleInit();
@@ -184,7 +187,7 @@ describe('Approval reminder + mail (story 5.2)', () => {
     await consumer.handle('approval_requested', evId);
     expect(mail.sent).toHaveLength(1);
     expect(mail.sent[0].to).toEqual(['admin1@x.vn']);
-    expect(mail.sent[0].text).toContain('/xu-ly-muon');
+    expect(mail.sent[0].text).toContain('/approvals');
   });
 
   it('ticket đã duyệt (rời pending) → handler KHÔNG gửi mail lỗi thời (AC3)', async () => {

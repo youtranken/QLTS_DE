@@ -49,6 +49,11 @@ const AuditLogPage = lazy(() =>
 const ConfigPage = lazy(() =>
   import('@/features/admin/config-page').then((m) => ({ default: m.ConfigPage })),
 );
+const MailSettingsPage = lazy(() =>
+  import('@/features/admin/mail-settings-page').then((m) => ({
+    default: m.MailSettingsPage,
+  })),
+);
 const CatalogPage = lazy(() =>
   import('@/features/catalog/catalog-page').then((m) => ({ default: m.CatalogPage })),
 );
@@ -195,6 +200,10 @@ export function AppRoutes({ me }: { me: Me }) {
           <Route
             path="/admin/config"
             element={admin(<ConfigPage me={me} />)}
+          />
+          <Route
+            path="/admin/mail"
+            element={admin(<MailSettingsPage me={me} />)}
           />
           <Route
             path="/notifications"

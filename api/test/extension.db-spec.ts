@@ -83,7 +83,7 @@ describe('Member xin gia hạn (story 4.1)', () => {
     delete process.env.AUTH_DEV_MODE;
   });
 
-  it('AC3: gia hạn hợp lệ → dòng extension held period=[hạn_cũ,hạn_mới), KHÔNG mail (FR-47)', async () => {
+  it('AC3: gia hạn hợp lệ → dòng extension held period=[hạn_cũ,hạn_mới) + báo Admin (extension_requested)', async () => {
     const m = await newMachine('EX-1');
     const oldTo = iso(20 * H);
     const tk = await deliverTo(m, 'mem-x', iso(-1 * H), oldTo);
@@ -104,9 +104,11 @@ describe('Member xin gia hạn (story 4.1)', () => {
     expect(new Date(bk.rows[0].from_ts).getTime()).toBe(
       new Date(oldTo).getTime(),
     );
-    // FR-47: không outbox event nào cho luồng gia hạn
-    const ob = await pool.query(`SELECT count(*)::int AS n FROM outbox`);
-    expect(ob.rows[0].n).toBe(0);
+    // Xin gia hạn → 1 outbox event báo Admin (extension_requested — đảo FR-47 theo vận hành).
+    const ob = await pool.query(
+      `SELECT topic, count(*)::int AS n FROM outbox GROUP BY topic`,
+    );
+    expect(ob.rows).toEqual([{ topic: 'extension_requested', n: 1 }]);
   });
 
   it('AC1: hạn mới vượt số ngày/lần config → 400 EXTENSION_TOO_LONG', async () => {

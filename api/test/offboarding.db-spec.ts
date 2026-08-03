@@ -259,6 +259,9 @@ describe('Offboarding scan + cascade (story 5.5)', () => {
       outbox,
       config,
       mail as unknown as MailTransportService,
+      { isEnabled: async () => true } as unknown as ConstructorParameters<
+        typeof NotificationsConsumer
+      >[3],
     );
     new OffboardMailRegistrar(consumer, recipients, db).onModuleInit();
     await consumer.ensureBaseline();
@@ -272,6 +275,6 @@ describe('Offboarding scan + cascade (story 5.5)', () => {
     expect(mail.sent).toHaveLength(1);
     expect(mail.sent[0].to).toEqual(['admin@x.vn']);
     expect(mail.sent[0].text).toContain('Nguyen A');
-    expect(mail.sent[0].text).toContain('canh-bao-nghi-viec');
+    expect(mail.sent[0].text).toContain('offboarding');
   });
 });

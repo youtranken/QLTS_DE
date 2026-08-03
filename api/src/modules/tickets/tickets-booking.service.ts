@@ -460,6 +460,7 @@ export class TicketsBookingService {
       await this.outbox.enqueueWithin(tx, 'ticket_force_cancelled', {
         ticketId,
         reason,
+        fromState: t.state,
       });
       return { id: ticketId, state: 'cancelled' };
     });

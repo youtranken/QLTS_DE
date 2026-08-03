@@ -73,6 +73,9 @@ describe('Cascade cancel mail (story 5.4)', () => {
       outbox,
       config,
       mail as unknown as MailTransportService,
+      { isEnabled: async () => true } as unknown as ConstructorParameters<
+        typeof NotificationsConsumer
+      >[3],
     );
     new CascadeCancelMailRegistrar(consumer, db).onModuleInit();
     return consumer;

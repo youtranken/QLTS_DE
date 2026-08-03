@@ -5,6 +5,7 @@ import type { Database } from '../../database/database.module';
 import { MailTransportService } from './mail-transport.service';
 import { NotificationRecipientsService } from './notification-recipients.service';
 import { NotificationsConsumer } from './notifications.consumer';
+import { renderMail } from './mail-layout';
 
 interface OverdueTicket {
   state: string;
@@ -76,13 +77,22 @@ export class OverdueMailRegistrar implements OnModuleInit {
       return;
     }
     const who = t.borrowerName ?? t.borrowerSub;
-    const lines = sessions
-      .map((s) => `- Máy ${s.assetCode ?? '?'}: hạn trả ${vnTime(s.dueAt)}`)
-      .join('\n');
+    const list = sessions.map(
+      (s) => `Máy ${s.assetCode ?? '?'}: hạn trả ${vnTime(s.dueAt)}`,
+    );
+    const { html, text } = renderMail({
+      title: 'Nhắc quá hạn trả tài sản',
+      tone: 'danger',
+      preheader: `Người mượn ${who} đang quá hạn`,
+      intro: `Người mượn ${who} đang quá hạn các buổi sử dụng sau:`,
+      list,
+      cta: { label: 'Xem chi tiết', url: `${appBase()}/` },
+    });
     await mail.send({
       to,
       subject: 'QLTS: Nhắc quá hạn — có tài sản chưa trả',
-      text: `Người mượn ${who} đang quá hạn các buổi sau:\n${lines}\nXem: ${appBase()}/`,
+      text,
+      html,
     });
   }
 
@@ -102,10 +112,18 @@ export class OverdueMailRegistrar implements OnModuleInit {
       this.logger.warn('không có admin email — bỏ qua nhắc giao');
       return;
     }
+    const { html, text } = renderMail({
+      title: 'Nhắc xác nhận giao máy',
+      tone: 'warn',
+      intro: `Đã đến giờ nhận máy ${b.assetCode ?? '?'} nhưng chưa bấm "đã giao".`,
+      details: [{ label: 'Máy', value: b.assetCode ?? '?' }],
+      cta: { label: 'Xử lý mượn', url: `${appBase()}/approvals` },
+    });
     await mail.send({
       to,
       subject: 'QLTS: Nhắc xác nhận giao máy',
-      text: `Đã đến giờ nhận máy ${b.assetCode ?? '?'} nhưng chưa bấm "đã giao".\nXem: ${appBase()}/xu-ly-muon`,
+      text,
+      html,
     });
   }
 

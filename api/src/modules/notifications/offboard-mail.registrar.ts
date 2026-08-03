@@ -5,6 +5,7 @@ import type { Database } from '../../database/database.module';
 import { MailTransportService } from './mail-transport.service';
 import { NotificationRecipientsService } from './notification-recipients.service';
 import { NotificationsConsumer } from './notifications.consumer';
+import { renderMail } from './mail-layout';
 
 interface OffboardUser {
   fullName: string | null;
@@ -56,12 +57,25 @@ export class OffboardMailRegistrar implements OnModuleInit {
       return;
     }
     const who = u.fullName ?? sub;
+    const { html, text } = renderMail({
+      title: 'Cảnh báo nghỉ việc',
+      tone: 'warn',
+      preheader: `${who} còn tài sản/ticket chưa thu hồi`,
+      intro: `Tài khoản ${who} ${statusLabel(u.status)} nhưng vẫn còn tài sản/ticket chưa được thu hồi.`,
+      details: [
+        { label: 'Ticket đang hoạt động', value: String(u.ticketCount) },
+        { label: 'Tài sản đứng tên', value: String(u.assetCount) },
+      ],
+      cta: {
+        label: 'Thu hồi / đổi người',
+        url: `${appBase()}/offboarding`,
+      },
+    });
     await mail.send({
       to,
       subject: 'QLTS: Cảnh báo nghỉ việc — tài khoản còn tài sản/ticket',
-      text:
-        `Tài khoản ${who} ${statusLabel(u.status)} nhưng còn ${u.ticketCount} ticket đang hoạt động ` +
-        `và đứng tên ${u.assetCount} tài sản.\nVui lòng thu hồi/đổi người: ${appBase()}/canh-bao-nghi-viec`,
+      text,
+      html,
     });
   }
 
