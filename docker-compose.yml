@@ -1,5 +1,6 @@
 # QLTS — 4 service (story 1.1). Service `worker` thêm ở story 3.5a (cùng image api).
-# Ngân sách RAM toàn project 2GB — mem_limit mỗi service, chỉnh qua .env (AC 2).
+# Ngân sách RAM chỉnh qua .env (mem_limit mỗi service). Profile PROD = tổng ≤16GB
+# (postgres 9g + api 4g + worker 2g + redis 512m + web 512m) — xem .env.example.
 # postgres/redis KHÔNG publish cổng ra host (AD-13e); web là cổng vào duy nhất.
 
 services:
