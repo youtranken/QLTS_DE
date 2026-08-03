@@ -12,3 +12,6 @@ coverage/
 
 # knowledge graph (sinh tự động)
 graphify-out/
+
+# Backup dữ liệu (chạy script_backups/backup.sh) — KHÔNG commit
+/data_backups/
