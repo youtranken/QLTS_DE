@@ -12,8 +12,9 @@ services:
     build: ./api
     restart: unless-stopped
     mem_limit: ${API_MEM_LIMIT:-384m}
-    # extra_hosts cho PMH ID dev nằm ở docker-compose.override.yml (CHỈ dev —
-    # prod chạy `docker compose -f docker-compose.yml up` để không ghi đè DNS thật)
+    # PROD: SSO de-admin.pmh.com.vn resolve qua DNS của host (container kế thừa).
+    # Nếu Ubuntu chỉ khai trong /etc/hosts (container KHÔNG đọc được) thì thêm
+    # extra_hosts: ['de-admin.pmh.com.vn:<ip-edge>'] tại đây cho api + worker.
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       AUTH_DEV_MODE: ${AUTH_DEV_MODE:-false}
