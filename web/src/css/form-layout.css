@@ -1,0 +1,551 @@
+/* --- Segmented control (Thiết bị / Phần mềm) ------------------------------ */
+.segmented {
+  display: inline-flex;
+  padding: var(--space-1);
+  gap: var(--space-1);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.segmented label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-6);
+  border-radius: calc(var(--r) - 3px);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+}
+.segmented label:hover {
+  color: var(--ink);
+}
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.segmented label:has(input:checked) {
+  background: var(--surface);
+  color: var(--primary-ink);
+  box-shadow: var(--shadow-sm);
+}
+.segmented label:has(input:focus-visible) {
+  box-shadow: var(--ring);
+}
+
+/* --- Form layout: nhóm trường theo mục ------------------------------------ */
+.form-section {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: var(--space-8) var(--space-8) var(--space-9);
+}
+.form-section + .form-section {
+  margin-top: var(--space-7);
+}
+.form-section > legend,
+.form-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: var(--space-6);
+}
+.form-section-title::before {
+  content: '';
+  width: 3px;
+  height: 0.85rem;
+  border-radius: 2px;
+  background: var(--primary);
+}
+/* Khối con trong một form-section (vd Người đứng tên trong Thông tin chung) — ngăn cách nhẹ. */
+.form-subsection {
+  margin-top: var(--space-8);
+  padding-top: var(--space-7);
+  border-top: 1px dashed var(--border-2);
+}
+
+/* 9.5: bảng "Máy có thể mượn" — các thẻ máy pool đang rảnh, bấm để đặt. */
+.free-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.free-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.06s;
+}
+.free-chip:hover {
+  border-color: var(--primary);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+.free-chip:active {
+  transform: translateY(1px);
+}
+.free-chip small {
+  white-space: nowrap;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--space-6) var(--space-7);
+}
+.form-grid .span-2 {
+  grid-column: 1 / -1;
+}
+/* Form tài sản (Thêm/Sửa): lưới 3 cột ĐỀU (Code|Type|Trạng thái…), tránh hàng chừa trống
+   như auto-fill. span-2 vẫn full. Thu về 2/1 cột ở màn hẹp. */
+.form-grid.asset-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+/* Config & Ghi chú KHÔNG chiếm trọn 3 cột (quá to) → thu về 2/3 cho cân với các ô khác. */
+.form-grid.asset-grid .span-2 {
+  grid-column: span 2;
+}
+/* Ô ngắn (ngày/giá/serial/trạng thái) LẤP ĐẦY ô lưới như mọi input khác → mỗi hàng 3 ô
+   rộng bằng nhau, hết cảnh ô đầy / ô lửng xen kẽ (feedback "lổm chổm"). */
+@media (max-width: 860px) {
+  .form-grid.asset-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .form-grid.asset-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.field-req {
+  color: var(--danger);
+  font-weight: 600;
+}
+/* Ẩn HẲN mũi tên native của input[list] (Configuration/Place) — trông vuông/lạc kiểu; gợi ý
+   vẫn hiện khi gõ, và Configuration đã có nút ＋. display:none để lại vệt/ô click ở vài bản
+   Chromium → dùng appearance:none + thu về 0 để xoá sạch mũi tên lẫn khoảng chừa của nó. */
+input[list] {
+  appearance: none;
+  -webkit-appearance: none;
+}
+input[list]::-webkit-calendar-picker-indicator {
+  display: none !important;
+  opacity: 0;
+  width: 0;
+  margin: 0;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* --- Select tùy biến (thay <select> native — popup bo góc, mũi tên › thống nhất) --------- */
+.fsel {
+  position: relative;
+  display: inline-flex;
+}
+/* Trong form: Select lấp đầy ô .field như <input>/<select> cũ. */
+.field .fsel {
+  width: 100%;
+}
+/* Trong thanh lọc: rộng tối thiểu để không co rúm theo nhãn hiện tại (tránh nhảy width). */
+.filter-bar .fsel {
+  min-width: 10.5rem;
+}
+.fsel-trigger {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-4) 2rem var(--space-4) var(--space-5);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.fsel-trigger:hover:not(:disabled) {
+  border-color: var(--ink-3);
+}
+.fsel-trigger:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+.fsel-trigger:disabled {
+  background: var(--surface-2);
+  color: var(--ink-2);
+  cursor: default;
+}
+.fsel-val {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fsel-val.ph {
+  color: var(--ink-3);
+}
+/* Chevron SVG THỐNG NHẤT với DatePicker (.dp-trigger .chev): chỉ xuống khi đóng, lật
+   180° khi mở. Trước đây là ký tự › xoay — không khớp mũi tên lịch. */
+.fsel-caret {
+  position: absolute;
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: var(--ink-3);
+  pointer-events: none;
+  transition: transform 0.18s var(--ease), color 0.18s var(--ease);
+}
+.fsel-trigger[aria-expanded='true'] .fsel-caret {
+  transform: translateY(-50%) rotate(180deg);
+  color: var(--primary);
+}
+.fsel-menu {
+  /* Vị trí + max-height do Floating UI set inline; đây giữ z-index + hình. */
+  z-index: var(--z-popover);
+  /* Radix modal set body{pointer-events:none}; popover portal ra body thừa hưởng -> phải bật lại. */
+  pointer-events: auto;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-pop);
+  animation: rowIn 0.13s var(--ease) both;
+}
+.fsel-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  background: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink);
+}
+/* Dòng báo "không có lựa chọn" khi options rỗng (review D3) — không bấm được. */
+.fsel-none {
+  padding: var(--space-3) var(--space-4);
+  color: var(--ink-3);
+  font-size: var(--fs-sm);
+  cursor: default;
+}
+.fsel-option:hover,
+.fsel-option.active {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+.fsel-option.sel {
+  font-weight: 600;
+}
+
+/* Ô đã-chọn (User): hiện giá trị NGAY trong khung như input đã điền + ✕ để đổi. */
+.picked-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* Padding dọc 0.55rem khớp <input>/<Select>/DatePicker → mọi ô trong hàng cao bằng nhau. */
+  padding: var(--space-4) var(--space-2) var(--space-4) var(--space-5);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.picked-input .pi-val {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.picked-input button {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.picked-input button:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* --- Combobox (autocomplete có style) ------------------------------------- */
+.combo {
+  position: relative;
+}
+/* Ô nhập combobox lấp đầy khung (User rỗng, tìm phần mềm…) → cao/rộng bằng các input khác,
+   không co rúm về ~20 ký tự mặc định. */
+.combo input {
+  width: 100%;
+  padding-right: 2rem; /* chừa chỗ mũi tên chevron */
+}
+/* Mũi tên chevron THỐNG NHẤT với .fsel-caret / DatePicker .chev — bấm để bung/đóng. */
+.combo-caret {
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: transform 0.18s var(--ease), color 0.18s var(--ease);
+}
+.combo-caret svg {
+  width: 1rem;
+  height: 1rem;
+}
+.combo-caret:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.combo.open .combo-caret {
+  transform: translateY(-50%) rotate(180deg);
+  color: var(--primary);
+}
+.combo-menu {
+  /* Vị trí do Floating UI (useAnchoredMenu) set inline; đây chỉ giữ z-index + hình. */
+  z-index: var(--z-popover);
+  /* Radix modal set body{pointer-events:none}; popover portal ra body thừa hưởng -> phải bật lại. */
+  pointer-events: auto;
+  overflow-y: auto;
+  padding: var(--space-1);
+  list-style: none;
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-pop);
+  /* Fade-only (KHÔNG transform) để không đụng transform định vị của Floating UI. */
+  animation: rowIn 0.13s var(--ease) both;
+}
+.combo-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-4) var(--space-4);
+  border: none;
+  background: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-weight: 500;
+}
+.combo-option:hover:not(:disabled),
+.combo-option.active {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+.combo-option small {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+.combo-option:hover small,
+.combo-option.active small {
+  color: var(--primary-ink);
+  opacity: 0.8;
+}
+.combo-empty {
+  padding: var(--space-4);
+  color: var(--ink-3);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+/* Gợi ý gắn phần mềm: tên license + badge Trống/Đang dùng để biết ghế nào gắn được ngay. */
+.sw-opt-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.sw-opt-badge {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  padding: 1px var(--space-3);
+  border-radius: 999px;
+  flex: none;
+}
+.sw-opt-badge.free {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.sw-opt-badge.used {
+  background: var(--surface-2);
+  color: var(--ink-3);
+}
+/* Meta phần mềm (type · Bắt đầu→Hết hạn · Ghi chú · Mã máy): tách bằng gap + dấu chấm ngăn
+   để không dính chùm, đọc rõ từng thông tin. */
+.sw-opt-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+}
+.sw-opt-meta > span {
+  display: inline-flex;
+  align-items: center;
+}
+.sw-opt-meta > span:not(:first-child)::before {
+  content: '·';
+  margin-right: var(--space-4);
+  color: var(--ink-3);
+}
+
+/* --- Chip (giá trị đã chọn, gỡ được) -------------------------------------- */
+/* Bọc read-only: fieldset[disabled] khóa mọi input. KHÔNG dùng display:contents — Chrome bỏ
+   qua thuộc tính disabled khi fieldset không sinh box. Giữ block + reset viền/lề mặc định. */
+.ff-contents {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.32rem var(--space-2) 0.32rem var(--space-5);
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+  border-radius: 999px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.chip button {
+  display: grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary-ink);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+}
+.chip button:hover:not(:disabled) {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* --- Sheet modal (form editor lớn: header/body/footer sticky, cuộn body) --- */
+.sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 780px;
+  max-height: min(94vh, 1000px);
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  /* Fade-only (KHÔNG transform): popover (DatePicker/TimeField…) portal VÀO Content;
+     transform trên .sheet (kể cả identity từ fill-mode) tạo containing-block +
+     overflow:hidden → CẮT popover. Bỏ transform để popover fixed thoát ra viewport. */
+  animation: rowIn 0.2s var(--ease) both;
+}
+/* Form Thêm/Sửa tài sản & phần mềm rộng hơn → nhiều cột input mỗi hàng, thoáng hơn. */
+.sheet.sheet-wide {
+  max-width: 1080px;
+}
+.sheet-header,
+.sheet-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-7) 1.35rem;
+  flex-shrink: 0;
+}
+.sheet-header {
+  /* Nền xám nhẹ để thanh tiêu đề tách khỏi thân trắng (feedback: header trùng màu trắng). */
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-2);
+}
+.sheet-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
+}
+.sheet-title .mono {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.sheet-header .spacer,
+.sheet-footer .spacer {
+  flex: 1;
+}
+.sheet-close {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-lg);
+}
+.sheet-close:hover:not(:disabled) {
+  background: var(--muted-soft);
+  color: var(--ink);
+}
+.sheet-body {
+  padding: var(--space-9) 1.35rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  background: var(--canvas);
+}
+/* Form Thêm/Sửa tài sản & phần mềm (sheet-wide): form ngắn (Thêm phần mềm) đỡ cụt — cho thân
+   cao tối thiểu, vẫn cuộn khi form dài; kẹp theo viewport để không tràn màn nhỏ. */
+.sheet-wide .sheet-body {
+  min-height: min(440px, 62vh);
+}
+.sheet-footer {
+  border-top: 1px solid var(--border-2);
+  background: var(--surface-2);
+}
+
+/* Popup cascade nằm TRÊN sheet (mở từ trong form) */
+.modal-backdrop.stacked {
+  z-index: var(--z-modal);
+}
+

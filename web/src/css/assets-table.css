@@ -1,0 +1,135 @@
+/* Trang bảng rộng (/tai-san, /phan-mem): dùng gần trọn bề ngang màn lớn (đỡ trống 2 bên). */
+.page-wide {
+  max-width: min(1880px, 95vw);
+}
+/* Chữ bảng /tai-san to hơn một chút cho dễ đọc. */
+.assets-table {
+  font-size: var(--fs-md);
+}
+.assets-table thead th {
+  font-size: var(--fs-xs);
+}
+
+/* --- /tai-san "làm đẹp" (scope .assets-table) — tách khỏi table.css (§6) ----- */
+/* Bỏ zebra sọc (rối) → hàng phẳng, chỉ hover đổi nền như /phan-mem. */
+.assets-table tbody tr:nth-child(even) td {
+  background: transparent;
+}
+.assets-table tbody tr:hover td {
+  background: var(--primary-soft);
+}
+.assets-table tbody td {
+  padding: var(--space-5) var(--space-7);
+}
+.assets-table .mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cột đầu "#": chỉ số thứ tự (caret › nằm ở ô Loại — ô đầu, mở/đóng phần mềm). */
+.lead {
+  text-align: left;
+  white-space: nowrap;
+}
+.lead .row-no {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.lead-col {
+  text-align: left;
+}
+
+/* Ô Mã: [mã mono đậm / Hãng mờ] — caret đã chuyển sang ô Loại. */
+.cell-code-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cell-code-id {
+  font-weight: 600;
+  color: var(--ink);
+}
+.cell-sub {
+  font-size: var(--fs-2xs);
+  color: var(--ink-3);
+}
+
+/* Ô Loại (ô đầu): caret › + khối icon-trên-nhãn-dưới. Cả ô là nút mở/đóng phần mềm. */
+.cell-type {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+button.cell-type-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: inherit;
+}
+button.cell-type-btn:hover:not(:disabled) {
+  background: none;
+}
+/* Khối icon TRÊN + nhãn loại DƯỚI (canh giữa). */
+.cell-type-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+.cell-type-main > span {
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+/* Caret › đầu ô Loại: TO, xoay 90° + đổi màu primary khi mở (giống .sw-caret). */
+.cell-caret {
+  flex: none;
+  width: 1.1rem;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: var(--fs-2xl);
+  line-height: 1;
+  transition: transform 0.2s var(--ease), color 0.2s var(--ease);
+}
+.cell-caret.open {
+  transform: rotate(90deg);
+  color: var(--primary-ink);
+}
+button.cell-type-btn:hover .cell-caret {
+  color: var(--primary-ink);
+}
+.cell-caret-spacer {
+  flex: none;
+  width: 1.1rem;
+}
+.type-ic {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  transition: color 0.16s var(--ease), border-color 0.16s var(--ease),
+    transform 0.16s var(--ease);
+}
+.type-ic svg {
+  width: 18px;
+  height: 18px;
+}
+.assets-table tbody tr:hover .type-ic {
+  color: var(--primary-ink);
+  border-color: var(--primary);
+  transform: scale(1.1);
+}
+
+/* Card "Phần mềm đang cài" trong hàng bung: hover rõ (viền + nền primary) + nhấc nhẹ. */
+.inst-list .seat-card.clickable:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: var(--shadow-sm);
+}

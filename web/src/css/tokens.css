@@ -1,0 +1,219 @@
+/* ============================================================================
+   QLTS design system — "Sunset Grove" (port 2026-07-13)
+   Nền ấm, accent lục bảo + điểm nhấn cam (gradient). Sidebar grove. Bảng là hero.
+   Tokens → primitives → animation. Áp toàn app.
+   ========================================================================== */
+
+:root {
+  /* Bề mặt & mực (content sáng) — nền ấm "Sunset Grove" */
+  --canvas: #f7f6f2;
+  --surface: #ffffff;
+  --surface-2: #f2f1ea;
+  --ink: #1f231c;
+  --ink-2: #5a615a;
+  /* Đậm hơn (#8a908a→#6f756e) để chữ phụ nhỏ đạt tương phản AA trên nền trắng. */
+  --ink-3: #6f756e;
+  --border: #e9eae2;
+  --border-2: #d8dbd0;
+
+  /* Accent chính: lục bảo (emerald) */
+  --primary: #0e9f6e;
+  --primary-ink: #0a8a5f;
+  --primary-soft: #e5f6ee;
+
+  /* Điểm nhấn: cam hổ phách + gradient lục→cam (nút chính, logo, avatar) */
+  --warm: #f59e0b;
+  --warm-ink: #ea580c;
+  --warm-soft: #fef2df;
+  --grad: linear-gradient(135deg, #0e9f6e, #f59e0b);
+
+  /* Sidebar grove (xanh rừng đậm) */
+  --sidebar-bg: #16231b;
+  --sidebar-ink: #8ea595;
+  --sidebar-ink-2: #eaf3ee;
+  --sidebar-active-bg: rgba(245, 158, 11, 0.16);
+  --sidebar-active-ink: #ffe1b3;
+  --sidebar-border: #24352a;
+  --sidebar-label: #5f7266;
+
+  /* Hệ màu trạng thái (vòng đời asset/ticket) */
+  --ok: #0f7a55;
+  --ok-soft: #e4f4ee;
+  --warn: #b45309;
+  --warn-soft: #fdf0e3;
+  --danger: #c0392b;
+  --danger-soft: #fdeceb;
+  --muted: #6b726a;
+  --muted-soft: #efeee7;
+
+  --ring: 0 0 0 3px rgba(14, 159, 110, 0.22);
+
+  /* Thang z-index (thấp→cao). Trước đây 5 lớp cùng z:60 tranh nhau, thứ tự
+     hiển thị do DOM quyết định. Popup nổi (dropdown/popover) < modal là chủ ý:
+     palette/lightbox/toast phải NỔI TRÊN modal. Lớp cục bộ trong component
+     (sticky thead, bánh xe time-picker, drawer mobile) giữ z-index riêng. */
+  --z-sticky: 10;
+  --z-modal-backdrop: 50;
+  --z-modal: 60;
+  /* Menu neo (dropdown/combobox/date/time/row-actions) portal ra body → phải NỔI TRÊN
+     modal để dùng được trong dialog (trước dùng hack zIndex:1000). */
+  --z-dropdown: 70;
+  --z-popover: 70;
+  --z-lightbox: 80;
+  --z-palette: 85;
+  --z-toast: 90;
+
+  --r-sm: 8px;
+  --r: 10px;
+  --r-lg: 14px;
+  --radius-pill: 999px;
+
+  /* Thang cách (rem, root 14px) + cỡ chữ + độ đậm. Gom ~18 giá trị lẻ trước đây về
+     10 bậc (snap ≤1.4px). Font-weight CHỈ 3 bậc chuẩn (trước có 550/620/650/680/720). */
+  --space-1: 0.25rem;
+  --space-2: 0.4rem;
+  --space-3: 0.5rem;
+  --space-4: 0.6rem;
+  --space-5: 0.75rem;
+  --space-6: 0.85rem;
+  --space-7: 1rem;
+  --space-8: 1.1rem;
+  --space-9: 1.25rem;
+  --space-10: 1.5rem;
+  --fs-2xs: 0.72rem;
+  --fs-xs: 0.8rem;
+  --fs-sm: 0.88rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.1rem;
+  --fs-xl: 1.3rem;
+  --fs-2xl: 1.5rem;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-lg: 0 24px 60px -20px rgba(16, 24, 40, 0.35),
+    0 8px 20px -12px rgba(16, 24, 40, 0.2);
+  --shadow-pop: 0 12px 28px -10px rgba(16, 24, 40, 0.25);
+
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--canvas);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Dark mode — chỉ override token, các component dùng var() tự đổi theo. */
+html[data-theme='dark'] {
+  --canvas: #0f140f;
+  --surface: #161d16;
+  --surface-2: #1d261d;
+  --ink: #e9ede7;
+  --ink-2: #a7b0a5;
+  /* Sáng hơn (#727c72→#868f86) để chữ phụ nhỏ đạt tương phản AA trên nền tối. */
+  --ink-3: #868f86;
+  --border: #26312a;
+  --border-2: #37453a;
+  --primary: #34d399;
+  --primary-ink: #6ee7b7;
+  --primary-soft: #123024;
+  --warm: #fbbf24;
+  --warm-ink: #f59e0b;
+  --warm-soft: #3a2c14;
+  --grad: linear-gradient(135deg, #34d399, #fbbf24);
+  --ok: #43c294;
+  --ok-soft: #13312a;
+  --warn: #e0a35a;
+  --warn-soft: #3a2c18;
+  --danger: #ef6f63;
+  --danger-soft: #3a1f1d;
+  --muted: #9aa59a;
+  --muted-soft: #232d23;
+  /* Sidebar tối hơn canvas để tách khối */
+  --sidebar-bg: #0e140f;
+  --sidebar-border: #1e2a22;
+  --sidebar-active-bg: rgba(251, 191, 36, 0.16);
+  --sidebar-active-ink: #ffe1b3;
+  --ring: 0 0 0 3px rgba(52, 211, 153, 0.3);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.7),
+    0 8px 20px -12px rgba(0, 0, 0, 0.5);
+  --shadow-pop: 0 12px 28px -10px rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+
+* {
+  margin: 0;
+  box-sizing: border-box;
+}
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1 {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
+}
+h2 {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.005em;
+}
+h3 {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+}
+
+a {
+  color: var(--primary-ink);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* --- Animations ----------------------------------------------------------- */
+/* Chỉ fade — KHÔNG transform: .page giữ animation-fill-mode:both nên transform
+   sẽ dính lại vĩnh viễn, biến .page thành containing block cho position:fixed →
+   mọi .modal-backdrop bị giam trong vùng .page thay vì full viewport (popup lệch,
+   header/input bị cắt ở màn rộng). */
+@keyframes pageIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes rowIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+

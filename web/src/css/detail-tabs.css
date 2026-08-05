@@ -1,0 +1,286 @@
+/* --- Data grid (chi tiết tài sản: cặp nhãn/giá trị) ----------------------- */
+.data-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-5);
+}
+/* Mỗi thông tin là 1 Ô có viền (trước đây dt/dd trơ, "nhìn xấu"). */
+.data-item {
+  padding: var(--space-4) var(--space-6);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  min-width: 0;
+}
+.data-item dt {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: var(--space-1);
+}
+.data-item dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+/* Nội dung tab (lịch sử/mượn/ghi chú): dài thì cuộn trong khung, thead dính đầu. */
+.detail-tabs-body .table-wrap {
+  max-height: 460px;
+  overflow-y: auto;
+}
+.detail-tabs-body .table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* --- Tabs (chi tiết tài sản) ---------------------------------------------- */
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+.tab {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: var(--space-3) var(--space-7);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  border-radius: 0;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-bottom: -1px;
+}
+.tab:hover:not(.active) {
+  background: none;
+  color: var(--ink-2);
+}
+.tab.active {
+  color: var(--primary-ink);
+  border-bottom-color: var(--primary);
+}
+
+/* --- Filter bar (thanh lọc trong khung) ----------------------------------- */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-8);
+}
+.filter-bar .grow {
+  flex: 1;
+  min-width: 200px;
+}
+input.search {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 16 16' fill='none' stroke='%238a908a' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m15 15-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 0.65rem center;
+  padding-left: 2rem;
+}
+
+/* --- Stat card (Bảng điều khiển: số đếm dẫn vào hàng đợi) ------------------ */
+.stat-grid {
+  display: grid;
+  /* Gọn hơn: thẻ nhỏ + nhiều cột/hàng → dải KPI dashboard chiếm ít không gian. */
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-4);
+}
+/* Xử lý mượn: 5 KPI trên 1 hàng cho gọn (co lại 1 cột khi màn hẹp). */
+.stat-grid.stat-grid-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+@media (max-width: 720px) {
+  .stat-grid.stat-grid-5 {
+    grid-template-columns: 1fr;
+  }
+}
+.stat-card {
+  position: relative;
+  text-align: left;
+  padding: var(--space-4) var(--space-5) var(--space-4) var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.12s var(--ease), box-shadow 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--primary);
+  opacity: 0.85;
+}
+.stat-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  background: var(--surface);
+}
+.stat-card.critical {
+  border-color: #f1c9c4;
+  background: var(--danger-soft);
+}
+.stat-card.critical::before {
+  background: var(--danger);
+}
+.stat-num {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.stat-num.zero {
+  color: var(--ink-3);
+}
+.stat-card.critical .stat-num {
+  color: var(--danger);
+}
+.stat-label {
+  margin-top: var(--space-1);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+@media (max-width: 680px) {
+  /* Overlay chiếm gần full màn trên mobile — sheet full-bleed, không bo góc. */
+  .modal-backdrop {
+    padding: 0;
+  }
+  .sheet {
+    max-width: 100%;
+    max-height: 100vh;
+    max-height: 100dvh;
+    height: 100dvh;
+    border-radius: 0;
+  }
+  .modal {
+    align-self: end;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+  }
+  .sheet-header,
+  .sheet-footer {
+    padding: var(--space-6) var(--space-7);
+  }
+  .sheet-body {
+    padding: var(--space-7);
+  }
+  .page {
+    padding: var(--space-7);
+  }
+  /* Util opt-in: bảng gắn data-label trên <td> gập thành thẻ dọc (màn được bật ở epic sau). */
+  .table-stack thead {
+    display: none;
+  }
+  .table-stack tr {
+    display: block;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .table-stack td {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-7);
+    border: none;
+    padding: var(--space-1) var(--space-5);
+  }
+  .table-stack td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* 7.5 Borrow board */
+.board-table tr.row-overdue > td {
+  background: var(--danger-soft);
+}
+.board-table tr.row-overdue .mono {
+  color: var(--danger);
+}
+.text-danger {
+  color: var(--danger);
+}
+.board-table tr.row-flash > td {
+  animation: rowFlash 2.5s ease-out;
+}
+@keyframes rowFlash {
+  0% {
+    background: #fff8d6;
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* Skeleton fallback khi chunk trang lazy đang tải (code-splitting) */
+.page-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.skeleton {
+  border-radius: var(--r);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--muted-soft) 37%,
+    var(--surface-2) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeletonShimmer 1.4s ease infinite;
+}
+.skeleton-title {
+  width: 38%;
+  height: 28px;
+}
+.skeleton-block {
+  height: 320px;
+}
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+

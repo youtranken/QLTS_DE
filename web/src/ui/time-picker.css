@@ -1,0 +1,265 @@
+/* TimePicker — bánh xe cuộn kiểu iOS. Cuộn native + scroll-snap lo phần đà;
+   JS chỉ tô hiệu ứng 3D theo scrollTop. Dùng token QLTS nên tự theo dark mode. */
+
+.tp {
+  width: 100%;
+  max-width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--space-10);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.tp-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.tp-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-7);
+  border: 2px solid var(--primary);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.tp-field svg {
+  width: 20px;
+  height: 20px;
+  color: var(--primary);
+  flex: none;
+}
+.tp-time {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+/* Ô nhập giờ trực tiếp: bỏ viền/nền/padding của input, giữ kiểu chữ lớn của .tp-time. */
+input.tp-time {
+  width: 3.2em;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  outline: none;
+}
+input.tp-time:focus {
+  box-shadow: none;
+  border: none;
+}
+.tp-mer-chip {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-ink);
+  background: var(--primary-soft);
+  padding: var(--space-2) var(--space-6);
+  border-radius: 8px;
+}
+
+.tp-seg {
+  display: flex;
+  gap: var(--space-5);
+}
+.tp-seg button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s var(--ease);
+}
+.tp-seg button svg {
+  width: 15px;
+  height: 15px;
+}
+.tp-seg button.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 8px 18px -8px var(--primary);
+}
+
+.tp-body {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-6);
+}
+.tp-wheels {
+  position: relative;
+  flex: 1;
+  display: flex;
+  --item-h: 42px;
+  --col-h: 168px;
+  height: var(--col-h);
+  user-select: none;
+}
+/* Fade trên/dưới bằng LỚP OVERLAY (không mask cột cuộn) — mask trên .tp-col phải tái tổng hợp
+   mỗi frame khi cuộn → giật; overlay là lớp tĩnh riêng, cột cuộn composite mượt. */
+.tp-wheels::before,
+.tp-wheels::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 34%;
+  z-index: 3;
+  pointer-events: none;
+}
+.tp-wheels::before {
+  top: 0;
+  background: linear-gradient(180deg, var(--surface), transparent);
+}
+.tp-wheels::after {
+  bottom: 0;
+  background: linear-gradient(0deg, var(--surface), transparent);
+}
+.tp-sep {
+  align-self: center;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink-3);
+  padding: 0 var(--space-1);
+}
+
+.tp-col {
+  position: relative;
+  z-index: 2; /* số nổi TRÊN dải chọn */
+  flex: 1;
+  height: 100%;
+  overflow-y: scroll;
+  /* mandatory: trình duyệt tự hít đúng nấc khi cuộn dừng → không cần JS scrollTo can thiệp
+     (bản cũ JS drag + glide giằng với native gây "nhảy loạn xạ"). Native lo cuộn + hít mượt. */
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  contain: paint;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  touch-action: pan-y;
+  cursor: grab;
+  outline: none;
+  /* Fade chuyển sang overlay .tp-wheels::before/::after để cột cuộn composite mượt (bỏ mask). */
+}
+.tp-col::-webkit-scrollbar {
+  display: none;
+}
+.tp-col:active {
+  cursor: grabbing;
+}
+.tp-col:focus-visible {
+  border-radius: 10px;
+  box-shadow: var(--ring);
+}
+.tp-list {
+  /* chừa chỗ để item đầu/cuối cũng lên được chính giữa */
+  padding-block: calc((var(--col-h) - var(--item-h)) / 2);
+}
+.tp-cell {
+  height: var(--item-h);
+  line-height: var(--item-h);
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  scroll-snap-align: center;
+  transform-origin: center;
+  will-change: transform;
+  transition: color 0.18s var(--ease);
+}
+.tp-cell.on {
+  color: var(--primary-ink);
+  font-weight: 700;
+}
+.tp-band {
+  position: absolute;
+  z-index: 0; /* nằm SAU số */
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--item-h);
+  transform: translateY(-50%);
+  background: var(--primary-soft);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.tp-mer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-4);
+}
+.tp-mer button {
+  padding: var(--space-4) var(--space-7);
+  border-radius: 10px;
+  border: none;
+  background: var(--muted-soft);
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.15s var(--ease);
+}
+.tp-mer button.on {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 8px 18px -8px var(--primary);
+}
+
+.tp-actions {
+  display: flex;
+  gap: var(--space-6);
+}
+.tp-actions button {
+  flex: 1;
+  padding: var(--space-7);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.15s var(--ease);
+}
+.tp-actions .ghost {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
+}
+.tp-actions .ghost:hover {
+  border-color: var(--border-2);
+}
+.tp-actions .solid {
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: #fff;
+}
+.tp-actions .solid:hover {
+  filter: brightness(1.06);
+}
+.tp-actions button:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp * {
+    transition: none !important;
+  }
+}

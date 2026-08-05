@@ -1,0 +1,165 @@
+/* Nút "Quay lại tài sản" gọn: chip chevron + nhãn, thay link chữ "‹ Danh sách tài sản". */
+.backchip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 34px;
+  padding: 0 var(--space-5) 0 var(--space-3);
+  margin-bottom: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+.backchip:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+  border-color: var(--ink-3);
+}
+.backchip:active {
+  transform: translateX(-1px);
+}
+.backchip:focus-visible {
+  outline: 2px solid var(--accent, var(--ink-3));
+  outline-offset: 2px;
+}
+.backchip svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* --- Chi tiết tài sản: các khu vực rõ ràng (Thông tin/Phần mềm/Lịch sử) --- */
+.detail-section {
+  margin: 0 0 var(--space-10);
+}
+.detail-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+  margin: 0 0 var(--space-4);
+}
+.detail-section-title::before {
+  content: '';
+  width: 3px;
+  height: 0.95rem;
+  border-radius: 2px;
+  background: var(--primary);
+}
+/* Bảo hành (timeline Start→End) ở CUỐI khu Thông tin tài sản — ngăn cách nhẹ. */
+.warranty-strip {
+  margin-top: var(--space-8);
+  padding-top: var(--space-7);
+  border-top: 1px dashed var(--border-2);
+}
+.warranty-strip .mc-label {
+  margin-bottom: var(--space-2);
+}
+
+/* --- Chi tiết tài sản: card Người giữ + Bảo hành (gọn) ------------------- */
+.detail-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  margin: var(--space-3) 0 var(--space-7);
+}
+.detail-cards .mini-card {
+  padding: var(--space-5) var(--space-6);
+}
+.mini-card .mc-label {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin-bottom: var(--space-1);
+}
+.mini-card .mc-value {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.warranty-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin: var(--space-2) 0 var(--space-3);
+}
+.warranty-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.warranty-fill.ok {
+  background: var(--ok);
+}
+.warranty-fill.warn {
+  background: var(--warn);
+}
+.warranty-fill.danger {
+  background: var(--danger);
+}
+.warranty-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--fs-xs);
+}
+@media (max-width: 680px) {
+  .detail-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Ô mật khẩu có nút hiện/ẩn (login SA) -------------------------------- */
+.pw-field {
+  position: relative;
+  display: flex;
+}
+.pw-field input {
+  flex: 1;
+  width: 100%;
+  padding-right: 2.6rem;
+}
+.pw-eye {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  padding: 0;
+}
+.pw-eye:hover {
+  color: var(--primary-ink);
+}
+.pw-eye:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+.pw-eye svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+

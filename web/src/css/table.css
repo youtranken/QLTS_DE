@@ -1,0 +1,337 @@
+/* --- Table (signature) ---------------------------------------------------- */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+table.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+table.table thead th {
+  text-align: left;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  padding: var(--space-5) var(--space-7);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+/* DataTable (P1): nút sort trong header + ô lọc — dùng lại token, không đổi look bảng */
+table.table thead th .th-sort {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+table.table thead th .th-sort:hover {
+  color: var(--ink);
+}
+table.table thead th .sort-arrow {
+  font-size: 0.7em;
+  color: var(--accent, var(--ink-3));
+}
+.table-search {
+  width: 100%;
+  max-width: 340px;
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+}
+table.table tbody td {
+  padding: var(--space-6) var(--space-7);
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  vertical-align: middle;
+}
+table.table tbody tr:last-child td {
+  border-bottom: none;
+}
+table.table tbody tr {
+  transition: background 0.12s var(--ease);
+}
+table.table tbody tr:nth-child(even) td {
+  background: var(--surface-2);
+}
+table.table tbody tr:hover td {
+  background: var(--primary-soft);
+}
+table.table tbody tr.overdue td:first-child {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+/* Nổi bật cả hàng: quá hạn (đỏ) / tới hạn hôm nay (cam) — nhìn vào biết ngay. */
+table.table tbody tr.overdue td {
+  background: var(--danger-soft);
+}
+table.table tbody tr.due-today td {
+  background: var(--warn-soft);
+}
+table.table tbody tr.due-today td:first-child {
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+/* Dòng seat được điều hướng từ bảng con /phan-mem (?seat=) — nhấn nhẹ + viền trái. */
+table.table tbody tr.row-highlight td {
+  background: var(--primary-soft);
+}
+table.table tbody tr.row-highlight td:first-child {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+.table-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Ô lọc theo dõi hạn (date) trong filter-bar — nhãn nhỏ + input date inline. */
+.field-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+.field-inline span {
+  font-size: var(--fs-xs);
+}
+
+/* Bảng gom nhóm license (/phan-mem): cột số căn phải + hàng click sang chi tiết. */
+.table th.num,
+.table td.num {
+  text-align: right;
+}
+.table th.col-center,
+.table td.col-center {
+  text-align: center;
+}
+.table tr.clickable {
+  cursor: pointer;
+}
+.table tbody tr.clickable:hover {
+  background: var(--primary-soft);
+}
+/* Bulk toolbar (5.1): hiện khi chọn ≥1 dòng — đếm + Xuất đã chọn + Bỏ chọn. */
+.bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-6);
+  background: var(--primary-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.bulk-toolbar .bulk-count {
+  font-weight: 600;
+  color: var(--primary-ink);
+  margin-right: auto;
+}
+
+/* Toast lỗi thao tác vòng đời (kebab) — nổi trên cùng, tự đóng bằng ✕. */
+.lifecycle-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  max-width: 90vw;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.lifecycle-toast button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: var(--fs-md);
+  line-height: 1;
+  padding: 0;
+}
+
+/* --- Cột Action: nút "Chuyển" luôn hiện + menu "⋯" --------------------------- */
+.action-cell {
+  display: flex;
+  align-items: center;
+  /* Bám mép PHẢI bảng, thẳng header ACTION (cũng căn phải qua .num). */
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.transfer-btn {
+  white-space: nowrap;
+}
+
+/* --- Menu thao tác hàng "⋯" (bảng /tai-san) ------------------------------- */
+.row-actions {
+  position: relative;
+  text-align: right;
+}
+.row-actions .kebab {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-lg);
+  line-height: 1;
+}
+.row-actions-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+.row-actions-menu {
+  /* Vị trí do Floating UI (useAnchoredMenu) set inline. */
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 130px;
+  padding: var(--space-1);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+.row-actions-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  justify-content: flex-start;
+  text-align: left;
+}
+/* Icon dẫn đầu: mờ (ink-3) cho action thường; item danger thì icon đỏ theo chữ. */
+.row-actions-menu .ra-ic {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--ink-3);
+}
+.row-actions-menu button.danger .ra-ic {
+  color: var(--danger);
+}
+/* Item nguy hiểm (Thanh lý/Hủy): .ghost định nghĩa SAU .danger nên đè chữ về xám —
+   ép lại CHỮ ĐỎ + hover nền đỏ nhạt (khớp mẫu tb-dropdown) để báo hiệu phá hủy. */
+.row-actions-menu button.danger {
+  color: var(--danger);
+}
+.row-actions-menu button.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  letter-spacing: -0.01em;
+  /* Chữ số đều bề rộng → mã/tiền canh cột dọc thẳng hàng (mọi bảng dùng .mono). */
+  font-variant-numeric: tabular-nums;
+}
+/* Ghi chú trong ô bảng: rút gọn 1 dòng + ellipsis (đầy đủ ở title hover). */
+.cell-note {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* --- Status badge / pill -------------------------------------------------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.9;
+}
+.badge.ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+.badge.warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+.badge.danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+.badge.muted {
+  color: var(--muted);
+  background: var(--muted-soft);
+}
+.badge.plain::before {
+  display: none;
+}
+
+/* --- Recurring session expander (4.5b) ------------------------------------ */
+button.link.session-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: var(--space-3);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.session-detail-row > td {
+  background: var(--surface-2, rgba(0, 0, 0, 0.03));
+}
+.session-list {
+  margin: 0;
+  padding: var(--space-2) var(--space-7);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.session-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--fs-sm);
+}
+.session-idx {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: var(--muted-soft);
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.session-time {
+  font-variant-numeric: tabular-nums;
+  min-width: 15rem;
+}
+

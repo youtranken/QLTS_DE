@@ -1,0 +1,103 @@
+/* --- Lightbox ảnh biên bản (UP-5.5) -------------------------------------- */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-lightbox);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(20, 26, 20, 0.62);
+  backdrop-filter: blur(6px);
+}
+.lightbox .lb-stage {
+  position: relative;
+  width: 100%;
+  max-width: min(720px, 92vw);
+}
+.lightbox .lb-img {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.lightbox .lb-img img {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 80vh;
+  object-fit: contain;
+}
+.lightbox .lb-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  color: #fff;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.lightbox .lb-foot .count {
+  color: rgba(255, 255, 255, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+.lightbox .lb-close,
+.lightbox .lb-nav {
+  position: absolute;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  line-height: 1;
+}
+.lightbox .lb-close {
+  top: -14px;
+  right: -14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 16px;
+}
+.lightbox .lb-nav {
+  top: calc(50% - 21px);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  font-size: 22px;
+}
+.lightbox .lb-nav.prev {
+  left: -18px;
+}
+.lightbox .lb-nav.next {
+  right: -18px;
+}
+.lightbox .lb-close:hover,
+.lightbox .lb-nav:hover {
+  background: var(--surface-2);
+}
+.lightbox .lb-close:focus-visible,
+.lightbox .lb-nav:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+@media (max-width: 680px) {
+  .lightbox {
+    padding: var(--space-7);
+  }
+  .lightbox .lb-close {
+    top: 8px;
+    right: 8px;
+  }
+  .lightbox .lb-nav.prev {
+    left: 6px;
+  }
+  .lightbox .lb-nav.next {
+    right: 6px;
+  }
+}

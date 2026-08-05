@@ -1,0 +1,50 @@
+/* --- Chip lọc đang bật: hàng dưới thanh lọc, gỡ từng điều kiện ------------- */
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: -0.35rem 0 var(--space-6);
+}
+.active-filters .af-label {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+/* Chip lọc dùng nền surface (khác chip chọn màu primary) — trung tính, dễ đọc chữ "nhãn: giá trị". */
+.filter-chip {
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  animation: chipIn 0.16s var(--ease) both;
+}
+.filter-chip b {
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-right: var(--space-1);
+}
+.filter-chip button {
+  background: transparent;
+  color: var(--ink-3);
+  border: none;
+  cursor: pointer;
+}
+.filter-chip button:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.af-clear {
+  color: var(--ink-2);
+}
+@keyframes chipIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

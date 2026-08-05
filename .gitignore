@@ -1,0 +1,22 @@
+# secrets (NFR-12)
+.env
+
+# deps & build
+node_modules/
+dist/
+coverage/
+
+# misc
+*.log
+.DS_Store
+
+# knowledge graph (sinh tự động)
+graphify-out/
+
+# Backup dữ liệu (chạy script_backups/backup.sh) — KHÔNG commit
+/data_backups/
+
+# kho backup mã hóa (BACKUP_DIR = ./data-backups) — là DỮ LIỆU, không commit
+data-backups/
+backups/
+qlts-backup-*.tar.gz*

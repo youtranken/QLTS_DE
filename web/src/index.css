@@ -1,0 +1,28 @@
+/* ============================================================================
+ * Sunset Grove design system — điểm gộp.
+ * File này CHỈ @import các partial trong css/ theo ĐÚNG thứ tự cascade cũ.
+ * Sửa style → mở đúng partial (mỗi file một cụm), không cuộn 3000 dòng nữa.
+ * Thứ tự @import = thứ tự nguồn gốc, KHÔNG đảo (nhiều rule dựa vào độ ưu tiên nguồn).
+ * ========================================================================== */
+@import './css/tokens.css';        /* :root token + dark override + body + animations */
+@import './css/base.css';          /* form controls, buttons, shell (sidebar/topbar), page header, card */
+@import './css/shell.css';         /* app-shell: nav icon/badge/footer, rail collapse, topbar (search ⌘K, avatar menu) */
+@import './css/table.css';         /* bảng chữ ký, menu ⋯, badge/pill, recurring expander */
+@import './css/assets-table.css';  /* /tai-san: caret ô Mã, icon Loại, #, hover (scope .assets-table) */
+@import './css/overlays.css';      /* alerts, field, modal, command palette (⌘K), utilities */
+@import './css/auth.css';          /* màn đăng nhập: nền hologram + card kính giữa */
+@import './css/asset-holo-3d.css'; /* khối 3D laptop xoay (port PMH-ID) — nền login */
+@import './css/form-layout.css';   /* segmented, form section, combobox, chip, sheet editor */
+@import './css/detail-tabs.css';   /* data grid, tabs, filter bar, stat card */
+@import './css/filters.css';       /* chip lọc đang bật (hàng dưới filter-bar) — /tai-san, /phan-mem */
+@import './css/primitives.css';    /* redesign primitives dùng chung (catalog/pool/danh mục) */
+@import './css/booking.css';       /* booking redesign: ngày/giờ, chip gợi ý, catalog gọn */
+@import './css/profile.css';       /* hồ sơ người dùng (UP-5.2, không avatar) */
+@import './css/datepicker.css';    /* DatePicker thay input type=date */
+@import './css/software.css';      /* software: ô Đã cấp X/Y + thanh ghế */
+@import './css/pool.css';          /* /pool-may-muon: 3 thẻ + bảng No/Code/User/AssetType/Software */
+@import './css/detail-cards.css';  /* chi tiết tài sản: card Người giữ + Bảo hành + ô mật khẩu */
+@import './css/calendar.css';      /* lịch máy tổng (mục sidebar) */
+@import './css/lightbox.css';      /* lightbox ảnh biên bản (UP-5.5) */
+@import './css/command-palette.css'; /* command palette ⌘K — port giao diện demo */
+@import './css/chatbot.css';       /* Epic 12: mascot + popup chatbot (scope .qc-) */

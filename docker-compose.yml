@@ -1,0 +1,211 @@
+# QLTS — 4 service (story 1.1). Service `worker` thêm ở story 3.5a (cùng image api).
+# Ngân sách RAM chỉnh qua .env (mem_limit mỗi service). Profile PROD = tổng ≤16GB
+# (postgres 9g + api 4g + worker 2g + redis 512m + web 512m) — xem .env.example.
+# postgres/redis KHÔNG publish cổng ra host (AD-13e); web là cổng vào duy nhất.
+
+services:
+  api:
+    # image ĐẶT TÊN TƯỜNG MINH để worker (image: qlts-api:latest) dùng CHUNG bất kể
+    # tên project/thư mục — nếu để compose tự đặt <project>-api thì worker chỉ khớp khi
+    # project name đúng 'qlts' (review M2).
+    image: qlts-api:latest
+    build: ./api
+    restart: unless-stopped
+    mem_limit: ${API_MEM_LIMIT:-384m}
+    # extra_hosts cho PMH ID dev nằm ở docker-compose.override.yml (CHỈ dev —
+    # prod chạy `docker compose -f docker-compose.yml up` để không ghi đè DNS thật)
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      AUTH_DEV_MODE: ${AUTH_DEV_MODE:-false}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # PMH ID (story 1.2) — không default secret
+      PMH_ISSUER_URL: ${PMH_ISSUER_URL:-}
+      PMH_CLIENT_ID: ${PMH_CLIENT_ID:-}
+      PMH_CLIENT_SECRET: ${PMH_CLIENT_SECRET:-}
+      PMH_WEBHOOK_SECRET: ${PMH_WEBHOOK_SECRET:-}
+      # :? thay vì :- — thiếu biến thì fail ngay lúc boot, KHÔNG lặng lẽ dựng link localhost
+      APP_BASE_URL: ${APP_BASE_URL:?APP_BASE_URL bắt buộc trong .env}
+      # SA cục bộ (break-glass, story 10.1) — thiếu là api từ chối khởi động.
+      # Hash sinh bằng `npm run sa:hash`; SA CHỈ đến từ env (không có trong DB).
+      LOCAL_SA_USERNAME: ${LOCAL_SA_USERNAME:?LOCAL_SA_USERNAME bắt buộc trong .env}
+      LOCAL_SA_PASSWORD_HASH: ${LOCAL_SA_PASSWORD_HASH:?LOCAL_SA_PASSWORD_HASH bắt buộc trong .env (scrypt.saltHex.hashHex)}
+      # Module file (story 2.8, AD-6) — file lưu volume, tên uuid
+      FILE_STORAGE_DIR: /data/files
+      # Khóa mã hoá secret SMTP (màn Cấu hình › Email). api cần để mã hoá lúc lưu + gửi mail thử.
+      MAIL_ENC_KEY: ${MAIL_ENC_KEY:-}
+    volumes:
+      - filesdata:/data/files
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  # Worker nền (story 3.5a, AD-9) — process THỨ HAI cùng image api, gọi service in-process.
+  # Relay outbox → BullMQ + sweep định kỳ. KHÔNG chạy migration (api chủ migrate).
+  worker:
+    # Dùng CHUNG image với api (cùng ./api) — nếu để compose tự đặt tên image riêng,
+    # `docker compose build api` sẽ KHÔNG build worker → worker chạy image cũ (bug 2026-07-20).
+    image: qlts-api:latest
+    build: ./api
+    restart: unless-stopped
+    mem_limit: ${WORKER_MEM_LIMIT:-256m}
+    command: ['node', 'dist/worker/worker']
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # PMH ID M2M (client_credentials) — worker chạy directory-sync ĐỊNH KỲ (5.5) +
+      # cập nhật authorized_groups cho gate login (10.2). Thiếu → scheduler lỗi mỗi chu kỳ.
+      PMH_ISSUER_URL: ${PMH_ISSUER_URL:-}
+      PMH_CLIENT_ID: ${PMH_CLIENT_ID:-}
+      PMH_CLIENT_SECRET: ${PMH_CLIENT_SECRET:-}
+      # Worker LÀ process gửi mail → mọi link trong mail dựng từ đây. Thiếu = link trỏ
+      # localhost mà mail vẫn báo gửi thành công (hỏng im lặng) → bắt buộc, fail-closed.
+      APP_BASE_URL: ${APP_BASE_URL:?APP_BASE_URL bắt buộc trong .env}
+      # SMTP gửi mail nền (story 5.1) — credential chỉ từ env (NFR-12)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      # Khóa giải mã secret SMTP lưu DB (màn Cấu hình › Email) — worker gửi mail nền cần.
+      MAIL_ENC_KEY: ${MAIL_ENC_KEY:-}
+    depends_on:
+      # đợi api healthy → migration đã chạy xong trước khi worker đọc bảng
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    restart: unless-stopped
+    mem_limit: ${WEB_MEM_LIMIT:-64m}
+    # Model B: KHÔNG publish cổng, KHÔNG giữ cert — EDGE (deploy/edge) lo TLS + 80/443.
+    # web chạy HTTP thuần; EDGE proxy tới qlts-web:80 qua mạng "edge".
+    networks:
+      default: {}
+      edge:
+        aliases:
+          - qlts-web
+    depends_on:
+      api:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    mem_limit: ${POSTGRES_MEM_LIMIT:-512m}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER bắt buộc trong .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD bắt buộc trong .env}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB bắt buộc trong .env}
+    volumes:
+      # postgres:18 đổi layout: PGDATA=/var/lib/postgresql/18/docker — mount cha, không mount /data
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    mem_limit: ${REDIS_MEM_LIMIT:-128m}
+    # :?  → thiếu/rỗng REDIS_PASSWORD thì compose fail ngay, không lặng lẽ chạy Redis không auth
+    # maxmemory < mem_limit 128m + noeviction (BullMQ yêu cầu): đầy thì từ chối ghi, không bị OOM-kill
+    command:
+      [
+        'redis-server',
+        '--requirepass',
+        '${REDIS_PASSWORD:?REDIS_PASSWORD bắt buộc trong .env}',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '${REDIS_MAXMEMORY:-96mb}',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli --no-auth-warning ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Backup định kỳ (giống PMH ID): pg_dump + thư mục file upload, chạy TRONG container.
+  # backup-cron tự chạy hằng ngày lúc BACKUP_AT; giữ TỊNH TIẾN BACKUP_KEEP_DAYS ngày.
+  #   Chạy tay 1 bản:  docker compose -f docker-compose.yml --profile backup run --rm backup
+  #   BACKUP_DIR (host) mặc định ./data-backups (đã .gitignore); nên copy .enc ra ngoài máy.
+  backup-cron:
+    build: ./ops/backup
+    image: qlts-backup:latest
+    restart: unless-stopped
+    mem_limit: 256m
+    entrypoint: ['sh', '/cron-loop.sh']
+    environment:
+      TZ: Asia/Bangkok
+      PGHOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      BACKUP_OUT: /backups
+      FILES_DIR: /data/files
+      BACKUP_AT: ${BACKUP_AT:-02:00}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+    volumes:
+      - filesdata:/data/files:ro
+      - ${BACKUP_DIR:-./data-backups}:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '5' }
+
+  # Chạy tay (profile) — CHUNG image/script với backup-cron.
+  backup:
+    build: ./ops/backup
+    image: qlts-backup:latest
+    profiles: ['backup']
+    environment:
+      TZ: Asia/Bangkok
+      PGHOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      BACKUP_OUT: /backups
+      FILES_DIR: /data/files
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+    volumes:
+      - filesdata:/data/files:ro
+      - ${BACKUP_DIR:-./data-backups}:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+networks:
+  # Mạng chung cổng-vào (tạo ngoài: `docker network create edge`). Chỉ `web` join.
+  edge:
+    external: true
+  default: {}
+
+volumes:
+  pgdata:
+  redisdata:
+  filesdata:

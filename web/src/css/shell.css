@@ -1,0 +1,288 @@
+/* --- Shell theo app-shell.html: icon/badge/footer sidebar + rail + topbar mới --------- */
+
+.sidebar {
+  transition: width 0.2s var(--ease);
+}
+.nav-ic {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.nav-item .lbl,
+.nav-parent .lbl {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-badge {
+  flex: none;
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--sidebar-ink-2);
+}
+.nav-badge.warn {
+  background: var(--warm);
+  color: #1f231c;
+}
+.nav-parent .nav-caret {
+  flex: none;
+}
+/* Nút <button> mặc định text-align:center → nhãn bị dồn giữa ô, lệch phải. Ép trái như <a>. */
+.nav-parent {
+  text-align: left;
+}
+/* Mũi tên dropdown DÙNG CHUNG 1 kiểu: chevron › xoay 90° khi mở (như caret expand bảng). */
+.nav-caret {
+  font-size: var(--fs-lg);
+  line-height: 1;
+  opacity: 0.75;
+  transition: transform 0.18s var(--ease);
+}
+.nav-caret.open {
+  transform: rotate(90deg);
+}
+
+/* Footer sidebar (thay header): khối user (nút thu gọn + tên) + Hồ sơ/ngôn ngữ/theme/Đăng xuất. */
+.sb-foot {
+  position: relative;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.sb-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.sb-collapse {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  /* padding:0 đè padding mặc định của button (0.48rem 0.9rem) — nếu không, padding ngang
+     lấn ô 34px (border-box) làm icon 3 gạch lệch tâm. */
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sidebar-ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+/* Đè `button:hover{background:surface-2}` (specificity cao hơn) — nếu không nút 3 gạch hover
+   ra nền sáng (trắng). */
+.sb-foot .sb-collapse:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--sidebar-ink-2);
+}
+.sb-collapse svg {
+  width: 18px;
+  height: 18px;
+}
+/* Nút tên = trigger menu tài khoản. Chiếm phần còn lại cạnh nút thu gọn. */
+.sb-userbtn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.sb-foot .sb-userbtn:hover:not(:disabled),
+.sb-foot .sb-userbtn[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.08);
+}
+/* Menu tài khoản: ẩn mặc định; bấm tên → bung LÊN TRÊN dạng popup. */
+.sb-actions {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.sb-actions.open {
+  display: flex;
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: calc(100% + 6px);
+  padding: var(--space-3);
+  border-radius: 10px;
+  border: 1px solid var(--sidebar-border);
+  /* Nền sidebar (tối) — KHÔNG dùng --surface sáng, nếu không chữ .sb-act (ink sáng) mất. */
+  background: var(--sidebar-bg);
+  box-shadow: var(--shadow-lg);
+  z-index: 20;
+}
+.sb-act-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.sb-act-row .sb-act {
+  flex: 1;
+}
+.sb-act {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  /* Gọn hơn (khớp QLHS ~9×10px): icon + chữ trái, badge đẩy phải bằng margin-auto. */
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--sidebar-ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+}
+/* Đè rule chung `button:hover{background:surface-2}` + `button.danger:hover` (specificity cao
+   hơn) — nếu không, hover ra nền sáng/đỏ-đậm làm chữ (Hồ sơ/Ngôn ngữ/Đăng xuất) mất/khó đọc. */
+.sb-foot .sb-act:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--sidebar-ink-2);
+  text-decoration: none;
+}
+/* Nút Đăng xuất: nền trong suốt (đè `button.danger{background:red}` — nếu không, nút hiện
+   thanh đỏ đặc ở đáy sidebar), chỉ chữ đỏ; hover mới hiện nền đỏ nhạt. */
+.sb-foot .sb-act.danger {
+  background: transparent;
+  color: var(--danger);
+}
+.sb-foot .sb-act.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  color: var(--danger);
+}
+.sb-badge {
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--sidebar-ink-2);
+}
+/* Icon menu tài khoản: không co, hơi mờ để chữ nổi hơn. Badge đẩy sát phải trong nút. */
+.sb-ico {
+  flex: none;
+  opacity: 0.8;
+}
+.sb-act .sb-badge {
+  margin-left: auto;
+}
+.sb-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sb-who b {
+  color: var(--sidebar-ink-2);
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-who span {
+  color: var(--sidebar-label);
+  font-size: var(--fs-2xs);
+}
+/* Avatar 2 chữ — hiện ở cả rail thu gọn (bấm để bung sidebar) lẫn khi mở rộng. */
+.sb-av {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--sidebar-ink-2);
+}
+
+/* Rail thu gọn (desktop): ẩn nhãn/badge/label, canh giữa icon. */
+.app-shell.collapsed .sidebar {
+  width: 72px;
+}
+.app-shell.collapsed .lbl,
+.app-shell.collapsed .nav-label,
+.app-shell.collapsed .nav-badge,
+.app-shell.collapsed .nav-children {
+  display: none;
+}
+/* Rail: nav-item/nav-parent/brand là flex-ROW → center icon theo trục ngang (justify-content).
+   sb-foot là flex-COLUMN → center theo align-items. Trộn lẫn làm icon lệch trái khỏi highlight. */
+.app-shell.collapsed .nav-item,
+.app-shell.collapsed .nav-parent,
+.app-shell.collapsed .brand {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+.app-shell.collapsed .sb-foot {
+  align-items: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+/* Rail: footer chỉ còn AVATAR user (tên/hành động ẩn theo .lbl); bấm avatar → bung sidebar. */
+.app-shell.collapsed .sb-user {
+  justify-content: center;
+}
+.app-shell.collapsed .sb-userbtn {
+  flex: none;
+  justify-content: center;
+  padding: var(--space-2);
+}
+
+/* Không còn header: nút nổi mở drawer trên mobile (desktop luôn hiện sidebar). */
+.nav-fab {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 8;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink-2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+}
+.nav-fab svg {
+  width: 22px;
+  height: 22px;
+}
+@media (max-width: 900px) {
+  /* Chừa chỗ cho nút nổi ở góc trên-trái khi không có header. */
+  .page {
+    padding-top: 3.75rem;
+  }
+}
+.app-shell.collapsed .nav-item:hover {
+  transform: none;
+}

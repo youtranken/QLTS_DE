@@ -1,0 +1,106 @@
+import {
+  BadRequestException,
+  Controller,
+  HttpCode,
+  Post,
+  Req,
+  UnauthorizedException,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import type { AuthedRequest } from '../auth/identity.guard';
+import { Roles } from '../auth/roles.decorator';
+import { detectFileType, MULTER_LIMIT } from '../files/file-validation';
+import { ImportService } from './import.service';
+
+function requireSub(req: AuthedRequest): string {
+  if (!req.user) {
+    throw new UnauthorizedException({
+      code: 'UNAUTHENTICATED',
+      message: 'Chưa đăng nhập.',
+    });
+  }
+  return req.user.sub;
+}
+
+/** Guard 2.8 TRƯỚC parse (AC 1): magic-byte phải là xlsx. */
+function requireXlsx(file: Express.Multer.File | undefined): Buffer {
+  if (!file || !file.buffer || file.buffer.length === 0) {
+    throw new BadRequestException({
+      code: 'FILE_REQUIRED',
+      message: 'Thiếu file upload (field "file").',
+    });
+  }
+  const name = Buffer.from(file.originalname, 'latin1').toString('utf8');
+  const detected = detectFileType(file.buffer, name);
+  if (
+    !detected ||
+    detected.mime !==
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ) {
+    throw new BadRequestException({
+      code: 'UNSUPPORTED_FILE',
+      message: 'File import phải là .xlsx theo cấu trúc sổ cũ.',
+    });
+  }
+  return file.buffer;
+}
+
+/** Import Excel go-live (2.9, FR-40) — CHỈ Admin/SA. */
+@Controller('admin/assets-import')
+@Roles('sa', 'admin')
+// parse exceljs tốn RAM — siết 20 req/phút/user (chống OOM-DoS, epic review)
+@Throttle({ default: { limit: 20, ttl: 60_000 } })
+export class ImportController {
+  constructor(private readonly importService: ImportService) {}
+
+  /** Dry-run: bảng kết quả theo dòng, CHƯA ghi DB (AC 1). */
+  @Post('preview')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { limits: MULTER_LIMIT }))
+  preview(@UploadedFile() file: Express.Multer.File | undefined) {
+    return this.importService.preview(requireXlsx(file));
+  }
+
+  /** Import thật: atomic 1 transaction (AC 3). */
+  @Post('commit')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { limits: MULTER_LIMIT }))
+  commit(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.importService.commit(requireXlsx(file), requireSub(req));
+  }
+
+  /** Đối chiếu lại USER (AC 6) — chạy được nhiều lần. */
+  @Post('rematch')
+  @HttpCode(200)
+  rematch(@Req() req: AuthedRequest) {
+    return this.importService.rematch(requireSub(req));
+  }
+
+  /** Preview import PHẦN MỀM (VĐ4) — dry-run khớp cột Export phần mềm. */
+  @Post('software/preview')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { limits: MULTER_LIMIT }))
+  previewSoftware(@UploadedFile() file: Express.Multer.File | undefined) {
+    return this.importService.previewSoftware(requireXlsx(file));
+  }
+
+  /** Import PHẦN MỀM thật (VĐ4) — nạp mới hàng loạt, atomic 1 tx. */
+  @Post('software/commit')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { limits: MULTER_LIMIT }))
+  commitSoftware(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Req() req: AuthedRequest,
+  ) {
+    return this.importService.commitSoftware(
+      requireXlsx(file),
+      requireSub(req),
+    );
+  }
+}

@@ -1,0 +1,92 @@
+/* --- Alerts / notices ----------------------------------------------------- */
+.alert {
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--r);
+  font-size: var(--fs-sm);
+  margin-bottom: var(--space-7);
+  border: 1px solid transparent;
+  animation: rowIn 0.2s var(--ease) both;
+}
+.alert.error {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: #f4cfcb;
+}
+.alert.ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+  border-color: #bfe4d4;
+}
+.alert.warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-color: #f2d9b8;
+}
+
+/* --- Field (label trên input) -------------------------------------------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* --- Modal ---------------------------------------------------------------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 26, 20, 0.44);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  z-index: var(--z-modal-backdrop);
+  padding: var(--space-7);
+  animation: rowIn 0.15s var(--ease) both;
+}
+/* Nền mờ "trần" cho dialog LỒNG (cascade trên form) — trong suốt, không dim đôi. */
+.modal-backdrop.bare {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.modal {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 560px;
+  width: 100%;
+  padding: var(--space-10);
+  /* Fade-only (như .sheet): tránh transform tạo containing-block cho popover fixed
+     portal vào Content (DateTimePicker trong extension-dialog). */
+  animation: rowIn 0.2s var(--ease) both;
+}
+
+/* Lớp canh giữa cho Radix Dialog (ui/dialog.tsx): Overlay .modal-backdrop lo nền
+   mờ, lớp này canh giữa .sheet bằng grid — giữ nguyên animation modalIn của .sheet.
+   Nằm TRÊN nền mờ (z-modal > z-modal-backdrop), trong suốt nên nền mờ vẫn hiện. */
+.dialog-viewport {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-7);
+  z-index: var(--z-modal);
+}
+
+/* Command palette (⌘K): style ở css/command-palette.css (nạp sau, phủ đủ). */
+
+/* --- Utilities ------------------------------------------------------------ */
+.muted {
+  color: var(--ink-2);
+}
+.center {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  text-align: center;
+  animation: pageIn 0.3s var(--ease) both;
+}
+

@@ -1,0 +1,283 @@
+/* --- Booking redesign: ô ngày/giờ dễ đọc + chip gợi ý + máy đã chọn + catalog gọn --- */
+/* Ô date/time/datetime: native picker theo theme, icon lịch/đồng hồ luôn thấy rõ. */
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'] {
+  cursor: pointer;
+  /* Cao bằng DatePicker/Select (padding 0.55rem ≈ 35px) để cùng hàng Ngày|Giờ không so le. */
+}
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+}
+input[type='date']:hover::-webkit-calendar-picker-indicator,
+input[type='time']:hover::-webkit-calendar-picker-indicator,
+input[type='datetime-local']:hover::-webkit-calendar-picker-indicator {
+  opacity: 1;
+}
+html[data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator,
+html[data-theme='dark'] input[type='time']::-webkit-calendar-picker-indicator,
+html[data-theme='dark']
+  input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  /* brightness(0)→đen tuyền, invert(1)→trắng: icon lịch/đồng hồ TRẮNG rõ trên nền tối. */
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+
+/* Chip giờ gợi ý — 7 chip nhỏ gọn trên 1 hàng, áp vào ô đang chọn (nhận/trả). */
+.slot-suggest {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  flex-wrap: wrap;
+}
+.slot-suggest-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.slot-suggest-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+/* Chip cỡ nội dung, sát TRÁI — còn 2 khung thì chỉ 2 chip nhỏ bên trái, phải để trống
+   (trước dùng flex:1 nên 2 chip phình full hàng). */
+/* 2 KHUNG chip gợi ý (sáng | chiều), nhãn AM/PM ở CUỐI mỗi khung. */
+.slot-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+.slot-mer-lbl {
+  align-self: center;
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
+  padding: 0 2px 0 var(--space-1);
+}
+.slot-pick {
+  flex: 0 0 auto;
+  min-width: 3rem;
+  text-align: center;
+  padding: var(--space-2) var(--space-7);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.slot-pick:hover {
+  border-color: var(--primary);
+  color: var(--ink);
+}
+.slot-pick.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+/* Giờ đã qua (hoặc trước giờ nhận): khóa — mờ, gạch, không bấm được. */
+.slot-pick.off,
+.slot-pick:disabled {
+  opacity: 0.4;
+  text-decoration: line-through;
+  cursor: not-allowed;
+  background: var(--surface-2);
+}
+.slot-pick.off:hover {
+  border-color: var(--border-2);
+  color: var(--ink-2);
+}
+
+/* Nút ✕ xóa buổi (recurring): vuông nhỏ 32px, canh đáy hàng — trước dùng .sh nên to/lệch. */
+.icon-x {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-xs);
+  line-height: 1;
+  align-self: flex-end;
+  margin-bottom: 1px;
+}
+
+/* Máy đã chọn (khóa preset khi mở từ thẻ máy). */
+.picked-machine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+}
+.picked-machine .pm-ico {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-lg);
+  flex: none;
+}
+.picked-machine .pm-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.picked-machine .pm-code {
+  font-weight: 700;
+}
+.picked-machine .pm-spec {
+  font-size: var(--fs-xs);
+}
+
+/* Catalog compact (nhiều máy): thẻ nhỏ, 1 hàng nút, tiêu đề gọn. */
+.mcatalog.dense {
+  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+  gap: var(--space-4);
+}
+.mcard-sm {
+  padding: var(--space-4) var(--space-5);
+  gap: var(--space-2);
+}
+.mcard-sm .mc-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.mcard-sm .mc-ico {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: var(--fs-md);
+  flex: none;
+}
+.mcard-sm .mc-code {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+}
+.mcard-sm .mc-head .avail {
+  margin-left: auto;
+}
+.mcard-sm .mc-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+.mcard-sm .mc-actions button {
+  flex: 1;
+}
+
+/* Hàng trên booking sheet: Người mượn + Máy đã chọn cùng 1 hàng, gọn. */
+.sheet-toprow {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-6);
+}
+.sheet-toprow .topcell {
+  flex: 1;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.topcell-label {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
+}
+.picked-machine.compact {
+  padding: var(--space-2) var(--space-4);
+  gap: var(--space-3);
+  background: var(--surface);
+}
+.picked-machine.compact .pm-ico {
+  width: 30px;
+  height: 30px;
+  font-size: var(--fs-sm);
+}
+.picked-machine.compact .pm-code {
+  font-size: var(--fs-sm);
+}
+.machine-select {
+  width: 100%;
+}
+
+/* Bảng máy: hàng tiêu đề + filter; cột Trả tô màu + chớp khi gần/quá hạn. */
+.board-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-3);
+}
+.due-near {
+  color: var(--warn);
+  font-weight: 700;
+  animation: dueBlink 1.3s ease-in-out infinite;
+}
+.due-over {
+  color: var(--danger);
+  font-weight: 700;
+  animation: dueBlink 0.8s ease-in-out infinite;
+}
+@keyframes dueBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+/* Bảng "Máy đang mượn / chờ giao": nhiều dòng thì CUỘN RIÊNG trong bảng (không kéo dài cả
+   trang), header dính trên cùng. Thoáng hơn: viền bo + khoảng cách với khối trên. */
+.board-head {
+  margin-top: 1.75rem;
+}
+.table-wrap:has(.board-table) {
+  max-height: 26rem;
+  overflow: auto;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-lg);
+}
+.board-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+}
+
+/* Nhãn ngày trước dải chip "giờ trống" (Hôm nay / Ngày mai / thứ+ngày). */
+.slot-day {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--ink-2);
+  align-self: center;
+  margin-right: 2px;
+}
+

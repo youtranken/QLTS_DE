@@ -1,0 +1,147 @@
+import { createHash } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { Pool } from 'pg';
+
+/** Khóa advisory cố định — 2 instance api cùng khởi động không chạy migration chồng nhau. */
+const MIGRATION_LOCK_ID = 727_001;
+
+/** Bắt buộc NNNN_ (zero-pad) — sort chuỗi mới trùng thứ tự số ('10_' < '2_' nếu không pad). */
+const MIGRATION_NAME_PATTERN = /^\d{4}_.+\.sql$/;
+
+/**
+ * Marker dòng ĐẦU file → chạy NGOÀI transaction wrapper (CREATE INDEX CONCURRENTLY...).
+ * File no-transaction chỉ được chứa MỘT câu lệnh (multi-statement simple query vẫn bị
+ * Postgres bọc implicit transaction — marker mất tác dụng).
+ * CẢNH BÁO CIC (F4 review): fail giữa chừng KHÔNG rollback được → để lại index INVALID mà
+ * `CREATE INDEX CONCURRENTLY IF NOT EXISTS` lần sau coi là "đã có" → no-op, journal ghi,
+ * index INVALID sống mãi (planner bỏ qua, invariant không được ép). Pattern AN TOÀN: đặt
+ * `DROP INDEX CONCURRENTLY IF EXISTS <name>;` ở MỘT file no-tx riêng NGAY TRƯỚC file CIC.
+ * Runner thêm lưới: sau file no-tx có CONCURRENTLY, phát hiện index INVALID → fail to.
+ */
+const NO_TX_MARKER = /^--\s*qlts:no-transaction\b/;
+
+export interface MigrationLogger {
+  log(message: string): void;
+}
+
+/**
+ * Runner migration raw SQL (AD-12): chạy các file *.sql trong thư mục theo
+ * thứ tự tên file, mỗi file một transaction, journal ở bảng _migrations.
+ * Idempotent: file đã ghi journal thì bỏ qua — nhưng nội dung file đã apply
+ * bị SỬA (checksum lệch) → fail to, không im lặng để schema drift.
+ * Convention: file SQL không được chứa BEGIN/COMMIT nội bộ (phá transaction wrapper).
+ */
+export async function runMigrations(
+  pool: Pool,
+  dir: string,
+  logger: MigrationLogger = console,
+): Promise<string[]> {
+  const files = (await readdir(dir)).filter((f) => f.endsWith('.sql')).sort();
+  const invalid = files.filter((f) => !MIGRATION_NAME_PATTERN.test(f));
+  if (invalid.length > 0) {
+    throw new Error(
+      `Tên migration sai format NNNN_<mô-tả>.sql (bắt buộc zero-pad 4 số): ${invalid.join(', ')}`,
+    );
+  }
+  const applied: string[] = [];
+  const client = await pool.connect();
+  try {
+    await client.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK_ID]);
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS _migrations (
+         name text PRIMARY KEY,
+         checksum text,
+         applied_at timestamptz NOT NULL DEFAULT now()
+       )`,
+    );
+    await client.query(
+      'ALTER TABLE _migrations ADD COLUMN IF NOT EXISTS checksum text',
+    );
+    for (const file of files) {
+      const sql = await readFile(join(dir, file), 'utf8');
+      const checksum = createHash('sha256').update(sql).digest('hex');
+      const done = await client.query<{ checksum: string | null }>(
+        'SELECT checksum FROM _migrations WHERE name = $1',
+        [file],
+      );
+      if ((done.rowCount ?? 0) > 0) {
+        const stored = done.rows[0].checksum;
+        if (stored === null) {
+          // Backfill journal cũ (trước khi có cột checksum)
+          await client.query(
+            'UPDATE _migrations SET checksum = $2 WHERE name = $1',
+            [file, checksum],
+          );
+        } else if (stored !== checksum) {
+          throw new Error(
+            `Migration ${file} đã apply nhưng nội dung file ĐÃ BỊ SỬA (checksum lệch). ` +
+              'Không sửa migration đã chạy — tạo migration mới.',
+          );
+        }
+        continue;
+      }
+      if (NO_TX_MARKER.test(sql)) {
+        // Không wrap transaction; journal ghi SAU khi câu lệnh thành công.
+        try {
+          await client.query(sql);
+          if (/concurrently/i.test(sql)) {
+            const invalid = await client.query<{ idx: string }>(
+              `SELECT indexrelid::regclass::text AS idx
+                 FROM pg_index WHERE NOT indisvalid`,
+            );
+            if ((invalid.rowCount ?? 0) > 0) {
+              throw new Error(
+                `có index INVALID sau CREATE INDEX CONCURRENTLY (${invalid.rows
+                  .map((r) => r.idx)
+                  .join(
+                    ', ',
+                  )}) — CIC fail dở; DROP INDEX CONCURRENTLY IF EXISTS rồi chạy lại`,
+              );
+            }
+          }
+          await client.query(
+            'INSERT INTO _migrations (name, checksum) VALUES ($1, $2)',
+            [file, checksum],
+          );
+        } catch (error) {
+          throw new Error(
+            `Migration ${file} (no-transaction) thất bại: ${(error as Error).message}`,
+            { cause: error },
+          );
+        }
+      } else {
+        await client.query('BEGIN');
+        try {
+          await client.query(sql);
+          await client.query(
+            'INSERT INTO _migrations (name, checksum) VALUES ($1, $2)',
+            [file, checksum],
+          );
+          await client.query('COMMIT');
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw new Error(
+            `Migration ${file} thất bại: ${(error as Error).message}`,
+            {
+              cause: error,
+            },
+          );
+        }
+      }
+      applied.push(file);
+      logger.log(`Migration applied: ${file}`);
+    }
+  } finally {
+    await client
+      .query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_ID])
+      .catch(() => undefined);
+    client.release();
+  }
+  return applied;
+}
+
+/** dist/main.js → dist/migrations (copy qua nest-cli assets); ts-jest/ts-node → src/migrations. */
+export function resolveMigrationsDir(): string {
+  return process.env.MIGRATIONS_DIR ?? join(__dirname, '..', 'migrations');
+}

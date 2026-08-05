@@ -1,0 +1,104 @@
+/* Ô chọn giờ (TimeField): trigger giống input, popover chứa bánh xe TimePicker. */
+.tf {
+  position: relative;
+  width: 100%;
+}
+.tf-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* Khớp chiều cao input/DatePicker (padding 0.55rem ≈ 35px) để cùng hàng Ngày|Giờ không so le. */
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--r);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.tf-trigger:hover {
+  border-color: var(--ink-3);
+}
+.tf-trigger:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+.tf-trigger:disabled {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  cursor: default;
+}
+.tf-val {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.tf-val.ph {
+  color: var(--ink-3);
+}
+.tf-clock {
+  width: 16px;
+  height: 16px;
+  color: var(--ink-3);
+  flex: none;
+}
+/* Popover bánh xe: vị trí do Floating UI (useAnchoredMenu) set inline. Fade-only (KHÔNG
+   transform) để không đụng transform định vị. z-index nổi trên modal (chọn giờ trong form). */
+.tf-pop {
+  z-index: var(--z-popover);
+  /* Radix modal set body{pointer-events:none}; popover portal ra body thừa hưởng -> phải bật lại. */
+  pointer-events: auto;
+  animation: rowIn 0.13s var(--ease) both;
+}
+/* Bản GỌN của TimePicker khi nhúng trong ô booking (mặc định card demo hơi to). GIỮ item-h=42
+   vì Wheel JS dùng ITEM_H=42 cố định — chỉ bớt padding/font + số item hiển thị (col-h). */
+.tf-pop .tp {
+  max-width: 256px;
+  padding: var(--space-6);
+  gap: var(--space-6);
+  border-radius: var(--r);
+}
+.tf-pop .tp-title {
+  font-size: 12px;
+}
+.tf-pop .tp-field {
+  padding: var(--space-4) var(--space-6);
+  border-width: 1px;
+}
+.tf-pop .tp-field svg {
+  width: 17px;
+  height: 17px;
+}
+.tf-pop .tp-time {
+  font-size: 22px;
+}
+.tf-pop .tp-mer-chip {
+  font-size: 12px;
+  padding: var(--space-1) var(--space-4);
+}
+.tf-pop .tp-seg button {
+  padding: var(--space-3);
+  font-size: 12.5px;
+}
+.tf-pop .tp-wheels {
+  --col-h: 126px; /* 3 dòng thay 4 — item-h vẫn 42 nên snap không lệch */
+}
+.tf-pop .tp-cell {
+  font-size: 20px;
+}
+.tf-pop .tp-sep {
+  font-size: 22px;
+}
+.tf-pop .tp-mer button {
+  padding: var(--space-3) var(--space-6);
+  font-size: 12.5px;
+}
+.tf-pop .tp-actions button {
+  padding: var(--space-4);
+  font-size: 13px;
+  border-radius: 9px;
+}

@@ -1,0 +1,185 @@
+/* --- Hồ sơ người dùng (UP-5.2) — không avatar theo yêu cầu ---------------- */
+.profile-head {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-9) var(--space-10);
+  margin-bottom: var(--space-8);
+}
+.profile-head .ph-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+}
+.profile-head h1 {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  letter-spacing: -0.02em;
+}
+.profile-head .chip {
+  padding: 0.28rem var(--space-5);
+}
+.profile-head .ph-email {
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  margin-top: var(--space-2);
+}
+/* Tên riêng .profile-stat-* để KHÔNG đụng .stat-card/.stat-grid của
+   detail-tabs.css (KPI dashboard, cùng tên nhưng khác thiết kế). */
+.profile-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-9);
+}
+.profile-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-7) var(--space-8);
+}
+.profile-stat-card .sc-label {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+.profile-stat-card .sc-num {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+.profile-stat-card .sc-num.sc-date {
+  font-size: var(--fs-lg);
+}
+/* Danh sách phần mềm được cấp */
+.sw-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.sw-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.sw-row .sw-main {
+  flex: 1;
+  min-width: 0;
+}
+.sw-row .sw-nm {
+  font-weight: 600;
+}
+.sw-row .sw-meta {
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  margin-top: var(--space-1);
+}
+.sw-row .sw-meta b {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+/* Timeline lịch sử cấp phát */
+.timeline {
+  position: relative;
+  padding-left: 1.75rem;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: var(--space-3);
+  top: var(--space-2);
+  bottom: var(--space-2);
+  width: 2px;
+  background: var(--border);
+}
+.timeline .tl-item {
+  position: relative;
+  padding-bottom: var(--space-9);
+}
+.timeline .tl-item:last-child {
+  padding-bottom: 0;
+}
+.timeline .tl-dot {
+  position: absolute;
+  left: -1.75rem;
+  top: var(--space-1);
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border-2);
+}
+.timeline .tl-dot.in {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.timeline .tl-dot.out {
+  border-color: var(--warm);
+  background: var(--warm-soft);
+}
+.timeline .tl-time {
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.timeline .tl-title {
+  font-weight: 600;
+  margin: 0.1rem 0;
+}
+.timeline .tl-desc {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+/* Lưới thông tin (chỉ đọc) */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.info-grid .info-item {
+  background: var(--surface);
+  padding: var(--space-6) var(--space-7);
+}
+.info-grid .ii-k {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  margin-bottom: var(--space-1);
+}
+.info-grid .ii-v {
+  font-weight: 500;
+}
+/* Tên user trên topbar bấm được → vào hồ sơ */
+.hello.linkbtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+.hello.linkbtn:hover strong {
+  color: var(--primary-ink);
+}
+@media (max-width: 680px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

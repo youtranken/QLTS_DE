@@ -1,0 +1,27 @@
+# DEV-ONLY — compose tự nạp file này cùng docker-compose.yml.
+# PMH ID dev chạy trên HOST (hosts trỏ 127.0.0.1) — container phải đi qua host-gateway.
+# PROD: chạy `docker compose -f docker-compose.yml up -d` để KHÔNG áp file này
+# (id.pmh.com.vn prod phân giải DNS thật, không được ghi đè).
+
+services:
+  api:
+    extra_hosts:
+      - 'id.pmh.com.vn:host-gateway'
+
+  # Worker gọi PMH ID (M2M directory-sync định kỳ) → cũng cần resolve id.pmh.com.vn dev
+  worker:
+    extra_hosts:
+      - 'id.pmh.com.vn:host-gateway'
+
+  # DEV-ONLY: expose port ra host để chạy db-spec (jest trên host) nối vào chính container này.
+  # Test dùng database qlts_test (tách khỏi qlts) trong CÙNG server — không cần container test riêng.
+  # PROD KHÔNG nạp file này nên port DB/redis không lộ ra ngoài.
+  postgres:
+    # Host port 5491 (đổi từ 54329) — dễ nhớ, tránh nhầm với DB project khác trên máy.
+    # db-spec (jest trên host) set DATABASE_URL=...@localhost:5491/qlts_test.
+    # Bind 127.0.0.1: cú pháp ngắn '5491:5432' bind 0.0.0.0 → phơi DB ra LAN, đi vòng firewall host.
+    ports:
+      - '127.0.0.1:5491:5432'
+  redis:
+    ports:
+      - '127.0.0.1:63799:6379'

@@ -1,0 +1,337 @@
+/* ===== Redesign primitives (dùng chung cho catalog Mượn máy, Pool, Danh mục…) ===== */
+.avail {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 2px var(--space-4);
+  border-radius: 999px;
+  width: fit-content;
+}
+.avail::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.avail.free {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.avail.busy {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.catalog-toolbar {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+/* Danh mục — bảng 3 cột song song */
+/* Lấp trọn cột .admin-narrow (canh giữa ở cấp section) → thẳng hàng với tab + tiêu đề. */
+.dmboard {
+  max-width: none;
+  margin-inline: 0;
+}
+/* Tab Danh mục — to, tách thoáng, active nổi bật + hiệu ứng mượt. */
+.dmtabs {
+  margin-bottom: var(--space-9);
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+}
+.dmtabs label {
+  padding: var(--space-3) var(--space-8);
+  font-size: var(--fs-sm);
+  transition: background 0.2s var(--ease), color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease), transform 0.12s var(--ease);
+}
+.dmtabs label:active {
+  transform: scale(0.97);
+}
+/* Tab active nhã như mockup: nền surface nổi trên track + chữ primary (không xanh đậm). */
+.dmtabs label:has(input:checked) {
+  background: var(--surface);
+  color: var(--primary-ink);
+  box-shadow: var(--shadow-sm);
+}
+.dmtabs .badge {
+  margin-left: 0.1rem;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.dmtabs label:has(input:checked) .badge {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+/* Danh mục — master–detail: cột loại (trái) + panel mục (phải). FULL bề ngang (bỏ trống 2 bên). */
+.catalog-page {
+  max-width: none;
+}
+.dm-split {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-8);
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .dm-split {
+    grid-template-columns: 1fr;
+  }
+}
+/* Cột TRÁI — danh sách loại danh mục (nav dọc), dính khi cuộn. */
+.dm-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  padding: var(--space-3);
+  position: sticky;
+  top: var(--space-6);
+}
+.dm-kinds label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.dm-kinds label:hover {
+  background: var(--surface-2);
+}
+.dm-kinds label.on {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+.dm-kinds input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.dm-kind-lbl {
+  flex: 1;
+}
+.dm-kinds .badge {
+  margin-left: auto;
+}
+.dm-kinds label.on .badge {
+  background: var(--surface);
+  color: var(--primary-ink);
+}
+/* Cột PHẢI — panel mục của loại đang chọn. */
+.dmcol {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  overflow: hidden;
+}
+.dmcol .dm-h {
+  padding: var(--space-5) var(--space-8);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
+}
+.dm-empty {
+  padding: var(--space-9);
+  text-align: center;
+}
+.dmrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-8);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s var(--ease);
+}
+.dmrow:hover {
+  background: var(--primary-soft);
+}
+.dm-list .dmrow:last-child {
+  border-bottom: none;
+}
+.dmrow .dm-g {
+  flex: 1;
+  font-weight: 600;
+  min-width: 0;
+}
+.dmrow .dm-ct {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: var(--space-1) var(--space-4);
+  white-space: nowrap;
+}
+.dmrow.is-empty .dm-ct,
+.dmrow.is-empty .dm-g {
+  color: var(--ink-3);
+}
+.dmrow.is-disabled {
+  opacity: 0.5;
+}
+.dmrow.is-disabled .dm-g {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+.dm-add {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border);
+}
+
+/* Pipeline trạng thái — Yêu cầu của tôi / Xử lý mượn */
+.pipe {
+  display: flex;
+  align-items: center;
+}
+.pipe .pnode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+}
+.pipe .pnode .pc {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 2px solid var(--border-2);
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-2xs);
+  color: var(--ink-3);
+}
+.pipe .pnode.done .pc {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+.pipe .pnode.cur .pc {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.pipe .pnode .plb {
+  font-size: var(--fs-2xs);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.pipe .pnode.cur .plb {
+  color: var(--primary-ink);
+  font-weight: 700;
+}
+.pipe .pbar {
+  height: 2px;
+  background: var(--border-2);
+  flex: 1;
+  margin-top: -18px;
+  min-width: 20px;
+}
+.pipe .pbar.done {
+  background: var(--ok);
+}
+
+/* Hàng mở rộng in-context (DataTable renderExpanded) — trang Tài sản */
+.caret {
+  width: 34px;
+  text-align: center;
+}
+.caret-btn {
+  all: unset;
+  cursor: pointer;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  padding: 2px var(--space-1);
+  border-radius: 4px;
+}
+.caret-btn:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+table.table tbody tr.exp td {
+  background: var(--surface-2);
+  border-top: 1px dashed var(--border-2);
+  padding: 0;
+}
+table.table tbody tr.exp:hover td {
+  background: var(--surface-2);
+}
+.exp .panel {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-8);
+  padding: var(--space-7) var(--space-7);
+}
+/* Hàng bung phần mềm của máy: bảng FULL-WIDTH (không ép 3 cột như .panel cũ). */
+.exp .exp-soft {
+  padding: var(--space-7) var(--space-7);
+}
+.exp .exp-soft .table-wrap {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .exp .panel {
+    grid-template-columns: 1fr;
+  }
+}
+.exp .panel h5 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+.exp .panel .row {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  margin: 2px 0;
+}
+.exp .panel .muted-empty {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+
+/* Part 2: chip giờ trống hôm nay trên card máy (catalog Mượn máy) */
+.slot-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.slotchip {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 2px var(--space-4);
+  border-radius: 999px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+.slotchip:hover {
+  background: var(--ok);
+  color: #fff;
+}
+

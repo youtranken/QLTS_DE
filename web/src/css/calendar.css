@@ -1,0 +1,363 @@
+/* --- Lịch máy tổng (mục sidebar) ----------------------------------------- */
+/* Ô "Ngày trả" khi tới hạn trong hôm nay (chưa quá hạn) — highlight nhắc. */
+.due-soon {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.mcal-sub {
+  margin-top: -0.4rem;
+  margin-bottom: var(--space-7);
+  max-width: 60ch;
+}
+.mcal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-8);
+}
+.mcal-weeknav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: var(--space-1);
+  box-shadow: var(--shadow-sm);
+}
+.mcal-weeknav button {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: var(--fs-lg);
+  line-height: 1;
+}
+.mcal-weeknav button:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.mcal-weeknav .wlabel {
+  font-weight: 700;
+  padding: 0 var(--space-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* Ô "Chọn ngày" (nhảy tới tuần chứa ngày, giới hạn trong tháng) cạnh nav tháng. */
+.mcal-daypick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.mcal-daypick .muted {
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.mcal-daypick .dp {
+  width: 12.5rem;
+}
+.mcal-weekrange {
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+/* Bố cục: lịch (chính) + rail máy trống (phải); ≤980px xếp dọc */
+.mcal-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--space-7);
+  align-items: start;
+}
+.mcal-main {
+  min-width: 0;
+}
+.mcal-rail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+}
+.mcal-rail h2 {
+  font-size: var(--fs-md);
+  margin: 0 0 var(--space-4);
+}
+.mcal-freelist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* Gọn, phần dư cuộn — cân chiều cao với lịch bên trái (mcal-scroll). */
+  max-height: 378px;
+  overflow-y: auto;
+}
+.mcal-freecard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.mcal-freecard .fc-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mcal-freecard .fc-code {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mcal-freecard .fc-spec {
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mcal-freecard button {
+  flex: none;
+}
+.mcal-active-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+.mcal-active-head h2 {
+  font-size: var(--fs-lg);
+  margin: 0;
+}
+@media (max-width: 980px) {
+  .mcal-layout {
+    grid-template-columns: 1fr;
+  }
+  .mcal-freelist {
+    max-height: none;
+  }
+}
+.mcal-scroll {
+  overflow: auto;
+  /* Gọn ~5 máy (header ngày + 5 hàng), phần dư cuộn dọc; header ngày dính khi cuộn.
+     Cân chiều cao với panel "Máy trống — đặt nhanh" bên phải. */
+  max-height: 378px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+/* Header ngày dính khi cuộn dọc danh sách máy dài. */
+.mcal-scroll .mcal-corner,
+.mcal-scroll .mcal-dhead {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.mcal-grid {
+  display: grid;
+  /* 14 ngày (2 tuần) — cột hẹp hơn, cuộn ngang trong .mcal-scroll khi cần. */
+  grid-template-columns: 150px repeat(14, minmax(52px, 1fr));
+  min-width: 980px;
+}
+.mcal-corner {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-7);
+}
+.mcal-dhead {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: var(--space-2) var(--space-1);
+}
+.mcal-dhead.we {
+  background: var(--warm-soft);
+}
+.mcal-dhead .dw {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.mcal-dhead .dn {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.mcal-mcell {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 var(--space-7);
+  min-width: 0;
+}
+.mcal-mcell .mn {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mcal-mcell .mm {
+  font-size: var(--fs-2xs);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mcal-daycell {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+.mcal-daycell.we {
+  background: color-mix(in srgb, var(--warm-soft) 45%, transparent);
+}
+.mcal-block {
+  align-self: center;
+  margin: 0 var(--space-1);
+  min-width: 0;
+  z-index: 2;
+  position: relative;
+  border-radius: 8px;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: var(--shadow-sm);
+}
+.mcal-block.borrow {
+  background: var(--grad);
+  color: #fff;
+}
+.mcal-block.pending {
+  background: var(--warm-soft);
+  color: var(--warm-ink);
+  border: 1px solid var(--warm);
+}
+.mcal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin-top: var(--space-7);
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.mcal-legend .lg {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.mcal-legend .sw {
+  width: 26px;
+  height: 14px;
+  border-radius: 5px;
+}
+.mcal-legend .sw.borrow {
+  background: var(--grad);
+}
+.mcal-legend .sw.pending {
+  background: var(--warm-soft);
+  border: 1px solid var(--warm);
+}
+/* Mobile list */
+.mcal-mcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: var(--space-6);
+}
+.mcal-mhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.mcal-mhead .mn {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.mcal-mhead .mm {
+  font-size: var(--fs-2xs);
+  color: var(--ink-3);
+}
+.mcal-mbody {
+  padding: var(--space-1) var(--space-6) var(--space-4);
+}
+.mcal-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-4) 0;
+  border-bottom: 1px dashed var(--border-2);
+}
+.mcal-slot:last-child {
+  border-bottom: none;
+}
+.mcal-slot .mcal-bar {
+  width: 5px;
+  align-self: stretch;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+.mcal-slot .mcal-bar.borrow {
+  background: var(--primary);
+}
+.mcal-slot .mcal-bar.pending {
+  background: var(--warm);
+}
+.mcal-slot .rng {
+  flex: 1;
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.mcal-free {
+  padding: var(--space-6) 0;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+.desktop-only {
+  display: block;
+}
+.mobile-only {
+  display: none;
+}
+@media (max-width: 680px) {
+  .desktop-only {
+    display: none;
+  }
+  .mobile-only {
+    display: block;
+  }
+}
+
