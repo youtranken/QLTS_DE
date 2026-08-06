@@ -19,6 +19,7 @@ export function ChatComposer({
     <div className="qc-composer">
       <textarea
         rows={1}
+        aria-label="Nhập câu hỏi cho trợ lý"
         placeholder="Hỏi mình… (vd: máy nào trống mai, cấu hình MTS-123)"
         value={text}
         onChange={(e) => setText(e.target.value)}

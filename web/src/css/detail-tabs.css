@@ -192,7 +192,11 @@ input.search {
   .page {
     padding: var(--space-7);
   }
-  /* Util opt-in: bảng gắn data-label trên <td> gập thành thẻ dọc (màn được bật ở epic sau). */
+}
+
+/* Bảng nhiều cột (opt-in data-label) gập thẻ dọc SỚM hơn — dải ~680–960px (tablet) để
+   tránh cuộn ngang chật; overlay/sheet full-bleed vẫn giữ mốc 680px ở trên. */
+@media (max-width: 960px) {
   .table-stack thead {
     display: none;
   }
