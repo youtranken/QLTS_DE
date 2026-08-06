@@ -29,6 +29,10 @@ export function ChatbotPopup({ me }: { me: Me }) {
   const navigate = useNavigate();
   const chat = useChatbot(me.csrfToken, me.fullName ?? undefined);
   const askConfirm = useConfirm();
+  // Quản lý focus (C2): mở → focus panel; đóng → trả focus về FAB. Chat phi-modal (không aria-modal).
+  const fabRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const wasOpen = useRef(false);
 
   const openChat = useCallback(() => {
     setOpen(true);
@@ -45,6 +49,12 @@ export function ChatbotPopup({ me }: { me: Me }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) panelRef.current?.focus();
+    else if (wasOpen.current) fabRef.current?.focus();
+    wasOpen.current = open;
   }, [open]);
 
   const onChip = useCallback(
@@ -127,6 +137,7 @@ export function ChatbotPopup({ me }: { me: Me }) {
   if (!open) {
     return (
       <button
+        ref={fabRef}
         type="button"
         className="qc-fab"
         aria-label="Mở trợ lý QLTS"
@@ -138,7 +149,13 @@ export function ChatbotPopup({ me }: { me: Me }) {
   }
 
   return (
-    <div className="qc-panel">
+    <div
+      ref={panelRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-label="Trợ lý QLTS"
+      className="qc-panel"
+    >
       <div className="qc-head">
         <div className="qc-ava">
           <Mascot />

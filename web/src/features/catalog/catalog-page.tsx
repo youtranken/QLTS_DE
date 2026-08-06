@@ -181,7 +181,7 @@ export function CatalogPage({ me }: { me: Me }) {
 
       {/* Master–detail: TRÁI = danh sách loại danh mục, PHẢI = mục của loại đang chọn. */}
       <div className="dm-split">
-      <nav className="dm-kinds" role="tablist" aria-label={t('catalog.title')}>
+      <nav className="dm-kinds" role="radiogroup" aria-label={t('catalog.title')}>
         {KINDS.map((k) => (
           <label key={k} className={activeKind === k ? 'on' : ''}>
             <input

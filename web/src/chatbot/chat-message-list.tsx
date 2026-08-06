@@ -27,7 +27,12 @@ export function ChatMessageList({
   }, [messages, loading]);
 
   return (
-    <div className="qc-msgs">
+    <div
+      className="qc-msgs"
+      role="log"
+      aria-live="polite"
+      aria-relevant="additions"
+    >
       {messages.map((m) => (
         <div key={m.id} className={`qc-row qc-${m.role === 'user' ? 'user' : 'ai'}`}>
           <div className={`qc-mava qc-${m.role === 'user' ? 'me' : 'ai'}`}>

@@ -383,7 +383,12 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
             <p className="empty">{t('calendar.overviewEmpty')}</p>
           ) : (
             <>
-              <div className="mcal-scroll desktop-only">
+              <div
+                className="mcal-scroll desktop-only"
+                tabIndex={0}
+                role="region"
+                aria-label={t('calendar.gridLabel', 'Lịch máy 2 tuần — cuộn ngang để xem thêm ngày')}
+              >
                 <div
                   className="mcal-grid"
                   style={{ gridTemplateRows: `48px repeat(${machines.length}, 64px)` }}

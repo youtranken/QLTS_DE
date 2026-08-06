@@ -162,6 +162,9 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
   return (
     <div className={`app-shell${collapsed && !narrow ? ' collapsed' : ''}`}>
+      <a className="skip-link" href="#main">
+        {t('app.skipToContent', 'Tới nội dung')}
+      </a>
       {narrow && menuOpen && (
         // Backdrop: bấm ngoài menu để đóng (nút hamburger bị nav che khi mở)
         <div className="drawer-backdrop" onClick={() => setMenuOpen(false)} />
@@ -194,7 +197,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
       )}
       <div className="content">
         {/* Mọi trang dùng bề ngang rộng (gần full) cho đồng nhất — đỡ trống 2 bên. */}
-        <main className="page page-wide">
+        <main id="main" className="page page-wide">
           <AppRoutes me={me} />
         </main>
       </div>
