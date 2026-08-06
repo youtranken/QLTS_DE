@@ -81,6 +81,16 @@ button:focus-visible {
   white-space: nowrap;
   border: 0;
 }
+/* Khối "đang tải" dùng chung (Loading) — căn giữa, chữ mờ. */
+.load-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-10) 0;
+  color: var(--muted);
+}
+
 /* Bỏ qua nav → nội dung (WCAG 2.4.1). Ẩn off-screen tới khi Tab tới. */
 .skip-link {
   position: fixed;

@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AssetCascadeDialog } from '@/features/assets/asset-cascade-dialog';
 import { DatePicker } from '@/ui/date-picker';
+import { Dialog, DialogTitle } from '@/ui/dialog';
 import type {
   AssetRow,
   CascadePreview,
@@ -226,68 +227,66 @@ export function useAssetLifecycle({
       )}
 
       {lockRow && (
-        <div
-          className="modal-backdrop"
-          onClick={() => setLockRow(null)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setLockRow(null);
+        <Dialog
+          open
+          onOpenChange={(o) => {
+            if (!o) setLockRow(null);
           }}
+          className="modal"
+          dismissible={!busy}
         >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <DialogTitle asChild>
             <h2 style={{ marginBottom: '0.75rem' }}>
               {t('assets.lockAction')} ·{' '}
               <span className="mono">{lockRow.row.code}</span>
             </h2>
-            <label className="field" style={{ marginBottom: '0.75rem' }}>
-              <span>
-                {t('assets.lockReason')} <span className="field-req">*</span>
-              </span>
-              <input
-                autoFocus
-                maxLength={500}
-                value={lockReason}
-                onChange={(e) => setLockReason(e.target.value)}
-              />
-            </label>
-            <label className="field" style={{ marginBottom: '0.5rem' }}>
-              <span>
-                {t('assets.lockEta')} <span className="field-req">*</span>
-              </span>
-              {/* ETA bắt buộc & phải SAU hôm nay (min=ngày mai) → sweep auto-unlock mỗi 60s,
-                  chọn hôm nay/quá khứ sẽ mở lại tức thì (BE cũng chặn LOCK_ETA_PAST). */}
-              <DatePicker
-                value={lockEta}
-                clearable={false}
-                ariaLabel={t('assets.lockEta')}
-                min={(() => {
-                  const d = new Date();
-                  d.setDate(d.getDate() + 1);
-                  return d.toLocaleDateString('en-CA');
-                })()}
-                onChange={setLockEta}
-              />
-            </label>
-            <p className="muted" style={{ fontSize: '0.82rem', margin: '0 0 1rem' }}>
-              {t(
-                'assets.lockEtaHint',
-                'Tới ngày này máy tự mở khóa để mượn lại.',
-              )}
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setLockRow(null)}>
-                {t('assets.cancel')}
-              </button>
-              <button
-                type="button"
-                className="primary"
-                disabled={busy || !lockReason.trim() || !lockEta}
-                onClick={submitLock}
-              >
-                {t('assets.confirmLock')}
-              </button>
-            </div>
+          </DialogTitle>
+          <label className="field" style={{ marginBottom: '0.75rem' }}>
+            <span>
+              {t('assets.lockReason')} <span className="field-req">*</span>
+            </span>
+            <input
+              autoFocus
+              maxLength={500}
+              value={lockReason}
+              onChange={(e) => setLockReason(e.target.value)}
+            />
+          </label>
+          <label className="field" style={{ marginBottom: '0.5rem' }}>
+            <span>
+              {t('assets.lockEta')} <span className="field-req">*</span>
+            </span>
+            {/* ETA bắt buộc & phải SAU hôm nay (min=ngày mai) → sweep auto-unlock mỗi 60s,
+                chọn hôm nay/quá khứ sẽ mở lại tức thì (BE cũng chặn LOCK_ETA_PAST). */}
+            <DatePicker
+              value={lockEta}
+              clearable={false}
+              ariaLabel={t('assets.lockEta')}
+              min={(() => {
+                const d = new Date();
+                d.setDate(d.getDate() + 1);
+                return d.toLocaleDateString('en-CA');
+              })()}
+              onChange={setLockEta}
+            />
+          </label>
+          <p className="muted" style={{ fontSize: '0.82rem', margin: '0 0 1rem' }}>
+            {t('assets.lockEtaHint', 'Tới ngày này máy tự mở khóa để mượn lại.')}
+          </p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setLockRow(null)}>
+              {t('assets.cancel')}
+            </button>
+            <button
+              type="button"
+              className="primary"
+              disabled={busy || !lockReason.trim() || !lockEta}
+              onClick={submitLock}
+            >
+              {t('assets.confirmLock')}
+            </button>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {cascade && (

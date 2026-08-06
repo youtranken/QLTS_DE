@@ -48,6 +48,17 @@ export function NotFound() {
   );
 }
 
+/** Khối "đang tải" dùng chung — phân biệt với rỗng/lỗi (S1). role=status + aria-busy cho SR. */
+export function Loading({ label }: { label?: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="load-state" role="status" aria-busy="true">
+      <span className="spinner" aria-hidden="true" />
+      <span className="muted">{label ?? t('app.loading', 'Đang tải…')}</span>
+    </div>
+  );
+}
+
 /** Khối "không tải được + Thử lại" dùng chung khi một màn fetch thất bại. */
 export function LoadError({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation();

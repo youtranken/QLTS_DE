@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DatePicker } from '@/ui/date-picker';
+import { Loading } from '@/ui/load-state';
 import '@/features/admin/audit.css';
 
 interface AuditRow {
@@ -51,6 +52,7 @@ export function AuditLogPage() {
   const [applied, setApplied] = useState<Filters>(EMPTY);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Paged | null>(null);
+  const [loading, setLoading] = useState(true);
   const [actions, setActions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +65,7 @@ export function AuditLogPage() {
 
   const load = useCallback(async () => {
     setError(null);
+    setLoading(true);
     const params = new URLSearchParams({
       page: String(page),
       pageSize: String(PAGE_SIZE),
@@ -84,6 +87,8 @@ export function AuditLogPage() {
       }
     } catch {
       setError(t('app.serverUnreachable'));
+    } finally {
+      setLoading(false);
     }
   }, [page, applied, t]);
 
@@ -196,7 +201,9 @@ export function AuditLogPage() {
 
       {error && <p role="alert" className="alert error">{error}</p>}
 
-      {data && data.items.length === 0 ? (
+      {loading && !data ? (
+        <Loading />
+      ) : data && data.items.length === 0 ? (
         <p className="empty">{t('audit.empty')}</p>
       ) : (
         <div className="table-wrap">

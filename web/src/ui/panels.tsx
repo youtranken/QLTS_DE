@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useConfirm } from '@/ui/confirm-provider';
 
 interface SyncResult {
   total: number;
@@ -93,6 +94,7 @@ export function RolesPanel({
   viewerRole: string;
 }) {
   const { t } = useTranslation();
+  const askConfirm = useConfirm();
   // Tìm: gõ tự do (searchInput) → search sau debounce 300ms (đồng bộ các trang khác).
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -188,12 +190,36 @@ export function RolesPanel({
     [csrfToken, load, t],
   );
 
-  const setRole = (sub: string, role: 'admin' | 'member') =>
-    put(
+  // S6: bổ/miễn nhiệm admin là thao tác quyền nhạy → xác nhận có tên người + hệ quả trước khi chạy.
+  const setRole = async (
+    sub: string,
+    role: 'admin' | 'member',
+    name: string,
+  ) => {
+    const making = role === 'admin';
+    const ok = await askConfirm({
+      title: making
+        ? t('roles.confirmMakeTitle', 'Bổ nhiệm Admin?')
+        : t('roles.confirmRemoveTitle', 'Gỡ quyền Admin?'),
+      message: making
+        ? t('roles.confirmMake', {
+            name,
+            defaultValue: '{{name}} sẽ có toàn quyền quản trị hệ thống.',
+          })
+        : t('roles.confirmRemove', {
+            name,
+            defaultValue: 'Gỡ toàn bộ quyền quản trị của {{name}}?',
+          }),
+      confirmLabel: making ? t('roles.makeAdmin') : t('roles.removeAdmin'),
+      danger: !making,
+    });
+    if (!ok) return;
+    await put(
       `/api/admin/users/${encodeURIComponent(sub)}/role`,
       { role },
       t('roles.roleChangeFailed'),
     );
+  };
   const setPermission = (
     sub: string,
     patch: { canLongTerm?: boolean; canRecurring?: boolean },
@@ -271,12 +297,12 @@ export function RolesPanel({
                 </td>
                 <td className="table-actions">
                   {canChangeRole && u.sub !== mySub && u.role === 'member' && (
-                    <button type="button" className="primary sm" disabled={busy} onClick={() => void setRole(u.sub, 'admin')}>
+                    <button type="button" className="primary sm" disabled={busy} onClick={() => void setRole(u.sub, 'admin', u.fullName ?? u.email ?? u.sub)}>
                       {t('roles.makeAdmin')}
                     </button>
                   )}
                   {canChangeRole && u.sub !== mySub && u.role === 'admin' && (
-                    <button type="button" className="danger sm" disabled={busy} onClick={() => void setRole(u.sub, 'member')}>
+                    <button type="button" className="danger sm" disabled={busy} onClick={() => void setRole(u.sub, 'member', u.fullName ?? u.email ?? u.sub)}>
                       {t('roles.removeAdmin')}
                     </button>
                   )}

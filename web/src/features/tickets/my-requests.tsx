@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { MemberRecurringSessions } from '@/features/tickets/member-recurring-sessions';
 import { DateTimePicker } from '@/ui/date-time-picker';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
+import { Dialog, DialogTitle } from '@/ui/dialog';
 import type { Me } from '@/lib/me';
 
 interface MyTicket {
@@ -336,41 +337,48 @@ export function MyRequestsPanel({
 
       {/* 4.1: modal xin gia hạn (EXPERIENCE.md P1) */}
       {extTicket && (
-        <div className="modal-backdrop" onClick={() => setExtTicket(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <Dialog
+          open
+          onOpenChange={(o) => {
+            if (!o) setExtTicket(null);
+          }}
+          className="modal"
+          dismissible={!extBusy}
+        >
+          <DialogTitle asChild>
             <h2 style={{ marginBottom: '0.75rem' }}>
               {t('extension.title')}{' '}
               <span className="mono">{extTicket.assetCode}</span>
             </h2>
-            <p className="muted" style={{ marginBottom: '0.75rem' }}>
-              {t('extension.currentDue')}: <strong>{fmt(extTicket.to)}</strong>
-              {' · '}
-              {t('extension.usedCount', { n: extTicket.extensionCount })}
-            </p>
-            {extErr && <p role="alert" className="alert error">{extErr}</p>}
-            <label className="field" style={{ marginBottom: '1.25rem' }}>
-              {t('extension.newDue')}
-              <DateTimePicker
-                value={newDue}
-                ariaLabel={t('extension.newDue')}
-                onChange={setNewDue}
-              />
-            </label>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setExtTicket(null)}>
-                {t('extension.cancel')}
-              </button>
-              <button
-                type="button"
-                className="primary"
-                disabled={extBusy || !newDue}
-                onClick={() => void submitExtension()}
-              >
-                {extBusy ? t('extension.submitting') : t('extension.submit')}
-              </button>
-            </div>
+          </DialogTitle>
+          <p className="muted" style={{ marginBottom: '0.75rem' }}>
+            {t('extension.currentDue')}: <strong>{fmt(extTicket.to)}</strong>
+            {' · '}
+            {t('extension.usedCount', { n: extTicket.extensionCount })}
+          </p>
+          {extErr && <p role="alert" className="alert error">{extErr}</p>}
+          <label className="field" style={{ marginBottom: '1.25rem' }}>
+            {t('extension.newDue')}
+            <DateTimePicker
+              value={newDue}
+              ariaLabel={t('extension.newDue')}
+              onChange={setNewDue}
+            />
+          </label>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setExtTicket(null)}>
+              {t('extension.cancel')}
+            </button>
+            <button
+              type="button"
+              className="primary"
+              disabled={extBusy || !newDue}
+              onClick={() => void submitExtension()}
+            >
+              {extBusy ? t('extension.submitting') : t('extension.submit')}
+            </button>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {cancelTarget && (

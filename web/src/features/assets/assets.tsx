@@ -147,7 +147,7 @@ export function AssetsPage({
   }, [loadMeta]);
 
   // Danh sách qua TanStack Query: cache/dedup/hủy tự động; 401 xử lý tập trung ở apiFetch.
-  const { data: listData, isError: listError } = useQuery({
+  const { data: listData, isError: listError, isLoading: listLoading } = useQuery({
     queryKey: [
       'assets',
       {
@@ -449,6 +449,7 @@ export function AssetsPage({
       <DataTable
         data={items}
         columns={columns}
+        loading={listLoading}
         tableClassName={softwareOnly ? undefined : 'assets-table'}
         rowNumberOffset={(page - 1) * PAGE_SIZE}
         emptyText={hasFilter ? t('assets.noMatch') : t('assets.empty')}
