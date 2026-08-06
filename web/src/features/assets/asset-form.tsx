@@ -129,7 +129,7 @@ export function AssetForm({
           <div className="sheet-body">
            <fieldset disabled={readOnly} className="ff-contents">
             {error && (
-              <p className="alert error">
+              <p role="alert" className="alert error">
                 {error}{' '}
                 {stale && (
                   <button type="button" className="sm" onClick={() => void reload()}>

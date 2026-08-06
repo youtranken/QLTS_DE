@@ -239,21 +239,12 @@ export function DataTable<T>({
                           .filter(Boolean)
                           .join(' ') || undefined
                       }
+                      // Row click = TIỆN ÍCH CHUỘT. KHÔNG role=button/tabIndex ở <tr> vì
+                      // hàng chứa control tương tác (checkbox/kebab/nút) → nested-interactive
+                      // (axe serious). Keyboard/SR mở dòng qua nút thật ở ô Mã (cell-code-open).
                       onClick={
                         onRowClick ? () => onRowClick(row.original) : undefined
                       }
-                      onKeyDown={
-                        onRowClick
-                          ? (e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                onRowClick(row.original);
-                              }
-                            }
-                          : undefined
-                      }
-                      tabIndex={onRowClick ? 0 : undefined}
-                      role={onRowClick ? 'button' : undefined}
                       style={onRowClick ? { cursor: 'pointer' } : undefined}
                     >
                       {selection && (

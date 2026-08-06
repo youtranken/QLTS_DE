@@ -125,7 +125,7 @@ export function SoftwareTransferDialog({
         </DialogClose>
       </div>
       <div className="sheet-body">
-          {error && <p className="alert error">{error}</p>}
+          {error && <p role="alert" className="alert error">{error}</p>}
 
           <div className="assign-current">
             <span className="assign-current-label">{t('software.currentHost')}</span>

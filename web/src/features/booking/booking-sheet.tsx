@@ -321,7 +321,7 @@ export function BookingSheet({
             ))}
           </div>
 
-          {error && <p className="alert error">{error}</p>}
+          {error && <p role="alert" className="alert error">{error}</p>}
 
           {/* Hàng trên: Người mượn (admin) + Máy trên CÙNG 1 hàng. */}
           <BookingTopRow

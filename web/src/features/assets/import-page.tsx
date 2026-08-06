@@ -177,7 +177,7 @@ function ImportPanel({
 
   return (
     <>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {commitMsg && <p className="alert ok">{commitMsg}</p>}
       <div className="toolbar">
         <input
@@ -407,7 +407,7 @@ export function QuickImportSlot({
         onChange={(e) => void hook.onChange(e)}
       />
       {hook.result && (
-        <div className={`alert ${hook.result.ok ? 'ok' : 'error'}`}>
+        <div role="status" className={`alert ${hook.result.ok ? 'ok' : 'error'}`}>
           <div>{hook.result.text}</div>
           {hook.result.errors && hook.result.errors.length > 0 && (
             <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem' }}>

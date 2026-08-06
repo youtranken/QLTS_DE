@@ -173,7 +173,7 @@ export function RecurringBuilder({
           {busy ? t('recur.submitting') : t('recur.submit')}
         </button>
         {msg && (
-          <p className={`alert ${msg.ok ? 'ok' : 'error'}`}>{msg.text}</p>
+          <p role="status" className={`alert ${msg.ok ? 'ok' : 'error'}`}>{msg.text}</p>
         )}
       </div>
     </details>

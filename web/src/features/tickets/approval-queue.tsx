@@ -152,7 +152,7 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
           <div className="stat-label">{t('handover.kpiOverdue', 'Quá hạn')}</div>
         </div>
       </div>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {items === null && <p>{t('approval.loading')}</p>}
       {items !== null && (
         <div className="table-wrap">

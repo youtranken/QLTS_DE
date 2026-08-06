@@ -11,14 +11,14 @@
   --surface-2: #f2f1ea;
   --ink: #1f231c;
   --ink-2: #5a615a;
-  /* Đậm hơn (#8a908a→#6f756e) để chữ phụ nhỏ đạt tương phản AA trên nền trắng. */
-  --ink-3: #6f756e;
+  /* Đậm để chữ phụ nhỏ đạt AA (≥4.5:1) trên nền trắng/tint — verify axe live 2026-08-06. */
+  --ink-3: #5c635c;
   --border: #e9eae2;
   --border-2: #d8dbd0;
 
   /* Accent chính: lục bảo (emerald) */
   --primary: #0e9f6e;
-  --primary-ink: #0a8a5f;
+  --primary-ink: #0a7d54; /* đậm để link/segmented đạt AA trên nền trắng (axe 2026-08-06) */
   --primary-soft: #e5f6ee;
 
   /* Điểm nhấn: cam hổ phách + gradient lục→cam (nút chính, logo, avatar) */
@@ -34,16 +34,16 @@
   --sidebar-active-bg: rgba(245, 158, 11, 0.16);
   --sidebar-active-ink: #ffe1b3;
   --sidebar-border: #24352a;
-  --sidebar-label: #5f7266;
+  --sidebar-label: #9fb0a5; /* sáng để nhãn nhóm + .sb-who đạt AA trên sidebar tối (axe 2026-08-06) */
 
   /* Hệ màu trạng thái (vòng đời asset/ticket) */
   --ok: #0f7a55;
   --ok-soft: #e4f4ee;
-  --warn: #b45309;
+  --warn: #a34d08; /* đậm để chữ warn đạt AA trên warn-soft (axe 2026-08-06) */
   --warn-soft: #fdf0e3;
   --danger: #c0392b;
   --danger-soft: #fdeceb;
-  --muted: #6b726a;
+  --muted: #5f665f; /* đậm để chữ muted đạt AA trên tint (axe 2026-08-06) */
   --muted-soft: #efeee7;
 
   --ring: 0 0 0 3px rgba(14, 159, 110, 0.22);
@@ -115,8 +115,8 @@ html[data-theme='dark'] {
   --surface-2: #1d261d;
   --ink: #e9ede7;
   --ink-2: #a7b0a5;
-  /* Sáng hơn (#727c72→#868f86) để chữ phụ nhỏ đạt tương phản AA trên nền tối. */
-  --ink-3: #868f86;
+  /* Sáng để chữ phụ nhỏ đạt AA (≥4.5:1) trên nền tối/tint — verify axe live 2026-08-06. */
+  --ink-3: #9aa39a;
   --border: #26312a;
   --border-2: #37453a;
   --primary: #34d399;

@@ -290,7 +290,7 @@ export function AssetDetailPage({ me }: { me: Me }) {
           {t('assets.edit')}
         </button>
       </div>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {/* Khu 1: Thông tin tài sản — lưới thông tin (kèm Người giữ) + Bảo hành (timeline
           Start→End) ở CUỐI section. */}
       <section className="detail-section">

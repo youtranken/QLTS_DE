@@ -53,7 +53,7 @@ export function ConfirmDialog({
         </DialogClose>
       </div>
       <div className="sheet-body">
-        {error && <p className="alert error">{error}</p>}
+        {error && <p role="alert" className="alert error">{error}</p>}
         <DialogDescription style={{ margin: 0 }}>{message}</DialogDescription>
       </div>
       <div className="sheet-footer">

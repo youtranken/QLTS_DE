@@ -174,7 +174,7 @@ export function CatalogPage({ me }: { me: Me }) {
       </p>
 
       {error && (
-        <p className="alert error" style={{ marginBottom: '0.75rem' }}>
+        <p role="alert" className="alert error" style={{ marginBottom: '0.75rem' }}>
           {error}
         </p>
       )}

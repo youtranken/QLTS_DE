@@ -52,6 +52,30 @@
   font-size: var(--fs-2xs);
   color: var(--ink-3);
 }
+/* Nút mở dòng ở ô Mã: reset để trông như ô thường; hàng đã có hover riêng nên nút không tự tô. */
+.cell-code-open {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: inline-flex;
+  min-width: 0;
+}
+.cell-code-open:hover:not(:disabled),
+.cell-code-open:active:not(:disabled) {
+  background: none;
+  transform: none;
+}
+.cell-code-open:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--r-sm);
+}
 
 /* Ô Loại (ô đầu): caret › + khối icon-trên-nhãn-dưới. Cả ô là nút mở/đóng phần mềm. */
 .cell-type {
