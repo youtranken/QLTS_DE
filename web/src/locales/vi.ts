@@ -25,6 +25,7 @@ export default {
     underConstruction: 'Trang này đang được xây dựng.',
     noPermission: 'Bạn không có quyền truy cập trang này.',
     serverUnreachable: 'Không gọi được máy chủ.',
+    loading: 'Đang tải…',
     loadError: 'Không tải được dữ liệu — thử lại.',
     chunkError: 'Có bản cập nhật mới hoặc lỗi tải trang — hãy tải lại.',
     reload: 'Tải lại',

@@ -25,6 +25,7 @@ export default {
     underConstruction: 'This page is under construction.',
     noPermission: 'You do not have permission to access this page.',
     serverUnreachable: 'Cannot reach the server.',
+    loading: 'Loading…',
     loadError: 'Could not load data — try again.',
     chunkError: 'A new version is available or the page failed to load — please reload.',
     reload: 'Reload',
