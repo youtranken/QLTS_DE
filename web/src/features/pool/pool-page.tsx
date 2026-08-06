@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from '@/ui/combobox';
+import { Loading } from '@/ui/load-state';
 import { PoolTable } from '@/features/pool/pool-table';
 import { useConfirm } from '@/ui/confirm-provider';
 import type { PoolItem } from '@/features/pool/pool-types';
@@ -24,6 +25,7 @@ export function PoolPage({ me }: { me: Me }) {
   const { t } = useTranslation();
   const askConfirm = useConfirm();
   const [items, setItems] = useState<PoolItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [options, setOptions] = useState<AssetOption[]>([]);
   const [busy, setBusy] = useState(false);
@@ -49,6 +51,8 @@ export function PoolPage({ me }: { me: Me }) {
       else setError(t('pool.loadFailed'));
     } catch {
       setError(t('pool.loadFailed'));
+    } finally {
+      setLoading(false);
     }
   }, [t]);
 
@@ -253,7 +257,9 @@ export function PoolPage({ me }: { me: Me }) {
         </button>
       </div>
 
-      {items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <Loading />
+      ) : items.length === 0 ? (
         <div className="empty">{t('pool.empty')}</div>
       ) : (
         <>

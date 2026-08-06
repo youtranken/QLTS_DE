@@ -10,6 +10,7 @@ import {
   type RowData,
   type SortingState,
 } from '@tanstack/react-table';
+import { Loading } from '@/ui/load-state';
 
 // Cho phép cột khai báo className (vd 'num' căn phải cột số) qua columnDef.meta.
 declare module '@tanstack/react-table' {
@@ -30,6 +31,8 @@ interface DataTableProps<T> {
   data: T[];
   columns: ColumnDef<T, unknown>[];
   emptyText: string;
+  /** Đang tải lần đầu → hiện spinner thay empty-state (phân biệt tải ≠ rỗng, S1). */
+  loading?: boolean;
   /** Có giá trị → hiện ô tìm kiếm toàn bảng (lọc client, debounce). */
   searchPlaceholder?: string;
   initialSort?: SortingState;
@@ -71,6 +74,7 @@ export function DataTable<T>({
   data,
   columns,
   emptyText,
+  loading,
   searchPlaceholder,
   initialSort = [],
   rowClassName,
@@ -220,7 +224,11 @@ export function DataTable<T>({
                     (selection ? 1 : 0)
                   }
                 >
-                  <div className="empty">{emptyText}</div>
+                  {loading ? (
+                    <Loading />
+                  ) : (
+                    <div className="empty">{emptyText}</div>
+                  )}
                 </td>
               </tr>
             ) : (

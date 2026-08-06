@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Me } from '@/lib/me';
+import { Loading } from '@/ui/load-state';
 
 type Kind = 'type' | 'brand' | 'configuration' | 'place' | 'licenseName';
 const KINDS: Kind[] = ['type', 'brand', 'configuration', 'place', 'licenseName'];
@@ -36,6 +37,7 @@ const emptyStrings = (): ByKind<string> => ({
 export function CatalogPage({ me }: { me: Me }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<ByKind<CatalogItem[]>>(emptyItems);
+  const [loading, setLoading] = useState(true);
   const [newValues, setNewValues] = useState<ByKind<string>>(emptyStrings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +73,8 @@ export function CatalogPage({ me }: { me: Me }) {
       if (oks.some((ok) => !ok)) setError(t('catalog.loadFailed'));
     } catch {
       setError(t('catalog.loadFailed'));
+    } finally {
+      setLoading(false);
     }
   }, [loadKind, t]);
 
@@ -209,7 +213,9 @@ export function CatalogPage({ me }: { me: Me }) {
               <span className="badge muted plain">{items[k].length}</span>
             </div>
 
-            {items[k].length === 0 ? (
+            {loading && items[k].length === 0 ? (
+              <Loading />
+            ) : items[k].length === 0 ? (
               <div className="dm-empty muted">{t('catalog.empty')}</div>
             ) : (
             <div className="dm-list">

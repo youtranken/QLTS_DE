@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/ui/data-table';
-import { LoadError } from '@/ui/load-state';
+import { LoadError, Loading } from '@/ui/load-state';
 import { STATUS_BADGE } from '@/lib/asset-types';
 import type { Me } from '@/lib/me';
 
@@ -128,7 +128,7 @@ export function ProfilePage({ me }: { me: Me }) {
         : t('profile.roleMember');
 
   if (error) return <LoadError onRetry={load} />;
-  if (!data) return null;
+  if (!data) return <Loading />;
 
   const lastActivity = data.history[0]?.created_at ?? null;
 

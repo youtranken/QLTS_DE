@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LoadError } from '@/ui/load-state';
+import { LoadError, Loading } from '@/ui/load-state';
 import { DatePicker } from '@/ui/date-picker';
 import { BookingSheet } from '@/features/booking/booking-sheet';
 import { ExtensionDialog } from '@/features/tickets/extension-dialog';
@@ -269,7 +269,7 @@ export function CalendarOverviewPage({ me }: { me: Me }) {
   );
 
   if (error) return <LoadError onRetry={loadCalendar} />;
-  if (!data) return null;
+  if (!data) return <Loading />;
 
   // Điều hướng theo THÁNG + chọn NGÀY trong tháng (giữ lưới tuần): chọn ngày → nhảy tới tuần
   // chứa ngày đó; ‹ › đổi tháng để xem xa hơn. Ngày giới hạn trong tháng đang xem.

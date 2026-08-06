@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useConfirm } from '@/ui/confirm-provider';
 import type { Me } from '@/lib/me';
 import { RecurringSessionQueue } from '@/features/tickets/recurring-session-queue';
 import { ExtensionQueue } from '@/features/tickets/extension-queue';
@@ -21,6 +22,7 @@ interface PendingRequest {
 /** Hàng đợi Admin duyệt/từ chối request >48h (3.4). */
 export function ApprovalQueuePage({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
+  const askConfirm = useConfirm();
   const [items, setItems] = useState<PendingRequest[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -99,6 +101,23 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
       }
     },
     [me.csrfToken, load, t],
+  );
+
+  // S6: Duyệt là hành động khó đảo (giam máy cho người mượn) → xác nhận có tên người + máy.
+  const confirmApprove = useCallback(
+    async (req: PendingRequest) => {
+      const ok = await askConfirm({
+        title: t('approval.confirmApproveTitle', 'Duyệt yêu cầu?'),
+        message: t('approval.confirmApprove', {
+          name: req.borrowerName ?? '',
+          code: req.assetCode ?? '',
+          defaultValue: 'Duyệt cho {{name}} mượn máy {{code}}?',
+        }),
+        confirmLabel: t('approval.approve'),
+      });
+      if (ok) await act(req, 'approve');
+    },
+    [askConfirm, act, t],
   );
 
   const fmt = (iso: string | null) =>
@@ -230,7 +249,7 @@ export function ApprovalQueuePage({ me }: { me: Me }) {
                           type="button"
                           className="primary sm"
                           disabled={busyId !== null}
-                          onClick={() => void act(req, 'approve')}
+                          onClick={() => void confirmApprove(req)}
                         >
                           {t('approval.approve')}
                         </button>{' '}
