@@ -299,9 +299,20 @@ export function AssetsPage({
     },
   });
 
+  // Mở dòng: dùng cho row-click (chuột) VÀ nút ô Mã (bàn phím/SR). Trước ở inline onRowClick.
+  const openRow = (a: AssetRow) => {
+    if (window.getSelection()?.toString()) return; // đang bôi đen copy mã → không mở
+    if (softwareOnly) {
+      void openView(a.id); // phần mềm: popup read-only, không chuyển trang
+      return;
+    }
+    navigate(`/assets/${a.id}`);
+  };
+
   const columns = useAssetColumns({
     softwareOnly,
     disposedOnly,
+    openRow,
     openEdit,
     copyFrom,
     onReuse: (row) => setReuseTarget(row),
@@ -373,7 +384,7 @@ export function AssetsPage({
         />
       )}
       {(error || listError) && (
-        <p className="alert error">{error ?? t('assets.loadFailed')}</p>
+        <p role="alert" className="alert error">{error ?? t('assets.loadFailed')}</p>
       )}
       <AssetsFilterBar
         softwareOnly={softwareOnly}
@@ -469,16 +480,7 @@ export function AssetsPage({
         rowClassName={(a) =>
           a.id === seatParam ? 'row-highlight' : a.licenseWarning ? 'overdue' : ''
         }
-        onRowClick={(a) => {
-          // đang bôi đen copy mã → không phải ý định mở trang (review 2.2)
-          if (window.getSelection()?.toString()) return;
-          // Phần mềm: xem chi tiết bản = popup read-only (không chuyển trang). Máy: mở trang detail.
-          if (softwareOnly) {
-            void openView(a.id);
-            return;
-          }
-          navigate(`/assets/${a.id}`);
-        }}
+        onRowClick={openRow}
         // ▸ chỉ hiện khi máy CÓ phần mềm đã gắn; bung ra là bảng phần mềm của máy đó.
         canExpand={(a) => !!a.installedSoftware}
         renderExpanded={(a) => <AssetSoftwareExpand assetId={a.id} />}

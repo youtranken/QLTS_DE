@@ -95,7 +95,7 @@ export function ReactivateDialog({
         </DialogClose>
       </div>
       <div className="sheet-body">
-        {error && <p className="alert error">{error}</p>}
+        {error && <p role="alert" className="alert error">{error}</p>}
         <p className="hint">
           {t(
             'assets.reactivateHint',

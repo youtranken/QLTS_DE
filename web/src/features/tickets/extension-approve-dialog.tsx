@@ -100,7 +100,7 @@ export function ExtensionApproveDialog({
       <p style={{ marginBottom: '1rem', fontWeight: 600 }}>
         {fmt(oldDue)} <span className="muted">→</span> {fmt(newDue)}
       </p>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {rejecting ? (
         <label className="field" style={{ marginBottom: '1rem' }}>
           <span>{t('extapprove.reasonPlaceholder')}</span>

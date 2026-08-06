@@ -48,7 +48,7 @@ export function DirectorySyncPanel({ csrfToken }: { csrfToken: string | null }) 
       <button type="button" className="primary" disabled={busy} onClick={() => void runSync()}>
         {busy ? t('sync.syncing') : t('sync.syncNow')}
       </button>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {result && (
         <>
           <p>
@@ -216,7 +216,7 @@ export function RolesPanel({
           onChange={(e) => setSearchInput(e.target.value)}
         />
       </div>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       <div className="table-wrap">
         <table className="table">
           <thead>
@@ -247,6 +247,7 @@ export function RolesPanel({
                   {u.role === 'member' && (
                     <input
                       type="checkbox"
+                      aria-label={`${t('roles.longTerm')} — ${u.fullName ?? u.email}`}
                       checked={u.canLongTerm}
                       disabled={busy}
                       onChange={(e) =>
@@ -259,6 +260,7 @@ export function RolesPanel({
                   {u.role === 'member' && (
                     <input
                       type="checkbox"
+                      aria-label={`${t('roles.recurring')} — ${u.fullName ?? u.email}`}
                       checked={u.canRecurring}
                       disabled={busy}
                       onChange={(e) =>

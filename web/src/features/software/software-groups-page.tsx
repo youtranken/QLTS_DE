@@ -239,7 +239,7 @@ export function SoftwareGroupsPage({ me }: { me: Me }) {
       </div>
       <QuickImportSlot hook={quickImport} />
       {(isError || actionErr) && (
-        <p className="alert error">{actionErr ?? t('assets.loadFailed')}</p>
+        <p role="alert" className="alert error">{actionErr ?? t('assets.loadFailed')}</p>
       )}
       <div className="filter-bar">
         <input

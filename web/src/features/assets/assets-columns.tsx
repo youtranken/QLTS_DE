@@ -14,11 +14,15 @@ import {
 } from '@/lib/asset-types';
 import type { AssetRow } from '@/lib/asset-types';
 
-/** Header cột kèm tooltip hover — giải thích nhãn English cho người dùng Việt. */
+/**
+ * Header cột: nhãn English + nghĩa tiếng Việt. `title` cho chuột (hover), `.sr-only`
+ * cho screen-reader (P0 A1: trước đây nghĩa chỉ nằm trong `title` → mất với keyboard/SR/touch).
+ */
 const th = (label: string, tip: string) => () =>
   (
     <span title={tip} style={{ cursor: 'help' }}>
       {label}
+      <span className="sr-only"> — {tip}</span>
     </span>
   );
 
@@ -30,6 +34,7 @@ const th = (label: string, tip: string) => () =>
 export function useAssetColumns(opts: {
   softwareOnly: boolean;
   disposedOnly: boolean;
+  openRow: (a: AssetRow) => void;
   openEdit: (id: string) => void | Promise<void>;
   copyFrom: (id: string) => void | Promise<void>;
   onReuse: (a: AssetRow) => void;
@@ -44,6 +49,7 @@ export function useAssetColumns(opts: {
   const {
     softwareOnly,
     disposedOnly,
+    openRow,
     openEdit,
     copyFrom,
     onReuse,
@@ -266,7 +272,19 @@ export function useAssetColumns(opts: {
         accessorKey: 'code',
         header: th(t('assets.col.code'), 'Mã tài sản (MTS) — định danh duy nhất mỗi máy'),
         // Sổ tài sản có thể lẫn dòng phần mềm (không mã) → hiện Tên license thay mã.
-        cell: ({ row }) => <CodeCell row={row.original} />,
+        // Nút thật để mở dòng bằng bàn phím/SR (row onClick chỉ phục vụ chuột — xem data-table).
+        cell: ({ row }) => (
+          <button
+            type="button"
+            className="cell-code-open"
+            onClick={(e) => {
+              e.stopPropagation();
+              openRow(row.original);
+            }}
+          >
+            <CodeCell row={row.original} />
+          </button>
+        ),
       },
       {
         id: 'assignee',
@@ -334,6 +352,7 @@ export function useAssetColumns(opts: {
     t,
     softwareOnly,
     disposedOnly,
+    openRow,
     openEdit,
     copyFrom,
     onReuse,

@@ -127,7 +127,7 @@ export function RecurringAdminBuilder({
           ariaLabel={t('bookingSheet.pickMachine')}
         />
       )}
-      {msg && <p className={`alert ${msg.ok ? 'ok' : 'error'}`}>{msg.text}</p>}
+      {msg && <p role="status" className={`alert ${msg.ok ? 'ok' : 'error'}`}>{msg.text}</p>}
       <div style={{ marginTop: '0.75rem' }}>
         <button
           type="button"

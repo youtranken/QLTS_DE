@@ -107,7 +107,7 @@ export function MemberRecurringSessions({
   return (
     <tr className="session-detail-row">
       <td colSpan={colSpan} style={{ padding: 0 }}>
-        {error && <p className="alert error">{error}</p>}
+        {error && <p role="alert" className="alert error">{error}</p>}
         {!error && sessions === null && (
           <p className="muted" style={{ padding: '0.5rem 1rem' }}>
             {t('myreq.loading')}

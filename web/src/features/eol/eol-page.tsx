@@ -176,7 +176,7 @@ export function EolPage({ me }: { me: Me }) {
         <h1 title="End of life">{t('eol.title', 'Cảnh báo EOL')}</h1>
       </div>
 
-      {(isError || err) && <p className="alert error">{err ?? t('assets.loadFailed')}</p>}
+      {(isError || err) && <p role="alert" className="alert error">{err ?? t('assets.loadFailed')}</p>}
       {isLoading && <p className="muted">…</p>}
 
       {/* KHỐI 1: Máy sắp/đã hết hạn */}

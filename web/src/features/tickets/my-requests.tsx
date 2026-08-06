@@ -217,7 +217,7 @@ export function MyRequestsPanel({
   return (
     <section style={{ marginTop: '2rem' }}>
       <h2>{t('myreq.title')}</h2>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {tickets === null && <p>{t('myreq.loading')}</p>}
       {tickets !== null && tickets.length === 0 && (
         <p className="empty">{t('myreq.empty')}</p>
@@ -347,7 +347,7 @@ export function MyRequestsPanel({
               {' · '}
               {t('extension.usedCount', { n: extTicket.extensionCount })}
             </p>
-            {extErr && <p className="alert error">{extErr}</p>}
+            {extErr && <p role="alert" className="alert error">{extErr}</p>}
             <label className="field" style={{ marginBottom: '1.25rem' }}>
               {t('extension.newDue')}
               <DateTimePicker

@@ -194,7 +194,7 @@ export function AuditLogPage() {
         )}
       </div>
 
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
 
       {data && data.items.length === 0 ? (
         <p className="empty">{t('audit.empty')}</p>

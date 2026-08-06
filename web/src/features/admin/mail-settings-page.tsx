@@ -140,7 +140,7 @@ export function MailSettingsPanel({ me }: { me: Me }) {
     return (
       <div className="form-section">
         {error ? (
-          <p className="alert error">{error}</p>
+          <p role="alert" className="alert error">{error}</p>
         ) : (
           <p className="muted">Đang tải…</p>
         )}
@@ -151,7 +151,7 @@ export function MailSettingsPanel({ me }: { me: Me }) {
   return (
     <div className="form-section">
       <div className="form-section-title">Bật/tắt email theo sự kiện</div>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {saved && <p className="alert ok">Đã lưu.</p>}
 
       <div className="mailset">

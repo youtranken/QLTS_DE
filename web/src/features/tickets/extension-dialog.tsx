@@ -106,7 +106,7 @@ export function ExtensionDialog({
         {' · '}
         {t('extension.usedCount', { n: extensionCount })}
       </DialogDescription>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       <label className="field" style={{ marginBottom: '1.25rem' }}>
         {t('extension.newDue')}
         <DateTimePicker

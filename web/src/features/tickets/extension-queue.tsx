@@ -108,7 +108,7 @@ export function ExtensionQueue({
       <h2 style={{ fontSize: '1.05rem', marginBottom: '0.5rem' }}>
         {t('extapprove.title')}
       </h2>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       <div className="table-wrap">
         <table className="table">
           <thead>

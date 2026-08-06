@@ -109,7 +109,7 @@ export function ConfigPage({ me }: { me: Me }) {
         <div className="page-header">
           <h1>{t('config.title')}</h1>
         </div>
-        {error ? <p className="alert error">{error}</p> : <p className="muted">…</p>}
+        {error ? <p role="alert" className="alert error">{error}</p> : <p className="muted">…</p>}
       </section>
     );
   }
@@ -119,7 +119,7 @@ export function ConfigPage({ me }: { me: Me }) {
       <div className="page-header">
         <h1>{t('config.title')}</h1>
       </div>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {saved && <p className="alert ok">{t('config.saved')}</p>}
 
       <div className="form-section">

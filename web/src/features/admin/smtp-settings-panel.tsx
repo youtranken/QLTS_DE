@@ -113,7 +113,7 @@ export function SmtpSettingsPanel({ me }: { me: Me }) {
       <div className="form-section">
         <div className="form-section-title">{t('smtp.title', 'Email (SMTP)')}</div>
         {loadErr ? (
-          <p className="alert error">{t('config.loadFailed', 'Không tải được cấu hình.')}</p>
+          <p role="alert" className="alert error">{t('config.loadFailed', 'Không tải được cấu hình.')}</p>
         ) : (
           <p className="muted">…</p>
         )}
@@ -133,7 +133,7 @@ export function SmtpSettingsPanel({ me }: { me: Me }) {
           {t('smtp.noEncKey', 'MAIL_ENC_KEY chưa cấu hình trên server — không lưu được mật khẩu.')}
         </p>
       )}
-      {msg && <p className={`alert ${msg.ok ? 'ok' : 'error'}`}>{msg.text}</p>}
+      {msg && <p role="status" className={`alert ${msg.ok ? 'ok' : 'error'}`}>{msg.text}</p>}
 
       <div className="form-grid">
         <label className="field span-2">

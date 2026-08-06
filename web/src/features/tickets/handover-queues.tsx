@@ -292,7 +292,7 @@ export function HandoverQueues({
 
   return (
     <div>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {renderQueue(pickup, 'deliver', 'handover.pickupTitle', 'handover.deliver')}
       {renderQueue(inUse, 'return', 'handover.inUseTitle', 'handover.receive')}
     </div>

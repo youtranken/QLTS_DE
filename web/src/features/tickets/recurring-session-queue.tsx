@@ -161,7 +161,7 @@ export function RecurringSessionQueue({ me }: { me: Me }) {
       <div className="page-header">
         <h2>{t('sessq.title')}</h2>
       </div>
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       <div className="table-wrap">
         <table className="table">
           <tbody>

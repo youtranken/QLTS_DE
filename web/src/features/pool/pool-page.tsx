@@ -196,7 +196,7 @@ export function PoolPage({ me }: { me: Me }) {
         {t('pool.subtitle')}
       </p>
 
-      {error && <p className="alert error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {ok && <p className="alert ok">{ok}</p>}
 
       {/* 3 thẻ trên 1 hàng: Tổng / Sẵn sàng / Đang mượn (theo pool.html). */}

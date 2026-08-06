@@ -87,7 +87,7 @@ export function LoginScreen({
         </div>
 
         {loginFailed && (
-          <p className="alert error" style={{ margin: 0 }}>
+          <p role="alert" className="alert error" style={{ margin: 0 }}>
             {t('app.loginFailed')}
           </p>
         )}
@@ -99,7 +99,7 @@ export function LoginScreen({
             <div className="auth-head">
               <h1>{t('app.loginHeading')}</h1>
             </div>
-            <p className="alert error" style={{ margin: 0 }}>
+            <p role="alert" className="alert error" style={{ margin: 0 }}>
               {t('app.loginForbidden')}
             </p>
             <button type="button" className="primary" onClick={onSwitchAccount}>
@@ -113,7 +113,7 @@ export function LoginScreen({
               <p className="muted">{t('app.loginPrompt')}</p>
             </div>
             {error && (
-              <p className="alert error" style={{ margin: 0 }}>
+              <p role="alert" className="alert error" style={{ margin: 0 }}>
                 {error}
               </p>
             )}
@@ -162,7 +162,7 @@ export function LoginScreen({
               <p className="muted">{t('app.loginPasswordPrompt')}</p>
             </div>
             {error && (
-              <p className="alert error" style={{ margin: 0 }}>
+              <p role="alert" className="alert error" style={{ margin: 0 }}>
                 {error}
               </p>
             )}
