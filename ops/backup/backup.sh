@@ -19,6 +19,21 @@ case "$KEEP_DAYS" in ''|*[!0-9]*) echo "BACKUP_KEEP_DAYS không hợp lệ: $KEE
 [ "$KEEP_DAYS" -ge 1 ] || { echo "BACKUP_KEEP_DAYS phải >=1 (đang $KEEP_DAYS)"; exit 1; }
 command -v pg_dump >/dev/null || { echo "thiếu pg_dump"; exit 1; }
 
+# Chốt mã hóa (fail-closed): mặc định TỪ CHỐI backup không mã hóa để không lộ dump âm thầm.
+# Rỗng → phải cố ý BACKUP_ALLOW_PLAINTEXT=1; chặn placeholder .env.example và passphrase quá ngắn.
+PASS="${BACKUP_PASSPHRASE:-}"
+if [ -n "$PASS" ]; then
+  [ "$PASS" != "CHANGE_ME_openssl_rand_hex_32" ] || {
+    echo "[qlts-backup] LỖI: BACKUP_PASSPHRASE còn là placeholder — đổi bằng 'openssl rand -hex 32'." >&2; exit 1; }
+  [ "${#PASS}" -ge 16 ] || {
+    echo "[qlts-backup] LỖI: BACKUP_PASSPHRASE quá ngắn (${#PASS} ký tự, cần >=16)." >&2; exit 1; }
+elif [ "${BACKUP_ALLOW_PLAINTEXT:-0}" != "1" ]; then
+  echo "[qlts-backup] LỖI: chưa đặt BACKUP_PASSPHRASE → từ chối backup KHÔNG mã hóa." >&2
+  echo "  Sinh khóa: openssl rand -hex 32  → gán BACKUP_PASSPHRASE trong .env" >&2
+  echo "  (Cố ý muốn plaintext thì đặt BACKUP_ALLOW_PLAINTEXT=1)" >&2
+  exit 1
+fi
+
 STAMP=$(date +%Y%m%d-%H%M%S)
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$OUT_DIR" "$WORK/bundle"
@@ -42,7 +57,7 @@ if [ -n "${BACKUP_PASSPHRASE:-}" ]; then
     openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE -out "$OUT" )
 else
   OUT="$OUT_DIR/qlts-backup-$STAMP.tar.gz"
-  echo "[qlts-backup] tar (KHÔNG mã hóa — đặt BACKUP_PASSPHRASE để mã hóa) → $OUT"
+  echo "[qlts-backup] ⚠ tar KHÔNG mã hóa (BACKUP_ALLOW_PLAINTEXT=1) → $OUT"
   ( umask 077; tar -czf "$OUT" -C "$WORK/bundle" . )
 fi
 chmod 600 "$OUT"

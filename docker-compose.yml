@@ -168,6 +168,7 @@ services:
       BACKUP_AT: ${BACKUP_AT:-02:00}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
       BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+      BACKUP_ALLOW_PLAINTEXT: ${BACKUP_ALLOW_PLAINTEXT:-0}
     volumes:
       - filesdata:/data/files:ro
       - ${BACKUP_DIR:-./data-backups}:/backups
@@ -193,6 +194,7 @@ services:
       FILES_DIR: /data/files
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
       BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+      BACKUP_ALLOW_PLAINTEXT: ${BACKUP_ALLOW_PLAINTEXT:-0}
     volumes:
       - filesdata:/data/files:ro
       - ${BACKUP_DIR:-./data-backups}:/backups
